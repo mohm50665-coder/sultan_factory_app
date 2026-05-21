@@ -34,7 +34,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
   {
     id: "manufacturing",
-    label: "مراحل التصنيع",
+    label: "مراحل تسليم الإنتاج",
     icon: "precision-manufacturing",
     color: "#8b5cf6",
     route: "/manufacturing",
@@ -42,20 +42,13 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
   {
     id: "sales",
-    label: "المبيعات",
+    label: "المبيعات والتحصيل",
     icon: "shopping-cart",
     color: "#ec4899",
     route: "/sales",
-    description: "تسجيل المبيعات والعملاء",
+    description: "تسجيل المبيعات وتحصيل المبالغ",
   },
-  {
-    id: "collection",
-    label: "التحصيل",
-    icon: "attach-money",
-    color: "#10b981",
-    route: "/collection",
-    description: "تحصيل المبالغ المستحقة",
-  },
+
   {
     id: "warehouse",
     label: "المستودعات",
