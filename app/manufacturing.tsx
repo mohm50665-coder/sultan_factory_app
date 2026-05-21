@@ -10,16 +10,66 @@ interface ManufacturingStage {
   label: string;
   icon: string;
   color: string;
+  workers: string[];
 }
 
 const STAGES: ManufacturingStage[] = [
-  { id: "machines", label: "إنتاج المكائن", icon: "precision-manufacturing", color: "#0a7ea4" },
-  { id: "rosso", label: "الروسو", icon: "loop", color: "#7c3aed" },
-  { id: "qalb", label: "القلب", icon: "flip", color: "#059669" },
-  { id: "kawiya", label: "الكاوية", icon: "local-fire-department", color: "#dc2626" },
-  { id: "inspection", label: "الفحص", icon: "search", color: "#d97706" },
-  { id: "packing", label: "التغليف", icon: "inventory-2", color: "#2563eb" },
-  { id: "storage", label: "التخزين", icon: "warehouse", color: "#4f46e5" },
+  {
+    id: "machines",
+    label: "إنتاج المكائن",
+    icon: "precision-manufacturing",
+    color: "#0a7ea4",
+    workers: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق"],
+  },
+  {
+    id: "rosso",
+    label: "الروسو",
+    icon: "loop",
+    color: "#7c3aed",
+    workers: ["فريدو", "قيوم"],
+  },
+  {
+    id: "qalb",
+    label: "القلب",
+    icon: "flip",
+    color: "#059669",
+    workers: ["حسين السوري"],
+  },
+  {
+    id: "kawiya",
+    label: "الكاوية",
+    icon: "local-fire-department",
+    color: "#dc2626",
+    workers: ["جنيد"],
+  },
+  {
+    id: "inspection",
+    label: "الفحص",
+    icon: "search",
+    color: "#d97706",
+    workers: ["عارف", "انام الدين"],
+  },
+  {
+    id: "packing",
+    label: "التغليف",
+    icon: "inventory-2",
+    color: "#2563eb",
+    workers: ["محمد عمر", "غلام", "بشير"],
+  },
+  {
+    id: "antislip",
+    label: "مانع الانزلاق",
+    icon: "layers",
+    color: "#0891b2",
+    workers: ["محمد عمر", "مرتضى", "أوجيل"],
+  },
+  {
+    id: "storage",
+    label: "التخزين",
+    icon: "warehouse",
+    color: "#4f46e5",
+    workers: ["شميم"],
+  },
 ];
 
 export default function ManufacturingScreen() {
@@ -37,7 +87,7 @@ export default function ManufacturingScreen() {
         <View className="w-10" />
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">مراحل التصنيع</Text>
-          <Text className="text-white/80 text-sm mt-1">اختر مرحلة لعرض بيانات العمال</Text>
+          <Text className="text-white/80 text-sm mt-1">اختر مرحلة لعرض وإدخال بيانات العمال</Text>
         </View>
         <TouchableOpacity onPress={() => router.back()}>
           <MaterialIcons name="arrow-forward" size={24} color="white" />
@@ -49,16 +99,19 @@ export default function ManufacturingScreen() {
           <TouchableOpacity
             key={stage.id}
             onPress={() => handleStagePress(stage.id)}
-            className="bg-surface rounded-xl p-5 mb-4 border border-border"
+            className="bg-surface rounded-xl p-4 mb-3 border border-border"
             activeOpacity={0.7}
           >
             <View className="flex-row items-center">
               <MaterialIcons name="chevron-left" size={24} color={colors.muted} />
-              <View className="flex-1 mr-4">
-                <Text className="text-foreground font-bold text-lg text-right">{stage.label}</Text>
+              <View className="flex-1 mr-3">
+                <Text className="text-foreground font-bold text-base text-right">{stage.label}</Text>
+                <Text className="text-muted text-xs mt-1 text-right">
+                  العمال: {stage.workers.join("، ")}
+                </Text>
               </View>
-              <View style={{ backgroundColor: `${stage.color}20`, borderRadius: 14, padding: 14 }}>
-                <MaterialIcons name={stage.icon as any} size={30} color={stage.color} />
+              <View style={{ backgroundColor: `${stage.color}20`, borderRadius: 12, padding: 12 }}>
+                <MaterialIcons name={stage.icon as any} size={26} color={stage.color} />
               </View>
             </View>
           </TouchableOpacity>

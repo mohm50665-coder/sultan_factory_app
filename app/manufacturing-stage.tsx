@@ -20,37 +20,70 @@ interface WorkerEntry {
   productionDozen: string;
   productionPairs: string;
   date: string;
+  notes: string;
 }
 
-// أسماء العمال لكل مرحلة حسب المتطلبات المحدثة
-const WORKERS_BY_STAGE: Record<string, string[]> = {
-  machines: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"],
-  rosso: ["فريدو", "قيوم", "الجميع"],
-  qalb: ["حسين السوري"],
-  kawiya: ["جنيد"],
-  inspection: ["عارف", "انام الدين"],
-  packing: ["الجميع"],
-  storage: ["الجميع"],
-};
-
-const STAGE_NAMES: Record<string, string> = {
-  machines: "إنتاج المكائن",
-  rosso: "الروسو",
-  qalb: "القلب",
-  kawiya: "الكاوية",
-  inspection: "الفحص",
-  packing: "التغليف",
-  storage: "التخزين",
-};
-
-const STAGE_COLORS: Record<string, string> = {
-  machines: "#0a7ea4",
-  rosso: "#7c3aed",
-  qalb: "#059669",
-  kawiya: "#dc2626",
-  inspection: "#d97706",
-  packing: "#2563eb",
-  storage: "#4f46e5",
+// بيانات العمال لكل مرحلة
+const STAGE_CONFIG: Record<
+  string,
+  { name: string; color: string; icon: string; workers: string[]; fields: string[] }
+> = {
+  machines: {
+    name: "إنتاج المكائن",
+    color: "#0a7ea4",
+    icon: "precision-manufacturing",
+    workers: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"],
+    fields: ["dozen", "pairs"],
+  },
+  rosso: {
+    name: "الروسو",
+    color: "#7c3aed",
+    icon: "loop",
+    workers: ["فريدو", "قيوم", "الجميع"],
+    fields: ["dozen", "pairs"],
+  },
+  qalb: {
+    name: "القلب",
+    color: "#059669",
+    icon: "flip",
+    workers: ["حسين السوري"],
+    fields: ["dozen", "pairs"],
+  },
+  kawiya: {
+    name: "الكاوية",
+    color: "#dc2626",
+    icon: "local-fire-department",
+    workers: ["جنيد"],
+    fields: ["dozen", "pairs"],
+  },
+  inspection: {
+    name: "الفحص",
+    color: "#d97706",
+    icon: "search",
+    workers: ["عارف", "انام الدين", "الجميع"],
+    fields: ["dozen", "pairs"],
+  },
+  packing: {
+    name: "التغليف",
+    color: "#2563eb",
+    icon: "inventory-2",
+    workers: ["محمد عمر", "غلام", "بشير", "الجميع"],
+    fields: ["dozen", "pairs"],
+  },
+  antislip: {
+    name: "مانع الانزلاق",
+    color: "#0891b2",
+    icon: "layers",
+    workers: ["محمد عمر", "مرتضى", "أوجيل", "الجميع"],
+    fields: ["dozen", "pairs"],
+  },
+  storage: {
+    name: "التخزين",
+    color: "#4f46e5",
+    icon: "warehouse",
+    workers: ["شميم"],
+    fields: ["dozen", "pairs"],
+  },
 };
 
 export default function ManufacturingStageScreen() {
@@ -59,17 +92,16 @@ export default function ManufacturingStageScreen() {
   const colors = useColors();
   const stage = (params.stage as string) || "machines";
 
+  const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
+  const STORAGE_KEY = `sultan_manufacturing_${stage}`;
+
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
   const [selectedWorker, setSelectedWorker] = useState("");
   const [productionDozen, setProductionDozen] = useState("");
   const [productionPairs, setProductionPairs] = useState("");
-
-  const workers = WORKERS_BY_STAGE[stage] || [];
-  const stageName = STAGE_NAMES[stage] || stage;
-  const stageColor = STAGE_COLORS[stage] || colors.primary;
-  const STORAGE_KEY = `sultan_manufacturing_${stage}`;
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     loadEntries();
@@ -81,7 +113,7 @@ export default function ManufacturingStageScreen() {
       if (data) setEntries(JSON.parse(data));
       else setEntries([]);
     } catch (e) {
-      console.log(e);
+      console.log("Error loading entries:", e);
     }
   };
 
@@ -90,7 +122,7 @@ export default function ManufacturingStageScreen() {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
       setEntries(newEntries);
     } catch (e) {
-      console.log(e);
+      console.log("Error saving entries:", e);
     }
   };
 
@@ -98,17 +130,18 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker("");
     setProductionDozen("");
     setProductionPairs("");
+    setNotes("");
     setEditingEntry(null);
   };
 
   // حفظ البيانات
   const handleSave = async () => {
     if (!selectedWorker) {
-      Alert.alert("خطأ", "يرجى اختيار اسم العامل");
+      Alert.alert("تنبيه", "يرجى اختيار اسم العامل");
       return;
     }
     if (!productionDozen && !productionPairs) {
-      Alert.alert("خطأ", "يرجى إدخال كمية الإنتاج");
+      Alert.alert("تنبيه", "يرجى إدخال كمية الإنتاج (درزن أو زوج)");
       return;
     }
 
@@ -118,6 +151,7 @@ export default function ManufacturingStageScreen() {
       productionDozen: productionDozen || "0",
       productionPairs: productionPairs || "0",
       date: new Date().toLocaleDateString("ar-SA"),
+      notes: notes,
     };
 
     let newEntries: WorkerEntry[];
@@ -130,7 +164,10 @@ export default function ManufacturingStageScreen() {
     await saveEntries(newEntries);
     resetForm();
     setShowForm(false);
-    Alert.alert("نجاح ✓", editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح");
+    Alert.alert(
+      "تم بنجاح ✓",
+      editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح"
+    );
   };
 
   // تعديل سجل
@@ -138,24 +175,29 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker(entry.workerName);
     setProductionDozen(entry.productionDozen);
     setProductionPairs(entry.productionPairs);
+    setNotes(entry.notes || "");
     setEditingEntry(entry);
     setShowForm(true);
   };
 
   // حذف سجل
   const handleDelete = (entry: WorkerEntry) => {
-    Alert.alert("تأكيد الحذف", `هل أنت متأكد من حذف سجل "${entry.workerName}"؟`, [
-      { text: "إلغاء" },
-      {
-        text: "حذف",
-        style: "destructive",
-        onPress: async () => {
-          const newEntries = entries.filter((e) => e.id !== entry.id);
-          await saveEntries(newEntries);
-          Alert.alert("نجاح ✓", "تم حذف السجل بنجاح");
+    Alert.alert(
+      "تأكيد الحذف",
+      `هل أنت متأكد من حذف سجل "${entry.workerName}"؟`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: async () => {
+            const newEntries = entries.filter((e) => e.id !== entry.id);
+            await saveEntries(newEntries);
+            Alert.alert("تم ✓", "تم حذف السجل بنجاح");
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   // عرض سجل واحد
@@ -168,12 +210,12 @@ export default function ManufacturingStageScreen() {
           <TouchableOpacity
             onPress={() => handleEdit(item)}
             style={{
-              backgroundColor: `${stageColor}15`,
+              backgroundColor: `${config.color}15`,
               borderRadius: 20,
               padding: 8,
             }}
           >
-            <MaterialIcons name="edit" size={18} color={stageColor} />
+            <MaterialIcons name="edit" size={18} color={config.color} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleDelete(item)}
@@ -192,12 +234,12 @@ export default function ManufacturingStageScreen() {
           <Text className="text-foreground font-bold text-base">{item.workerName}</Text>
           <View
             style={{
-              backgroundColor: `${stageColor}20`,
+              backgroundColor: `${config.color}20`,
               borderRadius: 16,
               padding: 6,
             }}
           >
-            <MaterialIcons name="person" size={18} color={stageColor} />
+            <MaterialIcons name="person" size={18} color={config.color} />
           </View>
         </View>
       </View>
@@ -220,6 +262,13 @@ export default function ManufacturingStageScreen() {
         </View>
       </View>
 
+      {/* ملاحظات */}
+      {item.notes ? (
+        <View className="mt-2 bg-background rounded-lg p-2">
+          <Text className="text-muted text-xs text-right">{item.notes}</Text>
+        </View>
+      ) : null}
+
       {/* التاريخ */}
       <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
     </View>
@@ -229,7 +278,7 @@ export default function ManufacturingStageScreen() {
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
       <View
-        style={{ backgroundColor: stageColor }}
+        style={{ backgroundColor: config.color }}
         className="px-6 py-5 flex-row items-center justify-between"
       >
         {/* زر الإضافة */}
@@ -249,8 +298,10 @@ export default function ManufacturingStageScreen() {
 
         {/* عنوان الصفحة */}
         <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{stageName}</Text>
-          <Text className="text-white/80 text-sm mt-1">إدخال بيانات الإنتاج</Text>
+          <Text className="text-white font-bold text-xl">{config.name}</Text>
+          <Text className="text-white/80 text-sm mt-1">
+            {entries.length > 0 ? `${entries.length} سجل` : "لا توجد سجلات"}
+          </Text>
         </View>
 
         {/* زر الرجوع */}
@@ -270,17 +321,17 @@ export default function ManufacturingStageScreen() {
             {/* اختيار اسم العامل */}
             <View className="mb-5">
               <Text className="text-foreground font-semibold text-sm mb-3 text-right">
-                اسم العامل (اختر من القائمة)
+                اسم العامل
               </Text>
               <View className="flex-row flex-wrap gap-2 justify-end">
-                {workers.map((worker) => (
+                {config.workers.map((worker) => (
                   <TouchableOpacity
                     key={worker}
                     onPress={() => setSelectedWorker(worker)}
                     style={{
                       backgroundColor:
-                        selectedWorker === worker ? stageColor : "transparent",
-                      borderColor: stageColor,
+                        selectedWorker === worker ? config.color : "transparent",
+                      borderColor: config.color,
                       borderWidth: 1.5,
                       borderRadius: 22,
                       paddingHorizontal: 18,
@@ -289,7 +340,7 @@ export default function ManufacturingStageScreen() {
                   >
                     <Text
                       style={{
-                        color: selectedWorker === worker ? "white" : stageColor,
+                        color: selectedWorker === worker ? "white" : config.color,
                         fontWeight: "700",
                         fontSize: 14,
                       }}
@@ -299,6 +350,14 @@ export default function ManufacturingStageScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+              {selectedWorker ? (
+                <View className="mt-3 flex-row items-center justify-end gap-2">
+                  <Text style={{ color: config.color }} className="font-bold text-sm">
+                    {selectedWorker}
+                  </Text>
+                  <MaterialIcons name="check-circle" size={16} color={config.color} />
+                </View>
+              ) : null}
             </View>
 
             {/* كمية الإنتاج بالدرزن */}
@@ -318,7 +377,7 @@ export default function ManufacturingStageScreen() {
             </View>
 
             {/* كمية الإنتاج بالزوج */}
-            <View className="mb-5">
+            <View className="mb-4">
               <Text className="text-foreground font-semibold text-sm mb-2 text-right">
                 كمية الإنتاج (زوج)
               </Text>
@@ -329,26 +388,48 @@ export default function ManufacturingStageScreen() {
                 value={productionPairs}
                 onChangeText={setProductionPairs}
                 keyboardType="numeric"
-                returnKeyType="done"
+                returnKeyType="next"
               />
             </View>
 
-            {/* أزرار الإجراءات: حفظ - إلغاء */}
+            {/* ملاحظات */}
+            <View className="mb-5">
+              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                ملاحظات (اختياري)
+              </Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                placeholder="أدخل ملاحظات إضافية"
+                placeholderTextColor={colors.muted}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                returnKeyType="done"
+                style={{ minHeight: 70, textAlignVertical: "top" }}
+              />
+            </View>
+
+            {/* أزرار الإجراءات */}
             <View className="flex-row gap-3 mt-2">
+              {/* زر إلغاء */}
               <TouchableOpacity
                 onPress={() => {
                   setShowForm(false);
                   resetForm();
                 }}
-                className="flex-1 bg-background border border-border rounded-xl py-4 items-center flex-row justify-center gap-2"
+                className="flex-1 bg-background border border-border rounded-xl py-4 items-center"
+                style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}
               >
                 <Text className="text-foreground font-semibold text-base">إلغاء</Text>
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
+
+              {/* زر حفظ */}
               <TouchableOpacity
                 onPress={handleSave}
-                style={{ backgroundColor: stageColor }}
-                className="flex-1 rounded-xl py-4 items-center flex-row justify-center gap-2"
+                style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6 }}
+                className="flex-1 rounded-xl py-4 items-center"
               >
                 <Text className="text-white font-semibold text-base">
                   {editingEntry ? "تعديل" : "حفظ"}
@@ -371,21 +452,52 @@ export default function ManufacturingStageScreen() {
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center py-20">
-              <MaterialIcons name="people" size={64} color={colors.muted} />
-              <Text className="text-muted text-lg mt-4 font-semibold">لا توجد بيانات</Text>
-              <Text className="text-muted text-sm mt-2 text-center">
-                اضغط على زر + في الأعلى لإضافة بيانات إنتاج جديدة
+              <View
+                style={{ backgroundColor: `${config.color}15`, borderRadius: 40, padding: 20 }}
+              >
+                <MaterialIcons name={config.icon as any} size={48} color={config.color} />
+              </View>
+              <Text className="text-foreground text-lg mt-5 font-bold">{config.name}</Text>
+              <Text className="text-muted text-sm mt-2 text-center px-8">
+                لا توجد بيانات مسجلة بعد.{"\n"}اضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة.
               </Text>
+
+              {/* عرض أسماء العمال */}
+              <View className="mt-5 bg-surface rounded-xl p-4 border border-border w-full">
+                <Text className="text-foreground font-semibold text-sm mb-3 text-right">
+                  العمال في هذه المرحلة:
+                </Text>
+                <View className="flex-row flex-wrap gap-2 justify-end">
+                  {config.workers.map((worker) => (
+                    <View
+                      key={worker}
+                      style={{
+                        backgroundColor: `${config.color}15`,
+                        borderRadius: 16,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Text style={{ color: config.color, fontWeight: "600", fontSize: 13 }}>
+                        {worker}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
               <TouchableOpacity
                 onPress={() => {
                   resetForm();
                   setShowForm(true);
                 }}
-                style={{ backgroundColor: stageColor }}
-                className="mt-6 px-8 py-3 rounded-xl flex-row items-center gap-2"
+                style={{ backgroundColor: config.color }}
+                className="mt-6 px-8 py-3 rounded-xl"
               >
-                <Text className="text-white font-semibold">إضافة بيانات</Text>
-                <MaterialIcons name="add" size={20} color="white" />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text className="text-white font-semibold">إضافة بيانات</Text>
+                  <MaterialIcons name="add" size={20} color="white" />
+                </View>
               </TouchableOpacity>
             </View>
           }
