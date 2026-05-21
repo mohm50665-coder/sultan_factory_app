@@ -305,7 +305,7 @@ function buildCronUser(userInfo: GetUserInfoWithJwtResponse): AuthenticatedUser 
     id: -1,
     openId: userInfo.openId,
     name: userInfo.name || "Manus Scheduled Task",
-    email: null,
+    email: userInfo.email || "",
     loginMethod: null,
     role: "user",
     createdAt: now,
