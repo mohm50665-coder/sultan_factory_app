@@ -1,97 +1,168 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 
-interface WarehouseTab {
+interface WarehouseSection {
   id: string;
   label: string;
   icon: string;
+  color: string;
+  route: string;
   description: string;
 }
 
-const WAREHOUSE_TABS: WarehouseTab[] = [
+const WAREHOUSE_SECTIONS: WarehouseSection[] = [
   {
-    id: "raw_materials",
-    label: "المواد الخام",
+    id: "finished_in",
+    label: "مستودع الإنتاج التام",
+    icon: "inventory",
+    color: "#16a34a",
+    route: "/warehouse-finished",
+    description: "إدخال الإنتاج التام والنخب الثاني",
+  },
+  {
+    id: "raw_in",
+    label: "مستودع المواد الخام",
     icon: "inventory-2",
-    description: "إدارة المواد الخام والمدخلات",
+    color: "#3b82f6",
+    route: "/warehouse-raw",
+    description: "إدخال المواد الخام والخيوط وقطع الغيار",
   },
   {
-    id: "consumption",
-    label: "مواد الصرف",
-    icon: "trending-down",
-    description: "تسجيل مواد الصرف والاستهلاك",
-  },
-  {
-    id: "incoming",
-    label: "المواد المدخلة",
-    icon: "input",
-    description: "تسجيل المواد الجديدة المدخلة",
+    id: "out",
+    label: "الخارج من المستودعات",
+    icon: "output",
+    color: "#ef4444",
+    route: "/warehouse-out",
+    description: "إخراج من مستودع الإنتاج التام أو المواد الخام",
   },
 ];
 
 export default function WarehouseScreen() {
   const router = useRouter();
   const colors = useColors();
-  const [selectedTab, setSelectedTab] = useState<string>("raw_materials");
-
-  const handleTabPress = (tabId: string) => {
-    setSelectedTab(tabId);
-    // يمكن إضافة ملاحة إلى شاشات فرعية هنا
-    router.push(`/warehouse/${tabId}` as any);
-  };
 
   return (
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
-      <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
-        <View>
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <MaterialIcons name="arrow-forward" size={24} color="white" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>المستودعات</Text>
+          <Text style={styles.headerSubtitle}>إدارة المخزون والمواد</Text>
         </View>
-        <Text className="text-white font-bold text-lg">المستودعات</Text>
-        <View className="w-10" />
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* محتوى التبويبات */}
-      <ScrollView className="flex-1 p-4">
-        {WAREHOUSE_TABS.map((tab) => (
+      {/* الأقسام */}
+      <ScrollView contentContainerStyle={styles.content}>
+        {WAREHOUSE_SECTIONS.map((section) => (
           <TouchableOpacity
-            key={tab.id}
-            onPress={() => handleTabPress(tab.id)}
-            className="bg-white rounded-lg p-4 mb-4 border border-border"
+            key={section.id}
+            onPress={() => router.push(section.route as any)}
             activeOpacity={0.7}
+            style={styles.sectionCard}
           >
-            <View className="flex-row items-center">
-              <View className="bg-primary/10 rounded-lg p-3 mr-4">
-                <MaterialIcons name={tab.icon as any} size={24} color={colors.primary} />
+            <View style={styles.sectionRow}>
+              <MaterialIcons name="chevron-left" size={24} color={colors.muted} />
+              <View style={styles.sectionInfo}>
+                <Text style={styles.sectionLabel}>{section.label}</Text>
+                <Text style={styles.sectionDescription}>{section.description}</Text>
               </View>
-              <View className="flex-1">
-                <Text className="text-foreground font-bold text-base">{tab.label}</Text>
-                <Text className="text-muted text-xs mt-1">{tab.description}</Text>
+              <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
+                <MaterialIcons name={section.icon as any} size={28} color={section.color} />
               </View>
-              <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
             </View>
           </TouchableOpacity>
         ))}
-
-        {/* معلومات إضافية */}
-        <View className="bg-blue/10 rounded-lg p-4 mt-4 border border-border">
-          <Text className="text-foreground font-semibold text-sm mb-2">ملاحظة مهمة</Text>
-          <Text className="text-muted text-xs leading-5">
-            يمكنك إدارة جميع عمليات المستودع من خلال التبويبات أعلاه. تتبع المواد الخام والمدخلة والمصروفة بسهولة.
-          </Text>
-        </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  backButton: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 20,
+    padding: 8,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 20,
+  },
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 13,
+    marginTop: 4,
+  },
+  content: {
+    padding: 16,
+  },
+  sectionCard: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionInfo: {
+    flex: 1,
+    marginRight: 16,
+    alignItems: "flex-end",
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#11181C",
+    textAlign: "right",
+  },
+  sectionDescription: {
+    fontSize: 12,
+    color: "#687076",
+    marginTop: 4,
+    textAlign: "right",
+  },
+});
