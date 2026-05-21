@@ -30,7 +30,6 @@ interface FinishedEntry {
   totalQuantity: string;
   firstGradeQty: string;
   secondGradeQty: string;
-  responsiblePerson: string;
   documentAttached: boolean;
 }
 
@@ -59,7 +58,7 @@ export default function WarehouseFinishedScreen() {
   const [totalQuantity, setTotalQuantity] = useState("");
   const [firstGradeQty, setFirstGradeQty] = useState("");
   const [secondGradeQty, setSecondGradeQty] = useState("");
-  const [responsiblePerson, setResponsiblePerson] = useState("");
+
   const [documentAttached, setDocumentAttached] = useState(false);
 
   useEffect(() => { loadEntries(); }, []);
@@ -88,7 +87,7 @@ export default function WarehouseFinishedScreen() {
     setTotalQuantity("");
     setFirstGradeQty("");
     setSecondGradeQty("");
-    setResponsiblePerson("");
+
     setDocumentAttached(false);
     setEditingEntry(null);
   };
@@ -108,7 +107,6 @@ export default function WarehouseFinishedScreen() {
       totalQuantity: totalQuantity || "0",
       firstGradeQty: firstGradeQty || "0",
       secondGradeQty: secondGradeQty || "0",
-      responsiblePerson: responsiblePerson || "-",
       documentAttached,
     };
 
@@ -134,7 +132,7 @@ export default function WarehouseFinishedScreen() {
     setTotalQuantity(entry.totalQuantity);
     setFirstGradeQty(entry.firstGradeQty);
     setSecondGradeQty(entry.secondGradeQty);
-    setResponsiblePerson(entry.responsiblePerson);
+
     setDocumentAttached(entry.documentAttached);
     setEditingEntry(entry);
     setShowForm(true);
@@ -265,15 +263,6 @@ export default function WarehouseFinishedScreen() {
           keyboardType="numeric"
         />
 
-        {/* الشخص المسؤول */}
-        <Text style={styles.label}>الشخص المسؤول عن الإدخال</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="اسم الشخص المسؤول"
-          placeholderTextColor={colors.muted}
-          value={responsiblePerson}
-          onChangeText={setResponsiblePerson}
-        />
 
         {/* إرفاق مستند */}
         <TouchableOpacity
@@ -363,10 +352,7 @@ export default function WarehouseFinishedScreen() {
                 <Text style={styles.entryValue}>نخب أول: {entry.firstGradeQty} | نخب ثاني: {entry.secondGradeQty}</Text>
                 <Text style={styles.entryLabel}>التفاصيل:</Text>
               </View>
-              <View style={styles.entryRow}>
-                <Text style={styles.entryValue}>{entry.responsiblePerson}</Text>
-                <Text style={styles.entryLabel}>المسؤول:</Text>
-              </View>
+
               {entry.documentAttached && (
                 <View style={styles.entryRow}>
                   <Text style={[styles.entryValue, { color: "#16a34a" }]}>✓ مرفق</Text>
