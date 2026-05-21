@@ -4,271 +4,842 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Alert,
-  ActivityIndicator,
   FlatList,
-  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { FormInput, FormNumberInput, FormSelect } from "@/components/form-input";
-import { salesService, SalesData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const PAYMENT_METHODS = [
-  { label: "نقداً", value: "cash" },
-  { label: "بطاقة ائتمان", value: "credit" },
+// أسماء البائعين
+const SELLERS = ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"];
+
+// فئات العملاء
+const CUSTOMER_CATEGORIES = [
+  "كلاو",
+  "فالكون",
+  "جملة",
+  "تجزئة",
+  "تصنيع خاص شركات",
+  "تصنيع خاص افراد",
 ];
+
+// طرق الدفع
+const PAYMENT_METHODS = ["نقداً", "آجل"];
+
+interface SaleEntry {
+  id: string;
+  sellerName: string;
+  customerName: string;
+  customerCategory: string;
+  quantityDozen: string;
+  quantityPairs: string;
+  paymentMethod: string;
+  date: string;
+}
+
+interface CollectionEntry {
+  id: string;
+  collectorName: string;
+  customerName: string;
+  amount: string;
+  date: string;
+}
+
+const SALES_KEY = "sultan_sales_data";
+const COLLECTION_KEY = "sultan_collection_data";
 
 export default function SalesScreen() {
   const router = useRouter();
   const colors = useColors();
 
-  const [sales, setSales] = useState<SalesData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  // التبويب الحالي: sales أو collection
+  const [activeTab, setActiveTab] = useState<"sales" | "collection">("sales");
 
-  const [formData, setFormData] = useState<SalesData>({
-    sellerName: "",
-    customerName: "",
-    quantityDozen: 0,
-    quantityPair: 0,
-    paymentMethod: "cash",
-  });
+  // بيانات المبيعات
+  const [salesEntries, setSalesEntries] = useState<SaleEntry[]>([]);
+  const [showSalesForm, setShowSalesForm] = useState(false);
+  const [editingSale, setEditingSale] = useState<SaleEntry | null>(null);
+  const [selectedSeller, setSelectedSeller] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [saleDozen, setSaleDozen] = useState("");
+  const [salePairs, setSalePairs] = useState("");
+  const [selectedPayment, setSelectedPayment] = useState("");
+
+  // بيانات التحصيل
+  const [collectionEntries, setCollectionEntries] = useState<CollectionEntry[]>([]);
+  const [showCollectionForm, setShowCollectionForm] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<CollectionEntry | null>(null);
+  const [selectedCollector, setSelectedCollector] = useState("");
+  const [collectionCustomer, setCollectionCustomer] = useState("");
+  const [collectionAmount, setCollectionAmount] = useState("");
 
   useEffect(() => {
-    loadSales();
+    loadData();
   }, []);
 
-  const loadSales = async () => {
+  const loadData = async () => {
     try {
-      setIsLoading(true);
-      const data = await salesService.getAll();
-      setSales(data);
-    } catch (error) {
-      Alert.alert("خطأ", "فشل تحميل بيانات المبيعات");
-    } finally {
-      setIsLoading(false);
+      const salesData = await AsyncStorage.getItem(SALES_KEY);
+      if (salesData) setSalesEntries(JSON.parse(salesData));
+      const collData = await AsyncStorage.getItem(COLLECTION_KEY);
+      if (collData) setCollectionEntries(JSON.parse(collData));
+    } catch (e) {
+      console.log("Error loading data:", e);
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.sellerName || !formData.customerName) {
-      Alert.alert("خطأ", "يرجى ملء جميع الحقول المطلوبة");
+  const saveSales = async (entries: SaleEntry[]) => {
+    await AsyncStorage.setItem(SALES_KEY, JSON.stringify(entries));
+    setSalesEntries(entries);
+  };
+
+  const saveCollections = async (entries: CollectionEntry[]) => {
+    await AsyncStorage.setItem(COLLECTION_KEY, JSON.stringify(entries));
+    setCollectionEntries(entries);
+  };
+
+  // === المبيعات ===
+  const resetSalesForm = () => {
+    setSelectedSeller("");
+    setCustomerName("");
+    setSelectedCategory("");
+    setSaleDozen("");
+    setSalePairs("");
+    setSelectedPayment("");
+    setEditingSale(null);
+  };
+
+  const handleSaveSale = async () => {
+    if (!selectedSeller) {
+      Alert.alert("تنبيه", "يرجى اختيار اسم البائع");
+      return;
+    }
+    if (!selectedCategory) {
+      Alert.alert("تنبيه", "يرجى اختيار فئة العميل");
+      return;
+    }
+    if (!saleDozen && !salePairs) {
+      Alert.alert("تنبيه", "يرجى إدخال الكمية المباعة");
+      return;
+    }
+    if (!selectedPayment) {
+      Alert.alert("تنبيه", "يرجى اختيار طريقة الدفع");
       return;
     }
 
-    try {
-      setIsLoading(true);
-      if (editingId) {
-        await salesService.update(editingId, formData);
-        Alert.alert("نجاح", "تم تحديث البيانات بنجاح");
-      } else {
-        await salesService.create(formData);
-        Alert.alert("نجاح", "تم إضافة البيانات بنجاح");
-      }
-      setShowForm(false);
-      resetForm();
-      loadSales();
-    } catch (error) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
-    } finally {
-      setIsLoading(false);
+    const entry: SaleEntry = {
+      id: editingSale?.id || Date.now().toString(),
+      sellerName: selectedSeller,
+      customerName: customerName || "-",
+      customerCategory: selectedCategory,
+      quantityDozen: saleDozen || "0",
+      quantityPairs: salePairs || "0",
+      paymentMethod: selectedPayment,
+      date: new Date().toLocaleDateString("ar-SA"),
+    };
+
+    let newEntries: SaleEntry[];
+    if (editingSale) {
+      newEntries = salesEntries.map((e) => (e.id === editingSale.id ? entry : e));
+    } else {
+      newEntries = [entry, ...salesEntries];
     }
+
+    await saveSales(newEntries);
+    resetSalesForm();
+    setShowSalesForm(false);
+    Alert.alert("تم بنجاح ✓", editingSale ? "تم تعديل المبيعة" : "تم حفظ المبيعة");
   };
 
-  const handleDelete = async (id: number) => {
-    Alert.alert(
-      "تأكيد الحذف",
-      "هل أنت متأكد من حذف هذا السجل؟",
-      [
-        { text: "إلغاء", onPress: () => {} },
-        {
-          text: "حذف",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await salesService.delete(id);
-              Alert.alert("نجاح", "تم حذف البيانات بنجاح");
-              loadSales();
-            } catch (error) {
-              Alert.alert("خطأ", "فشل حذف البيانات");
-            } finally {
-              setIsLoading(false);
-            }
-          },
+  const handleEditSale = (entry: SaleEntry) => {
+    setSelectedSeller(entry.sellerName);
+    setCustomerName(entry.customerName);
+    setSelectedCategory(entry.customerCategory);
+    setSaleDozen(entry.quantityDozen);
+    setSalePairs(entry.quantityPairs);
+    setSelectedPayment(entry.paymentMethod);
+    setEditingSale(entry);
+    setShowSalesForm(true);
+  };
+
+  const handleDeleteSale = (entry: SaleEntry) => {
+    Alert.alert("تأكيد الحذف", `هل تريد حذف مبيعة "${entry.sellerName}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const newEntries = salesEntries.filter((e) => e.id !== entry.id);
+          await saveSales(newEntries);
+          Alert.alert("تم ✓", "تم حذف السجل");
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleEdit = (sale: SalesData) => {
-    setFormData(sale);
-    setEditingId(sale.id || null);
-    setShowForm(true);
+  // === التحصيل ===
+  const resetCollectionForm = () => {
+    setSelectedCollector("");
+    setCollectionCustomer("");
+    setCollectionAmount("");
+    setEditingCollection(null);
   };
 
-  const resetForm = () => {
-    setFormData({
-      sellerName: "",
-      customerName: "",
-      quantityDozen: 0,
-      quantityPair: 0,
-      paymentMethod: "cash",
-    });
-    setEditingId(null);
+  const handleSaveCollection = async () => {
+    if (!selectedCollector) {
+      Alert.alert("تنبيه", "يرجى اختيار اسم المحصل");
+      return;
+    }
+    if (!collectionCustomer) {
+      Alert.alert("تنبيه", "يرجى إدخال اسم العميل");
+      return;
+    }
+    if (!collectionAmount) {
+      Alert.alert("تنبيه", "يرجى إدخال المبلغ");
+      return;
+    }
+
+    const entry: CollectionEntry = {
+      id: editingCollection?.id || Date.now().toString(),
+      collectorName: selectedCollector,
+      customerName: collectionCustomer,
+      amount: collectionAmount,
+      date: new Date().toLocaleDateString("ar-SA"),
+    };
+
+    let newEntries: CollectionEntry[];
+    if (editingCollection) {
+      newEntries = collectionEntries.map((e) => (e.id === editingCollection.id ? entry : e));
+    } else {
+      newEntries = [entry, ...collectionEntries];
+    }
+
+    await saveCollections(newEntries);
+    resetCollectionForm();
+    setShowCollectionForm(false);
+    Alert.alert("تم بنجاح ✓", editingCollection ? "تم تعديل التحصيل" : "تم حفظ التحصيل");
   };
 
-  const renderSaleItem = ({ item }: { item: SalesData }) => (
-    <View className="bg-white rounded-lg p-4 mb-3 border border-border">
-      <View className="flex-row justify-between items-start mb-3">
-        <View className="flex-1">
-          <Text className="text-foreground font-bold text-base">{item.customerName}</Text>
-          <Text className="text-muted text-sm mt-1">البائع: {item.sellerName}</Text>
-        </View>
+  const handleEditCollection = (entry: CollectionEntry) => {
+    setSelectedCollector(entry.collectorName);
+    setCollectionCustomer(entry.customerName);
+    setCollectionAmount(entry.amount);
+    setEditingCollection(entry);
+    setShowCollectionForm(true);
+  };
+
+  const handleDeleteCollection = (entry: CollectionEntry) => {
+    Alert.alert("تأكيد الحذف", `هل تريد حذف تحصيل "${entry.customerName}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const newEntries = collectionEntries.filter((e) => e.id !== entry.id);
+          await saveCollections(newEntries);
+          Alert.alert("تم ✓", "تم حذف السجل");
+        },
+      },
+    ]);
+  };
+
+  // عرض سجل مبيعات
+  const renderSaleItem = ({ item }: { item: SaleEntry }) => (
+    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+      <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row gap-2">
           <TouchableOpacity
-            onPress={() => handleEdit(item)}
-            className="bg-primary/10 rounded-lg p-2"
+            onPress={() => handleEditSale(item)}
+            style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
           >
-            <MaterialIcons name="edit" size={18} color={colors.primary} />
+            <MaterialIcons name="edit" size={18} color="#0a7ea4" />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => item.id && handleDelete(item.id)}
-            className="bg-error/10 rounded-lg p-2"
+            onPress={() => handleDeleteSale(item)}
+            style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
           >
-            <MaterialIcons name="delete" size={18} color={colors.error} />
+            <MaterialIcons name="delete" size={18} color="#ef4444" />
           </TouchableOpacity>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-foreground font-bold text-base">{item.sellerName}</Text>
+          <View style={{ backgroundColor: "#0a7ea420", borderRadius: 16, padding: 6 }}>
+            <MaterialIcons name="point-of-sale" size={18} color="#0a7ea4" />
+          </View>
         </View>
       </View>
 
-      <View className="bg-surface rounded p-2 space-y-1">
-        <Text className="text-muted text-xs">
-          الكمية: {item.quantityDozen} درزن، {item.quantityPair} زوج
-        </Text>
-        <Text className="text-muted text-xs">
-          طريقة الدفع: {item.paymentMethod === "cash" ? "نقداً" : "بطاقة ائتمان"}
-        </Text>
+      <View className="bg-background rounded-lg p-3">
+        <View className="flex-row justify-between items-center mb-2">
+          <Text className="text-foreground text-sm">{item.customerCategory}</Text>
+          <Text className="text-muted text-sm font-semibold">فئة العميل</Text>
+        </View>
+        {item.customerName && item.customerName !== "-" ? (
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-foreground text-sm">{item.customerName}</Text>
+            <Text className="text-muted text-sm font-semibold">اسم العميل</Text>
+          </View>
+        ) : null}
+        <View className="flex-row justify-between items-center mb-2">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-foreground font-bold">{item.quantityDozen}</Text>
+            <Text className="text-muted text-xs">درزن</Text>
+            <Text className="text-muted mx-1">|</Text>
+            <Text className="text-foreground font-bold">{item.quantityPairs}</Text>
+            <Text className="text-muted text-xs">زوج</Text>
+          </View>
+          <Text className="text-muted text-sm font-semibold">الكمية</Text>
+        </View>
+        <View className="flex-row justify-between items-center">
+          <View
+            style={{
+              backgroundColor: item.paymentMethod === "نقداً" ? "#22c55e20" : "#f59e0b20",
+              borderRadius: 12,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+            }}
+          >
+            <Text
+              style={{
+                color: item.paymentMethod === "نقداً" ? "#22c55e" : "#f59e0b",
+                fontWeight: "700",
+                fontSize: 12,
+              }}
+            >
+              {item.paymentMethod}
+            </Text>
+          </View>
+          <Text className="text-muted text-sm font-semibold">طريقة الدفع</Text>
+        </View>
       </View>
+      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
     </View>
+  );
+
+  // عرض سجل تحصيل
+  const renderCollectionItem = ({ item }: { item: CollectionEntry }) => (
+    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+      <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => handleEditCollection(item)}
+            style={{ backgroundColor: "#7c3aed15", borderRadius: 20, padding: 8 }}
+          >
+            <MaterialIcons name="edit" size={18} color="#7c3aed" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeleteCollection(item)}
+            style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
+          >
+            <MaterialIcons name="delete" size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-foreground font-bold text-base">{item.collectorName}</Text>
+          <View style={{ backgroundColor: "#7c3aed20", borderRadius: 16, padding: 6 }}>
+            <MaterialIcons name="account-balance-wallet" size={18} color="#7c3aed" />
+          </View>
+        </View>
+      </View>
+
+      <View className="bg-background rounded-lg p-3">
+        <View className="flex-row justify-between items-center mb-2">
+          <Text className="text-foreground text-sm">{item.customerName}</Text>
+          <Text className="text-muted text-sm font-semibold">العميل المحصل منه</Text>
+        </View>
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-1">
+            <Text className="text-foreground font-bold text-lg">{item.amount}</Text>
+            <Text className="text-muted text-sm">ريال</Text>
+          </View>
+          <Text className="text-muted text-sm font-semibold">المبلغ</Text>
+        </View>
+      </View>
+      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
+    </View>
+  );
+
+  // نموذج المبيعات
+  const renderSalesForm = () => (
+    <ScrollView className="flex-1 px-4 py-4">
+      <View className="bg-surface rounded-xl p-5 border border-border">
+        <Text className="text-foreground font-bold text-lg mb-5 text-right">
+          {editingSale ? "✏️ تعديل مبيعة" : "➕ إضافة مبيعة جديدة"}
+        </Text>
+
+        {/* اسم البائع */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اسم البائع</Text>
+          <View className="flex-row flex-wrap gap-2 justify-end">
+            {SELLERS.map((seller) => (
+              <TouchableOpacity
+                key={seller}
+                onPress={() => setSelectedSeller(seller)}
+                style={{
+                  backgroundColor: selectedSeller === seller ? "#0a7ea4" : "transparent",
+                  borderColor: "#0a7ea4",
+                  borderWidth: 1.5,
+                  borderRadius: 22,
+                  paddingHorizontal: 16,
+                  paddingVertical: 9,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selectedSeller === seller ? "white" : "#0a7ea4",
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  {seller}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* فئة العميل */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">فئة العميل</Text>
+          <View className="flex-row flex-wrap gap-2 justify-end">
+            {CUSTOMER_CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                style={{
+                  backgroundColor: selectedCategory === cat ? "#7c3aed" : "transparent",
+                  borderColor: "#7c3aed",
+                  borderWidth: 1.5,
+                  borderRadius: 22,
+                  paddingHorizontal: 16,
+                  paddingVertical: 9,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selectedCategory === cat ? "white" : "#7c3aed",
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* اسم العميل */}
+        <View className="mb-4">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            اسم العميل (اختياري)
+          </Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="أدخل اسم العميل"
+            placeholderTextColor={colors.muted}
+            value={customerName}
+            onChangeText={setCustomerName}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* الكمية بالدرزن */}
+        <View className="mb-4">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            الكمية المباعة (درزن)
+          </Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={saleDozen}
+            onChangeText={setSaleDozen}
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* الكمية بالزوج */}
+        <View className="mb-4">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            الكمية المباعة (زوج)
+          </Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={salePairs}
+            onChangeText={setSalePairs}
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* طريقة الدفع */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">طريقة الدفع</Text>
+          <View className="flex-row gap-3 justify-end">
+            {PAYMENT_METHODS.map((method) => (
+              <TouchableOpacity
+                key={method}
+                onPress={() => setSelectedPayment(method)}
+                style={{
+                  backgroundColor: selectedPayment === method ? "#059669" : "transparent",
+                  borderColor: "#059669",
+                  borderWidth: 1.5,
+                  borderRadius: 22,
+                  paddingHorizontal: 24,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selectedPayment === method ? "white" : "#059669",
+                    fontWeight: "700",
+                    fontSize: 14,
+                  }}
+                >
+                  {method}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* أزرار */}
+        <View className="flex-row gap-3 mt-2">
+          <TouchableOpacity
+            onPress={() => {
+              setShowSalesForm(false);
+              resetSalesForm();
+            }}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingVertical: 14,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text className="text-foreground font-semibold text-base">إلغاء</Text>
+            <MaterialIcons name="close" size={20} color={colors.foreground} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSaveSale}
+            style={{
+              flex: 1,
+              backgroundColor: "#0a7ea4",
+              borderRadius: 12,
+              paddingVertical: 14,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text className="text-white font-semibold text-base">
+              {editingSale ? "تعديل" : "حفظ"}
+            </Text>
+            <MaterialIcons name={editingSale ? "edit" : "save"} size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  // نموذج التحصيل
+  const renderCollectionForm = () => (
+    <ScrollView className="flex-1 px-4 py-4">
+      <View className="bg-surface rounded-xl p-5 border border-border">
+        <Text className="text-foreground font-bold text-lg mb-5 text-right">
+          {editingCollection ? "✏️ تعديل تحصيل" : "➕ إضافة تحصيل جديد"}
+        </Text>
+
+        {/* اسم المحصل */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اسم المحصل</Text>
+          <View className="flex-row flex-wrap gap-2 justify-end">
+            {SELLERS.map((name) => (
+              <TouchableOpacity
+                key={name}
+                onPress={() => setSelectedCollector(name)}
+                style={{
+                  backgroundColor: selectedCollector === name ? "#7c3aed" : "transparent",
+                  borderColor: "#7c3aed",
+                  borderWidth: 1.5,
+                  borderRadius: 22,
+                  paddingHorizontal: 16,
+                  paddingVertical: 9,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selectedCollector === name ? "white" : "#7c3aed",
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
+                  {name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* اسم العميل المحصل منه */}
+        <View className="mb-4">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            اسم العميل المحصل منه
+          </Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="أدخل اسم العميل"
+            placeholderTextColor={colors.muted}
+            value={collectionCustomer}
+            onChangeText={setCollectionCustomer}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* المبلغ بالريال */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            المبلغ (ريال)
+          </Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={collectionAmount}
+            onChangeText={setCollectionAmount}
+            keyboardType="numeric"
+            returnKeyType="done"
+          />
+        </View>
+
+        {/* أزرار */}
+        <View className="flex-row gap-3 mt-2">
+          <TouchableOpacity
+            onPress={() => {
+              setShowCollectionForm(false);
+              resetCollectionForm();
+            }}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingVertical: 14,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text className="text-foreground font-semibold text-base">إلغاء</Text>
+            <MaterialIcons name="close" size={20} color={colors.foreground} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSaveCollection}
+            style={{
+              flex: 1,
+              backgroundColor: "#7c3aed",
+              borderRadius: 12,
+              paddingVertical: 14,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Text className="text-white font-semibold text-base">
+              {editingCollection ? "تعديل" : "حفظ"}
+            </Text>
+            <MaterialIcons name={editingCollection ? "edit" : "save"} size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 
   return (
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
-      <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
-        <View>
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-        <Text className="text-white font-bold text-lg">المبيعات</Text>
+      <View
+        style={{ backgroundColor: "#0a7ea4" }}
+        className="px-6 py-5 flex-row items-center justify-between"
+      >
+        {/* زر الإضافة */}
         <TouchableOpacity
           onPress={() => {
-            resetForm();
-            setShowForm(true);
+            if (activeTab === "sales") {
+              resetSalesForm();
+              setShowSalesForm(true);
+            } else {
+              resetCollectionForm();
+              setShowCollectionForm(true);
+            }
           }}
-          className="bg-white/20 rounded-lg p-2"
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
         >
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
+
+        {/* العنوان */}
+        <View className="flex-1 items-center">
+          <Text className="text-white font-bold text-xl">المبيعات والتحصيل</Text>
+          <Text className="text-white/80 text-sm mt-1">
+            {activeTab === "sales"
+              ? `${salesEntries.length} مبيعة`
+              : `${collectionEntries.length} تحصيل`}
+          </Text>
+        </View>
+
+        {/* زر الرجوع */}
+        <TouchableOpacity onPress={() => router.back()}>
+          <MaterialIcons name="arrow-forward" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
-      {/* قائمة المبيعات */}
-      {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+      {/* التبويبات */}
+      <View className="flex-row border-b border-border">
+        <TouchableOpacity
+          onPress={() => setActiveTab("sales")}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            alignItems: "center",
+            borderBottomWidth: 3,
+            borderBottomColor: activeTab === "sales" ? "#0a7ea4" : "transparent",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={{
+                color: activeTab === "sales" ? "#0a7ea4" : colors.muted,
+                fontWeight: "700",
+                fontSize: 15,
+              }}
+            >
+              المبيعات
+            </Text>
+            <MaterialIcons
+              name="point-of-sale"
+              size={20}
+              color={activeTab === "sales" ? "#0a7ea4" : colors.muted}
+            />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setActiveTab("collection")}
+          style={{
+            flex: 1,
+            paddingVertical: 14,
+            alignItems: "center",
+            borderBottomWidth: 3,
+            borderBottomColor: activeTab === "collection" ? "#7c3aed" : "transparent",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={{
+                color: activeTab === "collection" ? "#7c3aed" : colors.muted,
+                fontWeight: "700",
+                fontSize: 15,
+              }}
+            >
+              التحصيل
+            </Text>
+            <MaterialIcons
+              name="account-balance-wallet"
+              size={20}
+              color={activeTab === "collection" ? "#7c3aed" : colors.muted}
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* المحتوى */}
+      {activeTab === "sales" ? (
+        showSalesForm ? (
+          renderSalesForm()
+        ) : (
+          <FlatList
+            data={salesEntries}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSaleItem}
+            contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center py-20">
+                <View style={{ backgroundColor: "#0a7ea415", borderRadius: 40, padding: 20 }}>
+                  <MaterialIcons name="point-of-sale" size={48} color="#0a7ea4" />
+                </View>
+                <Text className="text-foreground text-lg mt-5 font-bold">المبيعات</Text>
+                <Text className="text-muted text-sm mt-2 text-center px-8">
+                  لا توجد بيانات مبيعات بعد.{"\n"}اضغط على زر (+) لإضافة مبيعة جديدة.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    resetSalesForm();
+                    setShowSalesForm(true);
+                  }}
+                  style={{ backgroundColor: "#0a7ea4", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text className="text-white font-semibold">إضافة مبيعة</Text>
+                    <MaterialIcons name="add" size={20} color="white" />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        )
+      ) : showCollectionForm ? (
+        renderCollectionForm()
       ) : (
         <FlatList
-          data={sales}
-          renderItem={renderSaleItem}
-          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+          data={collectionEntries}
+          keyExtractor={(item) => item.id}
+          renderItem={renderCollectionItem}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 justify-center items-center">
-              <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text className="text-muted text-center mt-4">لا توجد بيانات مبيعات</Text>
+            <View className="flex-1 items-center justify-center py-20">
+              <View style={{ backgroundColor: "#7c3aed15", borderRadius: 40, padding: 20 }}>
+                <MaterialIcons name="account-balance-wallet" size={48} color="#7c3aed" />
+              </View>
+              <Text className="text-foreground text-lg mt-5 font-bold">التحصيل</Text>
+              <Text className="text-muted text-sm mt-2 text-center px-8">
+                لا توجد بيانات تحصيل بعد.{"\n"}اضغط على زر (+) لإضافة تحصيل جديد.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  resetCollectionForm();
+                  setShowCollectionForm(true);
+                }}
+                style={{ backgroundColor: "#7c3aed", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text className="text-white font-semibold">إضافة تحصيل</Text>
+                  <MaterialIcons name="add" size={20} color="white" />
+                </View>
+              </TouchableOpacity>
             </View>
           }
         />
       )}
-
-      {/* نموذج الإضافة/التعديل */}
-      <Modal
-        visible={showForm}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowForm(false)}
-      >
-        <View className="flex-1 bg-black/50">
-          <View className="flex-1 bg-background rounded-t-3xl mt-12">
-            {/* رأس النموذج */}
-            <View className="flex-row justify-between items-center p-6 border-b border-border">
-              <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text className="text-primary font-semibold">إلغاء</Text>
-              </TouchableOpacity>
-              <Text className="text-foreground font-bold text-lg">
-                {editingId ? "تعديل المبيعة" : "إضافة مبيعة جديدة"}
-              </Text>
-              <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text className={`font-semibold ${isLoading ? "text-muted" : "text-primary"}`}>
-                  {isLoading ? "جاري..." : "حفظ"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* محتوى النموذج */}
-            <ScrollView className="flex-1 p-6">
-              <FormInput
-                label="اسم البائع"
-                value={formData.sellerName}
-                onChangeText={(text) => setFormData({ ...formData, sellerName: text })}
-                placeholder="أدخل اسم البائع"
-                required
-              />
-
-              <FormInput
-                label="اسم العميل"
-                value={formData.customerName}
-                onChangeText={(text) => setFormData({ ...formData, customerName: text })}
-                placeholder="أدخل اسم العميل"
-                required
-              />
-
-              <FormNumberInput
-                label="كمية المبيعة - درزن"
-                value={formData.quantityDozen.toString()}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, quantityDozen: parseInt(text) || 0 })
-                }
-                unit="درزن"
-              />
-
-              <FormNumberInput
-                label="كمية المبيعة - زوج"
-                value={formData.quantityPair.toString()}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, quantityPair: parseInt(text) || 0 })
-                }
-                unit="زوج"
-              />
-
-              <FormSelect
-                label="طريقة الدفع"
-                value={formData.paymentMethod}
-                options={PAYMENT_METHODS}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, paymentMethod: value as "cash" | "credit" })
-                }
-                required
-              />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </ScreenContainer>
   );
 }

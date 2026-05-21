@@ -12,9 +12,10 @@ export interface SalesData {
   id?: number;
   sellerName: string;
   customerName: string;
+  customerCategory: string;
   quantityDozen: number;
   quantityPair: number;
-  paymentMethod: "cash" | "credit";
+  paymentMethod: "cash" | "deferred";
 }
 
 export interface CollectionData {
