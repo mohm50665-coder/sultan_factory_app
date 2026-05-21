@@ -25,6 +25,9 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+// الشاشات التي لا تتطلب تسجيل دخول
+const AUTH_SCREENS = ["login", "register", "forgot-password"];
+
 // Navigation component that uses useAuth
 function NavigationContent() {
   const { isSignedIn, isLoading } = useAuth();
@@ -34,15 +37,18 @@ function NavigationContent() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === "(tabs)";
+    const currentSegment = segments[0] as string;
+    const inAuthGroup = currentSegment === "(tabs)";
+    const isAuthScreen = AUTH_SCREENS.includes(currentSegment);
 
-    if (isSignedIn && !inAuthGroup) {
+    if (isSignedIn && isAuthScreen) {
+      // مسجل دخول ولكن في شاشة تسجيل دخول → انتقل للرئيسية
       router.replace("/(tabs)");
-    } else if (!isSignedIn && inAuthGroup) {
-      router.replace("/login");
-    } else if (!isSignedIn && !inAuthGroup && segments[0] !== "login" && segments[0] !== "register" && segments[0] !== "forgot-password") {
+    } else if (!isSignedIn && !isAuthScreen && currentSegment !== "oauth") {
+      // غير مسجل دخول وليس في شاشة تسجيل → انتقل لتسجيل الدخول
       router.replace("/login");
     }
+    // في أي حالة أخرى (مسجل دخول ويتصفح شاشات التطبيق) → لا تفعل شيئاً
   }, [isSignedIn, segments, isLoading]);
 
   return (
@@ -52,6 +58,26 @@ function NavigationContent() {
       <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="forgot-password" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="oauth/callback" />
+      <Stack.Screen name="manufacturing" />
+      <Stack.Screen name="manufacturing-stage" />
+      <Stack.Screen name="production" />
+      <Stack.Screen name="sales" />
+      <Stack.Screen name="collection" />
+      <Stack.Screen name="warehouse" />
+      <Stack.Screen name="maintenance" />
+      <Stack.Screen name="administrative" />
+      <Stack.Screen name="financial" />
+      <Stack.Screen name="tasks" />
+      <Stack.Screen name="reports" />
+      <Stack.Screen name="monthly-reports" />
+      <Stack.Screen name="notifications-center" />
+      <Stack.Screen name="notifications" />
+      <Stack.Screen name="export-data" />
+      <Stack.Screen name="search" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="admin-dashboard" />
+      <Stack.Screen name="dashboard-analytics" />
+      <Stack.Screen name="role-management" />
     </Stack>
   );
 }

@@ -19,6 +19,12 @@ interface WorkerEntry {
   workerName: string;
   productionDozen: string;
   productionPairs: string;
+  // حقول التخزين - الإنتاج التام
+  finishedDozen?: string;
+  finishedPairs?: string;
+  // حقول التخزين - النخب الثاني
+  secondGradeDozen?: string;
+  secondGradePairs?: string;
   date: string;
   notes: string;
 }
@@ -82,7 +88,7 @@ const STAGE_CONFIG: Record<
     color: "#4f46e5",
     icon: "warehouse",
     workers: ["شميم"],
-    fields: ["dozen", "pairs"],
+    fields: ["storage"],
   },
 };
 
@@ -101,7 +107,14 @@ export default function ManufacturingStageScreen() {
   const [selectedWorker, setSelectedWorker] = useState("");
   const [productionDozen, setProductionDozen] = useState("");
   const [productionPairs, setProductionPairs] = useState("");
+  // حقول التخزين
+  const [finishedDozen, setFinishedDozen] = useState("");
+  const [finishedPairs, setFinishedPairs] = useState("");
+  const [secondGradeDozen, setSecondGradeDozen] = useState("");
+  const [secondGradePairs, setSecondGradePairs] = useState("");
   const [notes, setNotes] = useState("");
+
+  const isStorageStage = stage === "storage";
 
   useEffect(() => {
     loadEntries();
@@ -130,6 +143,10 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker("");
     setProductionDozen("");
     setProductionPairs("");
+    setFinishedDozen("");
+    setFinishedPairs("");
+    setSecondGradeDozen("");
+    setSecondGradePairs("");
     setNotes("");
     setEditingEntry(null);
   };
@@ -140,16 +157,27 @@ export default function ManufacturingStageScreen() {
       Alert.alert("تنبيه", "يرجى اختيار اسم العامل");
       return;
     }
-    if (!productionDozen && !productionPairs) {
-      Alert.alert("تنبيه", "يرجى إدخال كمية الإنتاج (درزن أو زوج)");
-      return;
+    if (isStorageStage) {
+      if (!finishedDozen && !finishedPairs && !secondGradeDozen && !secondGradePairs) {
+        Alert.alert("تنبيه", "يرجى إدخال كمية واحدة على الأقل");
+        return;
+      }
+    } else {
+      if (!productionDozen && !productionPairs) {
+        Alert.alert("تنبيه", "يرجى إدخال كمية الإنتاج (درزن أو زوج)");
+        return;
+      }
     }
 
     const entry: WorkerEntry = {
       id: editingEntry?.id || Date.now().toString(),
       workerName: selectedWorker,
-      productionDozen: productionDozen || "0",
-      productionPairs: productionPairs || "0",
+      productionDozen: isStorageStage ? "0" : (productionDozen || "0"),
+      productionPairs: isStorageStage ? "0" : (productionPairs || "0"),
+      finishedDozen: isStorageStage ? (finishedDozen || "0") : undefined,
+      finishedPairs: isStorageStage ? (finishedPairs || "0") : undefined,
+      secondGradeDozen: isStorageStage ? (secondGradeDozen || "0") : undefined,
+      secondGradePairs: isStorageStage ? (secondGradePairs || "0") : undefined,
       date: new Date().toLocaleDateString("ar-SA"),
       notes: notes,
     };
@@ -175,6 +203,10 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker(entry.workerName);
     setProductionDozen(entry.productionDozen);
     setProductionPairs(entry.productionPairs);
+    setFinishedDozen(entry.finishedDozen || "");
+    setFinishedPairs(entry.finishedPairs || "");
+    setSecondGradeDozen(entry.secondGradeDozen || "");
+    setSecondGradePairs(entry.secondGradePairs || "");
     setNotes(entry.notes || "");
     setEditingEntry(entry);
     setShowForm(true);
@@ -245,22 +277,53 @@ export default function ManufacturingStageScreen() {
       </View>
 
       {/* بيانات الإنتاج */}
-      <View className="bg-background rounded-lg p-3">
-        <View className="flex-row justify-between items-center mb-2">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-foreground font-bold text-base">{item.productionDozen}</Text>
-            <Text className="text-muted text-sm">درزن</Text>
+      {isStorageStage ? (
+        <View className="bg-background rounded-lg p-3">
+          {/* الإنتاج التام */}
+          <Text className="text-foreground font-semibold text-sm text-right mb-2">الإنتاج التام:</Text>
+          <View className="flex-row justify-between items-center mb-1">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-foreground font-bold text-base">{item.finishedDozen || "0"}</Text>
+              <Text className="text-muted text-sm">درزن</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <Text className="text-foreground font-bold text-base">{item.finishedPairs || "0"}</Text>
+              <Text className="text-muted text-sm">زوج</Text>
+            </View>
           </View>
-          <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالدرزن</Text>
-        </View>
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-foreground font-bold text-base">{item.productionPairs}</Text>
-            <Text className="text-muted text-sm">زوج</Text>
+          {/* النخب الثاني */}
+          <View className="border-t border-border mt-2 pt-2">
+            <Text className="text-foreground font-semibold text-sm text-right mb-2">النخب الثاني:</Text>
+            <View className="flex-row justify-between items-center">
+              <View className="flex-row items-center gap-1">
+                <Text className="text-foreground font-bold text-base">{item.secondGradeDozen || "0"}</Text>
+                <Text className="text-muted text-sm">درزن</Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="text-foreground font-bold text-base">{item.secondGradePairs || "0"}</Text>
+                <Text className="text-muted text-sm">زوج</Text>
+              </View>
+            </View>
           </View>
-          <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالزوج</Text>
         </View>
-      </View>
+      ) : (
+        <View className="bg-background rounded-lg p-3">
+          <View className="flex-row justify-between items-center mb-2">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-foreground font-bold text-base">{item.productionDozen}</Text>
+              <Text className="text-muted text-sm">درزن</Text>
+            </View>
+            <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالدرزن</Text>
+          </View>
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-foreground font-bold text-base">{item.productionPairs}</Text>
+              <Text className="text-muted text-sm">زوج</Text>
+            </View>
+            <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالزوج</Text>
+          </View>
+        </View>
+      )}
 
       {/* ملاحظات */}
       {item.notes ? (
@@ -360,37 +423,106 @@ export default function ManufacturingStageScreen() {
               ) : null}
             </View>
 
-            {/* كمية الإنتاج بالدرزن */}
-            <View className="mb-4">
-              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-                كمية الإنتاج (درزن)
-              </Text>
-              <TextInput
-                className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-                placeholder="أدخل الكمية بالدرزن"
-                placeholderTextColor={colors.muted}
-                value={productionDozen}
-                onChangeText={setProductionDozen}
-                keyboardType="numeric"
-                returnKeyType="next"
-              />
-            </View>
+            {/* حقول الإدخال حسب المرحلة */}
+            {isStorageStage ? (
+              <View>
+                {/* الإنتاج التام */}
+                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
+                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                    الإنتاج التام
+                  </Text>
+                  <View className="mb-3">
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={finishedDozen}
+                      onChangeText={setFinishedDozen}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={finishedPairs}
+                      onChangeText={setFinishedPairs}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                </View>
 
-            {/* كمية الإنتاج بالزوج */}
-            <View className="mb-4">
-              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-                كمية الإنتاج (زوج)
-              </Text>
-              <TextInput
-                className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-                placeholder="أدخل الكمية بالزوج"
-                placeholderTextColor={colors.muted}
-                value={productionPairs}
-                onChangeText={setProductionPairs}
-                keyboardType="numeric"
-                returnKeyType="next"
-              />
-            </View>
+                {/* النخب الثاني */}
+                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
+                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                    النخب الثاني
+                  </Text>
+                  <View className="mb-3">
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={secondGradeDozen}
+                      onChangeText={setSecondGradeDozen}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={secondGradePairs}
+                      onChangeText={setSecondGradePairs}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View>
+                {/* كمية الإنتاج بالدرزن */}
+                <View className="mb-4">
+                  <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                    كمية الإنتاج (درزن)
+                  </Text>
+                  <TextInput
+                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    placeholder="أدخل الكمية بالدرزن"
+                    placeholderTextColor={colors.muted}
+                    value={productionDozen}
+                    onChangeText={setProductionDozen}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                  />
+                </View>
+
+                {/* كمية الإنتاج بالزوج */}
+                <View className="mb-4">
+                  <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                    كمية الإنتاج (زوج)
+                  </Text>
+                  <TextInput
+                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    placeholder="أدخل الكمية بالزوج"
+                    placeholderTextColor={colors.muted}
+                    value={productionPairs}
+                    onChangeText={setProductionPairs}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                  />
+                </View>
+              </View>
+            )}
 
             {/* ملاحظات */}
             <View className="mb-5">

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -121,6 +122,10 @@ export default function HomeScreen() {
     );
   };
 
+  const handleNavigate = (route: string) => {
+    router.push(route as any);
+  };
+
   return (
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
@@ -130,7 +135,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               onPress={handleLogout}
               disabled={isLoading}
-              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 8, padding: 8 }}
+              style={styles.headerButton}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
@@ -139,8 +144,8 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => router.push("/profile" as any)}
-              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 8, padding: 8 }}
+              onPress={() => handleNavigate("/profile")}
+              style={styles.headerButton}
             >
               <MaterialIcons name="person" size={20} color="white" />
             </TouchableOpacity>
@@ -158,47 +163,46 @@ export default function HomeScreen() {
       {/* زر لوحة تحكم ADMIN */}
       {user?.role === "admin" && (
         <TouchableOpacity
-          onPress={() => router.push("/admin-dashboard" as any)}
-          className="mx-4 mt-4 bg-surface border border-warning rounded-xl p-3 flex-row items-center justify-between"
+          onPress={() => handleNavigate("/admin-dashboard")}
+          style={styles.adminButton}
         >
           <MaterialIcons name="chevron-left" size={20} color="#f59e0b" />
-          <View className="flex-row items-center gap-2">
-            <Text className="text-warning font-semibold text-sm">لوحة تحكم ADMIN</Text>
+          <View style={styles.adminButtonContent}>
+            <Text style={styles.adminButtonText}>لوحة تحكم ADMIN</Text>
             <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
           </View>
         </TouchableOpacity>
       )}
 
       {/* شبكة الأيقونات */}
-      <ScrollView className="flex-1 p-4">
-        <View className="flex-row flex-wrap justify-between">
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.grid}>
           {DASHBOARD_ITEMS.map((item) => (
             <TouchableOpacity
               key={item.id}
-              onPress={() => router.push(item.route as any)}
-              className="w-[48%] mb-4"
+              onPress={() => handleNavigate(item.route)}
+              style={styles.gridItem}
               activeOpacity={0.7}
             >
-              <View className="bg-surface rounded-2xl p-4 border border-border min-h-[130px]">
+              <View className="bg-surface rounded-2xl p-4 border border-border" style={styles.card}>
                 <View
-                  className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-                  style={{ backgroundColor: `${item.color}15` }}
+                  style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
                 >
                   <MaterialIcons name={item.icon as any} size={26} color={item.color} />
                 </View>
                 <Text className="text-foreground font-bold text-sm text-right">{item.label}</Text>
-                <Text className="text-muted text-xs mt-1 text-right leading-4">{item.description}</Text>
+                <Text className="text-muted text-xs mt-1 text-right" style={styles.description}>{item.description}</Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* أدوات إضافية */}
-        <Text className="text-foreground font-bold text-base text-right mt-4 mb-3">أدوات إضافية</Text>
-        <View className="flex-row flex-wrap justify-between mb-6">
+        <Text className="text-foreground font-bold text-base text-right" style={styles.toolsTitle}>أدوات إضافية</Text>
+        <View style={styles.toolsGrid}>
           <TouchableOpacity
-            onPress={() => router.push("/reports" as any)}
-            className="w-[31%] mb-3"
+            onPress={() => handleNavigate("/reports")}
+            style={styles.toolItem}
             activeOpacity={0.7}
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
@@ -207,8 +211,8 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push("/notifications-center" as any)}
-            className="w-[31%] mb-3"
+            onPress={() => handleNavigate("/notifications-center")}
+            style={styles.toolItem}
             activeOpacity={0.7}
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
@@ -217,8 +221,8 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push("/export-data" as any)}
-            className="w-[31%] mb-3"
+            onPress={() => handleNavigate("/export-data")}
+            style={styles.toolItem}
             activeOpacity={0.7}
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
@@ -231,3 +235,76 @@ export default function HomeScreen() {
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 8,
+    padding: 8,
+  },
+  adminButton: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    backgroundColor: "#f5f5f5",
+  },
+  adminButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  adminButtonText: {
+    color: "#f59e0b",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  gridItem: {
+    width: "48%",
+    marginBottom: 16,
+  },
+  card: {
+    minHeight: 130,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  description: {
+    lineHeight: 16,
+  },
+  toolsTitle: {
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  toolsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  toolItem: {
+    width: "31%",
+    marginBottom: 12,
+  },
+});
