@@ -27,6 +27,37 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+// Separate component that uses useAuth (must be inside AuthProvider)
+function NavigationContent() {
+  const { isSignedIn, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === "(tabs)";
+
+    if (isSignedIn && !inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!isSignedIn && inAuthGroup) {
+      router.replace("/login");
+    } else if (!isSignedIn && !inAuthGroup && segments[0] !== "login" && segments[0] !== "register" && segments[0] !== "forgot-password") {
+      router.replace("/login");
+    }
+  }, [isSignedIn, segments, isLoading]);
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
+      <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
+      <Stack.Screen name="forgot-password" options={{ presentation: "fullScreenModal" }} />
+      <Stack.Screen name="oauth/callback" />
+    </Stack>
+  );
+}
+
 function RootLayoutContent() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
@@ -34,7 +65,6 @@ function RootLayoutContent() {
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
 
-  // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
   }, []);
@@ -50,15 +80,12 @@ function RootLayoutContent() {
     return () => unsubscribe();
   }, [handleSafeAreaUpdate]);
 
-  // Create clients once and reuse them
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Disable automatic refetching on window focus for mobile
             refetchOnWindowFocus: false,
-            // Retry failed requests once
             retry: 1,
           },
         },
@@ -66,7 +93,6 @@ function RootLayoutContent() {
   );
   const [trpcClient] = useState(() => createTRPCClient());
 
-  // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -79,43 +105,14 @@ function RootLayoutContent() {
     };
   }, [initialInsets, initialFrame]);
 
-  const { isSignedIn, isLoading } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-
-  // إعادة توجيه المستخدمين بناءً على حالة المصادقة
-  useEffect(() => {
-    if (isLoading) return;
-
-    const inAuthGroup = segments[0] === "(tabs)";
-
-    if (isSignedIn && !inAuthGroup) {
-      // المستخدم مسجل دخول ولكنه على صفحة تسجيل الدخول
-      router.replace("/(tabs)");
-    } else if (!isSignedIn && inAuthGroup) {
-      // المستخدم غير مسجل دخول ولكنه يحاول الوصول إلى صفحات محمية
-      router.replace("/login");
-    } else if (!isSignedIn && !inAuthGroup && segments[0] !== "login" && segments[0] !== "register" && segments[0] !== "forgot-password") {
-      // المستخدم غير مسجل دخول وليس على صفحة معروفة
-      router.replace("/login");
-    }
-  }, [isSignedIn, segments, isLoading]);
-
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="forgot-password" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
-          <StatusBar style="auto" />
+          <AuthProvider>
+            <NavigationContent />
+            <StatusBar style="auto" />
+          </AuthProvider>
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
@@ -145,22 +142,5 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-          },
-        },
-      }),
-  );
-  const [trpcClient] = useState(() => createTRPCClient());
-
-  return (
-    <AuthProvider>
-      <RootLayoutContent />
-    </AuthProvider>
-  );
+  return <RootLayoutContent />;
 }
