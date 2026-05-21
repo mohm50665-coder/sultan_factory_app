@@ -140,4 +140,56 @@ export const simpleAuthService = {
       throw error;
     }
   },
+
+  async updateProfile(data: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    position?: string;
+  }): Promise<User> {
+    try {
+      const currentUserJson = await AsyncStorage.getItem(CURRENT_USER_KEY);
+      if (!currentUserJson) {
+        throw new Error("لا يوجد مستخدم مسجل دخول");
+      }
+
+      const currentUser = JSON.parse(currentUserJson) as User;
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      // Find and update user
+      const userIndex = users.findIndex((u) => u.id === currentUser.id);
+      if (userIndex === -1) {
+        throw new Error("المستخدم غير موجود");
+      }
+
+      // Check if new email already exists
+      if (data.email && data.email !== currentUser.email) {
+        if (users.some((u) => u.email === data.email && u.id !== currentUser.id)) {
+          throw new Error("البريد الإلكتروني مسجل بالفعل");
+        }
+      }
+
+      // Update user data
+      const updatedUser: StoredUser = {
+        ...users[userIndex],
+        name: data.name ?? users[userIndex].name,
+        email: data.email ?? users[userIndex].email,
+        phone: data.phone ?? users[userIndex].phone,
+        position: data.position ?? users[userIndex].position,
+      };
+
+      users[userIndex] = updatedUser;
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+      // Update current user
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
+
+      return userWithoutPassword;
+    } catch (error) {
+      console.error("Update profile error:", error);
+      throw error;
+    }
+  },
 };

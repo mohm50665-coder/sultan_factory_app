@@ -9,6 +9,7 @@ interface AuthContextType {
   register: (name: string, email: string, phone: string, position: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   signUp: (name: string, email: string, phone: string, position: string, password: string) => Promise<void>;
+  updateProfile: (data: { name?: string; email?: string; phone?: string; position?: string }) => Promise<void>;
   error: string | null;
 }
 
@@ -93,6 +94,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfile = async (data: { name?: string; email?: string; phone?: string; position?: string }) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const updatedUser = await simpleAuthService.updateProfile(data);
+      setUser(updatedUser);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "فشل تحديث البيانات";
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -101,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     signUp,
+    updateProfile,
     error,
   };
 
