@@ -287,16 +287,6 @@ export default function WarehouseOutScreen() {
               onChangeText={setItemName}
             />
 
-            {/* المورد */}
-            <Text style={styles.label}>المورد</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="اسم المورد"
-              placeholderTextColor={colors.muted}
-              value={supplier}
-              onChangeText={setSupplier}
-            />
-
             {/* الكمية */}
             <Text style={styles.label}>الكمية</Text>
             <TextInput
@@ -426,10 +416,6 @@ export default function WarehouseOutScreen() {
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.itemName}</Text>
                     <Text style={styles.entryLabel}>اسم الصنف:</Text>
-                  </View>
-                  <View style={styles.entryRow}>
-                    <Text style={styles.entryValue}>{entry.supplier}</Text>
-                    <Text style={styles.entryLabel}>المورد:</Text>
                   </View>
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.quantity} {entry.unit}</Text>
