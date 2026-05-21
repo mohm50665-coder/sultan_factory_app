@@ -4,287 +4,440 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Alert,
-  ActivityIndicator,
-  FlatList,
-  Modal,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { FormInput, FormNumberInput, FormSelect, FormCheckbox } from "@/components/form-input";
-import { financialService, FinancialData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const EXPENSE_TYPES = [
-  { label: "صرف نقدي عام", value: "general_cash" },
-  { label: "صرف نقدي - عهدة حيدر", value: "cash_haider" },
-  { label: "صرف نقدي - عهدة المدير العام", value: "cash_general_manager" },
-  { label: "شراء بطاقة بنكية - عهدة حيدر", value: "card_haider" },
-  { label: "شراء بطاقة بنكية - عهدة المدير العام", value: "card_general_manager" },
-];
+const STORAGE_KEY = "sultan_expenses";
+const REPORT_STORAGE_KEY = "sultan_financial_reports";
+
+interface ExpenseEntry {
+  id: string;
+  date: string;
+  amount: string;
+  description: string;
+}
+
+interface FinancialReport {
+  id: string;
+  date: string;
+  title: string;
+  content: string;
+}
+
+function formatDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export default function FinancialScreen() {
   const router = useRouter();
   const colors = useColors();
 
-  const [expenses, setExpenses] = useState<FinancialData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"expenses" | "report">("expenses");
 
-  const [formData, setFormData] = useState<FinancialData>({
-    expenseType: "general_cash",
-    description: "",
-    amount: 0,
-    approvedByBoardRep: false,
-  });
+  // حقول المصروفات
+  const [entries, setEntries] = useState<ExpenseEntry[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<ExpenseEntry | null>(null);
+  const [date, setDate] = useState(formatDate(new Date()));
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+
+  // حقول التقرير المالي
+  const [reports, setReports] = useState<FinancialReport[]>([]);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [editingReport, setEditingReport] = useState<FinancialReport | null>(null);
+  const [reportDate, setReportDate] = useState(formatDate(new Date()));
+  const [reportTitle, setReportTitle] = useState("");
+  const [reportContent, setReportContent] = useState("");
 
   useEffect(() => {
-    loadExpenses();
+    loadEntries();
+    loadReports();
   }, []);
 
-  const loadExpenses = async () => {
+  // ===== المصروفات =====
+  const loadEntries = async () => {
     try {
-      setIsLoading(true);
-      const data = await financialService.getAll();
-      setExpenses(data);
-    } catch (error) {
-      Alert.alert("خطأ", "فشل تحميل البيانات المالية");
-    } finally {
-      setIsLoading(false);
-    }
+      const data = await AsyncStorage.getItem(STORAGE_KEY);
+      if (data) setEntries(JSON.parse(data));
+    } catch (e) {}
   };
 
-  const handleSave = async () => {
-    if (!formData.description || formData.amount <= 0) {
-      Alert.alert("خطأ", "يرجى ملء جميع الحقول بشكل صحيح");
-      return;
-    }
-
+  const saveEntries = async (newEntries: ExpenseEntry[]) => {
     try {
-      setIsLoading(true);
-      if (editingId) {
-        await financialService.update(editingId, formData);
-        Alert.alert("نجاح", "تم تحديث البيانات بنجاح");
-      } else {
-        await financialService.create(formData);
-        Alert.alert("نجاح", "تم إضافة البيانات بنجاح");
-      }
-      setShowForm(false);
-      resetForm();
-      loadExpenses();
-    } catch (error) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    Alert.alert(
-      "تأكيد الحذف",
-      "هل أنت متأكد من حذف هذا السجل؟",
-      [
-        { text: "إلغاء", onPress: () => {} },
-        {
-          text: "حذف",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await financialService.delete(id);
-              Alert.alert("نجاح", "تم حذف البيانات بنجاح");
-              loadExpenses();
-            } catch (error) {
-              Alert.alert("خطأ", "فشل حذف البيانات");
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleEdit = (expense: FinancialData) => {
-    setFormData(expense);
-    setEditingId(expense.id || null);
-    setShowForm(true);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
+      setEntries(newEntries);
+    } catch (e) {}
   };
 
   const resetForm = () => {
-    setFormData({
-      expenseType: "general_cash",
-      description: "",
-      amount: 0,
-      approvedByBoardRep: false,
-    });
-    setEditingId(null);
+    setDate(formatDate(new Date()));
+    setAmount("");
+    setDescription("");
+    setEditingEntry(null);
+    setShowForm(false);
+  };
+
+  const handleSave = () => {
+    if (!amount || !description) {
+      Alert.alert("تنبيه", "يرجى ملء جميع الحقول");
+      return;
+    }
+    const entry: ExpenseEntry = {
+      id: editingEntry?.id || Date.now().toString(),
+      date,
+      amount,
+      description,
+    };
+    let newEntries: ExpenseEntry[];
+    if (editingEntry) {
+      newEntries = entries.map((e) => (e.id === editingEntry.id ? entry : e));
+    } else {
+      newEntries = [entry, ...entries];
+    }
+    saveEntries(newEntries);
+    resetForm();
+  };
+
+  const handleEdit = (entry: ExpenseEntry) => {
+    setDate(entry.date);
+    setAmount(entry.amount);
+    setDescription(entry.description);
+    setEditingEntry(entry);
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert("تأكيد الحذف", "هل أنت متأكد من حذف هذا السجل؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: () => saveEntries(entries.filter((e) => e.id !== id)) },
+    ]);
   };
 
   const getTotalExpenses = () => {
-    return expenses.reduce((sum, item) => sum + item.amount, 0);
+    return entries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   };
 
-  const getExpenseTypeLabel = (type: string) => {
-    return EXPENSE_TYPES.find((t) => t.value === type)?.label || type;
+  // ===== التقرير المالي =====
+  const loadReports = async () => {
+    try {
+      const data = await AsyncStorage.getItem(REPORT_STORAGE_KEY);
+      if (data) setReports(JSON.parse(data));
+    } catch (e) {}
   };
 
-  const renderExpenseItem = ({ item }: { item: FinancialData }) => (
-    <View className="bg-white rounded-lg p-4 mb-3 border border-border">
-      <View className="flex-row justify-between items-start mb-3">
-        <View className="flex-1">
-          <Text className="text-foreground font-bold text-base">
-            {getExpenseTypeLabel(item.expenseType)}
-          </Text>
-          <Text className="text-muted text-sm mt-1 leading-4">{item.description}</Text>
-        </View>
-        <View className="flex-row gap-2">
-          <TouchableOpacity
-            onPress={() => handleEdit(item)}
-            className="bg-primary/10 rounded-lg p-2"
-          >
-            <MaterialIcons name="edit" size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => item.id && handleDelete(item.id)}
-            className="bg-error/10 rounded-lg p-2"
-          >
-            <MaterialIcons name="delete" size={18} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
+  const saveReports = async (newReports: FinancialReport[]) => {
+    try {
+      await AsyncStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(newReports));
+      setReports(newReports);
+    } catch (e) {}
+  };
 
-      <View className="flex-row justify-between items-center bg-surface rounded p-2">
-        <View className="flex-row items-center gap-2">
-          {item.approvedByBoardRep && (
-            <View className="flex-row items-center gap-1 bg-success/10 px-2 py-1 rounded">
-              <MaterialIcons name="check-circle" size={14} color={colors.success} />
-              <Text className="text-success text-xs font-semibold">موافق</Text>
-            </View>
-          )}
-        </View>
-        <Text className="text-error font-bold text-sm">{item.amount} ريال</Text>
-      </View>
-    </View>
-  );
+  const resetReportForm = () => {
+    setReportDate(formatDate(new Date()));
+    setReportTitle("");
+    setReportContent("");
+    setEditingReport(null);
+    setShowReportForm(false);
+  };
+
+  const handleSaveReport = () => {
+    if (!reportTitle || !reportContent) {
+      Alert.alert("تنبيه", "يرجى ملء جميع الحقول");
+      return;
+    }
+    const report: FinancialReport = {
+      id: editingReport?.id || Date.now().toString(),
+      date: reportDate,
+      title: reportTitle,
+      content: reportContent,
+    };
+    let newReports: FinancialReport[];
+    if (editingReport) {
+      newReports = reports.map((r) => (r.id === editingReport.id ? report : r));
+    } else {
+      newReports = [report, ...reports];
+    }
+    saveReports(newReports);
+    resetReportForm();
+  };
+
+  const handleEditReport = (report: FinancialReport) => {
+    setReportDate(report.date);
+    setReportTitle(report.title);
+    setReportContent(report.content);
+    setEditingReport(report);
+    setShowReportForm(true);
+  };
+
+  const handleDeleteReport = (id: string) => {
+    Alert.alert("تأكيد الحذف", "هل أنت متأكد من حذف هذا التقرير؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: () => saveReports(reports.filter((r) => r.id !== id)) },
+    ]);
+  };
 
   return (
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
-      <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
-        <View>
-          <TouchableOpacity onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-        <Text className="text-white font-bold text-lg">الشؤون المالية</Text>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <MaterialIcons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>المصروفات</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* التبويبات */}
+      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          onPress={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="bg-white/20 rounded-lg p-2"
+          onPress={() => setActiveTab("expenses")}
+          style={[styles.tab, activeTab === "expenses" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
         >
-          <MaterialIcons name="add" size={24} color="white" />
+          <MaterialIcons name="payments" size={20} color={activeTab === "expenses" ? colors.primary : colors.muted} />
+          <Text style={[styles.tabText, { color: activeTab === "expenses" ? colors.primary : colors.muted }]}>المصروفات</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab("report")}
+          style={[styles.tab, activeTab === "report" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+        >
+          <MaterialIcons name="description" size={20} color={activeTab === "report" ? colors.primary : colors.muted} />
+          <Text style={[styles.tabText, { color: activeTab === "report" ? colors.primary : colors.muted }]}>التقرير المالي</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ملخص النفقات */}
-      <View className="bg-error/10 border-b border-border p-4">
-        <Text className="text-muted text-xs mb-1">إجمالي النفقات</Text>
-        <Text className="text-error font-bold text-2xl">{getTotalExpenses()} ريال</Text>
-      </View>
-
-      {/* قائمة النفقات */}
-      {isLoading ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={expenses}
-          renderItem={renderExpenseItem}
-          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-          ListEmptyComponent={
-            <View className="flex-1 justify-center items-center">
-              <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text className="text-muted text-center mt-4">لا توجد نفقات مسجلة</Text>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
+        {activeTab === "expenses" ? (
+          <>
+            {/* ملخص المصروفات */}
+            <View style={[styles.summaryCard, { backgroundColor: "#fef2f2", borderColor: "#fecaca" }]}>
+              <Text style={{ color: "#6b7280", fontSize: 12 }}>إجمالي المصروفات</Text>
+              <Text style={{ color: "#dc2626", fontSize: 22, fontWeight: "bold", marginTop: 4 }}>{getTotalExpenses().toLocaleString()} ريال</Text>
             </View>
-          }
-        />
-      )}
 
-      {/* نموذج الإضافة/التعديل */}
-      <Modal
-        visible={showForm}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowForm(false)}
-      >
-        <View className="flex-1 bg-black/50">
-          <View className="flex-1 bg-background rounded-t-3xl mt-12">
-            {/* رأس النموذج */}
-            <View className="flex-row justify-between items-center p-6 border-b border-border">
-              <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text className="text-primary font-semibold">إلغاء</Text>
+            {/* زر إضافة */}
+            {!showForm && (
+              <TouchableOpacity onPress={() => setShowForm(true)} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
+                <MaterialIcons name="add" size={20} color="#fff" />
+                <Text style={styles.addBtnText}>إضافة مصروف</Text>
               </TouchableOpacity>
-              <Text className="text-foreground font-bold text-lg">
-                {editingId ? "تعديل النفقة" : "إضافة نفقة جديدة"}
-              </Text>
-              <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text className={`font-semibold ${isLoading ? "text-muted" : "text-primary"}`}>
-                  {isLoading ? "جاري..." : "حفظ"}
+            )}
+
+            {/* نموذج الإدخال */}
+            {showForm && (
+              <View style={[styles.formCard, { borderColor: colors.border }]}>
+                <Text style={[styles.formTitle, { color: colors.foreground }]}>
+                  {editingEntry ? "تعديل المصروف" : "إضافة مصروف جديد"}
                 </Text>
-              </TouchableOpacity>
-            </View>
 
-            {/* محتوى النموذج */}
-            <ScrollView className="flex-1 p-6">
-              <FormSelect
-                label="نوع النفقة"
-                value={formData.expenseType}
-                options={EXPENSE_TYPES}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, expenseType: value })
-                }
-                required
-              />
-
-              <FormInput
-                label="وصف النفقة"
-                value={formData.description}
-                onChangeText={(text) => setFormData({ ...formData, description: text })}
-                placeholder="أدخل وصف النفقة"
-                multiline
-                numberOfLines={3}
-                required
-              />
-
-              <FormNumberInput
-                label="المبلغ"
-                value={formData.amount.toString()}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, amount: parseInt(text) || 0 })
-                }
-                unit="ريال"
-                required
-              />
-
-              <View className="mt-6 border-t border-border pt-6">
-                <FormCheckbox
-                  label="موافقة ممثل مجلس الإدارة"
-                  value={formData.approvedByBoardRep}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, approvedByBoardRep: value })
-                  }
+                <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
+                  value={date}
+                  onChangeText={setDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.muted}
                 />
+
+                <Text style={[styles.label, { color: colors.foreground }]}>مبلغ الصرف (ريال)</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
+                  value={amount}
+                  onChangeText={setAmount}
+                  placeholder="أدخل المبلغ"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="numeric"
+                />
+
+                <Text style={[styles.label, { color: colors.foreground }]}>بيان الصرف</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="أدخل بيان الصرف"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                />
+
+                <View style={styles.formActions}>
+                  <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
+                    <MaterialIcons name="save" size={18} color="#fff" />
+                    <Text style={styles.saveBtnText}>حفظ</Text>
+                  </TouchableOpacity>
+                  {editingEntry && (
+                    <TouchableOpacity onPress={handleSave} style={[styles.editBtn, { backgroundColor: "#0891b2" }]}>
+                      <MaterialIcons name="edit" size={18} color="#fff" />
+                      <Text style={styles.saveBtnText}>تعديل</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={resetForm} style={[styles.cancelBtn, { borderColor: colors.border }]}>
+                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>إلغاء</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+            )}
+
+            {/* عرض السجلات */}
+            {entries.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>السجلات ({entries.length})</Text>
+                {entries.map((entry) => (
+                  <View key={entry.id} style={[styles.entryCard, { borderColor: colors.border }]}>
+                    <View style={styles.entryHeader}>
+                      <Text style={[styles.entryDate, { color: colors.primary }]}>{entry.date}</Text>
+                      <View style={styles.entryActions}>
+                        <TouchableOpacity onPress={() => handleEdit(entry)} style={styles.actionBtn}>
+                          <MaterialIcons name="edit" size={18} color="#0891b2" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDelete(entry.id)} style={styles.actionBtn}>
+                          <MaterialIcons name="delete" size={18} color="#dc2626" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={[styles.entryField, { color: colors.muted }]}>مبلغ الصرف: <Text style={{ color: "#dc2626", fontWeight: "bold" }}>{parseFloat(entry.amount).toLocaleString()} ريال</Text></Text>
+                    <Text style={[styles.entryField, { color: colors.muted }]}>بيان الصرف: <Text style={{ color: colors.foreground }}>{entry.description}</Text></Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {entries.length === 0 && !showForm && (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="inbox" size={48} color={colors.muted} />
+                <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد مصروفات مسجلة</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            {/* قسم التقرير المالي */}
+            {!showReportForm && (
+              <TouchableOpacity onPress={() => setShowReportForm(true)} style={[styles.addBtn, { backgroundColor: "#6366f1" }]}>
+                <MaterialIcons name="note-add" size={20} color="#fff" />
+                <Text style={styles.addBtnText}>إدراج تقرير مالي</Text>
+              </TouchableOpacity>
+            )}
+
+            {showReportForm && (
+              <View style={[styles.formCard, { borderColor: colors.border }]}>
+                <Text style={[styles.formTitle, { color: colors.foreground }]}>
+                  {editingReport ? "تعديل التقرير" : "إدراج تقرير مالي جديد"}
+                </Text>
+
+                <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
+                  value={reportDate}
+                  onChangeText={setReportDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.muted}
+                />
+
+                <Text style={[styles.label, { color: colors.foreground }]}>عنوان التقرير</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
+                  value={reportTitle}
+                  onChangeText={setReportTitle}
+                  placeholder="أدخل عنوان التقرير"
+                  placeholderTextColor={colors.muted}
+                />
+
+                <Text style={[styles.label, { color: colors.foreground }]}>محتوى التقرير</Text>
+                <TextInput
+                  style={[styles.input, styles.largeTextArea, { borderColor: colors.border, color: colors.foreground }]}
+                  value={reportContent}
+                  onChangeText={setReportContent}
+                  placeholder="أدخل محتوى التقرير المالي"
+                  placeholderTextColor={colors.muted}
+                  multiline
+                />
+
+                <View style={styles.formActions}>
+                  <TouchableOpacity onPress={handleSaveReport} style={[styles.saveBtn, { backgroundColor: "#6366f1" }]}>
+                    <MaterialIcons name="save" size={18} color="#fff" />
+                    <Text style={styles.saveBtnText}>حفظ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={resetReportForm} style={[styles.cancelBtn, { borderColor: colors.border }]}>
+                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>إلغاء</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* عرض التقارير */}
+            {reports.length > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>التقارير ({reports.length})</Text>
+                {reports.map((report) => (
+                  <View key={report.id} style={[styles.entryCard, { borderColor: colors.border }]}>
+                    <View style={styles.entryHeader}>
+                      <Text style={[styles.entryDate, { color: "#6366f1" }]}>{report.date}</Text>
+                      <View style={styles.entryActions}>
+                        <TouchableOpacity onPress={() => handleEditReport(report)} style={styles.actionBtn}>
+                          <MaterialIcons name="edit" size={18} color="#0891b2" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteReport(report.id)} style={styles.actionBtn}>
+                          <MaterialIcons name="delete" size={18} color="#dc2626" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={[{ color: colors.foreground, fontWeight: "bold", fontSize: 14, textAlign: "right" }]}>{report.title}</Text>
+                    <Text style={[styles.entryField, { color: colors.foreground, marginTop: 6 }]}>{report.content}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {reports.length === 0 && !showReportForm && (
+              <View style={styles.emptyState}>
+                <MaterialIcons name="description" size={48} color={colors.muted} />
+                <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد تقارير مالية</Text>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 14 },
+  backBtn: { padding: 4 },
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  tabRow: { flexDirection: "row", borderBottomWidth: 1, backgroundColor: "#fff" },
+  tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 6 },
+  tabText: { fontSize: 13, fontWeight: "600" },
+  content: { flex: 1, padding: 16 },
+  summaryCard: { borderRadius: 12, padding: 16, borderWidth: 1, marginBottom: 16 },
+  addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 10, gap: 6, marginBottom: 16 },
+  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
+  formCard: { backgroundColor: "#fff", borderRadius: 12, padding: 16, borderWidth: 1, marginBottom: 16 },
+  formTitle: { fontSize: 15, fontWeight: "bold", marginBottom: 12, textAlign: "right" },
+  label: { fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 10, textAlign: "right" },
+  input: { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14, textAlign: "right" },
+  textArea: { minHeight: 70, textAlignVertical: "top" },
+  largeTextArea: { minHeight: 120, textAlignVertical: "top" },
+  formActions: { flexDirection: "row", gap: 10, marginTop: 16 },
+  saveBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 8, gap: 6 },
+  editBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 8, gap: 6 },
+  saveBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
+  cancelBtn: { flex: 1, alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 8, borderWidth: 1 },
+  cancelBtnText: { fontSize: 14 },
+  sectionHeader: { fontSize: 15, fontWeight: "bold", marginBottom: 10, textAlign: "right" },
+  entryCard: { backgroundColor: "#fff", borderRadius: 10, padding: 12, borderWidth: 1, marginBottom: 10 },
+  entryHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  entryDate: { fontSize: 12, fontWeight: "bold" },
+  entryActions: { flexDirection: "row", gap: 8 },
+  actionBtn: { padding: 4 },
+  entryField: { fontSize: 12, marginTop: 3, textAlign: "right" },
+  emptyState: { alignItems: "center", justifyContent: "center", marginTop: 60 },
+  emptyText: { fontSize: 14, marginTop: 10 },
+});

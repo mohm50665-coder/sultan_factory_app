@@ -75,11 +75,11 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
   {
     id: "financial",
-    label: "الشؤون المالية",
-    icon: "account-balance",
+    label: "المصروفات",
+    icon: "payments",
     color: "#6366f1",
     route: "/financial",
-    description: "رصيد البنك - الصرف النقدي - المشتريات",
+    description: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
   },
   {
     id: "tasks",
