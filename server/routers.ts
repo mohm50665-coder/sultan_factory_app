@@ -1,4 +1,3 @@
-import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -7,6 +6,8 @@ import { getDb } from "./db.js";
 import { users as usersTable } from "../drizzle/schema.js";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+const COOKIE_NAME = "session_id";
 
 export const appRouter = router({
   system: systemRouter,
