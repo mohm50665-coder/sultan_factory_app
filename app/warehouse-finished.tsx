@@ -17,12 +17,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
 const PRODUCT_TYPES = ["إنتاج تام", "نخب ثاني"];
+const DOCUMENT_TYPES = ["فاتورة مرتجعات", "نموذج إدخال إنتاج تام"];
 
 interface FinishedEntry {
   id: string;
   dataEntryName: string;
   entryDate: string;
   productType: string;
+  documentType: string;
   orderNumber: string;
   orderDate: string;
   totalQuantity: string;
@@ -51,6 +53,7 @@ export default function WarehouseFinishedScreen() {
   const [dataEntryName, setDataEntryName] = useState("");
   const [entryDate, setEntryDate] = useState(formatDate(new Date()));
   const [productType, setProductType] = useState("");
+  const [documentType, setDocumentType] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [orderDate, setOrderDate] = useState(formatDate(new Date()));
   const [totalQuantity, setTotalQuantity] = useState("");
@@ -79,6 +82,7 @@ export default function WarehouseFinishedScreen() {
     setDataEntryName("");
     setEntryDate(formatDate(new Date()));
     setProductType("");
+    setDocumentType("");
     setOrderNumber("");
     setOrderDate(formatDate(new Date()));
     setTotalQuantity("");
@@ -98,6 +102,7 @@ export default function WarehouseFinishedScreen() {
       dataEntryName,
       entryDate,
       productType,
+      documentType: documentType || "-",
       orderNumber: orderNumber || "-",
       orderDate,
       totalQuantity: totalQuantity || "0",
@@ -123,6 +128,7 @@ export default function WarehouseFinishedScreen() {
     setDataEntryName(entry.dataEntryName);
     setEntryDate(entry.entryDate);
     setProductType(entry.productType);
+    setDocumentType(entry.documentType || "");
     setOrderNumber(entry.orderNumber);
     setOrderDate(entry.orderDate);
     setTotalQuantity(entry.totalQuantity);
@@ -192,18 +198,32 @@ export default function WarehouseFinishedScreen() {
           ))}
         </View>
 
-        {/* رقم أمر الإدخال */}
-        <Text style={styles.label}>رقم أمر الإدخال</Text>
+        {/* نوع المستند */}
+        <Text style={styles.label}>نوع المستند</Text>
+        <View style={styles.chipRow}>
+          {DOCUMENT_TYPES.map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => setDocumentType(type)}
+              style={[styles.chip, documentType === type && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, documentType === type && styles.chipTextActive]}>{type}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* رقم مستند الإدخال */}
+        <Text style={styles.label}>رقم مستند الإدخال</Text>
         <TextInput
           style={styles.input}
-          placeholder="رقم الأمر"
+          placeholder="رقم المستند"
           placeholderTextColor={colors.muted}
           value={orderNumber}
           onChangeText={setOrderNumber}
         />
 
-        {/* تاريخ الأمر */}
-        <Text style={styles.label}>تاريخ الأمر</Text>
+        {/* تاريخ المستند */}
+        <Text style={styles.label}>تاريخ المستند</Text>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
@@ -328,8 +348,12 @@ export default function WarehouseFinishedScreen() {
                 <Text style={styles.entryLabel}>نوع الصنف:</Text>
               </View>
               <View style={styles.entryRow}>
+                <Text style={styles.entryValue}>{entry.documentType || "-"}</Text>
+                <Text style={styles.entryLabel}>نوع المستند:</Text>
+              </View>
+              <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.orderNumber} ({entry.orderDate})</Text>
-                <Text style={styles.entryLabel}>أمر الإدخال:</Text>
+                <Text style={styles.entryLabel}>رقم المستند:</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.totalQuantity}</Text>
