@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -19,15 +19,17 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!email.trim()) newErrors.email = "البريد الإلكتروني مطلوب";
-    if (!password) newErrors.password = "كلمة المرور مطلوبة";
+    if (!formData.email.trim()) newErrors.email = "البريد الإلكتروني مطلوب";
+    if (!formData.password) newErrors.password = "كلمة المرور مطلوبة";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -38,10 +40,23 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(formData.email, formData.password);
       router.replace("/(tabs)");
     } catch (error) {
-      Alert.alert("خطأ", "البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      const message = error instanceof Error ? error.message : "فشل تسجيل الدخول";
+      Alert.alert("خطأ", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsLoading(true);
+    try {
+      await login("admin@sultan.com", "123456");
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("خطأ", "فشل الدخول التجريبي");
     } finally {
       setIsLoading(false);
     }
@@ -51,15 +66,12 @@ export default function LoginScreen() {
     <ScreenContainer containerClassName="bg-gradient-to-b from-primary to-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View className="flex-1 justify-center px-6 py-8">
-          {/* العنوان */}
           <View className="mb-12 items-center">
             <Text className="text-4xl font-bold text-white mb-2">مصنع السلطان</Text>
             <Text className="text-sm text-white/80">نظام متابعة أداء المصنع</Text>
           </View>
 
-          {/* نموذج تسجيل الدخول */}
           <View className="bg-white rounded-2xl p-6 shadow-lg">
-            {/* حقل البريد الإلكتروني */}
             <View className="mb-4">
               <Text className="text-sm font-semibold text-foreground mb-2">
                 البريد الإلكتروني
@@ -70,9 +82,9 @@ export default function LoginScreen() {
                 }`}
                 placeholder="أدخل بريدك الإلكتروني"
                 placeholderTextColor={colors.muted}
-                value={email}
+                value={formData.email}
                 onChangeText={(text) => {
-                  setEmail(text);
+                  setFormData({ ...formData, email: text });
                   if (errors.email) setErrors({ ...errors, email: "" });
                 }}
                 keyboardType="email-address"
@@ -84,7 +96,6 @@ export default function LoginScreen() {
               )}
             </View>
 
-            {/* حقل كلمة المرور */}
             <View className="mb-6">
               <Text className="text-sm font-semibold text-foreground mb-2">
                 كلمة المرور
@@ -95,9 +106,9 @@ export default function LoginScreen() {
                 }`}
                 placeholder="أدخل كلمة المرور"
                 placeholderTextColor={colors.muted}
-                value={password}
+                value={formData.password}
                 onChangeText={(text) => {
-                  setPassword(text);
+                  setFormData({ ...formData, password: text });
                   if (errors.password) setErrors({ ...errors, password: "" });
                 }}
                 secureTextEntry
@@ -108,7 +119,6 @@ export default function LoginScreen() {
               )}
             </View>
 
-            {/* زر تسجيل الدخول */}
             <TouchableOpacity
               onPress={handleLogin}
               disabled={isLoading}
@@ -124,7 +134,16 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            {/* رابط نسيان كلمة المرور */}
+            <TouchableOpacity
+              onPress={handleDemoLogin}
+              disabled={isLoading}
+              className="border border-primary rounded-lg py-3 mb-4"
+            >
+              <Text className="text-primary text-center font-semibold text-sm">
+                دخول تجريبي
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => router.push("/forgot-password")}
               className="mb-4"
@@ -134,14 +153,12 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* فاصل */}
             <View className="flex-row items-center mb-4">
               <View className="flex-1 h-px bg-border" />
               <Text className="text-muted text-xs mx-2">أو</Text>
               <View className="flex-1 h-px bg-border" />
             </View>
 
-            {/* رابط التسجيل الجديد */}
             <View className="flex-row justify-center">
               <Text className="text-muted text-sm">ليس لديك حساب؟ </Text>
               <TouchableOpacity onPress={() => router.push("/register")}>
@@ -152,10 +169,11 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* معلومات إضافية */}
-          <View className="mt-8 items-center">
-            <Text className="text-white/60 text-xs text-center">
-              جميع الحقوق محفوظة © 2026 مصنع السلطان
+          <View className="mt-8 p-4 bg-white/10 rounded-lg">
+            <Text className="text-white text-xs text-center">
+              بيانات الدخول التجريبي:{"\n"}
+              البريد: admin@sultan.com{"\n"}
+              كلمة المرور: 123456
             </Text>
           </View>
         </View>

@@ -11,11 +11,12 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { authService } from "@/lib/services/auth.service";
+import { useAuth } from "@/lib/auth-context";
 
 export default function RegisterScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -50,18 +51,19 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
-      await authService.register({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        position: formData.position,
-        phone: formData.phone,
-      });
+      await register(
+        formData.name,
+        formData.email,
+        formData.phone,
+        formData.position,
+        formData.password
+      );
 
-      Alert.alert("نجاح", "تم التسجيل بنجاح. يرجى تسجيل الدخول.");
-      router.replace("/login");
+      Alert.alert("نجاح", "تم التسجيل بنجاح!");
+      router.replace("/(tabs)");
     } catch (error) {
-      Alert.alert("خطأ", "فشل التسجيل. حاول مرة أخرى.");
+      const message = error instanceof Error ? error.message : "فشل التسجيل. حاول مرة أخرى.";
+      Alert.alert("خطأ", message);
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +105,6 @@ export default function RegisterScreen() {
     <ScreenContainer containerClassName="bg-gradient-to-b from-primary to-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View className="flex-1 justify-center px-6 py-8">
-          {/* العنوان */}
           <View className="mb-12 items-center">
             <Text className="text-3xl font-bold text-white mb-2">تسجيل جديد</Text>
             <Text className="text-sm text-white/80 text-center">
@@ -111,7 +112,6 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          {/* نموذج التسجيل */}
           <View className="bg-white rounded-2xl p-6 shadow-lg">
             {renderInput("الاسم الكامل", "name", "أدخل اسمك الكامل")}
             {renderInput("المنصب", "position", "أدخل منصبك الوظيفي")}
@@ -126,7 +126,6 @@ export default function RegisterScreen() {
               true
             )}
 
-            {/* زر التسجيل */}
             <TouchableOpacity
               onPress={handleRegister}
               disabled={isLoading}
@@ -140,7 +139,6 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* رابط تسجيل الدخول */}
             <View className="flex-row justify-center mt-4">
               <Text className="text-muted text-sm">لديك حساب بالفعل؟ </Text>
               <TouchableOpacity onPress={() => router.push("/login")}>

@@ -1,5 +1,4 @@
 import "@/global.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,7 +16,6 @@ import {
 } from "react-native-safe-area-context";
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
-import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -27,7 +25,7 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-// Separate component that uses useAuth (must be inside AuthProvider)
+// Navigation component that uses useAuth
 function NavigationContent() {
   const { isSignedIn, isLoading } = useAuth();
   const segments = useSegments();
@@ -80,19 +78,6 @@ function RootLayoutContent() {
     return () => unsubscribe();
   }, [handleSafeAreaUpdate]);
 
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-          },
-        },
-      }),
-  );
-  const [trpcClient] = useState(() => createTRPCClient());
-
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -107,14 +92,10 @@ function RootLayoutContent() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <NavigationContent />
-            <StatusBar style="auto" />
-          </AuthProvider>
-        </QueryClientProvider>
-      </trpc.Provider>
+      <AuthProvider>
+        <NavigationContent />
+        <StatusBar style="auto" />
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 
