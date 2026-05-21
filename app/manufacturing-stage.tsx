@@ -25,6 +25,9 @@ interface WorkerEntry {
   // حقول التخزين - النخب الثاني
   secondGradeDozen?: string;
   secondGradePairs?: string;
+  // حقول التخزين - جوارب مانع الانزلاق
+  antislipDozen?: string;
+  antislipPairs?: string;
   date: string;
   notes: string;
 }
@@ -112,6 +115,8 @@ export default function ManufacturingStageScreen() {
   const [finishedPairs, setFinishedPairs] = useState("");
   const [secondGradeDozen, setSecondGradeDozen] = useState("");
   const [secondGradePairs, setSecondGradePairs] = useState("");
+  const [antislipDozen, setAntislipDozen] = useState("");
+  const [antislipPairs, setAntislipPairs] = useState("");
   const [notes, setNotes] = useState("");
 
   const isStorageStage = stage === "storage";
@@ -147,6 +152,8 @@ export default function ManufacturingStageScreen() {
     setFinishedPairs("");
     setSecondGradeDozen("");
     setSecondGradePairs("");
+    setAntislipDozen("");
+    setAntislipPairs("");
     setNotes("");
     setEditingEntry(null);
   };
@@ -158,7 +165,7 @@ export default function ManufacturingStageScreen() {
       return;
     }
     if (isStorageStage) {
-      if (!finishedDozen && !finishedPairs && !secondGradeDozen && !secondGradePairs) {
+      if (!finishedDozen && !finishedPairs && !secondGradeDozen && !secondGradePairs && !antislipDozen && !antislipPairs) {
         Alert.alert("تنبيه", "يرجى إدخال كمية واحدة على الأقل");
         return;
       }
@@ -178,6 +185,8 @@ export default function ManufacturingStageScreen() {
       finishedPairs: isStorageStage ? (finishedPairs || "0") : undefined,
       secondGradeDozen: isStorageStage ? (secondGradeDozen || "0") : undefined,
       secondGradePairs: isStorageStage ? (secondGradePairs || "0") : undefined,
+      antislipDozen: isStorageStage ? (antislipDozen || "0") : undefined,
+      antislipPairs: isStorageStage ? (antislipPairs || "0") : undefined,
       date: new Date().toLocaleDateString("ar-SA"),
       notes: notes,
     };
@@ -207,6 +216,8 @@ export default function ManufacturingStageScreen() {
     setFinishedPairs(entry.finishedPairs || "");
     setSecondGradeDozen(entry.secondGradeDozen || "");
     setSecondGradePairs(entry.secondGradePairs || "");
+    setAntislipDozen(entry.antislipDozen || "");
+    setAntislipPairs(entry.antislipPairs || "");
     setNotes(entry.notes || "");
     setEditingEntry(entry);
     setShowForm(true);
@@ -301,6 +312,20 @@ export default function ManufacturingStageScreen() {
               </View>
               <View className="flex-row items-center gap-1">
                 <Text className="text-foreground font-bold text-base">{item.secondGradePairs || "0"}</Text>
+                <Text className="text-muted text-sm">زوج</Text>
+              </View>
+            </View>
+          </View>
+          {/* جوارب مانع الانزلاق */}
+          <View className="border-t border-border mt-2 pt-2">
+            <Text className="text-foreground font-semibold text-sm text-right mb-2">جوارب مانع الانزلاق:</Text>
+            <View className="flex-row justify-between items-center">
+              <View className="flex-row items-center gap-1">
+                <Text className="text-foreground font-bold text-base">{item.antislipDozen || "0"}</Text>
+                <Text className="text-muted text-sm">درزن</Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="text-foreground font-bold text-base">{item.antislipPairs || "0"}</Text>
                 <Text className="text-muted text-sm">زوج</Text>
               </View>
             </View>
@@ -482,6 +507,37 @@ export default function ManufacturingStageScreen() {
                       placeholderTextColor={colors.muted}
                       value={secondGradePairs}
                       onChangeText={setSecondGradePairs}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                </View>
+
+                {/* جوارب مانع الانزلاق */}
+                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
+                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                    جوارب مانع الانزلاق
+                  </Text>
+                  <View className="mb-3">
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={antislipDozen}
+                      onChangeText={setAntislipDozen}
+                      keyboardType="numeric"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <TextInput
+                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      placeholder="0"
+                      placeholderTextColor={colors.muted}
+                      value={antislipPairs}
+                      onChangeText={setAntislipPairs}
                       keyboardType="numeric"
                       returnKeyType="next"
                     />
