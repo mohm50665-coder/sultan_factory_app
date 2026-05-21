@@ -29,7 +29,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "factory",
     color: "#3b82f6",
     route: "/production",
-    description: "إدارة الإنتاج والكميات",
+    description: "رقم المكينة - الكمية - الهدر - النخب الثاني",
   },
   {
     id: "manufacturing",
@@ -37,7 +37,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "precision-manufacturing",
     color: "#8b5cf6",
     route: "/manufacturing",
-    description: "تتبع مراحل التصنيع",
+    description: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
   },
   {
     id: "sales",
@@ -45,7 +45,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "shopping-cart",
     color: "#ec4899",
     route: "/sales",
-    description: "تسجيل المبيعات",
+    description: "تسجيل المبيعات والعملاء",
   },
   {
     id: "collection",
@@ -53,7 +53,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "attach-money",
     color: "#10b981",
     route: "/collection",
-    description: "تحصيل المبالغ",
+    description: "تحصيل المبالغ المستحقة",
   },
   {
     id: "warehouse",
@@ -61,7 +61,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "warehouse",
     color: "#f59e0b",
     route: "/warehouse",
-    description: "إدارة المستودعات",
+    description: "مواد خام - منتج تام - مستلزمات",
   },
   {
     id: "maintenance",
@@ -69,7 +69,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "build",
     color: "#ef4444",
     route: "/maintenance",
-    description: "تسجيل الصيانة",
+    description: "أجهزة مصانة - متوقفة - توصيات",
   },
   {
     id: "administrative",
@@ -77,7 +77,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "assignment",
     color: "#06b6d4",
     route: "/administrative",
-    description: "الطلبات الإدارية",
+    description: "الطلبات والإجراءات الإدارية",
   },
   {
     id: "financial",
@@ -85,7 +85,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "account-balance",
     color: "#6366f1",
     route: "/financial",
-    description: "إدارة النفقات",
+    description: "رصيد البنك - الصرف النقدي - المشتريات",
   },
   {
     id: "tasks",
@@ -93,7 +93,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "checklist",
     color: "#14b8a6",
     route: "/tasks",
-    description: "إدارة المهام",
+    description: "إدارة المهام والمتابعة",
   },
 ];
 
@@ -108,7 +108,7 @@ export default function HomeScreen() {
       "تسجيل الخروج",
       "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
       [
-        { text: "إلغاء", onPress: () => {} },
+        { text: "إلغاء" },
         {
           text: "تسجيل الخروج",
           onPress: async () => {
@@ -121,49 +121,51 @@ export default function HomeScreen() {
     );
   };
 
-  const handleAdminDashboard = () => {
-    if (user?.role === "admin") {
-      router.push("/admin-dashboard");
-    } else {
-      Alert.alert("خطأ", "ليس لديك صلاحية للوصول إلى لوحة التحكم");
-    }
-  };
-
   return (
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
-      <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6">
-        <View className="flex-row justify-between items-start mb-4">
-          <View>
+      <View className="bg-primary px-6 py-6">
+        <View className="flex-row justify-between items-start mb-2">
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={handleLogout}
+              disabled={isLoading}
+              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 8, padding: 8 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <MaterialIcons name="logout" size={20} color="white" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/profile" as any)}
+              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 8, padding: 8 }}
+            >
+              <MaterialIcons name="person" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+          <View className="items-end">
             <Text className="text-white text-sm opacity-80">أهلاً بك</Text>
             <Text className="text-white font-bold text-xl mt-1">{user?.name || "المستخدم"}</Text>
+            <Text className="text-white/70 text-xs mt-1">
+              {user?.position || (user?.role === "admin" ? "مدير النظام" : "موظف")}
+            </Text>
           </View>
-          <TouchableOpacity
-            onPress={handleLogout}
-            disabled={isLoading}
-            className="bg-white/20 rounded-lg p-2"
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <MaterialIcons name="logout" size={20} color="white" />
-            )}
-          </TouchableOpacity>
         </View>
-        <Text className="text-white/80 text-xs">
-          الدور: {user?.role === "admin" ? "مدير النظام" : "موظف"}
-        </Text>
       </View>
 
       {/* زر لوحة تحكم ADMIN */}
       {user?.role === "admin" && (
         <TouchableOpacity
-          onPress={handleAdminDashboard}
-          className="mx-4 mt-4 bg-warning/10 border border-warning rounded-lg p-3 flex-row items-center"
+          onPress={() => router.push("/admin-dashboard" as any)}
+          className="mx-4 mt-4 bg-surface border border-warning rounded-xl p-3 flex-row items-center justify-between"
         >
-          <MaterialIcons name="admin-panel-settings" size={20} color={colors.warning} />
-          <Text className="text-warning font-semibold text-sm ml-3">لوحة تحكم ADMIN</Text>
-          <MaterialIcons name="chevron-right" size={20} color={colors.warning} className="ml-auto" />
+          <MaterialIcons name="chevron-left" size={20} color="#f59e0b" />
+          <View className="flex-row items-center gap-2">
+            <Text className="text-warning font-semibold text-sm">لوحة تحكم ADMIN</Text>
+            <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
+          </View>
         </TouchableOpacity>
       )}
 
@@ -173,29 +175,57 @@ export default function HomeScreen() {
           {DASHBOARD_ITEMS.map((item) => (
             <TouchableOpacity
               key={item.id}
-              onPress={() => router.push(item.route)}
+              onPress={() => router.push(item.route as any)}
               className="w-[48%] mb-4"
+              activeOpacity={0.7}
             >
-              <View className="bg-white rounded-2xl p-4 shadow-sm border border-border overflow-hidden">
+              <View className="bg-surface rounded-2xl p-4 border border-border min-h-[130px]">
                 <View
                   className="w-12 h-12 rounded-xl items-center justify-center mb-3"
-                  style={{ backgroundColor: `${item.color}20` }}
+                  style={{ backgroundColor: `${item.color}15` }}
                 >
-                  <MaterialIcons name={item.icon as any} size={24} color={item.color} />
+                  <MaterialIcons name={item.icon as any} size={26} color={item.color} />
                 </View>
-                <Text className="text-foreground font-bold text-sm leading-4">{item.label}</Text>
-                <Text className="text-muted text-xs mt-2 leading-3">{item.description}</Text>
+                <Text className="text-foreground font-bold text-sm text-right">{item.label}</Text>
+                <Text className="text-muted text-xs mt-1 text-right leading-4">{item.description}</Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* معلومات إضافية */}
-        <View className="bg-blue/10 rounded-lg p-4 mt-6 border border-border mb-6">
-          <Text className="text-foreground font-semibold text-sm mb-2">ملاحظة</Text>
-          <Text className="text-muted text-xs leading-5">
-            يمكنك الوصول إلى جميع أقسام المصنع من خلال الأيقونات أعلاه. اختر القسم المطلوب لإدارة البيانات المتعلقة به.
-          </Text>
+        {/* أدوات إضافية */}
+        <Text className="text-foreground font-bold text-base text-right mt-4 mb-3">أدوات إضافية</Text>
+        <View className="flex-row flex-wrap justify-between mb-6">
+          <TouchableOpacity
+            onPress={() => router.push("/reports" as any)}
+            className="w-[31%] mb-3"
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="bar-chart" size={24} color="#059669" />
+              <Text className="text-foreground text-xs font-semibold mt-2">التقارير</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/notifications-center" as any)}
+            className="w-[31%] mb-3"
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="notifications" size={24} color="#d97706" />
+              <Text className="text-foreground text-xs font-semibold mt-2">الإشعارات</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/export-data" as any)}
+            className="w-[31%] mb-3"
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="file-download" size={24} color="#6366f1" />
+              <Text className="text-foreground text-xs font-semibold mt-2">التصدير</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </ScreenContainer>
