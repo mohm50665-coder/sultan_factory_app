@@ -46,7 +46,7 @@ export default function WarehouseScreen() {
   const handleTabPress = (tabId: string) => {
     setSelectedTab(tabId);
     // يمكن إضافة ملاحة إلى شاشات فرعية هنا
-    router.push(`/warehouse/${tabId}`);
+    router.push(`/warehouse/${tabId}` as any);
   };
 
   return (

@@ -47,7 +47,7 @@ export default function MaintenanceScreen() {
   const colors = useColors();
 
   const handleTabPress = (tabId: string) => {
-    router.push(`/maintenance/${tabId}`);
+    router.push(`/maintenance/${tabId}` as any);
   };
 
   return (

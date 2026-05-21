@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const";
 import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
@@ -22,10 +22,10 @@ async function syncUser(userInfo: {
 
   const lastSignedIn = new Date();
   await upsertUser({
-    openId: userInfo.openId,
-    name: userInfo.name || null,
-    email: userInfo.email ?? null,
-    loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+    openId: userInfo.openId as string,
+    name: (userInfo.name || null) as string,
+    email: (userInfo.email ?? null) as string,
+    loginMethod: (userInfo.loginMethod ?? userInfo.platform ?? null) as string,
     lastSignedIn,
   });
   const saved = await getUserByOpenId(userInfo.openId);

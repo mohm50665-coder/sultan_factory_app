@@ -16,11 +16,13 @@ const NOTIFICATION_SETTINGS_KEY = "notification_settings";
 
 // إعداد معالج الإشعارات
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async () => {
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    } as Notifications.NotificationBehavior;
+  },
 });
 
 interface NotificationSettings {

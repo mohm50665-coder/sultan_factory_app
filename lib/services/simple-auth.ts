@@ -7,6 +7,7 @@ export interface User {
   phone: string;
   position: string;
   role: string;
+  createdAt?: string;
 }
 
 interface StoredUser extends User {
