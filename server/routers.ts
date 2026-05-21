@@ -37,7 +37,6 @@ export const appRouter = router({
             throw new Error("قاعدة البيانات غير متاحة");
           }
 
-          // التحقق من عدم وجود المستخدم
           const existingUser = await db
             .select()
             .from(usersTable)
@@ -48,10 +47,8 @@ export const appRouter = router({
             throw new Error("البريد الإلكتروني مستخدم بالفعل");
           }
 
-          // إنشاء openId فريد
           const openId = randomUUID();
 
-          // إنشاء مستخدم جديد
           await db.insert(usersTable).values({
             openId: openId,
             name: input.name,
@@ -62,7 +59,6 @@ export const appRouter = router({
             role: "user",
           });
 
-          // الحصول على المستخدم المنشأ
           const newUserResult = await db
             .select()
             .from(usersTable)
@@ -71,7 +67,6 @@ export const appRouter = router({
 
           const newUser = newUserResult[0];
 
-          // إنشاء جلسة
           const cookieOptions = getSessionCookieOptions(ctx.req);
           ctx.res.cookie(COOKIE_NAME, newUser.id.toString(), cookieOptions);
 
@@ -104,7 +99,6 @@ export const appRouter = router({
             throw new Error("قاعدة البيانات غير متاحة");
           }
 
-          // البحث عن المستخدم
           const result = await db
             .select()
             .from(usersTable)
@@ -117,7 +111,6 @@ export const appRouter = router({
             throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
           }
 
-          // إنشاء جلسة
           const cookieOptions = getSessionCookieOptions(ctx.req);
           ctx.res.cookie(COOKIE_NAME, user.id.toString(), cookieOptions);
 
@@ -135,6 +128,11 @@ export const appRouter = router({
         } catch (error) {
           throw new Error("فشل تسجيل الدخول: " + (error as Error).message);
         }
+      }),
+    requestPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        return { success: true };
       }),
   }),
 });

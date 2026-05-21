@@ -8,8 +8,8 @@ export interface LoginCredentials {
 export interface RegisterCredentials {
   name: string;
   email: string;
-  phone: string;
-  position: string;
+  phone?: string;
+  position?: string;
   password: string;
 }
 
@@ -17,54 +17,39 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  phone?: string;
-  position?: string;
-  role: "user" | "admin";
+  phone?: string | null;
+  position?: string | null;
+  role: string;
 }
 
 /**
  * خدمة المصادقة والتسجيل
+ * تستخدم tRPC للاتصال بالسيرفر
  */
 export const authService = {
   /**
    * تسجيل دخول المستخدم
    */
-  async login(credentials: LoginCredentials): Promise<{ user: User; token: string }> {
+  async login(credentials: LoginCredentials): Promise<{ success: boolean; user: User }> {
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        throw new Error("فشل تسجيل الدخول");
-      }
-
-      return response.json();
+      const result = await trpc.auth.login.mutate(credentials);
+      return result;
     } catch (error) {
-      throw error;
+      console.error("خطأ في تسجيل الدخول:", error);
+      throw new Error("فشل تسجيل الدخول");
     }
   },
 
   /**
    * تسجيل مستخدم جديد
    */
-  async register(credentials: RegisterCredentials): Promise<{ user: User; token: string }> {
+  async register(credentials: RegisterCredentials): Promise<{ success: boolean; user: User }> {
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-
-      if (!response.ok) {
-        throw new Error("فشل التسجيل");
-      }
-
-      return response.json();
+      const result = await trpc.auth.register.mutate(credentials);
+      return result;
     } catch (error) {
-      throw error;
+      console.error("خطأ في التسجيل:", error);
+      throw new Error("فشل التسجيل");
     }
   },
 
@@ -73,9 +58,7 @@ export const authService = {
    */
   async logout(): Promise<void> {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      });
+      await trpc.auth.logout.mutate();
     } catch (error) {
       console.error("خطأ في تسجيل الخروج:", error);
     }
@@ -86,14 +69,10 @@ export const authService = {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
-      const response = await fetch("/api/auth/me");
-
-      if (!response.ok) {
-        return null;
-      }
-
-      return response.json();
+      const user = await trpc.auth.me.query();
+      return user || null;
     } catch (error) {
+      console.error("خطأ في الحصول على بيانات المستخدم:", error);
       return null;
     }
   },
@@ -103,17 +82,10 @@ export const authService = {
    */
   async requestPasswordReset(email: string): Promise<void> {
     try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error("فشل الطلب");
-      }
+      await trpc.auth.requestPasswordReset.mutate({ email });
     } catch (error) {
-      throw error;
+      console.error("خطأ في طلب استعادة كلمة المرور:", error);
+      throw new Error("فشل الطلب");
     }
   },
 };

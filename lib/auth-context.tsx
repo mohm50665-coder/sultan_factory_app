@@ -40,10 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const { user: userData, token } = await authService.login({ email, password });
-      setUser(userData);
-      await AsyncStorage.setItem("user", JSON.stringify(userData));
-      await AsyncStorage.setItem("token", token);
+      const result = await authService.login({ email, password });
+      if (result.success && result.user) {
+        setUser(result.user);
+        await AsyncStorage.setItem("user", JSON.stringify(result.user));
+      }
+    } catch (error) {
+      console.error("خطأ في تسجيل الدخول:", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -58,16 +62,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     setIsLoading(true);
     try {
-      const { user: userData, token } = await authService.register({
+      const result = await authService.register({
         name,
         email,
         phone,
         position,
         password,
       });
-      setUser(userData);
-      await AsyncStorage.setItem("user", JSON.stringify(userData));
-      await AsyncStorage.setItem("token", token);
+      if (result.success && result.user) {
+        setUser(result.user);
+        await AsyncStorage.setItem("user", JSON.stringify(result.user));
+      }
+    } catch (error) {
+      console.error("خطأ في التسجيل:", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.logout();
       setUser(null);
       await AsyncStorage.removeItem("user");
-      await AsyncStorage.removeItem("token");
+    } catch (error) {
+      console.error("خطأ في تسجيل الخروج:", error);
     } finally {
       setIsLoading(false);
     }
