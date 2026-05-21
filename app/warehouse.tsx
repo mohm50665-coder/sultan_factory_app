@@ -10,29 +10,43 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 
-interface ProductionTab {
+interface WarehouseTab {
   id: string;
   label: string;
   icon: string;
   description: string;
 }
 
-const PRODUCTION_TABS: ProductionTab[] = [
+const WAREHOUSE_TABS: WarehouseTab[] = [
   {
-    id: "production_data",
-    label: "بيانات الإنتاج",
-    icon: "factory",
-    description: "تسجيل كميات الإنتاج والهدر",
+    id: "raw_materials",
+    label: "المواد الخام",
+    icon: "inventory-2",
+    description: "إدارة المواد الخام والمدخلات",
+  },
+  {
+    id: "consumption",
+    label: "مواد الصرف",
+    icon: "trending-down",
+    description: "تسجيل مواد الصرف والاستهلاك",
+  },
+  {
+    id: "incoming",
+    label: "المواد المدخلة",
+    icon: "input",
+    description: "تسجيل المواد الجديدة المدخلة",
   },
 ];
 
-export default function ProductionScreen() {
+export default function WarehouseScreen() {
   const router = useRouter();
   const colors = useColors();
+  const [selectedTab, setSelectedTab] = useState<string>("raw_materials");
 
   const handleTabPress = (tabId: string) => {
+    setSelectedTab(tabId);
     // يمكن إضافة ملاحة إلى شاشات فرعية هنا
-    console.log("Tab pressed:", tabId);
+    router.push(`/warehouse/${tabId}`);
   };
 
   return (
@@ -44,13 +58,13 @@ export default function ProductionScreen() {
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
         </View>
-        <Text className="text-white font-bold text-lg">الإنتاج</Text>
+        <Text className="text-white font-bold text-lg">المستودعات</Text>
         <View className="w-10" />
       </View>
 
       {/* محتوى التبويبات */}
       <ScrollView className="flex-1 p-4">
-        {PRODUCTION_TABS.map((tab) => (
+        {WAREHOUSE_TABS.map((tab) => (
           <TouchableOpacity
             key={tab.id}
             onPress={() => handleTabPress(tab.id)}
@@ -74,7 +88,7 @@ export default function ProductionScreen() {
         <View className="bg-blue/10 rounded-lg p-4 mt-4 border border-border">
           <Text className="text-foreground font-semibold text-sm mb-2">ملاحظة مهمة</Text>
           <Text className="text-muted text-xs leading-5">
-            يمكنك تسجيل بيانات الإنتاج اليومية من خلال هذا القسم. تأكد من إدخال جميع البيانات بدقة.
+            يمكنك إدارة جميع عمليات المستودع من خلال التبويبات أعلاه. تتبع المواد الخام والمدخلة والمصروفة بسهولة.
           </Text>
         </View>
       </ScrollView>

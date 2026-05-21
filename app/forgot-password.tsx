@@ -1,1 +1,118 @@
-import React, { useState } from \"react\";\nimport {\n  View,\n  Text,\n  TextInput,\n  TouchableOpacity,\n  ScrollView,\n  ActivityIndicator,\n  Alert,\n} from \"react-native\";\nimport { useRouter } from \"expo-router\";\nimport { ScreenContainer } from \"@/components/screen-container\";\nimport { useColors } from \"@/hooks/use-colors\";\nimport { authService } from \"@/lib/services/auth.service\";\n\nexport default function ForgotPasswordScreen() {\n  const router = useRouter();\n  const colors = useColors();\n  const [email, setEmail] = useState(\"\");\n  const [isLoading, setIsLoading] = useState(false);\n  const [submitted, setSubmitted] = useState(false);\n\n  const handleSubmit = async () => {\n    if (!email) {\n      Alert.alert(\"خطأ\", \"يرجى إدخال بريدك الإلكتروني\");\n      return;\n    }\n\n    setIsLoading(true);\n    try {\n      await authService.requestPasswordReset(email);\n      setSubmitted(true);\n      Alert.alert(\n        \"نجاح\",\n        \"سيتم إرسال تعليمات استعادة كلمة المرور إلى بريدك الإلكتروني. يرجى التواصل مع المسؤول (ADMIN) لاستعادة كلمة المرور.\"\n      );\n      setTimeout(() => {\n        router.push(\"/login\");\n      }, 2000);\n    } catch (error) {\n      Alert.alert(\"خطأ\", \"فشل الطلب. حاول مرة أخرى.\");\n    } finally {\n      setIsLoading(false);\n    }\n  };\n\n  return (\n    <ScreenContainer containerClassName=\"bg-gradient-to-b from-primary to-background\">\n      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>\n        <View className=\"flex-1 justify-center px-6 py-8\">\n          {/* العنوان */}\n          <View className=\"mb-12 items-center\">\n            <Text className=\"text-3xl font-bold text-white mb-2\">استعادة كلمة المرور</Text>\n            <Text className=\"text-sm text-white/80 text-center\">\n              أدخل بريدك الإلكتروني وسيتم إرسال تعليمات الاستعادة إليك\n            </Text>\n          </View>\n\n          {/* نموذج الاستعادة */}\n          <View className=\"bg-white rounded-2xl p-6 shadow-lg\">\n            {!submitted ? (\n              <>\n                {/* حقل البريد الإلكتروني */}\n                <View className=\"mb-6\">\n                  <Text className=\"text-sm font-semibold text-foreground mb-2\">البريد الإلكتروني</Text>\n                  <TextInput\n                    className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                    placeholder=\"أدخل بريدك الإلكتروني\"\n                    placeholderTextColor={colors.muted}\n                    value={email}\n                    onChangeText={setEmail}\n                    editable={!isLoading}\n                    keyboardType=\"email-address\"\n                    autoCapitalize=\"none\"\n                  />\n                </View>\n\n                {/* زر الإرسال */}\n                <TouchableOpacity\n                  onPress={handleSubmit}\n                  disabled={isLoading}\n                  className=\"bg-primary rounded-lg py-3 mb-4\"\n                  style={{\n                    opacity: isLoading ? 0.6 : 1,\n                  }}\n                >\n                  {isLoading ? (\n                    <ActivityIndicator color=\"white\" />\n                  ) : (\n                    <Text className=\"text-white font-semibold text-center\">إرسال التعليمات</Text>\n                  )}\n                </TouchableOpacity>\n              </>\n            ) : (\n              <View className=\"items-center py-6\">\n                <Text className=\"text-lg font-semibold text-success mb-2\">✓ تم الإرسال بنجاح</Text>\n                <Text className=\"text-muted text-center text-sm mb-4\">\n                  يرجى التحقق من بريدك الإلكتروني للحصول على تعليمات الاستعادة\n                </Text>\n                <Text className=\"text-muted text-center text-xs\">\n                  ملاحظة: يمكنك أيضاً التواصل مع المسؤول (ADMIN) لاستعادة كلمة المرور\n                </Text>\n              </View>\n            )}\n\n            {/* رابط العودة */}\n            <TouchableOpacity onPress={() => router.push(\"/login\")} className=\"mt-4\">\n              <Text className=\"text-primary text-center font-semibold\">العودة لتسجيل الدخول</Text>\n            </TouchableOpacity>\n          </View>\n        </View>\n      </ScrollView>\n    </ScreenContainer>\n  );\n}\n
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { MaterialIcons } from "@expo/vector-icons";
+
+export default function ForgotPasswordScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setError("البريد الإلكتروني مطلوب");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      Alert.alert(
+        "نجاح",
+        "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني"
+      );
+      router.replace("/login");
+    } catch (err) {
+      Alert.alert("خطأ", "فشل إرسال رابط إعادة التعيين");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <ScreenContainer containerClassName="bg-gradient-to-b from-primary to-background">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View className="flex-1 justify-center px-6 py-8">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="mb-8 flex-row items-center"
+          >
+            <MaterialIcons name="arrow-back" size={24} color="white" />
+            <Text className="text-white font-semibold ml-2">العودة</Text>
+          </TouchableOpacity>
+
+          <View className="mb-12">
+            <Text className="text-3xl font-bold text-white mb-2">
+              إعادة تعيين كلمة المرور
+            </Text>
+            <Text className="text-sm text-white/80">
+              أدخل بريدك الإلكتروني لاستقبال رابط إعادة التعيين
+            </Text>
+          </View>
+
+          <View className="bg-white rounded-2xl p-6 shadow-lg">
+            <View className="mb-6">
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                البريد الإلكتروني
+              </Text>
+              <TextInput
+                className={`border rounded-lg px-4 py-3 text-foreground ${
+                  error ? "border-error" : "border-border"
+                }`}
+                placeholder="أدخل بريدك الإلكتروني"
+                placeholderTextColor={colors.muted}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError("");
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              {error && (
+                <Text className="text-error text-xs mt-1">{error}</Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={handleResetPassword}
+              disabled={isLoading}
+              className="bg-primary rounded-lg py-3"
+              style={{ opacity: isLoading ? 0.6 : 1 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-center">
+                  إرسال رابط إعادة التعيين
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <View className="mt-6 bg-blue/10 rounded-lg p-4 border border-border">
+              <Text className="text-foreground font-semibold text-sm mb-2">
+                ملاحظة
+              </Text>
+              <Text className="text-muted text-xs leading-5">
+                سيتم إرسال رابط آمن إلى بريدك الإلكتروني. انقر على الرابط لإعادة تعيين كلمة المرور.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}

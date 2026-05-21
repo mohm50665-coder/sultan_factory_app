@@ -1,1 +1,289 @@
-import React from \"react\";\nimport {\n  View,\n  Text,\n  TextInput,\n  TouchableOpacity,\n  Platform,\n  Modal,\n  FlatList,\n  TextInputProps,\n} from \"react-native\";\nimport { useColors } from \"@/hooks/use-colors\";\nimport { MaterialIcons } from \"@expo/vector-icons\";\n\ninterface FormInputProps extends TextInputProps {\n  label: string;\n  error?: string;\n  required?: boolean;\n  helperText?: string;\n}\n\nexport function FormInput({\n  label,\n  error,\n  required = false,\n  helperText,\n  ...props\n}: FormInputProps) {\n  const colors = useColors();\n\n  return (\n    <View className=\"mb-4\">\n      <View className=\"flex-row items-center mb-2\">\n        <Text className=\"text-sm font-semibold text-foreground\">{label}</Text>\n        {required && <Text className=\"text-error ml-1\">*</Text>}\n      </View>\n      <TextInput\n        className={`border rounded-lg px-4 py-3 text-foreground ${\n          error ? \"border-error\" : \"border-border\"\n        }`}\n        placeholderTextColor={colors.muted}\n        {...props}\n      />\n      {error && (\n        <Text className=\"text-error text-xs mt-1 flex-row items-center\">\n          <MaterialIcons name=\"error\" size={12} /> {error}\n        </Text>\n      )}\n      {helperText && !error && (\n        <Text className=\"text-muted text-xs mt-1\">{helperText}</Text>\n      )}\n    </View>\n  );\n}\n\ninterface FormSelectProps {\n  label: string;\n  value: string;\n  options: Array<{ label: string; value: string }>;\n  onValueChange: (value: string) => void;\n  error?: string;\n  required?: boolean;\n  placeholder?: string;\n}\n\nexport function FormSelect({\n  label,\n  value,\n  options,\n  onValueChange,\n  error,\n  required = false,\n  placeholder = \"اختر...\",\n}: FormSelectProps) {\n  const colors = useColors();\n  const [showModal, setShowModal] = React.useState(false);\n\n  const selectedLabel = options.find((opt) => opt.value === value)?.label || placeholder;\n\n  return (\n    <View className=\"mb-4\">\n      <View className=\"flex-row items-center mb-2\">\n        <Text className=\"text-sm font-semibold text-foreground\">{label}</Text>\n        {required && <Text className=\"text-error ml-1\">*</Text>}\n      </View>\n\n      <TouchableOpacity\n        onPress={() => setShowModal(true)}\n        className={`border rounded-lg px-4 py-3 flex-row justify-between items-center ${\n          error ? \"border-error\" : \"border-border\"\n        }`}\n      >\n        <Text className={value ? \"text-foreground\" : \"text-muted\"}>\n          {selectedLabel}\n        </Text>\n        <MaterialIcons name=\"expand-more\" size={20} color={colors.muted} />\n      </TouchableOpacity>\n\n      {error && (\n        <Text className=\"text-error text-xs mt-1\">\n          <MaterialIcons name=\"error\" size={12} /> {error}\n        </Text>\n      )}\n\n      <Modal\n        visible={showModal}\n        transparent\n        animationType=\"fade\"\n        onRequestClose={() => setShowModal(false)}\n      >\n        <View className=\"flex-1 bg-black/50 justify-end\">\n          <View className=\"bg-background rounded-t-2xl max-h-96\">\n            <View className=\"p-4 border-b border-border flex-row justify-between items-center\">\n              <Text className=\"text-lg font-semibold text-foreground\">{label}</Text>\n              <TouchableOpacity onPress={() => setShowModal(false)}>\n                <MaterialIcons name=\"close\" size={24} color={colors.foreground} />\n              </TouchableOpacity>\n            </View>\n\n            <FlatList\n              data={options}\n              keyExtractor={(item) => item.value}\n              renderItem={({ item }) => (\n                <TouchableOpacity\n                  onPress={() => {\n                    onValueChange(item.value);\n                    setShowModal(false);\n                  }}\n                  className={`px-4 py-4 border-b border-border flex-row justify-between items-center ${\n                    value === item.value ? \"bg-primary/10\" : \"\"\n                  }`}\n                >\n                  <Text\n                    className={${\n                      value === item.value\n                        ? \"text-primary font-semibold\"\n                        : \"text-foreground\"\n                    }}\n                  >\n                    {item.label}\n                  </Text>\n                  {value === item.value && (\n                    <MaterialIcons name=\"check\" size={20} color={colors.primary} />\n                  )}\n                </TouchableOpacity>\n              )}\n            />\n          </View>\n        </View>\n      </Modal>\n    </View>\n  );\n}\n\ninterface FormNumberInputProps extends TextInputProps {\n  label: string;\n  error?: string;\n  required?: boolean;\n  unit?: string;\n}\n\nexport function FormNumberInput({\n  label,\n  error,\n  required = false,\n  unit,\n  ...props\n}: FormNumberInputProps) {\n  const colors = useColors();\n\n  return (\n    <View className=\"mb-4\">\n      <View className=\"flex-row items-center mb-2\">\n        <Text className=\"text-sm font-semibold text-foreground\">{label}</Text>\n        {required && <Text className=\"text-error ml-1\">*</Text>}\n        {unit && <Text className=\"text-muted text-xs ml-2\">({unit})</Text>}\n      </View>\n      <TextInput\n        className={`border rounded-lg px-4 py-3 text-foreground ${\n          error ? \"border-error\" : \"border-border\"\n        }`}\n        placeholderTextColor={colors.muted}\n        keyboardType=\"number-pad\"\n        {...props}\n      />\n      {error && (\n        <Text className=\"text-error text-xs mt-1\">\n          <MaterialIcons name=\"error\" size={12} /> {error}\n        </Text>\n      )}\n    </View>\n  );\n}\n\ninterface FormCheckboxProps {\n  label: string;\n  value: boolean;\n  onValueChange: (value: boolean) => void;\n}\n\nexport function FormCheckbox({ label, value, onValueChange }: FormCheckboxProps) {\n  const colors = useColors();\n\n  return (\n    <TouchableOpacity\n      onPress={() => onValueChange(!value)}\n      className=\"flex-row items-center mb-4\"\n    >\n      <View\n        className={`w-6 h-6 rounded border-2 items-center justify-center ${\n          value ? \"bg-primary border-primary\" : \"border-border\"\n        }`}\n      >\n        {value && <MaterialIcons name=\"check\" size={16} color=\"white\" />}\n      </View>\n      <Text className=\"text-foreground text-sm ml-3\">{label}</Text>\n    </TouchableOpacity>\n  );\n}\n
+import React from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { useColors } from "@/hooks/use-colors";
+import { MaterialIcons } from "@expo/vector-icons";
+
+interface FormInputProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
+  secureTextEntry?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  required?: boolean;
+  error?: string;
+  editable?: boolean;
+}
+
+export function FormInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  secureTextEntry = false,
+  multiline = false,
+  numberOfLines = 1,
+  required = false,
+  error,
+  editable = true,
+}: FormInputProps) {
+  const colors = useColors();
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+          {label}
+        </Text>
+        {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
+      </View>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            borderColor: error ? colors.error : colors.border,
+            color: colors.foreground,
+            backgroundColor: colors.surface,
+          },
+          multiline && { minHeight: 100 },
+        ]}
+        placeholder={placeholder}
+        placeholderTextColor={colors.muted}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        editable={editable}
+      />
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+    </View>
+  );
+}
+
+interface FormNumberInputProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  unit?: string;
+  required?: boolean;
+  error?: string;
+}
+
+export function FormNumberInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  unit,
+  required = false,
+  error,
+}: FormNumberInputProps) {
+  const colors = useColors();
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+          {label}
+        </Text>
+        {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              borderColor: error ? colors.error : colors.border,
+              color: colors.foreground,
+              backgroundColor: colors.surface,
+              flex: 1,
+            },
+          ]}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType="numeric"
+        />
+        {unit && (
+          <Text
+            style={{
+              marginLeft: 12,
+              color: colors.muted,
+              fontSize: 14,
+              fontWeight: "500",
+            }}
+          >
+            {unit}
+          </Text>
+        )}
+      </View>
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+    </View>
+  );
+}
+
+interface FormSelectOption {
+  label: string;
+  value: string;
+}
+
+interface FormSelectProps {
+  label: string;
+  value: string;
+  options: FormSelectOption[];
+  onValueChange: (value: string) => void;
+  required?: boolean;
+  error?: string;
+}
+
+export function FormSelect({
+  label,
+  value,
+  options,
+  onValueChange,
+  required = false,
+  error,
+}: FormSelectProps) {
+  const colors = useColors();
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const selectedLabel = options.find((opt) => opt.value === value)?.label || label;
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+          {label}
+        </Text>
+        {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
+      </View>
+
+      <TouchableOpacity
+        onPress={() => setIsOpen(!isOpen)}
+        style={[
+          styles.input,
+          {
+            borderColor: error ? colors.error : colors.border,
+            backgroundColor: colors.surface,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <Text style={{ color: colors.foreground }}>{selectedLabel}</Text>
+        <MaterialIcons
+          name={isOpen ? "expand-less" : "expand-more"}
+          size={20}
+          color={colors.muted}
+        />
+      </TouchableOpacity>
+
+      {isOpen && (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            marginTop: 8,
+            backgroundColor: colors.surface,
+            overflow: "hidden",
+          }}
+        >
+          <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
+            {options.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => {
+                  onValueChange(option.value);
+                  setIsOpen(false);
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                  backgroundColor: value === option.value ? colors.primary + "20" : "transparent",
+                }}
+              >
+                <Text
+                  style={{
+                    color: value === option.value ? colors.primary : colors.foreground,
+                    fontWeight: value === option.value ? "600" : "400",
+                  }}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+    </View>
+  );
+}
+
+interface FormCheckboxProps {
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}
+
+export function FormCheckbox({ label, value, onValueChange }: FormCheckboxProps) {
+  const colors = useColors();
+
+  return (
+    <TouchableOpacity
+      onPress={() => onValueChange(!value)}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 12,
+        paddingVertical: 8,
+      }}
+    >
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 4,
+          borderWidth: 2,
+          borderColor: value ? colors.primary : colors.border,
+          backgroundColor: value ? colors.primary : "transparent",
+          justifyContent: "center",
+          alignItems: "center",
+          marginRight: 12,
+        }}
+      >
+        {value && <MaterialIcons name="check" size={16} color="white" />}
+      </View>
+      <Text style={{ color: colors.foreground, fontSize: 14 }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+});

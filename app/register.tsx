@@ -1,1 +1,155 @@
-import React, { useState } from \"react\";\nimport {\n  View,\n  Text,\n  TextInput,\n  TouchableOpacity,\n  ScrollView,\n  ActivityIndicator,\n  Alert,\n} from \"react-native\";\nimport { useRouter } from \"expo-router\";\nimport { ScreenContainer } from \"@/components/screen-container\";\nimport { useAuth } from \"@/lib/auth-context\";\nimport { useColors } from \"@/hooks/use-colors\";\n\nexport default function RegisterScreen() {\n  const router = useRouter();\n  const { register, isLoading } = useAuth();\n  const colors = useColors();\n\n  const [name, setName] = useState(\"\");\n  const [email, setEmail] = useState(\"\");\n  const [phone, setPhone] = useState(\"\");\n  const [position, setPosition] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [confirmPassword, setConfirmPassword] = useState(\"\");\n\n  const handleRegister = async () => {\n    // التحقق من الحقول\n    if (!name || !email || !phone || !position || !password || !confirmPassword) {\n      Alert.alert(\"خطأ\", \"يرجى ملء جميع الحقول\");\n      return;\n    }\n\n    if (password !== confirmPassword) {\n      Alert.alert(\"خطأ\", \"كلمات المرور غير متطابقة\");\n      return;\n    }\n\n    if (password.length < 6) {\n      Alert.alert(\"خطأ\", \"كلمة المرور يجب أن تكون 6 أحرف على الأقل\");\n      return;\n    }\n\n    try {\n      await register(name, email, phone, position, password);\n      router.replace(\"/(tabs)\");\n    } catch (error) {\n      Alert.alert(\"خطأ\", \"فشل التسجيل. حاول مرة أخرى.\");\n    }\n  };\n\n  return (\n    <ScreenContainer containerClassName=\"bg-gradient-to-b from-primary to-background\">\n      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>\n        <View className=\"flex-1 justify-center px-6 py-8\">\n          {/* العنوان */}\n          <View className=\"mb-8 items-center\">\n            <Text className=\"text-3xl font-bold text-white mb-2\">إنشاء حساب جديد</Text>\n            <Text className=\"text-sm text-white/80\">مصنع السلطان - نظام إدارة الإنتاج</Text>\n          </View>\n\n          {/* نموذج التسجيل */}\n          <View className=\"bg-white rounded-2xl p-6 shadow-lg\">\n            {/* حقل الاسم */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">الاسم الكامل</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل اسمك الكامل\"\n                placeholderTextColor={colors.muted}\n                value={name}\n                onChangeText={setName}\n                editable={!isLoading}\n              />\n            </View>\n\n            {/* حقل البريد الإلكتروني */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">البريد الإلكتروني</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل بريدك الإلكتروني\"\n                placeholderTextColor={colors.muted}\n                value={email}\n                onChangeText={setEmail}\n                editable={!isLoading}\n                keyboardType=\"email-address\"\n                autoCapitalize=\"none\"\n              />\n            </View>\n\n            {/* حقل رقم الجوال */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">رقم الجوال</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل رقم جوالك\"\n                placeholderTextColor={colors.muted}\n                value={phone}\n                onChangeText={setPhone}\n                editable={!isLoading}\n                keyboardType=\"phone-pad\"\n              />\n            </View>\n\n            {/* حقل المنصب */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">المنصب/الوظيفة</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل منصبك الوظيفي\"\n                placeholderTextColor={colors.muted}\n                value={position}\n                onChangeText={setPosition}\n                editable={!isLoading}\n              />\n            </View>\n\n            {/* حقل كلمة المرور */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">كلمة المرور</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل كلمة المرور (6 أحرف على الأقل)\"\n                placeholderTextColor={colors.muted}\n                value={password}\n                onChangeText={setPassword}\n                editable={!isLoading}\n                secureTextEntry\n              />\n            </View>\n\n            {/* حقل تأكيد كلمة المرور */}\n            <View className=\"mb-6\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">تأكيد كلمة المرور</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أعد إدخال كلمة المرور\"\n                placeholderTextColor={colors.muted}\n                value={confirmPassword}\n                onChangeText={setConfirmPassword}\n                editable={!isLoading}\n                secureTextEntry\n              />\n            </View>\n\n            {/* زر التسجيل */}\n            <TouchableOpacity\n              onPress={handleRegister}\n              disabled={isLoading}\n              className=\"bg-primary rounded-lg py-3 mb-4\"\n              style={{\n                opacity: isLoading ? 0.6 : 1,\n              }}\n            >\n              {isLoading ? (\n                <ActivityIndicator color=\"white\" />\n              ) : (\n                <Text className=\"text-white font-semibold text-center\">إنشاء الحساب</Text>\n              )}\n            </TouchableOpacity>\n\n            {/* رابط تسجيل الدخول */}\n            <View className=\"flex-row justify-center\">\n              <Text className=\"text-muted text-sm\">لديك حساب بالفعل؟ </Text>\n              <TouchableOpacity onPress={() => router.push(\"/login\")}>\n                <Text className=\"text-primary font-semibold text-sm\">تسجيل دخول</Text>\n              </TouchableOpacity>\n            </View>\n          </View>\n        </View>\n      </ScrollView>\n    </ScreenContainer>\n  );\n}\n
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { authService } from "@/lib/services/auth.service";
+
+export default function RegisterScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    position: "",
+    phone: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) newErrors.name = "الاسم مطلوب";
+    if (!formData.position.trim()) newErrors.position = "المنصب مطلوب";
+    if (!formData.phone.trim()) newErrors.phone = "رقم الجوال مطلوب";
+    if (!formData.email.trim()) newErrors.email = "البريد الإلكتروني مطلوب";
+    if (!formData.password) newErrors.password = "كلمة المرور مطلوبة";
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "كلمات المرور غير متطابقة";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    try {
+      await authService.register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        position: formData.position,
+        phone: formData.phone,
+      });
+
+      Alert.alert("نجاح", "تم التسجيل بنجاح. يرجى تسجيل الدخول.");
+      router.replace("/login");
+    } catch (error) {
+      Alert.alert("خطأ", "فشل التسجيل. حاول مرة أخرى.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderInput = (
+    label: string,
+    key: keyof typeof formData,
+    placeholder: string,
+    keyboardType: any = "default",
+    secureTextEntry: boolean = false
+  ) => (
+    <View className="mb-4">
+      <Text className="text-sm font-semibold text-foreground mb-2">{label}</Text>
+      <TextInput
+        className={`border rounded-lg px-4 py-3 text-foreground ${
+          errors[key] ? "border-error" : "border-border"
+        }`}
+        placeholder={placeholder}
+        placeholderTextColor={colors.muted}
+        value={formData[key]}
+        onChangeText={(text) => {
+          setFormData({ ...formData, [key]: text });
+          if (errors[key]) {
+            setErrors({ ...errors, [key]: "" });
+          }
+        }}
+        keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
+        editable={!isLoading}
+      />
+      {errors[key] && (
+        <Text className="text-error text-xs mt-1">{errors[key]}</Text>
+      )}
+    </View>
+  );
+
+  return (
+    <ScreenContainer containerClassName="bg-gradient-to-b from-primary to-background">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View className="flex-1 justify-center px-6 py-8">
+          {/* العنوان */}
+          <View className="mb-12 items-center">
+            <Text className="text-3xl font-bold text-white mb-2">تسجيل جديد</Text>
+            <Text className="text-sm text-white/80 text-center">
+              أنشئ حسابك للبدء في استخدام التطبيق
+            </Text>
+          </View>
+
+          {/* نموذج التسجيل */}
+          <View className="bg-white rounded-2xl p-6 shadow-lg">
+            {renderInput("الاسم الكامل", "name", "أدخل اسمك الكامل")}
+            {renderInput("المنصب", "position", "أدخل منصبك الوظيفي")}
+            {renderInput("رقم الجوال", "phone", "أدخل رقم جوالك", "phone-pad")}
+            {renderInput("البريد الإلكتروني", "email", "أدخل بريدك الإلكتروني", "email-address")}
+            {renderInput("كلمة المرور", "password", "أدخل كلمة المرور", "default", true)}
+            {renderInput(
+              "تأكيد كلمة المرور",
+              "confirmPassword",
+              "أعد إدخال كلمة المرور",
+              "default",
+              true
+            )}
+
+            {/* زر التسجيل */}
+            <TouchableOpacity
+              onPress={handleRegister}
+              disabled={isLoading}
+              className="bg-primary rounded-lg py-3 mt-6"
+              style={{ opacity: isLoading ? 0.6 : 1 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-center">إنشاء الحساب</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* رابط تسجيل الدخول */}
+            <View className="flex-row justify-center mt-4">
+              <Text className="text-muted text-sm">لديك حساب بالفعل؟ </Text>
+              <TouchableOpacity onPress={() => router.push("/login")}>
+                <Text className="text-primary font-semibold text-sm">تسجيل الدخول</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}

@@ -1,1 +1,165 @@
-import React, { useState } from "react";\nimport {\n  View,\n  Text,\n  TextInput,\n  TouchableOpacity,\n  ScrollView,\n  ActivityIndicator,\n  Alert,\n} from \"react-native\";\nimport { useRouter } from \"expo-router\";\nimport { ScreenContainer } from \"@/components/screen-container\";\nimport { useAuth } from \"@/lib/auth-context\";\nimport { useColors } from \"@/hooks/use-colors\";\n\nexport default function LoginScreen() {\n  const router = useRouter();\n  const { login, isLoading } = useAuth();\n  const colors = useColors();\n\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n\n  const handleLogin = async () => {\n    if (!email || !password) {\n      Alert.alert(\"خطأ\", \"يرجى إدخال البريد الإلكتروني وكلمة المرور\");\n      return;\n    }\n\n    try {\n      await login(email, password);\n      router.replace(\"/(tabs)\");\n    } catch (error) {\n      Alert.alert(\"خطأ\", \"فشل تسجيل الدخول. تحقق من بيانات الدخول.\");\n    }\n  };\n\n  return (\n    <ScreenContainer containerClassName=\"bg-gradient-to-b from-primary to-background\">\n      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>\n        <View className=\"flex-1 justify-center px-6 py-8\">\n          {/* العنوان */}\n          <View className=\"mb-12 items-center\">\n            <Text className=\"text-4xl font-bold text-white mb-2\">مصنع السلطان</Text>\n            <Text className=\"text-base text-white/80\">نظام إدارة الإنتاج</Text>\n          </View>\n\n          {/* نموذج تسجيل الدخول */}\n          <View className=\"bg-white rounded-2xl p-6 shadow-lg\">\n            {/* حقل البريد الإلكتروني */}\n            <View className=\"mb-4\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">البريد الإلكتروني</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل بريدك الإلكتروني\"\n                placeholderTextColor={colors.muted}\n                value={email}\n                onChangeText={setEmail}\n                editable={!isLoading}\n                keyboardType=\"email-address\"\n                autoCapitalize=\"none\"\n              />\n            </View>\n\n            {/* حقل كلمة المرور */}\n            <View className=\"mb-6\">\n              <Text className=\"text-sm font-semibold text-foreground mb-2\">كلمة المرور</Text>\n              <TextInput\n                className=\"border border-border rounded-lg px-4 py-3 text-foreground\"\n                placeholder=\"أدخل كلمة المرور\"\n                placeholderTextColor={colors.muted}\n                value={password}\n                onChangeText={setPassword}\n                editable={!isLoading}\n                secureTextEntry\n              />\n            </View>\n\n            {/* زر تسجيل الدخول */}\n            <TouchableOpacity\n              onPress={handleLogin}\n              disabled={isLoading}\n              className=\"bg-primary rounded-lg py-3 mb-4\"\n              style={{\n                opacity: isLoading ? 0.6 : 1,\n              }}\n            >\n              {isLoading ? (\n                <ActivityIndicator color=\"white\" />\n              ) : (\n                <Text className=\"text-white font-semibold text-center\">تسجيل الدخول</Text>\n              )}\n            </TouchableOpacity>\n\n            {/* رابط نسيت كلمة المرور */}\n            <TouchableOpacity\n              onPress={() => router.push(\"/forgot-password\")}\n              className=\"mb-6\"\n            >\n              <Text className=\"text-primary text-center text-sm font-semibold\">نسيت كلمة المرور؟</Text>\n            </TouchableOpacity>\n\n            {/* فاصل */}\n            <View className=\"flex-row items-center mb-6\">\n              <View className=\"flex-1 h-px bg-border\" />\n              <Text className=\"mx-2 text-muted text-xs\">أو</Text>\n              <View className=\"flex-1 h-px bg-border\" />\n            </View>\n\n            {/* رابط التسجيل الجديد */}\n            <View className=\"flex-row justify-center\">\n              <Text className=\"text-muted text-sm\">ليس لديك حساب؟ </Text>\n              <TouchableOpacity onPress={() => router.push(\"/register\")}>\n                <Text className=\"text-primary font-semibold text-sm\">سجل الآن</Text>\n              </TouchableOpacity>\n            </View>\n          </View>\n        </View>\n      </ScrollView>\n    </ScreenContainer>\n  );\n}\n
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
+
+export default function LoginScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!email.trim()) newErrors.email = "البريد الإلكتروني مطلوب";
+    if (!password) newErrors.password = "كلمة المرور مطلوبة";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleLogin = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("خطأ", "البريد الإلكتروني أو كلمة المرور غير صحيحة");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <ScreenContainer containerClassName="bg-gradient-to-b from-primary to-background">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <View className="flex-1 justify-center px-6 py-8">
+          {/* العنوان */}
+          <View className="mb-12 items-center">
+            <Text className="text-4xl font-bold text-white mb-2">مصنع السلطان</Text>
+            <Text className="text-sm text-white/80">نظام متابعة أداء المصنع</Text>
+          </View>
+
+          {/* نموذج تسجيل الدخول */}
+          <View className="bg-white rounded-2xl p-6 shadow-lg">
+            {/* حقل البريد الإلكتروني */}
+            <View className="mb-4">
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                البريد الإلكتروني
+              </Text>
+              <TextInput
+                className={`border rounded-lg px-4 py-3 text-foreground ${
+                  errors.email ? "border-error" : "border-border"
+                }`}
+                placeholder="أدخل بريدك الإلكتروني"
+                placeholderTextColor={colors.muted}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) setErrors({ ...errors, email: "" });
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+              {errors.email && (
+                <Text className="text-error text-xs mt-1">{errors.email}</Text>
+              )}
+            </View>
+
+            {/* حقل كلمة المرور */}
+            <View className="mb-6">
+              <Text className="text-sm font-semibold text-foreground mb-2">
+                كلمة المرور
+              </Text>
+              <TextInput
+                className={`border rounded-lg px-4 py-3 text-foreground ${
+                  errors.password ? "border-error" : "border-border"
+                }`}
+                placeholder="أدخل كلمة المرور"
+                placeholderTextColor={colors.muted}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) setErrors({ ...errors, password: "" });
+                }}
+                secureTextEntry
+                editable={!isLoading}
+              />
+              {errors.password && (
+                <Text className="text-error text-xs mt-1">{errors.password}</Text>
+              )}
+            </View>
+
+            {/* زر تسجيل الدخول */}
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={isLoading}
+              className="bg-primary rounded-lg py-3 mb-4"
+              style={{ opacity: isLoading ? 0.6 : 1 }}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-semibold text-center">
+                  تسجيل الدخول
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* رابط نسيان كلمة المرور */}
+            <TouchableOpacity
+              onPress={() => router.push("/forgot-password")}
+              className="mb-4"
+            >
+              <Text className="text-primary text-center font-semibold text-sm">
+                هل نسيت كلمة المرور؟
+              </Text>
+            </TouchableOpacity>
+
+            {/* فاصل */}
+            <View className="flex-row items-center mb-4">
+              <View className="flex-1 h-px bg-border" />
+              <Text className="text-muted text-xs mx-2">أو</Text>
+              <View className="flex-1 h-px bg-border" />
+            </View>
+
+            {/* رابط التسجيل الجديد */}
+            <View className="flex-row justify-center">
+              <Text className="text-muted text-sm">ليس لديك حساب؟ </Text>
+              <TouchableOpacity onPress={() => router.push("/register")}>
+                <Text className="text-primary font-semibold text-sm">
+                  إنشاء حساب جديد
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* معلومات إضافية */}
+          <View className="mt-8 items-center">
+            <Text className="text-white/60 text-xs text-center">
+              جميع الحقوق محفوظة © 2026 مصنع السلطان
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}

@@ -10,29 +10,44 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 
-interface ProductionTab {
+interface MaintenanceTab {
   id: string;
   label: string;
   icon: string;
   description: string;
+  color: string;
 }
 
-const PRODUCTION_TABS: ProductionTab[] = [
+const MAINTENANCE_TABS: MaintenanceTab[] = [
   {
-    id: "production_data",
-    label: "بيانات الإنتاج",
-    icon: "factory",
-    description: "تسجيل كميات الإنتاج والهدر",
+    id: "maintained",
+    label: "الأجهزة المصانة",
+    icon: "build",
+    description: "تسجيل الأجهزة التي تمت صيانتها",
+    color: "#16a34a",
+  },
+  {
+    id: "stopped",
+    label: "الأجهزة المتوقفة",
+    icon: "error",
+    description: "تسجيل الأجهزة المتعطلة والمتوقفة",
+    color: "#dc2626",
+  },
+  {
+    id: "recommendations",
+    label: "توصيات الصيانة",
+    icon: "lightbulb",
+    description: "إضافة توصيات الصيانة الوقائية",
+    color: "#ea580c",
   },
 ];
 
-export default function ProductionScreen() {
+export default function MaintenanceScreen() {
   const router = useRouter();
   const colors = useColors();
 
   const handleTabPress = (tabId: string) => {
-    // يمكن إضافة ملاحة إلى شاشات فرعية هنا
-    console.log("Tab pressed:", tabId);
+    router.push(`/maintenance/${tabId}`);
   };
 
   return (
@@ -44,22 +59,23 @@ export default function ProductionScreen() {
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
         </View>
-        <Text className="text-white font-bold text-lg">الإنتاج</Text>
+        <Text className="text-white font-bold text-lg">الصيانة</Text>
         <View className="w-10" />
       </View>
 
       {/* محتوى التبويبات */}
       <ScrollView className="flex-1 p-4">
-        {PRODUCTION_TABS.map((tab) => (
+        {MAINTENANCE_TABS.map((tab) => (
           <TouchableOpacity
             key={tab.id}
             onPress={() => handleTabPress(tab.id)}
-            className="bg-white rounded-lg p-4 mb-4 border border-border"
+            className="bg-white rounded-lg p-4 mb-4 border border-border overflow-hidden"
             activeOpacity={0.7}
           >
+            <View className="absolute top-0 right-0 w-1 h-full" style={{ backgroundColor: tab.color }} />
             <View className="flex-row items-center">
-              <View className="bg-primary/10 rounded-lg p-3 mr-4">
-                <MaterialIcons name={tab.icon as any} size={24} color={colors.primary} />
+              <View className="rounded-lg p-3 mr-4" style={{ backgroundColor: `${tab.color}20` }}>
+                <MaterialIcons name={tab.icon as any} size={24} color={tab.color} />
               </View>
               <View className="flex-1">
                 <Text className="text-foreground font-bold text-base">{tab.label}</Text>
@@ -71,10 +87,13 @@ export default function ProductionScreen() {
         ))}
 
         {/* معلومات إضافية */}
-        <View className="bg-blue/10 rounded-lg p-4 mt-4 border border-border">
-          <Text className="text-foreground font-semibold text-sm mb-2">ملاحظة مهمة</Text>
+        <View className="bg-warning/10 rounded-lg p-4 mt-4 border border-border">
+          <Text className="text-foreground font-semibold text-sm mb-2">إرشادات الصيانة</Text>
           <Text className="text-muted text-xs leading-5">
-            يمكنك تسجيل بيانات الإنتاج اليومية من خلال هذا القسم. تأكد من إدخال جميع البيانات بدقة.
+            • سجل جميع عمليات الصيانة بالتفصيل{"\n"}
+            • أضف توصيات الصيانة الوقائية{"\n"}
+            • تابع الأجهزة المتعطلة والمتوقفة{"\n"}
+            • حدد إجراءات الحل بوضوح
           </Text>
         </View>
       </ScrollView>

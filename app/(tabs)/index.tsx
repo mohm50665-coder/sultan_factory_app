@@ -1,1 +1,203 @@
-import { ScrollView, Text, View, TouchableOpacity, FlatList } from \"react-native\";\nimport { useRouter } from \"expo-router\";\nimport { ScreenContainer } from \"@/components/screen-container\";\nimport { useAuth } from \"@/lib/auth-context\";\nimport { useColors } from \"@/hooks/use-colors\";\nimport { MaterialIcons } from \"@expo/vector-icons\";\n\ninterface MenuItem {\n  id: string;\n  label: string;\n  icon: string;\n  route: string;\n  color: string;\n  description: string;\n}\n\nconst MENU_ITEMS: MenuItem[] = [\n  {\n    id: \"production\",\n    label: \"الإنتاج\",\n    icon: \"factory\",\n    route: \"/production\",\n    color: \"#0a7ea4\",\n    description: \"إدارة الإنتاج والمكائن\",\n  },\n  {\n    id: \"manufacturing\",\n    label: \"مراحل التصنيع\",\n    icon: \"build\",\n    route: \"/manufacturing\",\n    color: \"#16a34a\",\n    description: \"متابعة مراحل الإنتاج\",\n  },\n  {\n    id: \"sales\",\n    label: \"المبيعات\",\n    icon: \"shopping-cart\",\n    route: \"/sales\",\n    color: \"#ea580c\",\n    description: \"إدارة المبيعات والعملاء\",\n  },\n  {\n    id: \"collection\",\n    label: \"التحصيل\",\n    icon: \"payment\",\n    route: \"/collection\",\n    color: \"#7c3aed\",\n    description: \"متابعة التحصيلات\",\n  },\n  {\n    id: \"warehouse\",\n    label: \"المستودعات\",\n    icon: \"warehouse\",\n    route: \"/warehouse\",\n    color: \"#0891b2\",\n    description: \"إدارة المواد والمخزون\",\n  },\n  {\n    id: \"administrative\",\n    label: \"الإجراءات الإدارية\",\n    icon: \"assignment\",\n    route: \"/administrative\",\n    color: \"#dc2626\",\n    description: \"تسجيل الإجراءات الإدارية\",\n  },\n  {\n    id: \"finance\",\n    label: \"المالية\",\n    icon: \"account-balance\",\n    route: \"/finance\",\n    color: \"#059669\",\n    description: \"إدارة الحسابات والمصاريف\",\n  },\n  {\n    id: \"maintenance\",\n    label: \"الصيانة\",\n    icon: \"build-circle\",\n    route: \"/maintenance\",\n    color: \"#d97706\",\n    description: \"متابعة الصيانة والأعطال\",\n  },\n  {\n    id: \"tasks\",\n    label: \"المهام\",\n    icon: \"checklist\",\n    route: \"/tasks\",\n    color: \"#6366f1\",\n    description: \"إدارة المهام والتكليفات\",\n  },\n];\n\nexport default function HomeScreen() {\n  const router = useRouter();\n  const { user, logout } = useAuth();\n  const colors = useColors();\n\n  const handleMenuItemPress = (route: string) => {\n    router.push(route);\n  };\n\n  const handleLogout = async () => {\n    await logout();\n  };\n\n  const renderMenuItem = ({ item }: { item: MenuItem }) => (\n    <TouchableOpacity\n      onPress={() => handleMenuItemPress(item.route)}\n      className=\"flex-1 m-2 rounded-xl overflow-hidden\"\n      style={{\n        backgroundColor: item.color,\n        minHeight: 140,\n      }}\n      activeOpacity={0.8}\n    >\n      <View className=\"flex-1 p-4 justify-between\">\n        <View>\n          <MaterialIcons name={item.icon as any} size={32} color=\"white\" />\n        </View>\n        <View>\n          <Text className=\"text-white font-bold text-base mb-1\">{item.label}</Text>\n          <Text className=\"text-white/80 text-xs leading-4\">{item.description}</Text>\n        </View>\n      </View>\n    </TouchableOpacity>\n  );\n\n  return (\n    <ScreenContainer className=\"bg-background\">\n      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>\n        {/* رأس الصفحة */}\n        <View className=\"bg-primary px-6 py-8 rounded-b-3xl shadow-lg\">\n          <View className=\"flex-row justify-between items-start mb-4\">\n            <View>\n              <Text className=\"text-white text-sm opacity-80\">أهلاً وسهلاً</Text>\n              <Text className=\"text-white text-2xl font-bold mt-1\">{user?.name || \"المستخدم\"}</Text>\n              {user?.position && (\n                <Text className=\"text-white/70 text-xs mt-1\">{user.position}</Text>\n              )}\n            </View>\n            <TouchableOpacity\n              onPress={handleLogout}\n              className=\"bg-white/20 rounded-full p-2\"\n            >\n              <MaterialIcons name=\"logout\" size={20} color=\"white\" />\n            </TouchableOpacity>\n          </View>\n        </View>\n\n        {/* شبكة القوائم */}\n        <View className=\"px-2 py-6\">\n          <Text className=\"text-foreground font-bold text-lg px-4 mb-4\">الأقسام الرئيسية</Text>\n          <FlatList\n            data={MENU_ITEMS}\n            renderItem={renderMenuItem}\n            keyExtractor={(item) => item.id}\n            numColumns={2}\n            scrollEnabled={false}\n            columnWrapperStyle={{ flex: 1 }}\n          />\n        </View>\n\n        {/* معلومات إضافية */}\n        <View className=\"px-6 py-8 bg-surface rounded-2xl mx-4 mb-6\">\n          <Text className=\"text-foreground font-semibold text-sm mb-2\">معلومات مهمة</Text>\n          <Text className=\"text-muted text-xs leading-5\">\n            يمكنك الوصول إلى جميع أقسام النظام من خلال الأيقونات أعلاه. اختر القسم المطلوب لعرض البيانات والقيام بالعمليات المختلفة.\n          </Text>\n        </View>\n      </ScrollView>\n    </ScreenContainer>\n  );\n}\n
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
+import { MaterialIcons } from "@expo/vector-icons";
+
+interface DashboardItem {
+  id: string;
+  label: string;
+  icon: string;
+  color: string;
+  route: string;
+  description: string;
+}
+
+const DASHBOARD_ITEMS: DashboardItem[] = [
+  {
+    id: "production",
+    label: "الإنتاج",
+    icon: "factory",
+    color: "#3b82f6",
+    route: "/production",
+    description: "إدارة الإنتاج والكميات",
+  },
+  {
+    id: "manufacturing",
+    label: "مراحل التصنيع",
+    icon: "precision-manufacturing",
+    color: "#8b5cf6",
+    route: "/manufacturing",
+    description: "تتبع مراحل التصنيع",
+  },
+  {
+    id: "sales",
+    label: "المبيعات",
+    icon: "shopping-cart",
+    color: "#ec4899",
+    route: "/sales",
+    description: "تسجيل المبيعات",
+  },
+  {
+    id: "collection",
+    label: "التحصيل",
+    icon: "attach-money",
+    color: "#10b981",
+    route: "/collection",
+    description: "تحصيل المبالغ",
+  },
+  {
+    id: "warehouse",
+    label: "المستودعات",
+    icon: "warehouse",
+    color: "#f59e0b",
+    route: "/warehouse",
+    description: "إدارة المستودعات",
+  },
+  {
+    id: "maintenance",
+    label: "الصيانة",
+    icon: "build",
+    color: "#ef4444",
+    route: "/maintenance",
+    description: "تسجيل الصيانة",
+  },
+  {
+    id: "administrative",
+    label: "الإجراءات الإدارية",
+    icon: "assignment",
+    color: "#06b6d4",
+    route: "/administrative",
+    description: "الطلبات الإدارية",
+  },
+  {
+    id: "financial",
+    label: "الشؤون المالية",
+    icon: "account-balance",
+    color: "#6366f1",
+    route: "/financial",
+    description: "إدارة النفقات",
+  },
+  {
+    id: "tasks",
+    label: "المهام",
+    icon: "checklist",
+    color: "#14b8a6",
+    route: "/tasks",
+    description: "إدارة المهام",
+  },
+];
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const { user, logout } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogout = () => {
+    Alert.alert(
+      "تسجيل الخروج",
+      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
+      [
+        { text: "إلغاء", onPress: () => {} },
+        {
+          text: "تسجيل الخروج",
+          onPress: async () => {
+            setIsLoading(true);
+            await logout();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAdminDashboard = () => {
+    if (user?.role === "admin") {
+      router.push("/admin-dashboard");
+    } else {
+      Alert.alert("خطأ", "ليس لديك صلاحية للوصول إلى لوحة التحكم");
+    }
+  };
+
+  return (
+    <ScreenContainer className="bg-background">
+      {/* رأس الصفحة */}
+      <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6">
+        <View className="flex-row justify-between items-start mb-4">
+          <View>
+            <Text className="text-white text-sm opacity-80">أهلاً بك</Text>
+            <Text className="text-white font-bold text-xl mt-1">{user?.name || "المستخدم"}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={handleLogout}
+            disabled={isLoading}
+            className="bg-white/20 rounded-lg p-2"
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <MaterialIcons name="logout" size={20} color="white" />
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text className="text-white/80 text-xs">
+          الدور: {user?.role === "admin" ? "مدير النظام" : "موظف"}
+        </Text>
+      </View>
+
+      {/* زر لوحة تحكم ADMIN */}
+      {user?.role === "admin" && (
+        <TouchableOpacity
+          onPress={handleAdminDashboard}
+          className="mx-4 mt-4 bg-warning/10 border border-warning rounded-lg p-3 flex-row items-center"
+        >
+          <MaterialIcons name="admin-panel-settings" size={20} color={colors.warning} />
+          <Text className="text-warning font-semibold text-sm ml-3">لوحة تحكم ADMIN</Text>
+          <MaterialIcons name="chevron-right" size={20} color={colors.warning} className="ml-auto" />
+        </TouchableOpacity>
+      )}
+
+      {/* شبكة الأيقونات */}
+      <ScrollView className="flex-1 p-4">
+        <View className="flex-row flex-wrap justify-between">
+          {DASHBOARD_ITEMS.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => router.push(item.route)}
+              className="w-[48%] mb-4"
+            >
+              <View className="bg-white rounded-2xl p-4 shadow-sm border border-border overflow-hidden">
+                <View
+                  className="w-12 h-12 rounded-xl items-center justify-center mb-3"
+                  style={{ backgroundColor: `${item.color}20` }}
+                >
+                  <MaterialIcons name={item.icon as any} size={24} color={item.color} />
+                </View>
+                <Text className="text-foreground font-bold text-sm leading-4">{item.label}</Text>
+                <Text className="text-muted text-xs mt-2 leading-3">{item.description}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* معلومات إضافية */}
+        <View className="bg-blue/10 rounded-lg p-4 mt-6 border border-border mb-6">
+          <Text className="text-foreground font-semibold text-sm mb-2">ملاحظة</Text>
+          <Text className="text-muted text-xs leading-5">
+            يمكنك الوصول إلى جميع أقسام المصنع من خلال الأيقونات أعلاه. اختر القسم المطلوب لإدارة البيانات المتعلقة به.
+          </Text>
+        </View>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}

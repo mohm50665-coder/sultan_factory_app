@@ -1,1 +1,346 @@
-/**\n * خدمة البيانات المركزية للتعامل مع جميع عمليات CRUD\n */\n\nexport interface ApiResponse<T> {\n  success: boolean;\n  data?: T;\n  error?: string;\n}\n\n// ============ الإنتاج ============\nexport interface ProductionData {\n  id?: number;\n  machineNumber: string;\n  quantityDozen: number;\n  quantityPair: number;\n  wasteThreadsGrams: number;\n  wasteDefectiveSocksGrams: number;\n  secondGradePair: number;\n  secondGradeGrams: number;\n}\n\n// ============ مراحل التصنيع ============\nexport interface ManufacturingStageData {\n  id?: number;\n  stageName: string;\n  workerName: string;\n  quantityDozen: number;\n  quantityPair: number;\n  productType?: string;\n}\n\n// ============ المبيعات ============\nexport interface SalesData {\n  id?: number;\n  sellerName: string;\n  customerName: string;\n  quantityDozen: number;\n  quantityPair: number;\n  paymentMethod: \"cash\" | \"credit\";\n}\n\n// ============ التحصيل ============\nexport interface CollectionData {\n  id?: number;\n  collectorName: string;\n  customerName: string;\n  amount: number;\n}\n\n// ============ المستودعات ============\nexport interface RawMaterialData {\n  id?: number;\n  materialName: string;\n  quantity: number;\n  unit: string;\n  dataEnteredBy: string;\n}\n\nexport interface MaterialConsumptionData {\n  id?: number;\n  materialType: string;\n  quantity: number;\n  unit: \"kilo\" | \"gram\" | \"piece\" | \"carton\";\n}\n\n// ============ الإجراءات الإدارية ============\nexport interface AdministrativeProcedureData {\n  id?: number;\n  enteredBy: string;\n  workDetails: string;\n}\n\n// ============ المالية ============\nexport interface BankBalanceData {\n  id?: number;\n  amount: number;\n}\n\nexport interface ExpenseData {\n  id?: number;\n  amount: number;\n  expenseDetails: string;\n  paymentMethod: \"bankTransfer\" | \"cash\" | \"cardHaydar\" | \"cardDirector\";\n  requiresApproval?: boolean;\n  approvedBy?: string;\n}\n\n// ============ الصيانة ============\nexport interface MaintainedEquipmentData {\n  id?: number;\n  equipmentName: string;\n  maintenanceDate: Date | string;\n  maintenanceDetails: string;\n}\n\nexport interface StoppedEquipmentData {\n  id?: number;\n  equipmentName: string;\n  stoppageDate: Date | string;\n  stoppageReason: string;\n  solutionProcedures: string;\n}\n\nexport interface MaintenanceRecommendationData {\n  id?: number;\n  recommendations: string;\n}\n\n// ============ المهام ============\nexport interface TaskData {\n  id?: number;\n  employeeName: string;\n  taskDescription: string;\n  dueDate: Date | string;\n  status: \"pending\" | \"inProgress\" | \"completed\";\n}\n\n/**\n * دالة مساعدة لإرسال الطلبات\n */\nasync function apiCall<T>(\n  endpoint: string,\n  method: \"GET\" | \"POST\" | \"PUT\" | \"DELETE\" = \"GET\",\n  data?: unknown\n): Promise<T> {\n  const options: RequestInit = {\n    method,\n    headers: {\n      \"Content-Type\": \"application/json\",\n    },\n  };\n\n  if (data) {\n    options.body = JSON.stringify(data);\n  }\n\n  const response = await fetch(endpoint, options);\n\n  if (!response.ok) {\n    throw new Error(`API Error: ${response.statusText}`);\n  }\n\n  return response.json();\n}\n\n// ============ خدمات الإنتاج ============\nexport const productionService = {\n  async getAll(): Promise<ProductionData[]> {\n    return apiCall(\"/api/production\");\n  },\n\n  async getById(id: number): Promise<ProductionData> {\n    return apiCall(`/api/production/${id}`);\n  },\n\n  async create(data: ProductionData): Promise<ProductionData> {\n    return apiCall(\"/api/production\", \"POST\", data);\n  },\n\n  async update(id: number, data: ProductionData): Promise<ProductionData> {\n    return apiCall(`/api/production/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/production/${id}`, \"DELETE\");\n  },\n};\n\n// ============ خدمات مراحل التصنيع ============\nexport const manufacturingStageService = {\n  async getAll(): Promise<ManufacturingStageData[]> {\n    return apiCall(\"/api/manufacturing-stages\");\n  },\n\n  async getByStage(stageName: string): Promise<ManufacturingStageData[]> {\n    return apiCall(`/api/manufacturing-stages?stage=${stageName}`);\n  },\n\n  async create(data: ManufacturingStageData): Promise<ManufacturingStageData> {\n    return apiCall(\"/api/manufacturing-stages\", \"POST\", data);\n  },\n\n  async update(id: number, data: ManufacturingStageData): Promise<ManufacturingStageData> {\n    return apiCall(`/api/manufacturing-stages/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/manufacturing-stages/${id}`, \"DELETE\");\n  },\n};\n\n// ============ خدمات المبيعات ============\nexport const salesService = {\n  async getAll(): Promise<SalesData[]> {\n    return apiCall(\"/api/sales\");\n  },\n\n  async create(data: SalesData): Promise<SalesData> {\n    return apiCall(\"/api/sales\", \"POST\", data);\n  },\n\n  async update(id: number, data: SalesData): Promise<SalesData> {\n    return apiCall(`/api/sales/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/sales/${id}`, \"DELETE\");\n  },\n};\n\n// ============ خدمات التحصيل ============\nexport const collectionService = {\n  async getAll(): Promise<CollectionData[]> {\n    return apiCall(\"/api/collection\");\n  },\n\n  async create(data: CollectionData): Promise<CollectionData> {\n    return apiCall(\"/api/collection\", \"POST\", data);\n  },\n\n  async update(id: number, data: CollectionData): Promise<CollectionData> {\n    return apiCall(`/api/collection/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/collection/${id}`, \"DELETE\");\n  },\n};\n\n// ============ خدمات المستودعات ============\nexport const warehouseService = {\n  // المواد الخام\n  rawMaterials: {\n    async getAll(): Promise<RawMaterialData[]> {\n      return apiCall(\"/api/raw-materials\");\n    },\n    async create(data: RawMaterialData): Promise<RawMaterialData> {\n      return apiCall(\"/api/raw-materials\", \"POST\", data);\n    },\n    async update(id: number, data: RawMaterialData): Promise<RawMaterialData> {\n      return apiCall(`/api/raw-materials/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/raw-materials/${id}`, \"DELETE\");\n    },\n  },\n\n  // مواد الصرف\n  consumption: {\n    async getAll(): Promise<MaterialConsumptionData[]> {\n      return apiCall(\"/api/material-consumption\");\n    },\n    async create(data: MaterialConsumptionData): Promise<MaterialConsumptionData> {\n      return apiCall(\"/api/material-consumption\", \"POST\", data);\n    },\n    async update(id: number, data: MaterialConsumptionData): Promise<MaterialConsumptionData> {\n      return apiCall(`/api/material-consumption/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/material-consumption/${id}`, \"DELETE\");\n    },\n  },\n\n  // المواد المدخلة\n  incoming: {\n    async getAll(): Promise<MaterialConsumptionData[]> {\n      return apiCall(\"/api/incoming-materials\");\n    },\n    async create(data: MaterialConsumptionData): Promise<MaterialConsumptionData> {\n      return apiCall(\"/api/incoming-materials\", \"POST\", data);\n    },\n    async update(id: number, data: MaterialConsumptionData): Promise<MaterialConsumptionData> {\n      return apiCall(`/api/incoming-materials/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/incoming-materials/${id}`, \"DELETE\");\n    },\n  },\n};\n\n// ============ خدمات الإجراءات الإدارية ============\nexport const administrativeService = {\n  async getAll(): Promise<AdministrativeProcedureData[]> {\n    return apiCall(\"/api/administrative-procedures\");\n  },\n\n  async create(data: AdministrativeProcedureData): Promise<AdministrativeProcedureData> {\n    return apiCall(\"/api/administrative-procedures\", \"POST\", data);\n  },\n\n  async update(id: number, data: AdministrativeProcedureData): Promise<AdministrativeProcedureData> {\n    return apiCall(`/api/administrative-procedures/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/administrative-procedures/${id}`, \"DELETE\");\n  },\n};\n\n// ============ خدمات المالية ============\nexport const financeService = {\n  // رصيد البنك\n  bankBalance: {\n    async get(): Promise<BankBalanceData> {\n      return apiCall(\"/api/bank-balance\");\n    },\n    async update(data: BankBalanceData): Promise<BankBalanceData> {\n      return apiCall(\"/api/bank-balance\", \"PUT\", data);\n    },\n  },\n\n  // المصاريف\n  expenses: {\n    async getAll(): Promise<ExpenseData[]> {\n      return apiCall(\"/api/expenses\");\n    },\n    async create(data: ExpenseData): Promise<ExpenseData> {\n      return apiCall(\"/api/expenses\", \"POST\", data);\n    },\n    async update(id: number, data: ExpenseData): Promise<ExpenseData> {\n      return apiCall(`/api/expenses/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/expenses/${id}`, \"DELETE\");\n    },\n  },\n};\n\n// ============ خدمات الصيانة ============\nexport const maintenanceService = {\n  // الأجهزة المصانة\n  maintained: {\n    async getAll(): Promise<MaintainedEquipmentData[]> {\n      return apiCall(\"/api/maintained-equipment\");\n    },\n    async create(data: MaintainedEquipmentData): Promise<MaintainedEquipmentData> {\n      return apiCall(\"/api/maintained-equipment\", \"POST\", data);\n    },\n    async update(id: number, data: MaintainedEquipmentData): Promise<MaintainedEquipmentData> {\n      return apiCall(`/api/maintained-equipment/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/maintained-equipment/${id}`, \"DELETE\");\n    },\n  },\n\n  // الأجهزة المتوقفة\n  stopped: {\n    async getAll(): Promise<StoppedEquipmentData[]> {\n      return apiCall(\"/api/stopped-equipment\");\n    },\n    async create(data: StoppedEquipmentData): Promise<StoppedEquipmentData> {\n      return apiCall(\"/api/stopped-equipment\", \"POST\", data);\n    },\n    async update(id: number, data: StoppedEquipmentData): Promise<StoppedEquipmentData> {\n      return apiCall(`/api/stopped-equipment/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/stopped-equipment/${id}`, \"DELETE\");\n    },\n  },\n\n  // التوصيات\n  recommendations: {\n    async getAll(): Promise<MaintenanceRecommendationData[]> {\n      return apiCall(\"/api/maintenance-recommendations\");\n    },\n    async create(data: MaintenanceRecommendationData): Promise<MaintenanceRecommendationData> {\n      return apiCall(\"/api/maintenance-recommendations\", \"POST\", data);\n    },\n    async update(id: number, data: MaintenanceRecommendationData): Promise<MaintenanceRecommendationData> {\n      return apiCall(`/api/maintenance-recommendations/${id}`, \"PUT\", data);\n    },\n    async delete(id: number): Promise<void> {\n      return apiCall(`/api/maintenance-recommendations/${id}`, \"DELETE\");\n    },\n  },\n};\n\n// ============ خدمات المهام ============\nexport const taskService = {\n  async getAll(): Promise<TaskData[]> {\n    return apiCall(\"/api/tasks\");\n  },\n\n  async create(data: TaskData): Promise<TaskData> {\n    return apiCall(\"/api/tasks\", \"POST\", data);\n  },\n\n  async update(id: number, data: TaskData): Promise<TaskData> {\n    return apiCall(`/api/tasks/${id}`, \"PUT\", data);\n  },\n\n  async delete(id: number): Promise<void> {\n    return apiCall(`/api/tasks/${id}`, \"DELETE\");\n  },\n};\n
+// Data Service - جميع خدمات البيانات للتطبيق
+
+export interface ManufacturingStageData {
+  id?: number;
+  stageName: string;
+  workerName: string;
+  quantityDozen: number;
+  quantityPair: number;
+}
+
+export interface SalesData {
+  id?: number;
+  sellerName: string;
+  customerName: string;
+  quantityDozen: number;
+  quantityPair: number;
+  paymentMethod: "cash" | "credit";
+}
+
+export interface CollectionData {
+  id?: number;
+  collectorName: string;
+  customerName: string;
+  amount: number;
+}
+
+export interface AdministrativeData {
+  id?: number;
+  employeeName: string;
+  requestType: string;
+  requestDetails: string;
+  approvedByHR: boolean;
+  approvedByManager: boolean;
+}
+
+export interface FinancialData {
+  id?: number;
+  expenseType: string;
+  description: string;
+  amount: number;
+  approvedByBoardRep: boolean;
+}
+
+export interface TaskData {
+  id?: number;
+  employeeName: string;
+  taskDescription: string;
+  dueDate: string;
+  status: "pending" | "inProgress" | "completed";
+}
+
+export interface AdminUserData {
+  id?: number;
+  name: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  isActive: boolean;
+}
+
+// Manufacturing Stage Service
+export const manufacturingStageService = {
+  async getAll(): Promise<ManufacturingStageData[]> {
+    try {
+      const response = await fetch("/api/manufacturing-stages");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching manufacturing stages:", error);
+      return [];
+    }
+  },
+
+  async create(data: ManufacturingStageData): Promise<ManufacturingStageData> {
+    const response = await fetch("/api/manufacturing-stages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: ManufacturingStageData): Promise<ManufacturingStageData> {
+    const response = await fetch(`/api/manufacturing-stages/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/manufacturing-stages/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Sales Service
+export const salesService = {
+  async getAll(): Promise<SalesData[]> {
+    try {
+      const response = await fetch("/api/sales");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching sales:", error);
+      return [];
+    }
+  },
+
+  async create(data: SalesData): Promise<SalesData> {
+    const response = await fetch("/api/sales", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: SalesData): Promise<SalesData> {
+    const response = await fetch(`/api/sales/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/sales/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Collection Service
+export const collectionService = {
+  async getAll(): Promise<CollectionData[]> {
+    try {
+      const response = await fetch("/api/collections");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching collections:", error);
+      return [];
+    }
+  },
+
+  async create(data: CollectionData): Promise<CollectionData> {
+    const response = await fetch("/api/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: CollectionData): Promise<CollectionData> {
+    const response = await fetch(`/api/collections/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/collections/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Administrative Service
+export const administrativeService = {
+  async getAll(): Promise<AdministrativeData[]> {
+    try {
+      const response = await fetch("/api/administrative");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching administrative requests:", error);
+      return [];
+    }
+  },
+
+  async create(data: AdministrativeData): Promise<AdministrativeData> {
+    const response = await fetch("/api/administrative", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: AdministrativeData): Promise<AdministrativeData> {
+    const response = await fetch(`/api/administrative/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/administrative/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Financial Service
+export const financialService = {
+  async getAll(): Promise<FinancialData[]> {
+    try {
+      const response = await fetch("/api/financial");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching financial data:", error);
+      return [];
+    }
+  },
+
+  async create(data: FinancialData): Promise<FinancialData> {
+    const response = await fetch("/api/financial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: FinancialData): Promise<FinancialData> {
+    const response = await fetch(`/api/financial/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/financial/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Task Service
+export const taskService = {
+  async getAll(): Promise<TaskData[]> {
+    try {
+      const response = await fetch("/api/tasks");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      return [];
+    }
+  },
+
+  async create(data: TaskData): Promise<TaskData> {
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async update(id: number, data: TaskData): Promise<TaskData> {
+    const response = await fetch(`/api/tasks/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async delete(id: number): Promise<void> {
+    const response = await fetch(`/api/tasks/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
+
+// Admin Service
+export const adminService = {
+  async getAllUsers(): Promise<AdminUserData[]> {
+    try {
+      const response = await fetch("/api/admin/users");
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return [];
+    }
+  },
+
+  async createUser(data: AdminUserData): Promise<AdminUserData> {
+    const response = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to create");
+    return response.json();
+  },
+
+  async updateUser(id: number, data: AdminUserData): Promise<AdminUserData> {
+    const response = await fetch(`/api/admin/users/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    return response.json();
+  },
+
+  async deleteUser(id: number): Promise<void> {
+    const response = await fetch(`/api/admin/users/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete");
+  },
+};
