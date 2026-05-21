@@ -68,6 +68,7 @@ function NavigationContent() {
       <Stack.Screen name="warehouse-raw" />
       <Stack.Screen name="warehouse-out" />
       <Stack.Screen name="maintenance" />
+      <Stack.Screen name="maintenance-section" />
       <Stack.Screen name="administrative" />
       <Stack.Screen name="financial" />
       <Stack.Screen name="tasks" />
