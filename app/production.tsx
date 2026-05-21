@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  FlatList,
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -23,19 +22,31 @@ const MACHINES = [
   "LT1", "LT2",
 ];
 
-interface ProductionEntry {
-  id: string;
-  machineNumber: string;
+interface MachineData {
   productionDozen: string;
   productionPairs: string;
   wasteThreadGrams: string;
   wasteSocksGrams: string;
   secondGradePairs: string;
   wasteNeedles: string;
-  date: string;
 }
 
-const STORAGE_KEY = "sultan_production_data";
+interface ProductionEntry {
+  id: string;
+  date: string;
+  machines: { [key: string]: MachineData };
+}
+
+const STORAGE_KEY = "sultan_production_data_v2";
+
+const emptyMachineData = (): MachineData => ({
+  productionDozen: "",
+  productionPairs: "",
+  wasteThreadGrams: "",
+  wasteSocksGrams: "",
+  secondGradePairs: "",
+  wasteNeedles: "",
+});
 
 // تنسيق التاريخ
 const formatDate = (d: Date): string => {
@@ -55,14 +66,11 @@ export default function ProductionScreen() {
   // حقل التاريخ الموحد
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
 
-  // حقول النموذج
-  const [selectedMachine, setSelectedMachine] = useState("");
-  const [productionDozen, setProductionDozen] = useState("");
-  const [productionPairs, setProductionPairs] = useState("");
-  const [wasteThread, setWasteThread] = useState("");
-  const [wasteSocks, setWasteSocks] = useState("");
-  const [secondGradePairs, setSecondGradePairs] = useState("");
-  const [wasteNeedles, setWasteNeedles] = useState("");
+  // بيانات كل مكينة
+  const [machinesData, setMachinesData] = useState<{ [key: string]: MachineData }>({});
+
+  // المكائن المفعلة (التي عملت في هذا اليوم)
+  const [activeMachines, setActiveMachines] = useState<string[]>([]);
 
   useEffect(() => {
     loadEntries();
@@ -87,36 +95,58 @@ export default function ProductionScreen() {
   };
 
   const resetForm = () => {
-    setSelectedMachine("");
-    setProductionDozen("");
-    setProductionPairs("");
-    setWasteThread("");
-    setWasteSocks("");
-    setSecondGradePairs("");
-    setWasteNeedles("");
+    setSelectedDate(formatDate(new Date()));
+    setMachinesData({});
+    setActiveMachines([]);
     setEditingEntry(null);
   };
 
-  const handleSave = async () => {
-    if (!selectedMachine) {
-      Alert.alert("تنبيه", "يرجى اختيار رقم المكينة");
-      return;
+  const toggleMachine = (machine: string) => {
+    if (activeMachines.includes(machine)) {
+      setActiveMachines(activeMachines.filter((m) => m !== machine));
+      const newData = { ...machinesData };
+      delete newData[machine];
+      setMachinesData(newData);
+    } else {
+      setActiveMachines([...activeMachines, machine]);
+      setMachinesData({ ...machinesData, [machine]: emptyMachineData() });
     }
-    if (!productionDozen && !productionPairs) {
-      Alert.alert("تنبيه", "يرجى إدخال كمية الإنتاج");
+  };
+
+  const updateMachineField = (machine: string, field: keyof MachineData, value: string) => {
+    setMachinesData({
+      ...machinesData,
+      [machine]: {
+        ...(machinesData[machine] || emptyMachineData()),
+        [field]: value,
+      },
+    });
+  };
+
+  const handleSave = async () => {
+    if (activeMachines.length === 0) {
+      Alert.alert("تنبيه", "يرجى اختيار مكينة واحدة على الأقل");
       return;
     }
 
+    // تصفية المكائن التي لديها بيانات
+    const filteredMachines: { [key: string]: MachineData } = {};
+    activeMachines.forEach((machine) => {
+      const data = machinesData[machine] || emptyMachineData();
+      filteredMachines[machine] = {
+        productionDozen: data.productionDozen || "0",
+        productionPairs: data.productionPairs || "0",
+        wasteThreadGrams: data.wasteThreadGrams || "0",
+        wasteSocksGrams: data.wasteSocksGrams || "0",
+        secondGradePairs: data.secondGradePairs || "0",
+        wasteNeedles: data.wasteNeedles || "0",
+      };
+    });
+
     const entry: ProductionEntry = {
       id: editingEntry?.id || Date.now().toString(),
-      machineNumber: selectedMachine,
-      productionDozen: productionDozen || "0",
-      productionPairs: productionPairs || "0",
-      wasteThreadGrams: wasteThread || "0",
-      wasteSocksGrams: wasteSocks || "0",
-      secondGradePairs: secondGradePairs || "0",
-      wasteNeedles: wasteNeedles || "0",
       date: selectedDate,
+      machines: filteredMachines,
     };
 
     let newEntries: ProductionEntry[];
@@ -133,28 +163,22 @@ export default function ProductionScreen() {
   };
 
   const handleEdit = (entry: ProductionEntry) => {
-    setSelectedMachine(entry.machineNumber);
-    setProductionDozen(entry.productionDozen);
-    setProductionPairs(entry.productionPairs);
-    setWasteThread(entry.wasteThreadGrams);
-    setWasteSocks(entry.wasteSocksGrams);
-    setSecondGradePairs(entry.secondGradePairs);
-    setWasteNeedles(entry.wasteNeedles || "0");
     setSelectedDate(entry.date);
+    setMachinesData(entry.machines);
+    setActiveMachines(Object.keys(entry.machines));
     setEditingEntry(entry);
     setShowForm(true);
   };
 
   const handleDelete = (entry: ProductionEntry) => {
     if (Platform.OS === "web") {
-      // على الويب نحذف مباشرة بدون Alert
-      const confirmed = confirm(`هل تريد حذف بيانات المكينة "${entry.machineNumber}"؟`);
+      const confirmed = confirm(`هل تريد حذف بيانات يوم "${entry.date}"؟`);
       if (confirmed) {
         const newEntries = entries.filter((e) => e.id !== entry.id);
         saveEntries(newEntries);
       }
     } else {
-      Alert.alert("تأكيد الحذف", `هل تريد حذف بيانات المكينة "${entry.machineNumber}"؟`, [
+      Alert.alert("تأكيد الحذف", `هل تريد حذف بيانات يوم "${entry.date}"؟`, [
         { text: "إلغاء", style: "cancel" },
         {
           text: "حذف",
@@ -168,8 +192,8 @@ export default function ProductionScreen() {
     }
   };
 
-  // حساب المجاميع
-  const getTotals = () => {
+  // حساب المجاميع لسجل واحد
+  const getEntryTotals = (entry: ProductionEntry) => {
     let totalDozen = 0;
     let totalPairs = 0;
     let totalWasteThread = 0;
@@ -177,145 +201,110 @@ export default function ProductionScreen() {
     let totalSecondPairs = 0;
     let totalNeedles = 0;
 
-    entries.forEach((e) => {
-      totalDozen += parseFloat(e.productionDozen) || 0;
-      totalPairs += parseFloat(e.productionPairs) || 0;
-      totalWasteThread += parseFloat(e.wasteThreadGrams) || 0;
-      totalWasteSocks += parseFloat(e.wasteSocksGrams) || 0;
-      totalSecondPairs += parseFloat(e.secondGradePairs) || 0;
-      totalNeedles += parseFloat(e.wasteNeedles || "0") || 0;
+    Object.values(entry.machines).forEach((m) => {
+      totalDozen += parseFloat(m.productionDozen) || 0;
+      totalPairs += parseFloat(m.productionPairs) || 0;
+      totalWasteThread += parseFloat(m.wasteThreadGrams) || 0;
+      totalWasteSocks += parseFloat(m.wasteSocksGrams) || 0;
+      totalSecondPairs += parseFloat(m.secondGradePairs) || 0;
+      totalNeedles += parseFloat(m.wasteNeedles) || 0;
     });
 
     return { totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles };
   };
 
-  // عرض سجل إنتاج
-  const renderEntry = ({ item }: { item: ProductionEntry }) => (
-    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
-      {/* رأس السجل */}
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row gap-2">
-          <TouchableOpacity
-            onPress={() => handleEdit(item)}
-            style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
-          >
-            <MaterialIcons name="edit" size={18} color="#0a7ea4" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDelete(item)}
-            style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
-          >
-            <MaterialIcons name="delete" size={18} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
-        <View className="flex-row items-center gap-2">
-          <Text className="text-foreground font-bold text-lg">{item.machineNumber}</Text>
-          <View style={{ backgroundColor: "#16a34a20", borderRadius: 16, padding: 6 }}>
-            <MaterialIcons name="precision-manufacturing" size={20} color="#16a34a" />
-          </View>
-        </View>
-      </View>
-
-      {/* بيانات الإنتاج */}
-      <View className="bg-background rounded-lg p-3">
-        <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-foreground font-bold">{item.productionDozen}</Text>
-            <Text className="text-muted text-xs">درزن</Text>
-            <Text className="text-muted mx-1">|</Text>
-            <Text className="text-foreground font-bold">{item.productionPairs}</Text>
-            <Text className="text-muted text-xs">زوج</Text>
-          </View>
-          <Text className="text-muted text-sm font-semibold">الإنتاج</Text>
-        </View>
-
-        <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-error font-bold">{item.wasteThreadGrams}</Text>
-            <Text className="text-muted text-xs">جرام</Text>
-          </View>
-          <Text className="text-muted text-sm font-semibold">هدر خيوط</Text>
-        </View>
-
-        <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-error font-bold">{item.wasteSocksGrams}</Text>
-            <Text className="text-muted text-xs">جرام</Text>
-          </View>
-          <Text className="text-muted text-sm font-semibold">هدر جوارب تالفة</Text>
-        </View>
-
-        <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-warning font-bold">{item.secondGradePairs}</Text>
-            <Text className="text-muted text-xs">زوج</Text>
-          </View>
-          <Text className="text-muted text-sm font-semibold">النخب الثاني</Text>
-        </View>
-
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-foreground font-bold">{item.wasteNeedles || "0"}</Text>
-            <Text className="text-muted text-xs">حبة</Text>
-          </View>
-          <Text className="text-muted text-sm font-semibold">هدر الإبر</Text>
-        </View>
-      </View>
-
-      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
-    </View>
-  );
-
-  // ملخص المجاميع
-  const renderTotals = () => {
-    const totals = getTotals();
-    if (entries.length === 0) return null;
+  // عرض سجل إنتاج يوم كامل
+  const renderEntry = (entry: ProductionEntry) => {
+    const totals = getEntryTotals(entry);
+    const machineKeys = Object.keys(entry.machines);
 
     return (
-      <View className="bg-surface rounded-xl p-4 mb-4 border border-border">
-        <View className="flex-row items-center gap-2 mb-3 justify-end">
-          <Text className="text-foreground font-bold text-base">ملخص المجاميع</Text>
-          <MaterialIcons name="summarize" size={20} color="#16a34a" />
+      <View key={entry.id} className="bg-surface rounded-xl p-4 mb-4 border border-border">
+        {/* رأس السجل */}
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => handleEdit(entry)}
+              style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
+            >
+              <MaterialIcons name="edit" size={18} color="#0a7ea4" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDelete(entry)}
+              style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
+            >
+              <MaterialIcons name="delete" size={18} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-row items-center gap-2">
+            <Text className="text-foreground font-bold text-base">{entry.date}</Text>
+            <MaterialIcons name="calendar-today" size={18} color="#16a34a" />
+          </View>
         </View>
-        <View className="bg-background rounded-lg p-3">
-          <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-            <Text className="text-foreground font-bold">
-              {totals.totalDozen} درزن | {totals.totalPairs} زوج
+
+        {/* بيانات كل مكينة */}
+        {machineKeys.map((machine) => {
+          const data = entry.machines[machine];
+          return (
+            <View key={machine} className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <Text className="text-foreground font-bold text-sm mb-2 text-right">{machine}</Text>
+              <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
+                <Text className="text-muted text-xs">
+                  إنتاج: <Text className="text-foreground font-semibold">{data.productionDozen}</Text> درزن / <Text className="text-foreground font-semibold">{data.productionPairs}</Text> زوج
+                </Text>
+                <Text className="text-muted text-xs">
+                  هدر خيوط: <Text className="text-error font-semibold">{data.wasteThreadGrams}</Text> جم
+                </Text>
+                <Text className="text-muted text-xs">
+                  هدر جوارب: <Text className="text-error font-semibold">{data.wasteSocksGrams}</Text> جم
+                </Text>
+                <Text className="text-muted text-xs">
+                  نخب ثاني: <Text className="text-warning font-semibold">{data.secondGradePairs}</Text> زوج
+                </Text>
+                <Text className="text-muted text-xs">
+                  إبر: <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> حبة
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* المجموع */}
+        <View className="bg-background rounded-lg p-3 mt-1 border-2 border-primary/30">
+          <Text className="text-primary font-bold text-sm mb-1 text-right">المجموع</Text>
+          <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
+            <Text className="text-muted text-xs">
+              إنتاج: <Text className="text-foreground font-bold">{totals.totalDozen}</Text> درزن / <Text className="text-foreground font-bold">{totals.totalPairs}</Text> زوج
             </Text>
-            <Text className="text-muted text-sm">إجمالي الإنتاج</Text>
-          </View>
-          <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-            <Text className="text-error font-bold">{totals.totalWasteThread} جرام</Text>
-            <Text className="text-muted text-sm">إجمالي هدر الخيوط</Text>
-          </View>
-          <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-            <Text className="text-error font-bold">{totals.totalWasteSocks} جرام</Text>
-            <Text className="text-muted text-sm">إجمالي هدر الجوارب</Text>
-          </View>
-          <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-            <Text className="text-warning font-bold">{totals.totalSecondPairs} زوج</Text>
-            <Text className="text-muted text-sm">إجمالي النخب الثاني</Text>
-          </View>
-          <View className="flex-row justify-between items-center">
-            <Text className="text-foreground font-bold">{totals.totalNeedles} حبة</Text>
-            <Text className="text-muted text-sm">إجمالي هدر الإبر</Text>
+            <Text className="text-muted text-xs">
+              هدر خيوط: <Text className="text-error font-bold">{totals.totalWasteThread}</Text> جم
+            </Text>
+            <Text className="text-muted text-xs">
+              هدر جوارب: <Text className="text-error font-bold">{totals.totalWasteSocks}</Text> جم
+            </Text>
+            <Text className="text-muted text-xs">
+              نخب ثاني: <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> زوج
+            </Text>
+            <Text className="text-muted text-xs">
+              إبر: <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> حبة
+            </Text>
           </View>
         </View>
       </View>
     );
   };
 
-  // نموذج الإدخال
+  // نموذج الإدخال - جميع المكائن المفعلة مع حقولها
   const renderForm = () => (
     <ScrollView className="flex-1 px-4 py-4">
-      <View className="bg-surface rounded-xl p-5 border border-border">
+      <View className="bg-surface rounded-xl p-5 border border-border mb-4">
         <Text className="text-foreground font-bold text-lg mb-5 text-right">
           {editingEntry ? "✏️ تعديل بيانات الإنتاج" : "➕ إضافة بيانات إنتاج"}
         </Text>
 
         {/* التاريخ الموحد */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">تاريخ الإنتاج (موحد لجميع المكائن)</Text>
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">تاريخ الإنتاج</Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
             placeholder="YYYY-MM-DD"
@@ -324,33 +313,33 @@ export default function ProductionScreen() {
             onChangeText={setSelectedDate}
             returnKeyType="next"
           />
-          <Text className="text-muted text-xs mt-1 text-right">مثال: 2026-05-21</Text>
+          <Text className="text-muted text-xs mt-1 text-right">تاريخ واحد لجميع المكائن</Text>
         </View>
 
-        {/* رقم المكينة */}
+        {/* اختيار المكائن التي عملت */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">رقم المكينة (اختر المكائن التي عملت في هذا اليوم)</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اختر المكائن التي عملت في هذا اليوم</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {MACHINES.map((machine) => (
               <TouchableOpacity
                 key={machine}
-                onPress={() => setSelectedMachine(machine)}
+                onPress={() => toggleMachine(machine)}
                 style={{
-                  backgroundColor: selectedMachine === machine ? "#16a34a" : "transparent",
+                  backgroundColor: activeMachines.includes(machine) ? "#16a34a" : "transparent",
                   borderColor: "#16a34a",
                   borderWidth: 1.5,
                   borderRadius: 22,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  minWidth: 56,
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  minWidth: 52,
                   alignItems: "center",
                 }}
               >
                 <Text
                   style={{
-                    color: selectedMachine === machine ? "white" : "#16a34a",
+                    color: activeMachines.includes(machine) ? "white" : "#16a34a",
                     fontWeight: "700",
-                    fontSize: 12,
+                    fontSize: 11,
                   }}
                 >
                   {machine}
@@ -359,93 +348,101 @@ export default function ProductionScreen() {
             ))}
           </View>
         </View>
+      </View>
 
-        {/* كمية الإنتاج بالدرزن */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">كمية الإنتاج (درزن)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={productionDozen}
-            onChangeText={setProductionDozen}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
+      {/* حقول الإدخال لكل مكينة مفعلة */}
+      {activeMachines.map((machine) => (
+        <View key={machine} className="bg-surface rounded-xl p-4 border border-border mb-3">
+          <View className="flex-row items-center gap-2 mb-3 justify-end">
+            <Text className="text-foreground font-bold text-base">{machine}</Text>
+            <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
+              <MaterialIcons name="precision-manufacturing" size={16} color="#16a34a" />
+            </View>
+          </View>
+
+          {/* كمية الإنتاج */}
+          <View className="flex-row gap-2 mb-3">
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">إنتاج (زوج)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.productionPairs || ""}
+                onChangeText={(v) => updateMachineField(machine, "productionPairs", v)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">إنتاج (درزن)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.productionDozen || ""}
+                onChangeText={(v) => updateMachineField(machine, "productionDozen", v)}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          {/* هدر الخيوط وهدر الجوارب */}
+          <View className="flex-row gap-2 mb-3">
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">هدر جوارب (جم)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.wasteSocksGrams || ""}
+                onChangeText={(v) => updateMachineField(machine, "wasteSocksGrams", v)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">هدر خيوط (جم)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.wasteThreadGrams || ""}
+                onChangeText={(v) => updateMachineField(machine, "wasteThreadGrams", v)}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          {/* النخب الثاني وهدر الإبر */}
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">هدر إبر (حبة)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.wasteNeedles || ""}
+                onChangeText={(v) => updateMachineField(machine, "wasteNeedles", v)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">نخب ثاني (زوج)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.secondGradePairs || ""}
+                onChangeText={(v) => updateMachineField(machine, "secondGradePairs", v)}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
         </View>
+      ))}
 
-        {/* كمية الإنتاج بالزوج */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">كمية الإنتاج (زوج)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={productionPairs}
-            onChangeText={setProductionPairs}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* هدر الخيوط */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">هدر الخيوط (جرام)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={wasteThread}
-            onChangeText={setWasteThread}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* هدر جوارب تالفة */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">هدر جوارب تالفة (جرام)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={wasteSocks}
-            onChangeText={setWasteSocks}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* النخب الثاني بالزوج فقط */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">النخب الثاني (زوج)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={secondGradePairs}
-            onChangeText={setSecondGradePairs}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* هدر الإبر */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">هدر الإبر (حبة)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={wasteNeedles}
-            onChangeText={setWasteNeedles}
-            keyboardType="numeric"
-            returnKeyType="done"
-          />
-        </View>
-
-        {/* أزرار */}
-        <View className="flex-row gap-3 mt-2">
+      {/* أزرار الحفظ والتعديل والإلغاء */}
+      {activeMachines.length > 0 && (
+        <View className="flex-row gap-3 mt-2 mb-8">
           <TouchableOpacity
             onPress={() => { setShowForm(false); resetForm(); }}
             style={{
@@ -460,9 +457,28 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-base">إلغاء</Text>
-            <MaterialIcons name="close" size={20} color={colors.foreground} />
+            <Text className="text-foreground font-semibold text-sm">إلغاء</Text>
+            <MaterialIcons name="close" size={18} color={colors.foreground} />
           </TouchableOpacity>
+
+          {editingEntry && (
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{
+                flex: 1,
+                backgroundColor: "#0a7ea4",
+                borderRadius: 12,
+                paddingVertical: 14,
+                flexDirection: "row",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Text className="text-white font-semibold text-sm">تعديل</Text>
+              <MaterialIcons name="edit" size={18} color="white" />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             onPress={handleSave}
@@ -477,13 +493,11 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-white font-semibold text-base">
-              {editingEntry ? "تعديل" : "حفظ"}
-            </Text>
-            <MaterialIcons name={editingEntry ? "edit" : "save"} size={20} color="white" />
+            <Text className="text-white font-semibold text-sm">حفظ</Text>
+            <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 
@@ -518,13 +532,8 @@ export default function ProductionScreen() {
       {showForm ? (
         renderForm()
       ) : (
-        <FlatList
-          data={entries}
-          keyExtractor={(item) => item.id}
-          renderItem={renderEntry}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-          ListHeaderComponent={renderTotals()}
-          ListEmptyComponent={
+        <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
+          {entries.length === 0 ? (
             <View className="flex-1 items-center justify-center py-20">
               <View style={{ backgroundColor: "#16a34a15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="precision-manufacturing" size={48} color="#16a34a" />
@@ -543,8 +552,10 @@ export default function ProductionScreen() {
                 </View>
               </TouchableOpacity>
             </View>
-          }
-        />
+          ) : (
+            entries.map((entry) => renderEntry(entry))
+          )}
+        </ScrollView>
       )}
     </ScreenContainer>
   );
