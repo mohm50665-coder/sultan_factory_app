@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   FlatList,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -30,12 +31,19 @@ interface ProductionEntry {
   wasteThreadGrams: string;
   wasteSocksGrams: string;
   secondGradePairs: string;
-  secondGradeGrams: string;
   wasteNeedles: string;
   date: string;
 }
 
 const STORAGE_KEY = "sultan_production_data";
+
+// تنسيق التاريخ
+const formatDate = (d: Date): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function ProductionScreen() {
   const router = useRouter();
@@ -44,6 +52,9 @@ export default function ProductionScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
 
+  // حقل التاريخ الموحد
+  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+
   // حقول النموذج
   const [selectedMachine, setSelectedMachine] = useState("");
   const [productionDozen, setProductionDozen] = useState("");
@@ -51,7 +62,6 @@ export default function ProductionScreen() {
   const [wasteThread, setWasteThread] = useState("");
   const [wasteSocks, setWasteSocks] = useState("");
   const [secondGradePairs, setSecondGradePairs] = useState("");
-  const [secondGradeGrams, setSecondGradeGrams] = useState("");
   const [wasteNeedles, setWasteNeedles] = useState("");
 
   useEffect(() => {
@@ -83,7 +93,6 @@ export default function ProductionScreen() {
     setWasteThread("");
     setWasteSocks("");
     setSecondGradePairs("");
-    setSecondGradeGrams("");
     setWasteNeedles("");
     setEditingEntry(null);
   };
@@ -106,9 +115,8 @@ export default function ProductionScreen() {
       wasteThreadGrams: wasteThread || "0",
       wasteSocksGrams: wasteSocks || "0",
       secondGradePairs: secondGradePairs || "0",
-      secondGradeGrams: secondGradeGrams || "0",
       wasteNeedles: wasteNeedles || "0",
-      date: new Date().toLocaleDateString("ar-SA"),
+      date: selectedDate,
     };
 
     let newEntries: ProductionEntry[];
@@ -131,25 +139,33 @@ export default function ProductionScreen() {
     setWasteThread(entry.wasteThreadGrams);
     setWasteSocks(entry.wasteSocksGrams);
     setSecondGradePairs(entry.secondGradePairs);
-    setSecondGradeGrams(entry.secondGradeGrams);
     setWasteNeedles(entry.wasteNeedles || "0");
+    setSelectedDate(entry.date);
     setEditingEntry(entry);
     setShowForm(true);
   };
 
   const handleDelete = (entry: ProductionEntry) => {
-    Alert.alert("تأكيد الحذف", `هل تريد حذف بيانات المكينة "${entry.machineNumber}"؟`, [
-      { text: "إلغاء", style: "cancel" },
-      {
-        text: "حذف",
-        style: "destructive",
-        onPress: async () => {
-          const newEntries = entries.filter((e) => e.id !== entry.id);
-          await saveEntries(newEntries);
-          Alert.alert("تم ✓", "تم حذف السجل");
+    if (Platform.OS === "web") {
+      // على الويب نحذف مباشرة بدون Alert
+      const confirmed = confirm(`هل تريد حذف بيانات المكينة "${entry.machineNumber}"؟`);
+      if (confirmed) {
+        const newEntries = entries.filter((e) => e.id !== entry.id);
+        saveEntries(newEntries);
+      }
+    } else {
+      Alert.alert("تأكيد الحذف", `هل تريد حذف بيانات المكينة "${entry.machineNumber}"؟`, [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: async () => {
+            const newEntries = entries.filter((e) => e.id !== entry.id);
+            await saveEntries(newEntries);
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   // حساب المجاميع
@@ -159,7 +175,6 @@ export default function ProductionScreen() {
     let totalWasteThread = 0;
     let totalWasteSocks = 0;
     let totalSecondPairs = 0;
-    let totalSecondGrams = 0;
     let totalNeedles = 0;
 
     entries.forEach((e) => {
@@ -168,11 +183,10 @@ export default function ProductionScreen() {
       totalWasteThread += parseFloat(e.wasteThreadGrams) || 0;
       totalWasteSocks += parseFloat(e.wasteSocksGrams) || 0;
       totalSecondPairs += parseFloat(e.secondGradePairs) || 0;
-      totalSecondGrams += parseFloat(e.secondGradeGrams) || 0;
       totalNeedles += parseFloat(e.wasteNeedles || "0") || 0;
     });
 
-    return { totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalSecondGrams, totalNeedles };
+    return { totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles };
   };
 
   // عرض سجل إنتاج
@@ -232,12 +246,9 @@ export default function ProductionScreen() {
         </View>
 
         <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-1">
             <Text className="text-warning font-bold">{item.secondGradePairs}</Text>
             <Text className="text-muted text-xs">زوج</Text>
-            <Text className="text-muted mx-1">|</Text>
-            <Text className="text-warning font-bold">{item.secondGradeGrams}</Text>
-            <Text className="text-muted text-xs">جرام</Text>
           </View>
           <Text className="text-muted text-sm font-semibold">النخب الثاني</Text>
         </View>
@@ -282,9 +293,7 @@ export default function ProductionScreen() {
             <Text className="text-muted text-sm">إجمالي هدر الجوارب</Text>
           </View>
           <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-border">
-            <Text className="text-warning font-bold">
-              {totals.totalSecondPairs} زوج | {totals.totalSecondGrams} جرام
-            </Text>
+            <Text className="text-warning font-bold">{totals.totalSecondPairs} زوج</Text>
             <Text className="text-muted text-sm">إجمالي النخب الثاني</Text>
           </View>
           <View className="flex-row justify-between items-center">
@@ -304,9 +313,23 @@ export default function ProductionScreen() {
           {editingEntry ? "✏️ تعديل بيانات الإنتاج" : "➕ إضافة بيانات إنتاج"}
         </Text>
 
+        {/* التاريخ الموحد */}
+        <View className="mb-5">
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">تاريخ الإنتاج (موحد لجميع المكائن)</Text>
+          <TextInput
+            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.muted}
+            value={selectedDate}
+            onChangeText={setSelectedDate}
+            returnKeyType="next"
+          />
+          <Text className="text-muted text-xs mt-1 text-right">مثال: 2026-05-21</Text>
+        </View>
+
         {/* رقم المكينة */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">رقم المكينة</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">رقم المكينة (اختر المكائن التي عملت في هذا اليوم)</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {MACHINES.map((machine) => (
               <TouchableOpacity
@@ -393,7 +416,7 @@ export default function ProductionScreen() {
           />
         </View>
 
-        {/* النخب الثاني بالزوج */}
+        {/* النخب الثاني بالزوج فقط */}
         <View className="mb-4">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">النخب الثاني (زوج)</Text>
           <TextInput
@@ -402,20 +425,6 @@ export default function ProductionScreen() {
             placeholderTextColor={colors.muted}
             value={secondGradePairs}
             onChangeText={setSecondGradePairs}
-            keyboardType="numeric"
-            returnKeyType="next"
-          />
-        </View>
-
-        {/* النخب الثاني بالجرام */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">النخب الثاني (جرام)</Text>
-          <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={secondGradeGrams}
-            onChangeText={setSecondGradeGrams}
             keyboardType="numeric"
             returnKeyType="next"
           />
