@@ -1,6 +1,6 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -8,6 +8,7 @@ import "react-native-reanimated";
 import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -26,7 +27,7 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-export default function RootLayout() {
+function RootLayoutContent() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
@@ -78,6 +79,28 @@ export default function RootLayout() {
     };
   }, [initialInsets, initialFrame]);
 
+  const { isSignedIn, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  // إعادة توجيه المستخدمين بناءً على حالة المصادقة
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === "(tabs)";
+
+    if (isSignedIn && !inAuthGroup) {
+      // المستخدم مسجل دخول ولكنه على صفحة تسجيل الدخول
+      router.replace("/(tabs)");
+    } else if (!isSignedIn && inAuthGroup) {
+      // المستخدم غير مسجل دخول ولكنه يحاول الوصول إلى صفحات محمية
+      router.replace("/login");
+    } else if (!isSignedIn && !inAuthGroup && segments[0] !== "login" && segments[0] !== "register" && segments[0] !== "forgot-password") {
+      // المستخدم غير مسجل دخول وليس على صفحة معروفة
+      router.replace("/login");
+    }
+  }, [isSignedIn, segments, isLoading]);
+
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
@@ -87,6 +110,9 @@ export default function RootLayout() {
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="login" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="forgot-password" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />
@@ -115,5 +141,26 @@ export default function RootLayout() {
     <ThemeProvider>
       <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+  );
+  const [trpcClient] = useState(() => createTRPCClient());
+
+  return (
+    <AuthProvider>
+      <RootLayoutContent />
+    </AuthProvider>
   );
 }
