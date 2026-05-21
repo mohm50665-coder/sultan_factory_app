@@ -48,7 +48,6 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/sales",
     description: "تسجيل المبيعات وتحصيل المبالغ",
   },
-
   {
     id: "warehouse",
     label: "المستودعات",
@@ -66,20 +65,20 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     description: "أجهزة مصانة - متوقفة - توصيات",
   },
   {
-    id: "administrative",
-    label: "الإجراءات الإدارية",
-    icon: "assignment",
-    color: "#06b6d4",
-    route: "/administrative",
-    description: "الطلبات والإجراءات الإدارية",
-  },
-  {
     id: "financial",
     label: "المصروفات",
     icon: "payments",
     color: "#6366f1",
     route: "/financial",
     description: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
+  },
+  {
+    id: "administrative",
+    label: "الإجراءات الإدارية",
+    icon: "assignment",
+    color: "#06b6d4",
+    route: "/administrative",
+    description: "الطلبات والإجراءات الإدارية",
   },
   {
     id: "tasks",
