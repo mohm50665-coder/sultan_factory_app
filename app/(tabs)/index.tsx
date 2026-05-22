@@ -222,6 +222,18 @@ export default function HomeScreen() {
               <Text className="text-foreground text-xs font-semibold mt-2">التصدير</Text>
             </View>
           </TouchableOpacity>
+          {user?.role === "admin" && (
+            <TouchableOpacity
+              onPress={() => handleNavigate("/users-management")}
+              style={styles.toolItem}
+              activeOpacity={0.7}
+            >
+              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+                <MaterialIcons name="people" size={24} color="#7c3aed" />
+                <Text className="text-foreground text-xs font-semibold mt-2">إدارة المستخدمين</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </ScreenContainer>

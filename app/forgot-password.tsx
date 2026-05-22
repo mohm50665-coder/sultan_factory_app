@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { simpleAuthService } from "@/lib/services/simple-auth";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -37,10 +38,19 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Verify the user exists with matching username and phone
+      const allUsers = await simpleAuthService.getAllUsers();
+      const found = allUsers.find(
+        (u) => (u.username === username.trim()) && u.phone === phone.trim()
+      );
+      if (!found) {
+        Alert.alert("خطأ", "البيانات غير صحيحة. تأكد من اسم المستخدم ورقم الجوال");
+        return;
+      }
       setStep("reset");
     } catch (err) {
-      Alert.alert("خطأ", "فشل التحقق من البيانات");
+      const message = err instanceof Error ? err.message : "فشل التحقق من البيانات";
+      Alert.alert("خطأ", message);
     } finally {
       setIsLoading(false);
     }
@@ -59,11 +69,12 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await simpleAuthService.resetPassword(username.trim(), phone.trim(), newPassword);
       Alert.alert("نجاح", "تم إعادة تعيين كلمة المرور بنجاح");
       router.replace("/login");
     } catch (err) {
-      Alert.alert("خطأ", "فشل إعادة تعيين كلمة المرور");
+      const message = err instanceof Error ? err.message : "فشل إعادة تعيين كلمة المرور";
+      Alert.alert("خطأ", message);
     } finally {
       setIsLoading(false);
     }

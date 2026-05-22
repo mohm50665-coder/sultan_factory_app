@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { simpleAuthService, type User } from "./services/simple-auth";
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isSignedIn: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, phone: string, position: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (name: string, username: string, phone: string, position: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  signUp: (name: string, email: string, phone: string, position: string, password: string) => Promise<void>;
-  updateProfile: (data: { name?: string; email?: string; phone?: string; position?: string }) => Promise<void>;
+  signUp: (name: string, username: string, phone: string, position: string, password: string) => Promise<void>;
+  updateProfile: (data: { name?: string; username?: string; phone?: string; position?: string }) => Promise<void>;
   error: string | null;
 }
 
@@ -35,11 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      const userData = await simpleAuthService.login(email, password);
+      const userData = await simpleAuthService.login(username, password);
       setUser(userData);
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل تسجيل الدخول";
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (
     name: string,
-    email: string,
+    username: string,
     phone: string,
     position: string,
     password: string
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userData = await simpleAuthService.register({
         name,
-        email,
+        username,
         phone,
         position,
         password,
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateProfile = async (data: { name?: string; email?: string; phone?: string; position?: string }) => {
+  const updateProfile = async (data: { name?: string; username?: string; phone?: string; position?: string }) => {
     setIsLoading(true);
     setError(null);
     try {

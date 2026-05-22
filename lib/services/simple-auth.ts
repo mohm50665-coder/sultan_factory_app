@@ -3,10 +3,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export interface User {
   id: string;
   name: string;
+  username: string;
   email: string;
   phone: string;
   position: string;
   role: string;
+  isActive: boolean;
   createdAt?: string;
 }
 
@@ -26,14 +28,34 @@ async function initializeUsers() {
         {
           id: "1",
           name: "المدير العام",
+          username: "admin",
           email: "admin@sultan.com",
           phone: "0501234567",
           position: "مدير عام",
           role: "admin",
           password: "123456",
+          isActive: true,
+          createdAt: new Date().toISOString(),
         },
       ];
       await AsyncStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
+    } else {
+      // Migrate existing users to have username field if missing
+      const users: StoredUser[] = JSON.parse(existing);
+      let needsUpdate = false;
+      users.forEach((u) => {
+        if (!u.username) {
+          u.username = u.email.split("@")[0] || u.name;
+          needsUpdate = true;
+        }
+        if (u.isActive === undefined) {
+          u.isActive = true;
+          needsUpdate = true;
+        }
+      });
+      if (needsUpdate) {
+        await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
     }
   } catch (error) {
     console.error("Failed to initialize users:", error);
@@ -43,30 +65,34 @@ async function initializeUsers() {
 export const simpleAuthService = {
   async register(data: {
     name: string;
-    email: string;
+    username: string;
+    email?: string;
     phone: string;
     position: string;
     password: string;
   }): Promise<User> {
     try {
       await initializeUsers();
-      
+
       const usersJson = await AsyncStorage.getItem(USERS_KEY);
       const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
 
-      // Check if email already exists
-      if (users.some((u) => u.email === data.email)) {
-        throw new Error("البريد الإلكتروني مسجل بالفعل");
+      // Check if username already exists
+      if (users.some((u) => u.username === data.username)) {
+        throw new Error("اسم المستخدم مسجل بالفعل");
       }
 
       const newUser: StoredUser = {
         id: Date.now().toString(),
         name: data.name,
-        email: data.email,
+        username: data.username,
+        email: data.email || "",
         phone: data.phone,
         position: data.position,
         password: data.password,
         role: "user",
+        isActive: true,
+        createdAt: new Date().toISOString(),
       };
 
       users.push(newUser);
@@ -83,16 +109,23 @@ export const simpleAuthService = {
     }
   },
 
-  async login(email: string, password: string): Promise<User> {
+  async login(username: string, password: string): Promise<User> {
     try {
       await initializeUsers();
-      
+
       const usersJson = await AsyncStorage.getItem(USERS_KEY);
       const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
 
-      const user = users.find((u) => u.email === email && u.password === password);
+      // Search by username or email for backward compatibility
+      const user = users.find(
+        (u) => (u.username === username || u.email === username) && u.password === password
+      );
       if (!user) {
-        throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+        throw new Error("اسم المستخدم أو كلمة المرور غير صحيحة");
+      }
+
+      if (!user.isActive) {
+        throw new Error("الحساب معطل. تواصل مع المدير");
       }
 
       const { password: _, ...userWithoutPassword } = user;
@@ -124,17 +157,37 @@ export const simpleAuthService = {
     }
   },
 
+  async resetPassword(username: string, phone: string, newPassword: string): Promise<void> {
+    try {
+      await initializeUsers();
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const userIndex = users.findIndex(
+        (u) => (u.username === username || u.email === username) && u.phone === phone
+      );
+      if (userIndex === -1) {
+        throw new Error("البيانات غير صحيحة. تأكد من اسم المستخدم ورقم الجوال");
+      }
+
+      users[userIndex].password = newPassword;
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } catch (error) {
+      console.error("Password reset error:", error);
+      throw error;
+    }
+  },
+
   async requestPasswordReset(email: string): Promise<void> {
     try {
       const usersJson = await AsyncStorage.getItem(USERS_KEY);
       const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
 
-      const user = users.find((u) => u.email === email);
+      const user = users.find((u) => u.email === email || u.username === email);
       if (!user) {
-        throw new Error("البريد الإلكتروني غير مسجل");
+        throw new Error("المستخدم غير مسجل");
       }
 
-      // In a real app, send reset email
       console.log(`Password reset requested for ${email}`);
     } catch (error) {
       console.error("Password reset error:", error);
@@ -144,6 +197,7 @@ export const simpleAuthService = {
 
   async updateProfile(data: {
     name?: string;
+    username?: string;
     email?: string;
     phone?: string;
     position?: string;
@@ -158,23 +212,22 @@ export const simpleAuthService = {
       const usersJson = await AsyncStorage.getItem(USERS_KEY);
       const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
 
-      // Find and update user
       const userIndex = users.findIndex((u) => u.id === currentUser.id);
       if (userIndex === -1) {
         throw new Error("المستخدم غير موجود");
       }
 
-      // Check if new email already exists
-      if (data.email && data.email !== currentUser.email) {
-        if (users.some((u) => u.email === data.email && u.id !== currentUser.id)) {
-          throw new Error("البريد الإلكتروني مسجل بالفعل");
+      // Check if new username already exists
+      if (data.username && data.username !== currentUser.username) {
+        if (users.some((u) => u.username === data.username && u.id !== currentUser.id)) {
+          throw new Error("اسم المستخدم مسجل بالفعل");
         }
       }
 
-      // Update user data
       const updatedUser: StoredUser = {
         ...users[userIndex],
         name: data.name ?? users[userIndex].name,
+        username: data.username ?? users[userIndex].username,
         email: data.email ?? users[userIndex].email,
         phone: data.phone ?? users[userIndex].phone,
         position: data.position ?? users[userIndex].position,
@@ -183,13 +236,119 @@ export const simpleAuthService = {
       users[userIndex] = updatedUser;
       await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-      // Update current user
       const { password: _, ...userWithoutPassword } = updatedUser;
       await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
 
       return userWithoutPassword;
     } catch (error) {
       console.error("Update profile error:", error);
+      throw error;
+    }
+  },
+
+  // ===== إدارة المستخدمين (Admin) =====
+  async getAllUsers(): Promise<User[]> {
+    try {
+      await initializeUsers();
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+      return users.map(({ password, ...u }) => u);
+    } catch (error) {
+      console.error("Get all users error:", error);
+      return [];
+    }
+  },
+
+  async updateUser(userId: string, data: Partial<Omit<StoredUser, "id">>): Promise<User> {
+    try {
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const userIndex = users.findIndex((u) => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error("المستخدم غير موجود");
+      }
+
+      users[userIndex] = { ...users[userIndex], ...data };
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+      const { password: _, ...userWithoutPassword } = users[userIndex];
+      return userWithoutPassword;
+    } catch (error) {
+      console.error("Update user error:", error);
+      throw error;
+    }
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const filtered = users.filter((u) => u.id !== userId);
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(filtered));
+    } catch (error) {
+      console.error("Delete user error:", error);
+      throw error;
+    }
+  },
+
+  async toggleUserActive(userId: string): Promise<User> {
+    try {
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const userIndex = users.findIndex((u) => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error("المستخدم غير موجود");
+      }
+
+      users[userIndex].isActive = !users[userIndex].isActive;
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+      const { password: _, ...userWithoutPassword } = users[userIndex];
+      return userWithoutPassword;
+    } catch (error) {
+      console.error("Toggle user active error:", error);
+      throw error;
+    }
+  },
+
+  async changeUserRole(userId: string, newRole: string): Promise<User> {
+    try {
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const userIndex = users.findIndex((u) => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error("المستخدم غير موجود");
+      }
+
+      users[userIndex].role = newRole;
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+      const { password: _, ...userWithoutPassword } = users[userIndex];
+      return userWithoutPassword;
+    } catch (error) {
+      console.error("Change user role error:", error);
+      throw error;
+    }
+  },
+
+  async resetUserPassword(userId: string, newPassword: string): Promise<void> {
+    try {
+      const usersJson = await AsyncStorage.getItem(USERS_KEY);
+      const users: StoredUser[] = usersJson ? JSON.parse(usersJson) : [];
+
+      const userIndex = users.findIndex((u) => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error("المستخدم غير موجود");
+      }
+
+      users[userIndex].password = newPassword;
+      await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } catch (error) {
+      console.error("Reset user password error:", error);
       throw error;
     }
   },
