@@ -8,6 +8,7 @@ import { Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { LanguageProvider } from "@/lib/language-context";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -126,10 +127,12 @@ function RootLayoutContent() {
 
   const content = (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <NavigationContent />
-        <StatusBar style="auto" />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <NavigationContent />
+          <StatusBar style="auto" />
+        </AuthProvider>
+      </LanguageProvider>
     </GestureHandlerRootView>
   );
 

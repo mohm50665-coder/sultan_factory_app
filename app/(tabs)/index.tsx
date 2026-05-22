@@ -12,81 +12,100 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface DashboardItem {
   id: string;
-  label: string;
+  labelAr: string;
+  labelEn: string;
   icon: string;
   color: string;
   route: string;
-  description: string;
+  descriptionAr: string;
+  descriptionEn: string;
 }
 
 const DASHBOARD_ITEMS: DashboardItem[] = [
   {
     id: "production",
-    label: "الإنتاج",
+    labelAr: "الإنتاج",
+    labelEn: "Production",
     icon: "factory",
     color: "#3b82f6",
     route: "/production",
-    description: "رقم المكينة - الكمية - الهدر - النخب الثاني",
+    descriptionAr: "رقم المكينة - الكمية - الهدر - النخب الثاني",
+    descriptionEn: "Machine No. - Quantity - Waste - Second Grade",
   },
   {
     id: "manufacturing",
-    label: "مراحل تسليم الإنتاج",
+    labelAr: "مراحل تسليم الإنتاج",
+    labelEn: "Manufacturing Stages",
     icon: "precision-manufacturing",
     color: "#8b5cf6",
     route: "/manufacturing",
-    description: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
+    descriptionAr: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
+    descriptionEn: "Machines - Rosso - Turning - Ironing - Inspection - Packing - Storage",
   },
   {
     id: "sales",
-    label: "المبيعات والتحصيل",
+    labelAr: "المبيعات والتحصيل",
+    labelEn: "Sales & Collection",
     icon: "shopping-cart",
     color: "#ec4899",
     route: "/sales",
-    description: "تسجيل المبيعات وتحصيل المبالغ",
+    descriptionAr: "تسجيل المبيعات وتحصيل المبالغ",
+    descriptionEn: "Record sales and collect payments",
   },
   {
     id: "warehouse",
-    label: "المستودعات",
+    labelAr: "المستودعات",
+    labelEn: "Warehouse",
     icon: "warehouse",
     color: "#f59e0b",
     route: "/warehouse",
-    description: "مواد خام - منتج تام - مستلزمات",
+    descriptionAr: "مواد خام - منتج تام - مستلزمات",
+    descriptionEn: "Raw materials - Finished goods - Supplies",
   },
   {
     id: "maintenance",
-    label: "الصيانة",
+    labelAr: "الصيانة",
+    labelEn: "Maintenance",
     icon: "build",
     color: "#ef4444",
     route: "/maintenance",
-    description: "أجهزة مصانة - متوقفة - توصيات",
+    descriptionAr: "أجهزة مصانة - متوقفة - توصيات",
+    descriptionEn: "Maintained - Stopped - Recommendations",
   },
   {
     id: "financial",
-    label: "المصروفات",
+    labelAr: "المصروفات",
+    labelEn: "Expenses",
     icon: "payments",
     color: "#6366f1",
     route: "/financial",
-    description: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
+    descriptionAr: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
+    descriptionEn: "Date - Amount - Description - Financial Report",
   },
   {
     id: "administrative",
-    label: "الإجراءات الإدارية",
+    labelAr: "الإجراءات الإدارية",
+    labelEn: "Administrative",
     icon: "assignment",
     color: "#06b6d4",
     route: "/administrative",
-    description: "الطلبات والإجراءات الإدارية",
+    descriptionAr: "الطلبات والإجراءات الإدارية",
+    descriptionEn: "Requests and administrative procedures",
   },
   {
     id: "tasks",
-    label: "المهام",
+    labelAr: "المهام",
+    labelEn: "Tasks",
     icon: "checklist",
     color: "#14b8a6",
     route: "/tasks",
-    description: "إدارة المهام والمتابعة",
+    descriptionAr: "إدارة المهام والمتابعة",
+    descriptionEn: "Task management and follow-up",
   },
 ];
 
@@ -94,16 +113,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user, logout } = useAuth();
+  const { t, language, toggleLanguage, isRtl } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
+
+  const isAr = language === "ar";
 
   const handleLogout = () => {
     Alert.alert(
-      "تسجيل الخروج",
-      "هل أنت متأكد من رغبتك في تسجيل الخروج؟",
+      t("logout"),
+      isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?",
       [
-        { text: "إلغاء" },
+        { text: t("cancel") },
         {
-          text: "تسجيل الخروج",
+          text: t("logout"),
           onPress: async () => {
             setIsLoading(true);
             await logout();
@@ -120,7 +142,7 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer className="bg-background">
-      {/* رأس الصفحة */}
+      {/* Header */}
       <View className="bg-primary px-6 py-6">
         <View className="flex-row justify-between items-start mb-2">
           <View className="flex-row gap-2">
@@ -141,18 +163,30 @@ export default function HomeScreen() {
             >
               <MaterialIcons name="person" size={20} color="white" />
             </TouchableOpacity>
+            {/* Language Toggle */}
+            <TouchableOpacity
+              onPress={toggleLanguage}
+              style={styles.langButton}
+            >
+              <MaterialIcons name="language" size={16} color="white" />
+              <Text style={styles.langButtonText}>
+                {isAr ? "EN" : "ع"}
+              </Text>
+            </TouchableOpacity>
           </View>
           <View className="items-end">
-            <Text className="text-white text-sm opacity-80">أهلاً بك</Text>
-            <Text className="text-white font-bold text-xl mt-1">{user?.name || "المستخدم"}</Text>
+            <Text className="text-white text-sm opacity-80">
+              {isAr ? "أهلاً بك" : "Welcome"}
+            </Text>
+            <Text className="text-white font-bold text-xl mt-1">{user?.name || (isAr ? "المستخدم" : "User")}</Text>
             <Text className="text-white/70 text-xs mt-1">
-              {user?.position || (user?.role === "admin" ? "مدير النظام" : "موظف")}
+              {user?.position || (user?.role === "admin" ? t("admin") : (isAr ? "موظف" : "Employee"))}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* زر لوحة تحكم ADMIN */}
+      {/* Admin Dashboard Button */}
       {user?.role === "admin" && (
         <TouchableOpacity
           onPress={() => handleNavigate("/admin-dashboard")}
@@ -160,13 +194,15 @@ export default function HomeScreen() {
         >
           <MaterialIcons name="chevron-left" size={20} color="#f59e0b" />
           <View style={styles.adminButtonContent}>
-            <Text style={styles.adminButtonText}>لوحة تحكم ADMIN</Text>
+            <Text style={styles.adminButtonText}>
+              {isAr ? "لوحة تحكم ADMIN" : "Admin Dashboard"}
+            </Text>
             <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
           </View>
         </TouchableOpacity>
       )}
 
-      {/* شبكة الأيقونات */}
+      {/* Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.grid}>
           {DASHBOARD_ITEMS.map((item) => (
@@ -182,15 +218,21 @@ export default function HomeScreen() {
                 >
                   <MaterialIcons name={item.icon as any} size={26} color={item.color} />
                 </View>
-                <Text className="text-foreground font-bold text-sm text-right">{item.label}</Text>
-                <Text className="text-muted text-xs mt-1 text-right" style={styles.description}>{item.description}</Text>
+                <Text className="text-foreground font-bold text-sm" style={{ textAlign: isRtl ? "right" : "left" }}>
+                  {isAr ? item.labelAr : item.labelEn}
+                </Text>
+                <Text className="text-muted text-xs mt-1" style={[styles.description, { textAlign: isRtl ? "right" : "left" }]}>
+                  {isAr ? item.descriptionAr : item.descriptionEn}
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* أدوات إضافية */}
-        <Text className="text-foreground font-bold text-base text-right" style={styles.toolsTitle}>أدوات إضافية</Text>
+        {/* Extra Tools */}
+        <Text className="text-foreground font-bold text-base" style={[styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
+          {t("extra_tools")}
+        </Text>
         <View style={styles.toolsGrid}>
           <TouchableOpacity
             onPress={() => handleNavigate("/reports")}
@@ -199,7 +241,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text className="text-foreground text-xs font-semibold mt-2">التقارير</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("reports")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -209,7 +251,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="notifications" size={24} color="#d97706" />
-              <Text className="text-foreground text-xs font-semibold mt-2">الإشعارات</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("notifications")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -219,7 +261,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="file-download" size={24} color="#6366f1" />
-              <Text className="text-foreground text-xs font-semibold mt-2">التصدير</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("export")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -229,7 +271,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="history" size={24} color="#0891b2" />
-              <Text className="text-foreground text-xs font-semibold mt-2">سجل النشاطات</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("activity_log")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -239,7 +281,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="print" size={24} color="#16a34a" />
-              <Text className="text-foreground text-xs font-semibold mt-2">تصدير الإنتاج</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("production_export")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -249,7 +291,7 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="warning-amber" size={24} color="#dc2626" />
-              <Text className="text-foreground text-xs font-semibold mt-2">تنبيهات الهدر</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{t("waste_alerts")}</Text>
             </View>
           </TouchableOpacity>
           {user?.role === "admin" && (
@@ -260,7 +302,7 @@ export default function HomeScreen() {
             >
               <View className="bg-surface rounded-xl p-3 border border-border items-center">
                 <MaterialIcons name="people" size={24} color="#7c3aed" />
-                <Text className="text-foreground text-xs font-semibold mt-2">إدارة المستخدمين</Text>
+                <Text className="text-foreground text-xs font-semibold mt-2">{t("users_management")}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -275,6 +317,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 8,
     padding: 8,
+  },
+  langButton: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  langButtonText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "700",
   },
   adminButton: {
     marginHorizontal: 16,
