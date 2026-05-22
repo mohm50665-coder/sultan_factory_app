@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import RolesService, { type UserRole } from "@/lib/services/roles.service";
 
 interface DashboardItem {
   id: string;
@@ -24,6 +25,7 @@ interface DashboardItem {
   route: string;
   descriptionAr: string;
   descriptionEn: string;
+  section: string; // maps to RolesService.canAccessSection
 }
 
 const DASHBOARD_ITEMS: DashboardItem[] = [
@@ -36,6 +38,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/production",
     descriptionAr: "رقم المكينة - الكمية - الهدر - النخب الثاني",
     descriptionEn: "Machine No. - Quantity - Waste - Second Grade",
+    section: "production",
   },
   {
     id: "manufacturing",
@@ -46,6 +49,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/manufacturing",
     descriptionAr: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
     descriptionEn: "Machines - Rosso - Turning - Ironing - Inspection - Packing - Storage",
+    section: "manufacturing",
   },
   {
     id: "sales",
@@ -56,6 +60,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/sales",
     descriptionAr: "تسجيل المبيعات وتحصيل المبالغ",
     descriptionEn: "Record sales and collect payments",
+    section: "sales",
   },
   {
     id: "warehouse",
@@ -66,6 +71,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/warehouse",
     descriptionAr: "مواد خام - منتج تام - مستلزمات",
     descriptionEn: "Raw materials - Finished goods - Supplies",
+    section: "warehouse",
   },
   {
     id: "maintenance",
@@ -76,6 +82,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/maintenance",
     descriptionAr: "أجهزة مصانة - متوقفة - توصيات",
     descriptionEn: "Maintained - Stopped - Recommendations",
+    section: "maintenance",
   },
   {
     id: "financial",
@@ -86,6 +93,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/financial",
     descriptionAr: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
     descriptionEn: "Date - Amount - Description - Financial Report",
+    section: "financial",
   },
   {
     id: "administrative",
@@ -96,6 +104,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/administrative",
     descriptionAr: "الطلبات والإجراءات الإدارية",
     descriptionEn: "Requests and administrative procedures",
+    section: "hr",
   },
   {
     id: "tasks",
@@ -106,6 +115,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/tasks",
     descriptionAr: "إدارة المهام والمتابعة",
     descriptionEn: "Task management and follow-up",
+    section: "tasks",
   },
 ];
 
@@ -117,6 +127,12 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const isAr = language === "ar";
+  const userRole = (user?.role || "user") as UserRole;
+
+  // Filter dashboard items based on user permissions
+  const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) =>
+    RolesService.canAccessSection(userRole, item.section)
+  );
 
   const handleLogout = () => {
     Alert.alert(
@@ -173,6 +189,13 @@ export default function HomeScreen() {
                 {isAr ? "EN" : "ع"}
               </Text>
             </TouchableOpacity>
+            {/* Settings */}
+            <TouchableOpacity
+              onPress={() => handleNavigate("/settings")}
+              style={styles.headerButton}
+            >
+              <MaterialIcons name="settings" size={20} color="white" />
+            </TouchableOpacity>
           </View>
           <View className="items-end">
             <Text className="text-white text-sm opacity-80">
@@ -205,7 +228,7 @@ export default function HomeScreen() {
       {/* Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.grid}>
-          {DASHBOARD_ITEMS.map((item) => (
+          {visibleDashboardItems.map((item) => (
             <TouchableOpacity
               key={item.id}
               onPress={() => handleNavigate(item.route)}

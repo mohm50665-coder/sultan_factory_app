@@ -87,6 +87,7 @@ function NavigationContent() {
       <Stack.Screen name="activity-log" />
       <Stack.Screen name="production-export" />
       <Stack.Screen name="waste-alerts" />
+      <Stack.Screen name="settings" />
     </Stack>
   );
 }
