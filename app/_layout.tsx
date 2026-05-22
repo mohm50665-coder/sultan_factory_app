@@ -83,6 +83,9 @@ function NavigationContent() {
       <Stack.Screen name="dashboard-analytics" />
       <Stack.Screen name="role-management" />
       <Stack.Screen name="users-management" />
+      <Stack.Screen name="activity-log" />
+      <Stack.Screen name="production-export" />
+      <Stack.Screen name="waste-alerts" />
     </Stack>
   );
 }

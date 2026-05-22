@@ -222,6 +222,36 @@ export default function HomeScreen() {
               <Text className="text-foreground text-xs font-semibold mt-2">التصدير</Text>
             </View>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/activity-log")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="history" size={24} color="#0891b2" />
+              <Text className="text-foreground text-xs font-semibold mt-2">سجل النشاطات</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/production-export")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="print" size={24} color="#16a34a" />
+              <Text className="text-foreground text-xs font-semibold mt-2">تصدير الإنتاج</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/waste-alerts")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="warning-amber" size={24} color="#dc2626" />
+              <Text className="text-foreground text-xs font-semibold mt-2">تنبيهات الهدر</Text>
+            </View>
+          </TouchableOpacity>
           {user?.role === "admin" && (
             <TouchableOpacity
               onPress={() => handleNavigate("/users-management")}
