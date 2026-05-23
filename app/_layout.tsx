@@ -88,6 +88,9 @@ function NavigationContent() {
       <Stack.Screen name="production-export" />
       <Stack.Screen name="waste-alerts" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="in-app-notifications" />
+      <Stack.Screen name="reports-analytics" />
+      <Stack.Screen name="global-search" />
     </Stack>
   );
 }

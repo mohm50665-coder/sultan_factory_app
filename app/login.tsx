@@ -58,17 +58,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleDemoLogin = async () => {
-    setIsLoading(true);
-    try {
-      await login("admin", "123456");
-      router.replace("/(tabs)");
-    } catch (error) {
-      Alert.alert(t("error"), t("login_failed"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const textAlign = isRtl ? "right" : "left";
 
@@ -171,15 +160,6 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Demo Login */}
-              <TouchableOpacity
-                onPress={handleDemoLogin}
-                disabled={isLoading}
-                style={styles.demoButton}
-              >
-                <MaterialIcons name="play-circle-outline" size={18} color="#0a7ea4" />
-                <Text style={styles.demoButtonText}>{t("demo_login")}</Text>
-              </TouchableOpacity>
 
               {/* Forgot Password */}
               <TouchableOpacity
@@ -205,13 +185,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Demo Info */}
-            <View style={styles.demoInfo}>
-              <MaterialIcons name="info-outline" size={14} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.demoInfoText}>
-                {t("demo_credentials")}: admin / 123456
-              </Text>
-            </View>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -340,22 +314,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
-  demoButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: "#0a7ea4",
-    borderRadius: 12,
-    paddingVertical: 13,
-    marginBottom: 16,
-  },
-  demoButtonText: {
-    color: "#0a7ea4",
-    fontWeight: "600",
-    fontSize: 14,
-  },
+
   forgotPassword: {
     marginBottom: 16,
   },
@@ -394,18 +353,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
   },
-  demoInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 20,
-    padding: 10,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 10,
-  },
-  demoInfoText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 11,
-  },
+
 });

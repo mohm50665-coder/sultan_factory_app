@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
+import notificationsService from "@/lib/services/notifications.service";
 
 interface DashboardItem {
   id: string;
@@ -128,6 +129,17 @@ export default function HomeScreen() {
 
   const isAr = language === "ar";
   const userRole = (user?.role || "user") as UserRole;
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const loadUnread = async () => {
+      const count = await notificationsService.getUnreadCount();
+      setUnreadCount(count);
+    };
+    loadUnread();
+    const unsubscribe = notificationsService.subscribe(loadUnread);
+    return unsubscribe;
+  }, []);
 
   // Filter dashboard items based on user permissions
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) =>
@@ -188,6 +200,25 @@ export default function HomeScreen() {
               <Text style={styles.langButtonText}>
                 {isAr ? "EN" : "ع"}
               </Text>
+            </TouchableOpacity>
+            {/* Search */}
+            <TouchableOpacity
+              onPress={() => handleNavigate("/global-search")}
+              style={styles.headerButton}
+            >
+              <MaterialIcons name="search" size={20} color="white" />
+            </TouchableOpacity>
+            {/* Notifications */}
+            <TouchableOpacity
+              onPress={() => handleNavigate("/in-app-notifications")}
+              style={styles.headerButton}
+            >
+              <MaterialIcons name="notifications" size={20} color="white" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             {/* Settings */}
             <TouchableOpacity
@@ -317,6 +348,16 @@ export default function HomeScreen() {
               <Text className="text-foreground text-xs font-semibold mt-2">{t("waste_alerts")}</Text>
             </View>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/reports-analytics")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="bar-chart" size={24} color="#059669" />
+              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "التقارير" : "Reports"}</Text>
+            </View>
+          </TouchableOpacity>
           {user?.role === "admin" && (
             <TouchableOpacity
               onPress={() => handleNavigate("/users-management")}
@@ -419,5 +460,22 @@ const styles = StyleSheet.create({
   toolItem: {
     width: "31%",
     marginBottom: 12,
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 9,
+    fontWeight: "bold",
   },
 });
