@@ -355,7 +355,17 @@ export default function HomeScreen() {
           >
             <View className="bg-surface rounded-xl p-3 border border-border items-center">
               <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "التقارير" : "Reports"}</Text>
+              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "التحليلات" : "Analytics"}</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/section-reports")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="summarize" size={24} color="#0891b2" />
+              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "تقارير الأقسام" : "Reports"}</Text>
             </View>
           </TouchableOpacity>
           {user?.role === "admin" && (

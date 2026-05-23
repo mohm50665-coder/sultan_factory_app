@@ -91,6 +91,7 @@ function NavigationContent() {
       <Stack.Screen name="in-app-notifications" />
       <Stack.Screen name="reports-analytics" />
       <Stack.Screen name="global-search" />
+      <Stack.Screen name="section-reports" />
     </Stack>
   );
 }
