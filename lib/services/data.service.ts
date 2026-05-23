@@ -1,4 +1,5 @@
 // Data Service - جميع خدمات البيانات للتطبيق
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface ManufacturingStageData {
   id?: number;
@@ -48,6 +49,10 @@ export interface TaskData {
   taskDescription: string;
   dueDate: string;
   status: "pending" | "inProgress" | "completed";
+  reward?: number;
+  rewardReason?: string;
+  deduction?: number;
+  deductionReason?: string;
 }
 
 export interface AdminUserData {
@@ -264,13 +269,14 @@ export const financialService = {
   },
 };
 
-// Task Service
+// Task Service - AsyncStorage based
+const TASKS_KEY = "tasks_entries";
+
 export const taskService = {
   async getAll(): Promise<TaskData[]> {
     try {
-      const response = await fetch("/api/tasks");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      const raw = await AsyncStorage.getItem(TASKS_KEY);
+      return raw ? JSON.parse(raw) : [];
     } catch (error) {
       console.error("Error fetching tasks:", error);
       return [];
@@ -278,30 +284,29 @@ export const taskService = {
   },
 
   async create(data: TaskData): Promise<TaskData> {
-    const response = await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const tasks = await this.getAll();
+    const newTask: TaskData = {
+      ...data,
+      id: Date.now(),
+    };
+    tasks.push(newTask);
+    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    return newTask;
   },
 
   async update(id: number, data: TaskData): Promise<TaskData> {
-    const response = await fetch(`/api/tasks/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    const tasks = await this.getAll();
+    const index = tasks.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error("Task not found");
+    tasks[index] = { ...data, id };
+    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    return tasks[index];
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/tasks/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    const tasks = await this.getAll();
+    const filtered = tasks.filter((t) => t.id !== id);
+    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(filtered));
   },
 };
 
