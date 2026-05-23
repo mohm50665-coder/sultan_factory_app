@@ -45,14 +45,35 @@ export interface FinancialData {
 
 export interface TaskData {
   id?: number;
-  employeeName: string;
+  // مصدر التكليف
+  assignmentSource: "board_representative" | "general_manager";
+  // الموظف المكلف
+  assignedEmployee: string;
+  // وصف المهمة
   taskDescription: string;
-  dueDate: string;
-  status: "pending" | "inProgress" | "completed";
+  // تاريخ إنشاء المهمة
+  createdDate: string;
+  // المدة الزمنية
+  startDate: string;
+  endDate: string;
+  // النتائج
+  result: "completed" | "not_completed" | "partial" | "extended" | "recommendations" | "pending";
+  resultReason?: string; // سبب عدم الإنجاز
+  completionPercentage?: number; // نسبة الإنجاز الجزئي
+  extensionDate?: string; // تاريخ التمديد الجديد
+  recommendations?: string; // التوصيات
+  // تقييم الأدمن (يظهر فقط للمكلف)
+  adminEvaluation?: string; // لا يقل عن 1500 حرف
+  // المكافأة والحسم
   reward?: number;
   rewardReason?: string;
   deduction?: number;
   deductionReason?: string;
+  // الإنذار
+  hasWarning?: boolean;
+  warningText?: string;
+  // قرارات مرفقة
+  attachedDecisions?: string;
 }
 
 export interface AdminUserData {
