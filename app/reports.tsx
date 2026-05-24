@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -132,13 +133,16 @@ export default function ReportsScreen() {
     <ScreenContainer className="bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* رأس الصفحة */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-          <Text style={{ color: colors.foreground, fontSize: 24, fontWeight: "bold", marginBottom: 4 }}>
-            التقارير والإحصائيات
-          </Text>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>
-            مؤشرات الأداء الرئيسية للمصنع
-          </Text>
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.foreground, fontSize: 24, fontWeight: "bold", marginBottom: 4, textAlign: "right" }}>
+              التقارير والإحصائيات
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right" }}>
+              مؤشرات الأداء الرئيسية للمصنع
+            </Text>
+          </View>
+          <BackButton />
         </View>
 
         {/* مرشحات التاريخ */}
