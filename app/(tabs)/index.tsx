@@ -3,10 +3,12 @@ import {
   View,
   Text,
   ScrollView,
+  Pressable,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -146,22 +148,48 @@ export default function HomeScreen() {
     RolesService.canAccessSection(userRole, item.section)
   );
 
-  const handleLogout = () => {
-    Alert.alert(
-      t("logout"),
-      isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?",
-      [
-        { text: t("cancel") },
-        {
-          text: t("logout"),
-          onPress: async () => {
-            setIsLoading(true);
-            await logout();
-            router.replace("/login");
+  const handleLogout = async () => {
+    const confirmMessage = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
+    
+    if (Platform.OS === "web") {
+      // على الويب Alert.alert لا يعمل - نستخدم window.confirm
+      const confirmed = window.confirm(confirmMessage);
+      if (confirmed) {
+        setIsLoading(true);
+        try {
+          await logout();
+          router.replace("/login");
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    } else {
+      // على الموبايل نستخدم Alert.alert
+      Alert.alert(
+        t("logout"),
+        confirmMessage,
+        [
+          { text: t("cancel"), style: "cancel" },
+          {
+            text: t("logout"),
+            style: "destructive",
+            onPress: async () => {
+              setIsLoading(true);
+              try {
+                await logout();
+                router.replace("/login");
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setIsLoading(false);
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const handleNavigate = (route: string) => {
@@ -174,17 +202,20 @@ export default function HomeScreen() {
       <View className="bg-primary px-6 py-6">
         <View className="flex-row justify-between items-start mb-2">
           <View className="flex-row gap-2">
-            <TouchableOpacity
+            <Pressable
               onPress={handleLogout}
               disabled={isLoading}
-              style={styles.headerButton}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && { opacity: 0.7 },
+              ]}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <MaterialIcons name="logout" size={20} color="white" />
               )}
-            </TouchableOpacity>
+            </Pressable>
             <TouchableOpacity
               onPress={() => handleNavigate("/profile")}
               style={styles.headerButton}
