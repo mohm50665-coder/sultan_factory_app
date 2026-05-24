@@ -45,7 +45,11 @@ const emptyFormData = (): AdministrativeData => ({
   requestDetails: "",
   attachments: [],
   approvedByBoardRep: false,
+  boardRepRejectionReason: "",
   approvedByDirectManager: false,
+  directManagerRejectionReason: "",
+  approvedByGeneralManager: false,
+  generalManagerRejectionReason: "",
   rejectionReason: "",
   status: "pending",
 });
@@ -134,7 +138,11 @@ export default function AdministrativeScreen() {
       employeeNumber: request.employeeNumber || "",
       department: request.department || "",
       approvedByBoardRep: request.approvedByBoardRep || false,
+      boardRepRejectionReason: request.boardRepRejectionReason || "",
       approvedByDirectManager: request.approvedByDirectManager || false,
+      directManagerRejectionReason: request.directManagerRejectionReason || "",
+      approvedByGeneralManager: request.approvedByGeneralManager || false,
+      generalManagerRejectionReason: request.generalManagerRejectionReason || "",
     });
     setEditingId(request.id || null);
     setShowForm(true);
@@ -172,18 +180,45 @@ export default function AdministrativeScreen() {
 
   const getStatusLabel = (request: AdministrativeData) => {
     const status = request.status || "pending";
-    if (status === "approved") return "\u0645\u0648\u0627\u0641\u0642";
-    if (status === "rejected") return "\u0645\u0631\u0641\u0648\u0636";
-    if (request.approvedByBoardRep || request.approvedByDirectManager) return "\u0642\u064a\u062f \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629";
-    return "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631";
+    if (status === "approved") return "موافق";
+    if (status === "rejected") return "مرفوض";
+    if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return "قيد المراجعة";
+    return "قيد الانتظار";
   };
 
   const getStatusColor = (request: AdministrativeData) => {
     const status = request.status || "pending";
     if (status === "approved") return colors.success;
     if (status === "rejected") return colors.error;
-    if (request.approvedByBoardRep || request.approvedByDirectManager) return colors.warning;
+    if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return colors.warning;
     return colors.muted;
+  };
+
+  const handlePrintShare = (item: AdministrativeData) => {
+    const content = `طلب إداري - ${getRequestTypeLabel(item.requestType)}\n` +
+      `اسم الموظف: ${item.employeeName}\n` +
+      `الرقم الوظيفي: ${item.employeeNumber || "غير محدد"}\n` +
+      `الإدارة/القسم: ${getDepartmentLabel(item.department)}\n` +
+      `تفاصيل الطلب: ${item.requestDetails}\n` +
+      `الحالة: ${getStatusLabel(item)}\n` +
+      (item.attachments && item.attachments.length > 0 ? `المرفقات: ${item.attachments.join(", ")}\n` : "") +
+      `\nالموافقات:\n` +
+      `- ممثل مجلس الإدارة: ${item.approvedByBoardRep ? "موافق" : "لم يوافق"}${item.boardRepRejectionReason ? " (سبب الرفض: " + item.boardRepRejectionReason + ")" : ""}\n` +
+      `- المدير المباشر: ${item.approvedByDirectManager ? "موافق" : "لم يوافق"}${item.directManagerRejectionReason ? " (سبب الرفض: " + item.directManagerRejectionReason + ")" : ""}\n` +
+      `- المدير العام: ${item.approvedByGeneralManager ? "موافق" : "لم يوافق"}${item.generalManagerRejectionReason ? " (سبب الرفض: " + item.generalManagerRejectionReason + ")" : ""}`;
+    if (Platform.OS === "web") {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`<html dir="rtl"><head><title>طباعة الطلب</title><style>body{font-family:Arial,sans-serif;padding:40px;direction:rtl;white-space:pre-wrap;line-height:2;}</style></head><body>${content.replace(/\n/g, "<br>")}</body></html>`);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } else {
+      // On native, use share
+      import("react-native").then(({ Share }) => {
+        Share.share({ message: content });
+      });
+    }
   };
 
   const renderRequestItem = ({ item }: { item: AdministrativeData }) => (
@@ -207,6 +242,12 @@ export default function AdministrativeScreen() {
           </View>
         </View>
         <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => handlePrintShare(item)}
+            style={{ backgroundColor: colors.success + "15", borderRadius: 8, padding: 8 }}
+          >
+            <MaterialIcons name="print" size={18} color={colors.success} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
             style={{ backgroundColor: colors.primary + "15", borderRadius: 8, padding: 8 }}
@@ -239,8 +280,8 @@ export default function AdministrativeScreen() {
       )}
 
       {/* Approvals & Status */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: colors.background, borderRadius: 10, padding: 10 }}>
-        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+      <View style={{ backgroundColor: colors.background, borderRadius: 10, padding: 10 }}>
+        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: item.approvedByBoardRep ? colors.success + "15" : colors.muted + "15" }}>
             <MaterialIcons
               name={item.approvedByBoardRep ? "check-circle" : "radio-button-unchecked"}
@@ -261,22 +302,45 @@ export default function AdministrativeScreen() {
               {"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}
             </Text>
           </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: item.approvedByGeneralManager ? colors.success + "15" : colors.muted + "15" }}>
+            <MaterialIcons
+              name={item.approvedByGeneralManager ? "check-circle" : "radio-button-unchecked"}
+              size={14}
+              color={item.approvedByGeneralManager ? colors.success : colors.muted}
+            />
+            <Text style={{ fontSize: 10, color: item.approvedByGeneralManager ? colors.success : colors.muted, fontWeight: "600" }}>
+              {"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}
+            </Text>
+          </View>
         </View>
-        <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: getStatusColor(item) + "20" }}>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: getStatusColor(item) }}>
-            {getStatusLabel(item)}
-          </Text>
+        <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+          <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: getStatusColor(item) + "20" }}>
+            <Text style={{ fontSize: 11, fontWeight: "700", color: getStatusColor(item) }}>
+              {getStatusLabel(item)}
+            </Text>
+          </View>
         </View>
       </View>
 
-      {/* Rejection Reason */}
-      {(item.status === "rejected" && item.rejectionReason) && (
+      {/* Rejection Reasons per approver */}
+      {(item.boardRepRejectionReason || item.directManagerRejectionReason || item.generalManagerRejectionReason || (item.status === "rejected" && item.rejectionReason)) && (
         <View style={{ marginTop: 8, backgroundColor: colors.error + "10", borderRadius: 10, padding: 10 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
             <MaterialIcons name="cancel" size={14} color={colors.error} />
-            <Text style={{ color: colors.error, fontSize: 11, fontWeight: "600" }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}</Text>
+            <Text style={{ color: colors.error, fontSize: 11, fontWeight: "600" }}>{"\u0623\u0633\u0628\u0627\u0628 \u0627\u0644\u0631\u0641\u0636"}</Text>
           </View>
-          <Text style={{ color: colors.error, fontSize: 11 }}>{item.rejectionReason}</Text>
+          {item.boardRepRejectionReason ? (
+            <Text style={{ color: colors.error, fontSize: 11, marginBottom: 4 }}>{"\u0645\u0645\u062b\u0644 \u0645. \u0627\u0644\u0625\u062f\u0627\u0631\u0629: "}{item.boardRepRejectionReason}</Text>
+          ) : null}
+          {item.directManagerRejectionReason ? (
+            <Text style={{ color: colors.error, fontSize: 11, marginBottom: 4 }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631: "}{item.directManagerRejectionReason}</Text>
+          ) : null}
+          {item.generalManagerRejectionReason ? (
+            <Text style={{ color: colors.error, fontSize: 11, marginBottom: 4 }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645: "}{item.generalManagerRejectionReason}</Text>
+          ) : null}
+          {item.status === "rejected" && item.rejectionReason ? (
+            <Text style={{ color: colors.error, fontSize: 11 }}>{"\u0633\u0628\u0628 \u0639\u0627\u0645: "}{item.rejectionReason}</Text>
+          ) : null}
         </View>
       )}
     </View>
@@ -467,7 +531,7 @@ export default function AdministrativeScreen() {
               {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629 */}
               <TouchableOpacity
                 onPress={() => setFormData({ ...formData, approvedByBoardRep: !formData.approvedByBoardRep })}
-                style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
+                style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
               >
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "500" }}>{"\u0645\u0648\u0627\u0641\u0642\u0629 \u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"}</Text>
@@ -478,11 +542,22 @@ export default function AdministrativeScreen() {
                   {formData.approvedByBoardRep && <MaterialIcons name="check" size={18} color="white" />}
                 </View>
               </TouchableOpacity>
+              {!formData.approvedByBoardRep && (
+                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                  <TextInput
+                    value={formData.boardRepRejectionReason}
+                    onChangeText={(text) => setFormData({ ...formData, boardRepRejectionReason: text })}
+                    placeholder={"سبب الرفض (اختياري)"}
+                    placeholderTextColor={colors.muted}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
+                  />
+                </View>
+              )}
 
               {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 */}
               <TouchableOpacity
                 onPress={() => setFormData({ ...formData, approvedByDirectManager: !formData.approvedByDirectManager })}
-                style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
+                style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
               >
                 <View style={{ flex: 1, alignItems: "flex-end" }}>
                   <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "500" }}>{"\u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}</Text>
@@ -493,9 +568,46 @@ export default function AdministrativeScreen() {
                   {formData.approvedByDirectManager && <MaterialIcons name="check" size={18} color="white" />}
                 </View>
               </TouchableOpacity>
+              {!formData.approvedByDirectManager && (
+                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                  <TextInput
+                    value={formData.directManagerRejectionReason}
+                    onChangeText={(text) => setFormData({ ...formData, directManagerRejectionReason: text })}
+                    placeholder={"سبب الرفض (اختياري)"}
+                    placeholderTextColor={colors.muted}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
+                  />
+                </View>
+              )}
+
+              {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645 */}
+              <TouchableOpacity
+                onPress={() => setFormData({ ...formData, approvedByGeneralManager: !formData.approvedByGeneralManager })}
+                style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
+              >
+                <View style={{ flex: 1, alignItems: "flex-end" }}>
+                  <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "500" }}>{"\u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}</Text>
+                </View>
+                <View
+                  style={{ width: 26, height: 26, borderRadius: 6, borderWidth: 2, borderColor: formData.approvedByGeneralManager ? colors.success : colors.border, backgroundColor: formData.approvedByGeneralManager ? colors.success : "transparent", justifyContent: "center", alignItems: "center", marginLeft: 12 }}
+                >
+                  {formData.approvedByGeneralManager && <MaterialIcons name="check" size={18} color="white" />}
+                </View>
+              </TouchableOpacity>
+              {!formData.approvedByGeneralManager && (
+                <View style={{ marginBottom: 12, marginTop: 4 }}>
+                  <TextInput
+                    value={formData.generalManagerRejectionReason}
+                    onChangeText={(text) => setFormData({ ...formData, generalManagerRejectionReason: text })}
+                    placeholder={"سبب الرفض (اختياري)"}
+                    placeholderTextColor={colors.muted}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
+                  />
+                </View>
+              )}
 
               {/* \u062d\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628 */}
-              <View style={{ marginBottom: 16, marginTop: 8 }}>
+              <View style={{ marginBottom: 16, marginTop: 12 }}>
                 <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u062d\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628"}</Text>
                 <View style={{ flexDirection: "row", gap: 8, justifyContent: "flex-end" }}>
                   {[
@@ -516,14 +628,14 @@ export default function AdministrativeScreen() {
                 </View>
               </View>
 
-              {/* \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 */}
+              {/* \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0627\u0644\u0639\u0627\u0645 */}
               {formData.status === "rejected" && (
                 <View style={{ marginBottom: 16 }}>
-                  <Text style={{ color: colors.error, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}</Text>
+                  <Text style={{ color: colors.error, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0627\u0644\u0639\u0627\u0645"}</Text>
                   <TextInput
                     value={formData.rejectionReason}
                     onChangeText={(text) => setFormData({ ...formData, rejectionReason: text })}
-                    placeholder={"\u0623\u062f\u062e\u0644 \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}
+                    placeholder={"\u0623\u062f\u062e\u0644 \u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636 \u0627\u0644\u0639\u0627\u0645"}
                     placeholderTextColor={colors.muted}
                     multiline
                     numberOfLines={3}

@@ -35,7 +35,11 @@ export interface AdministrativeData {
   requestDetails: string;
   attachments: string[];
   approvedByBoardRep: boolean;
+  boardRepRejectionReason: string;
   approvedByDirectManager: boolean;
+  directManagerRejectionReason: string;
+  approvedByGeneralManager: boolean;
+  generalManagerRejectionReason: string;
   rejectionReason: string;
   status: "pending" | "approved" | "rejected";
   // Legacy fields for backward compatibility
