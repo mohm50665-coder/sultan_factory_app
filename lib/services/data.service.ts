@@ -35,10 +35,13 @@ export interface AdministrativeData {
   requestDetails: string;
   attachments: string[];
   approvedByBoardRep: boolean;
+  boardRepStatus: "pending" | "approved" | "rejected";
   boardRepRejectionReason: string;
   approvedByDirectManager: boolean;
+  directManagerStatus: "pending" | "approved" | "rejected";
   directManagerRejectionReason: string;
   approvedByGeneralManager: boolean;
+  generalManagerStatus: "pending" | "approved" | "rejected";
   generalManagerRejectionReason: string;
   rejectionReason: string;
   status: "pending" | "approved" | "rejected";
