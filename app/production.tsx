@@ -81,6 +81,7 @@ export default function ProductionScreen() {
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
+  const [showDailySummary, setShowDailySummary] = useState(false);
 
   // حقل التاريخ الموحد
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
@@ -270,14 +271,16 @@ export default function ProductionScreen() {
     totalMinutes = totalMinutes % 60;
 
     const totalYarnWeight = totalYarnRubber + totalYarnSpandex + totalYarnNylon + totalYarnCotton + totalYarnBamboo + totalYarnSpan;
-    // إجمالي نسبة الهدر = هدر الخيوط / إجمالي وزن الخيوط * 100
-    const wastePercentage = totalYarnWeight > 0 ? ((totalWasteThread / totalYarnWeight) * 100).toFixed(2) : "0";
+    // إجمالي كمية الهدر = هدر الخيوط + هدر الجوارب
+    const totalWasteAll = totalWasteThread + totalWasteSocks;
+    // نسبة الهدر = إجمالي كمية الهدر / إجمالي وزن الخيوط * 100
+    const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
 
     return {
       totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles,
       totalHours, totalMinutes,
       totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
-      totalYarnWeight, wastePercentage,
+      totalYarnWeight, totalWasteAll, wastePercentage,
     };
   };
 
@@ -380,7 +383,8 @@ export default function ProductionScreen() {
           </View>
           {/* إجمالي وزن الخيوط ونسبة الهدر */}
           <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
-            <Text className="text-muted text-xs">إجمالي الخيوط: <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> جم</Text>
+            <Text className="text-muted text-xs">إجمالي وزن الخيوط: <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> جم</Text>
+            <Text className="text-muted text-xs">إجمالي كمية الهدر: <Text className="text-error font-bold">{totals.totalWasteAll}</Text> جم</Text>
             <Text className="text-muted text-xs">نسبة الهدر: <Text className="text-error font-bold">{totals.wastePercentage}%</Text></Text>
           </View>
         </View>
@@ -713,6 +717,14 @@ export default function ProductionScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
 
+        {/* أيقونة الملخص اليومي */}
+        <TouchableOpacity
+          onPress={() => setShowDailySummary(!showDailySummary)}
+          style={{ backgroundColor: showDailySummary ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="analytics" size={24} color="white" />
+        </TouchableOpacity>
+
         {/* العنوان */}
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">الإنتاج</Text>
@@ -722,6 +734,65 @@ export default function ProductionScreen() {
         {/* زر الرجوع */}
         <BackButton />
       </View>
+
+      {/* الملخص اليومي */}
+      {showDailySummary && entries.length > 0 && (() => {
+        // حساب إجماليات اليوم الحالي
+        const todayStr = formatDate(new Date());
+        const todayEntries = entries.filter(e => e.date === todayStr);
+        const allEntries = todayEntries.length > 0 ? todayEntries : entries;
+        const label = todayEntries.length > 0 ? `ملخص اليوم (${todayStr})` : `ملخص آخر يوم (${allEntries[0]?.date})`;
+        
+        let sumYarnWeight = 0;
+        let sumWasteThread = 0;
+        let sumWasteSocks = 0;
+        
+        allEntries.forEach(entry => {
+          Object.values(entry.machines).forEach(m => {
+            sumYarnWeight += (parseFloat(m.yarnRubber) || 0) + (parseFloat(m.yarnSpandex) || 0) + (parseFloat(m.yarnNylon) || 0) + (parseFloat(m.yarnCotton) || 0) + (parseFloat(m.yarnBamboo) || 0) + (parseFloat(m.yarnSpan) || 0);
+            sumWasteThread += parseFloat(m.wasteThreadGrams) || 0;
+            sumWasteSocks += parseFloat(m.wasteSocksGrams) || 0;
+          });
+        });
+        
+        const sumWasteAll = sumWasteThread + sumWasteSocks;
+        const wastePercent = sumYarnWeight > 0 ? ((sumWasteAll / sumYarnWeight) * 100).toFixed(2) : "0";
+        
+        return (
+          <View className="mx-4 mt-3 bg-surface rounded-xl p-4 border border-border">
+            <View className="flex-row items-center gap-2 mb-3 justify-end">
+              <Text className="text-foreground font-bold text-base">{label}</Text>
+              <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
+                <MaterialIcons name="analytics" size={18} color="#16a34a" />
+              </View>
+            </View>
+            <View className="flex-row justify-between items-center mb-2">
+              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+                <MaterialIcons name="scale" size={22} color="#0a7ea4" />
+                <Text className="text-muted text-xs mt-1">إجمالي وزن الخيوط</Text>
+                <Text className="text-primary font-bold text-lg">{sumYarnWeight.toFixed(0)}</Text>
+                <Text className="text-muted text-xs">جرام</Text>
+              </View>
+              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+                <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
+                <Text className="text-muted text-xs mt-1">إجمالي كمية الهدر</Text>
+                <Text className="text-error font-bold text-lg">{sumWasteAll.toFixed(0)}</Text>
+                <Text className="text-muted text-xs">جرام</Text>
+              </View>
+              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+                <MaterialIcons name="percent" size={22} color="#f59e0b" />
+                <Text className="text-muted text-xs mt-1">نسبة الهدر</Text>
+                <Text className="text-warning font-bold text-lg">{wastePercent}%</Text>
+                <Text className="text-muted text-xs">من الخيوط</Text>
+              </View>
+            </View>
+            <View className="flex-row justify-end gap-4 mt-2 pt-2 border-t border-border">
+              <Text className="text-muted text-xs">هدر خيوط: <Text className="text-error font-semibold">{sumWasteThread.toFixed(0)}</Text> جم</Text>
+              <Text className="text-muted text-xs">هدر جوارب: <Text className="text-error font-semibold">{sumWasteSocks.toFixed(0)}</Text> جم</Text>
+            </View>
+          </View>
+        );
+      })()}
 
       {/* المحتوى */}
       {showForm ? (
