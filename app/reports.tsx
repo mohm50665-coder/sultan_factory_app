@@ -1,133 +1,92 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
-  StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface KPI {
-  title: string;
-  value: string;
-  unit: string;
-  icon: string;
-  trend: "up" | "down" | "stable";
-  percentage: string;
-  color: string;
+interface KPIData {
+  totalProduction: number;
+  totalWastePercent: string;
+  totalSales: number;
+  totalCollection: number;
+  totalExpenses: number;
 }
 
 export default function ReportsScreen() {
   const colors = useColors();
   const [dateFilter, setDateFilter] = useState("month");
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const kpis: KPI[] = [
-    {
-      title: "إجمالي الإنتاج",
-      value: "12,450",
-      unit: "درزن",
-      icon: "factory",
-      trend: "up",
-      percentage: "+15%",
-      color: "#3B82F6",
-    },
-    {
-      title: "معدل الهدر",
-      value: "2.5",
-      unit: "%",
-      icon: "warning",
-      trend: "down",
-      percentage: "-5%",
-      color: "#EF4444",
-    },
-    {
-      title: "إجمالي المبيعات",
-      value: "8,900",
-      unit: "زوج",
-      icon: "shopping-cart",
-      trend: "up",
-      percentage: "+22%",
-      color: "#10B981",
-    },
-    {
-      title: "كفاءة الإنتاج",
-      value: "94.2",
-      unit: "%",
-      icon: "trending-up",
-      trend: "stable",
-      percentage: "+2%",
-      color: "#8B5CF6",
-    },
-  ];
+  useEffect(() => {
+    loadRealData();
+  }, []);
 
-  const renderKPICard = (kpi: KPI) => (
-    <View
-      key={kpi.title}
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        borderLeftWidth: 4,
-        borderLeftColor: kpi.color,
-      }}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>
-            {kpi.title}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
-            <Text style={{ color: colors.foreground, fontSize: 24, fontWeight: "bold" }}>
-              {kpi.value}
-            </Text>
-            <Text style={{ color: colors.muted, fontSize: 12, marginLeft: 4 }}>
-              {kpi.unit}
-            </Text>
-          </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 8,
-            }}
-          >
-            <MaterialIcons
-              name={kpi.trend === "up" ? "trending-up" : kpi.trend === "down" ? "trending-down" : "trending-flat"}
-              size={14}
-              color={kpi.trend === "up" ? "#10B981" : kpi.trend === "down" ? "#EF4444" : colors.muted}
-            />
-            <Text
-              style={{
-                color: kpi.trend === "up" ? "#10B981" : kpi.trend === "down" ? "#EF4444" : colors.muted,
-                fontSize: 12,
-                marginLeft: 4,
-              }}
-            >
-              {kpi.percentage} هذا الشهر
-            </Text>
-          </View>
-        </View>
-        <View
-          style={{
-            width: 50,
-            height: 50,
-            borderRadius: 25,
-            backgroundColor: kpi.color + "20",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <MaterialIcons name={kpi.icon as any} size={24} color={kpi.color} />
-        </View>
-      </View>
-    </View>
-  );
+  const loadRealData = async () => {
+    try {
+      // تحميل بيانات الإنتاج
+      const prodData = await AsyncStorage.getItem("sultan_production_data_v2");
+      const productions = prodData ? JSON.parse(prodData) : [];
+
+      let totalProduction = 0;
+      let totalYarnWeight = 0;
+      let totalWasteAll = 0;
+
+      productions.forEach((entry: any) => {
+        if (entry.machines) {
+          Object.values(entry.machines).forEach((m: any) => {
+            totalProduction += parseFloat(m.productionDozen) || 0;
+            const yarnWeight = (parseFloat(m.yarnRubber) || 0) + (parseFloat(m.yarnSpandex) || 0) +
+              (parseFloat(m.yarnNylon) || 0) + (parseFloat(m.yarnCotton) || 0) +
+              (parseFloat(m.yarnBamboo) || 0) + (parseFloat(m.yarnSpan) || 0);
+            totalYarnWeight += yarnWeight;
+            totalWasteAll += (parseFloat(m.wasteThreadGrams) || 0) + (parseFloat(m.wasteSocksGrams) || 0);
+          });
+        }
+      });
+
+      const wastePercent = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
+
+      // تحميل بيانات المبيعات
+      const salesData = await AsyncStorage.getItem("sultan_sales_data");
+      const sales = salesData ? JSON.parse(salesData) : [];
+      let totalSales = 0;
+      sales.forEach((s: any) => { totalSales += parseFloat(s.quantity) || 0; });
+
+      // تحميل بيانات التحصيل
+      const collData = await AsyncStorage.getItem("sultan_collection_data");
+      const collections = collData ? JSON.parse(collData) : [];
+      let totalCollection = 0;
+      collections.forEach((c: any) => { totalCollection += parseFloat(c.amount) || 0; });
+
+      // تحميل بيانات المصروفات
+      const expData = await AsyncStorage.getItem("sultan_expenses_data");
+      const expenses = expData ? JSON.parse(expData) : [];
+      let totalExpenses = 0;
+      expenses.forEach((e: any) => { totalExpenses += parseFloat(e.amount) || 0; });
+
+      setKpiData({
+        totalProduction,
+        totalWastePercent: wastePercent,
+        totalSales,
+        totalCollection,
+        totalExpenses,
+      });
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasData = kpiData && (kpiData.totalProduction > 0 || kpiData.totalSales > 0 || kpiData.totalCollection > 0 || kpiData.totalExpenses > 0);
 
   return (
     <ScreenContainer className="bg-background">
@@ -139,163 +98,116 @@ export default function ReportsScreen() {
               التقارير والإحصائيات
             </Text>
             <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right" }}>
-              مؤشرات الأداء الرئيسية للمصنع
+              مؤشرات الأداء بناءً على البيانات المدخلة
             </Text>
           </View>
           <BackButton />
         </View>
 
-        {/* مرشحات التاريخ */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {[
-              { label: "اليوم", value: "day" },
-              { label: "هذا الأسبوع", value: "week" },
-              { label: "هذا الشهر", value: "month" },
-              { label: "هذا العام", value: "year" },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.value}
-                onPress={() => setDateFilter(filter.value)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor:
-                    dateFilter === filter.value
-                      ? colors.primary
-                      : colors.surface,
-                  borderWidth: 1,
-                  borderColor:
-                    dateFilter === filter.value
-                      ? colors.primary
-                      : colors.border,
-                }}
-              >
-                <Text
-                  style={{
-                    color:
-                      dateFilter === filter.value
-                        ? "white"
-                        : colors.foreground,
-                    fontSize: 11,
-                    fontWeight: "500",
-                  }}
-                >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 }}>
+            <Text style={{ color: colors.muted, fontSize: 14 }}>جاري تحميل البيانات...</Text>
           </View>
-        </View>
-
-        {/* بطاقات KPI */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12 }}>
-            مؤشرات الأداء الرئيسية
-          </Text>
-          {kpis.map(renderKPICard)}
-        </View>
-
-        {/* قسم التفاصيل */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12 }}>
-            تفاصيل الأداء
-          </Text>
-
-          {/* الإنتاج حسب المرحلة */}
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 12 }}>
-              الإنتاج حسب المرحلة
+        ) : !hasData ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 }}>
+            <View style={{ backgroundColor: colors.primary + "15", borderRadius: 40, padding: 20, marginBottom: 16 }}>
+              <MaterialIcons name="bar-chart" size={48} color={colors.primary} />
+            </View>
+            <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", marginBottom: 8 }}>
+              لا توجد بيانات بعد
             </Text>
-            {[
-              { stage: "إنتاج المكائن", quantity: 3200, percentage: 26 },
-              { stage: "الروسو", quantity: 2800, percentage: 22 },
-              { stage: "القلب", quantity: 2400, percentage: 19 },
-              { stage: "الكاوية", quantity: 2100, percentage: 17 },
-              { stage: "الفحص", quantity: 1950, percentage: 16 },
-            ].map((item, index) => (
-              <View key={index} style={{ marginBottom: 12 }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                  <Text style={{ color: colors.foreground, fontSize: 12 }}>
-                    {item.stage}
-                  </Text>
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>
-                    {item.quantity} درزن
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    height: 6,
-                    backgroundColor: colors.border,
-                    borderRadius: 3,
-                    overflow: "hidden",
-                  }}
-                >
-                  <View
-                    style={{
-                      height: "100%",
-                      width: `${item.percentage}%`,
-                      backgroundColor: colors.primary,
-                    }}
-                  />
+            <Text style={{ color: colors.muted, fontSize: 13, textAlign: "center", paddingHorizontal: 40, lineHeight: 20 }}>
+              ستظهر التقارير والإحصائيات هنا تلقائياً بعد إدخال بيانات الإنتاج والمبيعات والمصروفات من الأقسام المختلفة.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16 }}>
+            {/* بطاقات المؤشرات */}
+            <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, textAlign: "right" }}>
+              ملخص الأداء
+            </Text>
+
+            {/* الإنتاج */}
+            {kpiData.totalProduction > 0 && (
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#3B82F6" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#3B82F620", justifyContent: "center", alignItems: "center" }}>
+                    <MaterialIcons name="precision-manufacturing" size={22} color="#3B82F6" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي الإنتاج</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalProduction.toLocaleString()}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>درزن</Text>
+                  </View>
                 </View>
               </View>
-            ))}
-          </View>
+            )}
 
-          {/* أفضل الموظفين */}
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderRadius: 12,
-              padding: 16,
-            }}
-          >
-            <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 12 }}>
-              أفضل الموظفين أداءً
-            </Text>
-            {[
-              { name: "رنا", production: 2450, rating: 4.8 },
-              { name: "شفيق", production: 2100, rating: 4.6 },
-              { name: "محمد أحمد", production: 1950, rating: 4.5 },
-            ].map((worker, index) => (
-              <View
-                key={index}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 10,
-                  borderBottomWidth: index < 2 ? 1 : 0,
-                  borderBottomColor: colors.border,
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "500" }}>
-                    {worker.name}
-                  </Text>
-                  <Text style={{ color: colors.muted, fontSize: 11 }}>
-                    {worker.production} درزن
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <MaterialIcons name="star" size={14} color="#FCD34D" />
-                  <Text style={{ color: colors.foreground, fontSize: 12, marginLeft: 4 }}>
-                    {worker.rating}
-                  </Text>
+            {/* نسبة الهدر */}
+            {kpiData.totalProduction > 0 && (
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#EF4444" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#EF444420", justifyContent: "center", alignItems: "center" }}>
+                    <MaterialIcons name="warning" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>نسبة الهدر</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalWastePercent}%</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>من إجمالي وزن الخيوط</Text>
+                  </View>
                 </View>
               </View>
-            ))}
+            )}
+
+            {/* المبيعات */}
+            {kpiData.totalSales > 0 && (
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#10B981" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#10B98120", justifyContent: "center", alignItems: "center" }}>
+                    <MaterialIcons name="shopping-cart" size={22} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي المبيعات</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalSales.toLocaleString()}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>زوج</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* التحصيل */}
+            {kpiData.totalCollection > 0 && (
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#F59E0B" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#F59E0B20", justifyContent: "center", alignItems: "center" }}>
+                    <MaterialIcons name="account-balance-wallet" size={22} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي التحصيل</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalCollection.toLocaleString()}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>ريال</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* المصروفات */}
+            {kpiData.totalExpenses > 0 && (
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 24, borderRightWidth: 4, borderRightColor: "#8B5CF6" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#8B5CF620", justifyContent: "center", alignItems: "center" }}>
+                    <MaterialIcons name="receipt-long" size={22} color="#8B5CF6" />
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي المصروفات</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalExpenses.toLocaleString()}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>ريال</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
-        </View>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
