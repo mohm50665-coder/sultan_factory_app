@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -393,9 +394,7 @@ export default function ManufacturingStageScreen() {
         </View>
 
         {/* زر الرجوع */}
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <MaterialIcons name="arrow-forward" size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
       </View>
 
       {/* نموذج الإدخال */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -177,9 +178,7 @@ export default function MonthlyReportsScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 }}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={{ padding: 8, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.2)" }}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={{ fontSize: 18, fontWeight: "bold", color: "white" }}>
           {isAr ? "التقارير الشهرية" : "Monthly Reports"}
         </Text>

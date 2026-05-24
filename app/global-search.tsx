@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -139,9 +140,7 @@ export default function GlobalSearchScreen() {
   return (
     <ScreenContainer className="bg-background">
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "البحث الشامل" : "Global Search"}</Text>
         <View style={{ width: 40 }} />
       </View>

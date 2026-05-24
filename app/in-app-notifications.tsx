@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -160,9 +161,7 @@ export default function InAppNotificationsScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>
           {t("notifications")} {unreadCount > 0 ? `(${unreadCount})` : ""}
         </Text>

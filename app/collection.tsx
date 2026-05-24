@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -150,9 +151,7 @@ export default function CollectionScreen() {
       {/* رأس الصفحة */}
       <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
         <View>
-          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
+          <BackButton />
         </View>
         <Text className="text-white font-bold text-lg">التحصيل</Text>
         <TouchableOpacity

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -238,9 +239,7 @@ export default function NotificationsCenterScreen() {
       {/* رأس الصفحة */}
       <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center justify-between">
         <View className="flex-row items-center flex-1">
-          <TouchableOpacity onPress={() => router.replace("/(tabs)")} className="mr-4">
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
+          <BackButton />
           <View className="flex-1">
             <Text className="text-white font-bold text-xl">الإشعارات</Text>
             <Text className="text-white/80 text-sm mt-1">

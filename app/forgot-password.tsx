@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -85,13 +86,14 @@ export default function ForgotPasswordScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.container}>
           {/* زر العودة */}
-          <TouchableOpacity
-            onPress={() => router.replace("/login")}
-            style={styles.backButton}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-            <Text style={styles.backText}>العودة</Text>
-          </TouchableOpacity>
+          <BackButton target="/login" />
+
+
+
+
+
+
+
 
           {/* العنوان */}
           <View style={styles.header}>

@@ -93,6 +93,9 @@ function NavigationContent() {
       <Stack.Screen name="global-search" />
       <Stack.Screen name="section-reports" />
       <Stack.Screen name="employee-performance" />
+      <Stack.Screen name="backup-restore" />
+      <Stack.Screen name="machines-comparison" />
+      <Stack.Screen name="share-reports" />
     </Stack>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -385,9 +386,7 @@ export default function TasksScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.headerBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "المهام" : "Tasks"}</Text>
         {isAdmin && (
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>

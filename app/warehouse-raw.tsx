@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -330,9 +331,7 @@ export default function WarehouseRawScreen() {
           <Text style={styles.headerTitle}>مستودع المواد الخام</Text>
           <Text style={styles.headerSub}>{entries.length} سجل</Text>
         </View>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.headerBtn}>
-          <MaterialIcons name="arrow-forward" size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
       </View>
 
       {showForm ? renderForm() : renderEntries()}

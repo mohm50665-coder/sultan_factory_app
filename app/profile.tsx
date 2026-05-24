@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -159,9 +160,7 @@ export default function ProfileScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>{t("profile")}</Text>
         <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.backBtn}>
           <MaterialIcons name="edit" size={20} color="white" />

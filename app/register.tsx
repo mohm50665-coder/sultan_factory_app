@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -148,9 +149,7 @@ export default function RegisterScreen() {
           <View style={styles.mainContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.replace("/login")} style={styles.backBtn}>
-                <MaterialIcons name="arrow-back" size={22} color="white" />
-              </TouchableOpacity>
+              <BackButton target="/login" />
               <Text style={styles.headerTitle}>{t("register")}</Text>
               <Text style={styles.headerSubtitle}>
                 {language === "ar"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -96,9 +97,7 @@ export default function ActivityLogScreen() {
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
-          <MaterialIcons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>سجل النشاطات</Text>
         <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
           <MaterialIcons name="delete-sweep" size={22} color="white" />

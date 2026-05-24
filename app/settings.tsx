@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -106,9 +107,7 @@ export default function SettingsScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>{t("settings")}</Text>
         <View style={{ width: 40 }} />
       </View>

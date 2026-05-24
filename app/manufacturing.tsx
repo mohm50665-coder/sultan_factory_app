@@ -1,4 +1,5 @@
 import React from "react";
+import { BackButton } from "@/components/back-button";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -89,9 +90,7 @@ export default function ManufacturingScreen() {
           <Text className="text-white font-bold text-xl">مراحل التصنيع</Text>
           <Text className="text-white/80 text-sm mt-1">اختر مرحلة لعرض وإدخال بيانات العمال</Text>
         </View>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
-          <MaterialIcons name="arrow-forward" size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
       </View>
 
       <ScrollView className="flex-1 px-4 py-4">

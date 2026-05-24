@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -100,9 +101,7 @@ export default function EmployeePerformanceScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.headerBtn}>
-          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "أداء الموظفين" : "Employee Performance"}</Text>
         <TouchableOpacity onPress={loadPerformance} style={styles.headerBtn}>
           <MaterialIcons name="refresh" size={24} color="white" />

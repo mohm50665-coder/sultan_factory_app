@@ -1,4 +1,5 @@
 import React from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -55,12 +56,7 @@ export default function WarehouseScreen() {
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
-        <TouchableOpacity
-          onPress={() => router.replace("/(tabs)")}
-          style={styles.backButton}
-        >
-          <MaterialIcons name="arrow-forward" size={24} color="white" />
-        </TouchableOpacity>
+        <BackButton />
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>المستودعات</Text>
           <Text style={styles.headerSubtitle}>إدارة المخزون والمواد</Text>

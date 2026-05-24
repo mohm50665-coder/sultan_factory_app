@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { BackButton } from "@/components/back-button";
 import {
   View,
   Text,
@@ -140,9 +141,7 @@ export default function ExportDataScreen() {
       <ScrollView className="flex-1">
         {/* رأس الصفحة */}
         <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
-          <TouchableOpacity onPress={() => router.replace("/(tabs)")} className="mr-4">
-            <MaterialIcons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
+          <BackButton />
           <View className="flex-1">
             <Text className="text-white font-bold text-xl">تصدير البيانات</Text>
             <Text className="text-white/80 text-sm mt-1">

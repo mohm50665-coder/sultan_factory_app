@@ -392,6 +392,38 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           )}
+          {user?.role === "admin" && (
+            <TouchableOpacity
+              onPress={() => handleNavigate("/backup-restore")}
+              style={styles.toolItem}
+              activeOpacity={0.7}
+            >
+              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+                <MaterialIcons name="backup" size={24} color="#6366f1" />
+                <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "نسخ احتياطي" : "Backup"}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => handleNavigate("/machines-comparison")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="precision-manufacturing" size={24} color="#8b5cf6" />
+              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "مقارنة المكائن" : "Machines"}</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/share-reports")}
+            style={styles.toolItem}
+            activeOpacity={0.7}
+          >
+            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <MaterialIcons name="share" size={24} color="#0ea5e9" />
+              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "مشاركة التقارير" : "Share"}</Text>
+            </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </ScreenContainer>
