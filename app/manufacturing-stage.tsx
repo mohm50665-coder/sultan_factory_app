@@ -20,6 +20,9 @@ interface WorkerEntry {
   workerName: string;
   productionDozen: string;
   productionPairs: string;
+  // المدة الزمنية للإنجاز
+  durationHours?: string;
+  durationMinutes?: string;
   // حقول التخزين - الإنتاج التام
   finishedDozen?: string;
   finishedPairs?: string;
@@ -111,6 +114,9 @@ export default function ManufacturingStageScreen() {
   const [selectedWorker, setSelectedWorker] = useState("");
   const [productionDozen, setProductionDozen] = useState("");
   const [productionPairs, setProductionPairs] = useState("");
+  // المدة الزمنية للإنجاز
+  const [durationHours, setDurationHours] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
   // حقول التخزين
   const [finishedDozen, setFinishedDozen] = useState("");
   const [finishedPairs, setFinishedPairs] = useState("");
@@ -149,6 +155,8 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker("");
     setProductionDozen("");
     setProductionPairs("");
+    setDurationHours("");
+    setDurationMinutes("");
     setFinishedDozen("");
     setFinishedPairs("");
     setSecondGradeDozen("");
@@ -182,6 +190,8 @@ export default function ManufacturingStageScreen() {
       workerName: selectedWorker,
       productionDozen: isStorageStage ? "0" : (productionDozen || "0"),
       productionPairs: isStorageStage ? "0" : (productionPairs || "0"),
+      durationHours: durationHours || "0",
+      durationMinutes: durationMinutes || "0",
       finishedDozen: isStorageStage ? (finishedDozen || "0") : undefined,
       finishedPairs: isStorageStage ? (finishedPairs || "0") : undefined,
       secondGradeDozen: isStorageStage ? (secondGradeDozen || "0") : undefined,
@@ -213,6 +223,8 @@ export default function ManufacturingStageScreen() {
     setSelectedWorker(entry.workerName);
     setProductionDozen(entry.productionDozen);
     setProductionPairs(entry.productionPairs);
+    setDurationHours(entry.durationHours || "");
+    setDurationMinutes(entry.durationMinutes || "");
     setFinishedDozen(entry.finishedDozen || "");
     setFinishedPairs(entry.finishedPairs || "");
     setSecondGradeDozen(entry.secondGradeDozen || "");
@@ -347,6 +359,19 @@ export default function ManufacturingStageScreen() {
               <Text className="text-muted text-sm">زوج</Text>
             </View>
             <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالزوج</Text>
+          </View>
+        </View>
+      )}
+
+      {/* المدة الزمنية للإنجاز */}
+      {(parseInt(item.durationHours || "0") > 0 || parseInt(item.durationMinutes || "0") > 0) && (
+        <View className="mt-2 bg-background rounded-lg p-2 flex-row items-center justify-end gap-2">
+          <Text className="text-foreground font-bold text-sm">
+            {item.durationHours || "0"} ساعة {item.durationMinutes || "0"} دقيقة
+          </Text>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-muted text-xs">مدة الإنجاز:</Text>
+            <MaterialIcons name="timer" size={14} color={colors.muted} />
           </View>
         </View>
       )}
@@ -578,6 +603,39 @@ export default function ManufacturingStageScreen() {
                 </View>
               </View>
             )}
+
+            {/* المدة الزمنية للإنجاز */}
+            <View className="mb-5">
+              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                المدة الزمنية للإنجاز
+              </Text>
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="text-muted text-xs mb-1 text-right">دقيقة</Text>
+                  <TextInput
+                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    placeholder="0"
+                    placeholderTextColor={colors.muted}
+                    value={durationMinutes}
+                    onChangeText={setDurationMinutes}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-muted text-xs mb-1 text-right">ساعة</Text>
+                  <TextInput
+                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    placeholder="0"
+                    placeholderTextColor={colors.muted}
+                    value={durationHours}
+                    onChangeText={setDurationHours}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                  />
+                </View>
+              </View>
+            </View>
 
             {/* ملاحظات */}
             <View className="mb-5">
