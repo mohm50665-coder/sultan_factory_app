@@ -71,7 +71,12 @@ export default function WarehouseScreen() {
           <Text style={styles.headerTitle}>المستودعات</Text>
           <Text style={styles.headerSubtitle}>إدارة المخزون والمواد</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => router.push("/administrative" as any)}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="assignment" size={22} color="white" />
+        </TouchableOpacity>
       </View>
 
       {/* الأقسام */}

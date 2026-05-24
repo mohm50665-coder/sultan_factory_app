@@ -698,6 +698,13 @@ export default function SalesScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
 
+        {/* أيقونة الإجراءات الإدارية */}
+        <TouchableOpacity
+          onPress={() => router.push("/administrative" as any)}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="assignment" size={24} color="white" />
+        </TouchableOpacity>
         {/* العنوان */}
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">المبيعات والتحصيل</Text>

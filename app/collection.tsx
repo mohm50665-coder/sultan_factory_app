@@ -155,6 +155,12 @@ export default function CollectionScreen() {
         </View>
         <Text className="text-white font-bold text-lg">التحصيل</Text>
         <TouchableOpacity
+          onPress={() => router.push("/administrative" as any)}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8, marginRight: 8 }}
+        >
+          <MaterialIcons name="assignment" size={22} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={() => {
             resetForm();
             setShowForm(true);

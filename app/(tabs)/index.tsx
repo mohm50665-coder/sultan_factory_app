@@ -117,7 +117,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "الطلبات والإجراءات الإدارية",
     descriptionEn: "Requests and administrative procedures",
     section: "hr",
-    departments: ["administrative"],
+    departments: [],
+    isShared: true,
   },
   {
     id: "tasks",
