@@ -68,6 +68,20 @@ export default function AdministrativeScreen() {
   const [showRequestTypeDropdown, setShowRequestTypeDropdown] = useState(false);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [attachmentInput, setAttachmentInput] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterDepartment, setFilterDepartment] = useState<string>("all");
+
+  const filteredRequests = requests.filter((r) => {
+    if (filterType !== "all" && r.requestType !== filterType) return false;
+    if (filterDepartment !== "all" && r.department !== filterDepartment) return false;
+    if (filterStatus !== "all") {
+      if (filterStatus === "pending" && r.directManagerStatus !== "pending") return false;
+      if (filterStatus === "approved" && !(r.directManagerStatus === "approved" && r.generalManagerStatus === "approved" && r.boardRepStatus === "approved")) return false;
+      if (filterStatus === "rejected" && !(r.directManagerStatus === "rejected" || r.generalManagerStatus === "rejected" || r.boardRepStatus === "rejected")) return false;
+    }
+    return true;
+  });
 
   useEffect(() => {
     loadRequests();
@@ -206,20 +220,28 @@ export default function AdministrativeScreen() {
     return "قيد الانتظار";
   };
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
   const handlePrintShare = (item: AdministrativeData) => {
     const boardStatus = item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending");
     const directStatus = item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending");
     const generalStatus = item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending");
     const content = `طلب إداري - ${getRequestTypeLabel(item.requestType)}\n` +
+      (item.referenceNumber ? `الرقم المرجعي: ${item.referenceNumber}\n` : "") +
+      (item.submissionDate ? `تاريخ التقديم: ${formatDate(item.submissionDate)}\n` : "") +
       `اسم الموظف: ${item.employeeName}\n` +
       `الرقم الوظيفي: ${item.employeeNumber || "غير محدد"}\n` +
       `الإدارة/القسم: ${getDepartmentLabel(item.department)}\n` +
       `تفاصيل الطلب: ${item.requestDetails}\n` +
       (item.attachments && item.attachments.length > 0 ? `المرفقات: ${item.attachments.join(", ")}\n` : "") +
       `\nالموافقات:\n` +
-      `- ممثل مجلس الإدارة: ${getApproverStatusLabel(boardStatus)}${item.boardRepRejectionReason ? " (سبب الرفض: " + item.boardRepRejectionReason + ")" : ""}\n` +
-      `- المدير المباشر: ${getApproverStatusLabel(directStatus)}${item.directManagerRejectionReason ? " (سبب الرفض: " + item.directManagerRejectionReason + ")" : ""}\n` +
-      `- المدير العام: ${getApproverStatusLabel(generalStatus)}${item.generalManagerRejectionReason ? " (سبب الرفض: " + item.generalManagerRejectionReason + ")" : ""}`;
+      `- المدير المباشر: ${getApproverStatusLabel(directStatus)}${item.directManagerActionDate ? " (" + formatDate(item.directManagerActionDate) + ")" : ""}${item.directManagerRejectionReason ? " - سبب الرفض: " + item.directManagerRejectionReason : ""}\n` +
+      `- المدير العام: ${getApproverStatusLabel(generalStatus)}${item.generalManagerActionDate ? " (" + formatDate(item.generalManagerActionDate) + ")" : ""}${item.generalManagerRejectionReason ? " - سبب الرفض: " + item.generalManagerRejectionReason : ""}\n` +
+      `- ممثل مجلس الإدارة: ${getApproverStatusLabel(boardStatus)}${item.boardRepActionDate ? " (" + formatDate(item.boardRepActionDate) + ")" : ""}${item.boardRepRejectionReason ? " - سبب الرفض: " + item.boardRepRejectionReason : ""}`;
     if (Platform.OS === "web") {
       const printWindow = window.open("", "_blank");
       if (printWindow) {
@@ -236,6 +258,19 @@ export default function AdministrativeScreen() {
 
   const renderRequestItem = ({ item }: { item: AdministrativeData }) => (
     <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+      {/* Reference Number & Submission Date */}
+      {(item.referenceNumber || item.submissionDate) && (
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          {item.referenceNumber ? (
+            <View style={{ backgroundColor: colors.primary + "12", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
+              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>{item.referenceNumber}</Text>
+            </View>
+          ) : <View />}
+          {item.submissionDate ? (
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{formatDate(item.submissionDate)}</Text>
+          ) : null}
+        </View>
+      )}
       {/* Header */}
       <View className="flex-row justify-between items-start mb-3">
         <View className="flex-1">
@@ -291,39 +326,54 @@ export default function AdministrativeScreen() {
         <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "700", marginBottom: 10, textAlign: "right" }}>{"\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0627\u062a"}</Text>
         
         {/* \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.directManagerStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
-            <Text style={{ fontSize: 10, fontWeight: "700", color: (item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending")) === "approved" ? colors.success : (item.directManagerStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
-              {getApproverStatusLabel(item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending"))}
-            </Text>
+        <View style={{ marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.directManagerStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: (item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending")) === "approved" ? colors.success : (item.directManagerStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
+                {getApproverStatusLabel(item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending"))}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}</Text>
           </View>
-          <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}</Text>
+          {item.directManagerActionDate ? (
+            <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.directManagerActionDate)}</Text>
+          ) : null}
         </View>
         {item.directManagerRejectionReason ? (
           <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.directManagerRejectionReason}</Text>
         ) : null}
 
         {/* \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645 */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.generalManagerStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
-            <Text style={{ fontSize: 10, fontWeight: "700", color: (item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending")) === "approved" ? colors.success : (item.generalManagerStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
-              {getApproverStatusLabel(item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending"))}
-            </Text>
+        <View style={{ marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.generalManagerStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: (item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending")) === "approved" ? colors.success : (item.generalManagerStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
+                {getApproverStatusLabel(item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending"))}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}</Text>
           </View>
-          <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}</Text>
+          {item.generalManagerActionDate ? (
+            <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.generalManagerActionDate)}</Text>
+          ) : null}
         </View>
         {item.generalManagerRejectionReason ? (
           <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.generalManagerRejectionReason}</Text>
         ) : null}
 
         {/* \u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629 */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.boardRepStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
-            <Text style={{ fontSize: 10, fontWeight: "700", color: (item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending")) === "approved" ? colors.success : (item.boardRepStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
-              {getApproverStatusLabel(item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending"))}
-            </Text>
+        <View style={{ marginBottom: 4, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12, backgroundColor: (item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending")) === "approved" ? colors.success + "20" : (item.boardRepStatus || "pending") === "rejected" ? colors.error + "20" : colors.muted + "20" }}>
+              <Text style={{ fontSize: 10, fontWeight: "700", color: (item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending")) === "approved" ? colors.success : (item.boardRepStatus || "pending") === "rejected" ? colors.error : colors.muted }}>
+                {getApproverStatusLabel(item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending"))}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"}</Text>
           </View>
-          <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"}</Text>
+          {item.boardRepActionDate ? (
+            <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.boardRepActionDate)}</Text>
+          ) : null}
         </View>
         {item.boardRepRejectionReason ? (
           <Text style={{ color: colors.error, fontSize: 10, marginBottom: 4, marginTop: 0, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.boardRepRejectionReason}</Text>
@@ -643,6 +693,56 @@ export default function AdministrativeScreen() {
         <BackButton />
       </View>
 
+      {/* \u0634\u0631\u064a\u0637 \u0627\u0644\u062a\u0635\u0641\u064a\u0629 */}
+      {!isLoading && requests.length > 0 && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+          {/* \u062a\u0635\u0641\u064a\u0629 \u062d\u0633\u0628 \u0627\u0644\u0646\u0648\u0639 */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ gap: 6 }}>
+            <TouchableOpacity
+              onPress={() => setFilterType("all")}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: filterType === "all" ? colors.primary : colors.surface, borderWidth: 1, borderColor: filterType === "all" ? colors.primary : colors.border }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === "all" ? "#fff" : colors.muted }}>{"\u0627\u0644\u0643\u0644"}</Text>
+            </TouchableOpacity>
+            {REQUEST_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                onPress={() => setFilterType(filterType === t.value ? "all" : t.value)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: filterType === t.value ? colors.primary : colors.surface, borderWidth: 1, borderColor: filterType === t.value ? colors.primary : colors.border }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === t.value ? "#fff" : colors.muted }}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {/* \u062a\u0635\u0641\u064a\u0629 \u062d\u0633\u0628 \u0627\u0644\u062d\u0627\u0644\u0629 \u0648\u0627\u0644\u0642\u0633\u0645 */}
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              {[{ label: "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631", value: "pending" }, { label: "\u0645\u0648\u0627\u0641\u0642", value: "approved" }, { label: "\u0645\u0631\u0641\u0648\u0636", value: "rejected" }].map((s) => (
+                <TouchableOpacity
+                  key={s.value}
+                  onPress={() => setFilterStatus(filterStatus === s.value ? "all" : s.value)}
+                  style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) + "20" : colors.surface, borderWidth: 1, borderColor: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) : colors.border }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) : colors.muted }}>{s.label}</Text>
+                </TouchableOpacity>
+              ))}
+              {DEPARTMENTS.map((d) => (
+                <TouchableOpacity
+                  key={d.value}
+                  onPress={() => setFilterDepartment(filterDepartment === d.value ? "all" : d.value)}
+                  style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: filterDepartment === d.value ? colors.primary + "20" : colors.surface, borderWidth: 1, borderColor: filterDepartment === d.value ? colors.primary : colors.border }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterDepartment === d.value ? colors.primary : colors.muted }}>{d.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          {filteredRequests.length !== requests.length && (
+            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 6, textAlign: "right" }}>{"\u0639\u0631\u0636"} {filteredRequests.length} {"\u0645\u0646"} {requests.length} {"\u0637\u0644\u0628"}</Text>
+          )}
+        </View>
+      )}
+
       {/* \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0637\u0644\u0628\u0627\u062a */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
@@ -650,7 +750,7 @@ export default function AdministrativeScreen() {
         </View>
       ) : (
         <FlatList
-          data={requests}
+          data={filteredRequests}
           renderItem={renderRequestItem}
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}

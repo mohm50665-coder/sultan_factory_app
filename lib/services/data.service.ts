@@ -28,6 +28,8 @@ export interface CollectionData {
 
 export interface AdministrativeData {
   id?: number;
+  referenceNumber?: string;
+  submissionDate?: string;
   employeeName: string;
   employeeNumber: string;
   department: string;
@@ -37,12 +39,15 @@ export interface AdministrativeData {
   approvedByBoardRep: boolean;
   boardRepStatus: "pending" | "approved" | "rejected";
   boardRepRejectionReason: string;
+  boardRepActionDate?: string;
   approvedByDirectManager: boolean;
   directManagerStatus: "pending" | "approved" | "rejected";
   directManagerRejectionReason: string;
+  directManagerActionDate?: string;
   approvedByGeneralManager: boolean;
   generalManagerStatus: "pending" | "approved" | "rejected";
   generalManagerRejectionReason: string;
+  generalManagerActionDate?: string;
   rejectionReason: string;
   status: "pending" | "approved" | "rejected";
   // Legacy fields for backward compatibility
@@ -241,9 +246,13 @@ export const administrativeService = {
 
   async create(data: AdministrativeData): Promise<AdministrativeData> {
     const items = await this.getAll();
+    const nextNum = items.length + 1;
+    const refNum = `REQ-${String(nextNum).padStart(4, "0")}`;
     const newItem: AdministrativeData = {
       ...data,
       id: Date.now(),
+      referenceNumber: refNum,
+      submissionDate: new Date().toISOString(),
     };
     items.push(newItem);
     await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
@@ -254,7 +263,23 @@ export const administrativeService = {
     const items = await this.getAll();
     const index = items.findIndex((item) => item.id === id);
     if (index === -1) throw new Error("Request not found");
-    items[index] = { ...data, id };
+    const existing = items[index];
+    const now = new Date().toISOString();
+    // Stamp action dates when approver status changes
+    const updatedData = { ...data, id };
+    if (data.directManagerStatus !== "pending" && existing.directManagerStatus === "pending") {
+      updatedData.directManagerActionDate = now;
+    }
+    if (data.generalManagerStatus !== "pending" && existing.generalManagerStatus === "pending") {
+      updatedData.generalManagerActionDate = now;
+    }
+    if (data.boardRepStatus !== "pending" && existing.boardRepStatus === "pending") {
+      updatedData.boardRepActionDate = now;
+    }
+    // Preserve original submission date and reference number
+    updatedData.submissionDate = existing.submissionDate || updatedData.submissionDate;
+    updatedData.referenceNumber = existing.referenceNumber || updatedData.referenceNumber;
+    items[index] = updatedData;
     await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
     return items[index];
   },
