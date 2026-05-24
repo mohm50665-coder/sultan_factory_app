@@ -14,6 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/lib/auth-context";
 
 interface WorkerEntry {
   id: string;
@@ -103,7 +104,10 @@ export default function ManufacturingStageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const colors = useColors();
+  const { user } = useAuth();
   const stage = (params.stage as string) || "machines";
+  // قسم المستودعات يرى فقط بدون إضافة/تعديل/حذف
+  const isViewOnly = user?.department === "warehouse" && user?.role !== "admin";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const STORAGE_KEY = `sultan_manufacturing_${stage}`;
@@ -261,7 +265,8 @@ export default function ManufacturingStageScreen() {
     <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
       {/* اسم العامل والأزرار */}
       <View className="flex-row items-center justify-between mb-3">
-        {/* أيقونات التعديل والحذف */}
+        {/* أيقونات التعديل والحذف - تظهر فقط لغير المستودعات */}
+        {!isViewOnly && (
         <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => handleEdit(item)}
@@ -284,6 +289,7 @@ export default function ManufacturingStageScreen() {
             <MaterialIcons name="delete" size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
+        )}
 
         {/* اسم العامل */}
         <View className="flex-row items-center gap-2">
@@ -395,20 +401,24 @@ export default function ManufacturingStageScreen() {
         style={{ backgroundColor: config.color }}
         className="px-6 py-5 flex-row items-center justify-between"
       >
-        {/* زر الإضافة */}
-        <TouchableOpacity
-          onPress={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          style={{
-            backgroundColor: "rgba(255,255,255,0.2)",
-            borderRadius: 20,
-            padding: 8,
-          }}
-        >
-          <MaterialIcons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        {/* زر الإضافة - يظهر فقط لغير المستودعات */}
+        {isViewOnly ? (
+          <View style={{ width: 40 }} />
+        ) : (
+          <TouchableOpacity
+            onPress={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+            style={{
+              backgroundColor: "rgba(255,255,255,0.2)",
+              borderRadius: 20,
+              padding: 8,
+            }}
+          >
+            <MaterialIcons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        )}
 
         {/* عنوان الصفحة */}
         <View className="flex-1 items-center">
@@ -704,7 +714,7 @@ export default function ManufacturingStageScreen() {
               </View>
               <Text className="text-foreground text-lg mt-5 font-bold">{config.name}</Text>
               <Text className="text-muted text-sm mt-2 text-center px-8">
-                لا توجد بيانات مسجلة بعد.{"\n"}اضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة.
+                {isViewOnly ? "لا توجد بيانات مسجلة بعد." : "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة."}
               </Text>
 
               {/* عرض أسماء العمال */}
@@ -731,6 +741,7 @@ export default function ManufacturingStageScreen() {
                 </View>
               </View>
 
+              {!isViewOnly && (
               <TouchableOpacity
                 onPress={() => {
                   resetForm();
@@ -744,6 +755,7 @@ export default function ManufacturingStageScreen() {
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>
+              )}
             </View>
           }
         />
