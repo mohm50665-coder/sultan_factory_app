@@ -819,6 +819,40 @@ export default function ProductionScreen() {
         );
       })()}
 
+      {/* بطاقة إجمالي بيانات المكائن - كبيرة وواضحة */}
+      {!showForm && (
+        <TouchableOpacity
+          onPress={() => router.push("/production-totals" as any)}
+          style={{
+            marginHorizontal: 16,
+            marginTop: 12,
+            marginBottom: 4,
+            backgroundColor: "#f0fdf4",
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 2,
+            borderColor: "#16a34a",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <MaterialIcons name="chevron-left" size={24} color="#16a34a" />
+          </View>
+          <View style={{ flex: 1, alignItems: "flex-end" }}>
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#16a34a" }}>
+              إجمالي بيانات المكائن
+            </Text>
+            <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
+              عرض إجماليات الإنتاج والهدر والخيوط
+            </Text>
+          </View>
+          <View style={{ backgroundColor: "#16a34a", borderRadius: 12, padding: 10, marginLeft: 12 }}>
+            <MaterialIcons name="summarize" size={28} color="white" />
+          </View>
+        </TouchableOpacity>
+      )}
       {/* المحتوى */}
       {showForm ? (
         renderForm()
