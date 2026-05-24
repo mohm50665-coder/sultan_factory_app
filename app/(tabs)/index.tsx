@@ -56,7 +56,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
     descriptionEn: "Machines - Rosso - Turning - Ironing - Inspection - Packing - Storage",
     section: "manufacturing",
-    departments: ["production"],
+    departments: ["production", "warehouse"],
   },
   {
     id: "sales",
