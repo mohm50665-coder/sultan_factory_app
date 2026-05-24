@@ -84,6 +84,7 @@ export default function ProductionScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
   const [showDailySummary, setShowDailySummary] = useState(false);
+  const [showTotalSummary, setShowTotalSummary] = useState(false);
 
   // حقل التاريخ الموحد
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
@@ -741,6 +742,14 @@ export default function ProductionScreen() {
           <MaterialIcons name="analytics" size={24} color="white" />
         </TouchableOpacity>
 
+        {/* أيقونة إجمالي بيانات المكائن */}
+        <TouchableOpacity
+          onPress={() => setShowTotalSummary(!showTotalSummary)}
+          style={{ backgroundColor: showTotalSummary ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="summarize" size={24} color="white" />
+        </TouchableOpacity>
+
         {/* العنوان */}
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">الإنتاج</Text>
@@ -805,6 +814,115 @@ export default function ProductionScreen() {
             <View className="flex-row justify-end gap-4 mt-2 pt-2 border-t border-border">
               <Text className="text-muted text-xs">هدر خيوط: <Text className="text-error font-semibold">{sumWasteThread.toFixed(0)}</Text> جم</Text>
               <Text className="text-muted text-xs">هدر جوارب: <Text className="text-error font-semibold">{sumWasteSocks.toFixed(0)}</Text> جم</Text>
+            </View>
+          </View>
+        );
+      })()}
+
+      {/* إجمالي بيانات المكائن */}
+      {showTotalSummary && entries.length > 0 && (() => {
+        let grandDozen = 0;
+        let grandPairs = 0;
+        let grandSecondDozen = 0;
+        let grandSecondPairs = 0;
+        let grandWasteThread = 0;
+        let grandWasteSocks = 0;
+        let grandYarnWeight = 0;
+        let grandNeedles = 0;
+
+        entries.forEach(entry => {
+          Object.values(entry.machines).forEach(m => {
+            grandDozen += parseFloat(m.productionDozen) || 0;
+            grandPairs += parseFloat(m.productionPairs) || 0;
+            grandSecondDozen += parseFloat(m.secondGradeDozen) || 0;
+            grandSecondPairs += parseFloat(m.secondGradePairs) || 0;
+            grandWasteThread += parseFloat(m.wasteThreadGrams) || 0;
+            grandWasteSocks += parseFloat(m.wasteSocksGrams) || 0;
+            grandNeedles += parseFloat(m.wasteNeedles) || 0;
+            grandYarnWeight += (parseFloat(m.yarnRubber) || 0) + (parseFloat(m.yarnSpandex) || 0) + (parseFloat(m.yarnNylon) || 0) + (parseFloat(m.yarnCotton) || 0) + (parseFloat(m.yarnBamboo) || 0) + (parseFloat(m.yarnSpan) || 0);
+          });
+        });
+
+        const grandWasteAll = grandWasteThread + grandWasteSocks;
+        const grandWastePercent = grandYarnWeight > 0 ? ((grandWasteAll / grandYarnWeight) * 100) : 0;
+        const wasteColor = grandWastePercent > 5 ? "#ef4444" : "#22c55e";
+
+        return (
+          <View className="mx-4 mt-3 bg-surface rounded-xl p-4 border border-border">
+            <View className="flex-row items-center gap-2 mb-3 justify-end">
+              <Text className="text-foreground font-bold text-base">إجمالي بيانات المكائن</Text>
+              <View style={{ backgroundColor: "#0a7ea420", borderRadius: 14, padding: 5 }}>
+                <MaterialIcons name="summarize" size={18} color="#0a7ea4" />
+              </View>
+            </View>
+
+            {/* الإنتاج التام */}
+            <View className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">إنتاج تام (جميع المكائن)</Text>
+                <MaterialIcons name="check-circle" size={18} color="#16a34a" />
+              </View>
+              <View className="flex-row justify-end gap-4">
+                <Text className="text-muted text-sm"><Text className="text-primary font-bold text-lg">{grandDozen}</Text> درزن</Text>
+                <Text className="text-muted text-sm"><Text className="text-primary font-bold text-lg">{grandPairs}</Text> زوج</Text>
+              </View>
+            </View>
+
+            {/* النخب الثاني */}
+            <View className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">كمية النخب الثاني</Text>
+                <MaterialIcons name="low-priority" size={18} color="#f59e0b" />
+              </View>
+              <View className="flex-row justify-end gap-4">
+                <Text className="text-muted text-sm"><Text className="text-warning font-bold text-lg">{grandSecondDozen}</Text> درزن</Text>
+                <Text className="text-muted text-sm"><Text className="text-warning font-bold text-lg">{grandSecondPairs}</Text> زوج</Text>
+              </View>
+            </View>
+
+            {/* وزن الهدر */}
+            <View className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">كمية وزن الهدر</Text>
+                <MaterialIcons name="delete-outline" size={18} color="#ef4444" />
+              </View>
+              <View className="flex-row justify-end gap-4">
+                <Text className="text-muted text-sm">خيوط: <Text className="text-error font-bold">{grandWasteThread.toFixed(0)}</Text> جم</Text>
+                <Text className="text-muted text-sm">جوارب: <Text className="text-error font-bold">{grandWasteSocks.toFixed(0)}</Text> جم</Text>
+                <Text className="text-muted text-sm">إجمالي: <Text className="text-error font-bold">{grandWasteAll.toFixed(0)}</Text> جم</Text>
+              </View>
+            </View>
+
+            {/* وزن الخيوط المستخدمة */}
+            <View className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">وزن الخيوط المستخدمة (جميع الأنواع)</Text>
+                <MaterialIcons name="scale" size={18} color="#0a7ea4" />
+              </View>
+              <Text className="text-primary font-bold text-lg text-right">{grandYarnWeight.toFixed(0)} جرام</Text>
+            </View>
+
+            {/* هدر الإبر */}
+            <View className="bg-background rounded-lg p-3 mb-2 border border-border">
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">كمية هدر الإبر</Text>
+                <MaterialIcons name="push-pin" size={18} color="#6b7280" />
+              </View>
+              <Text className="text-foreground font-bold text-lg text-right">{grandNeedles} حبة</Text>
+            </View>
+
+            {/* نسبة الهدر */}
+            <View className="bg-background rounded-lg p-3 border border-border" style={{ borderColor: wasteColor, borderWidth: 2 }}>
+              <View className="flex-row items-center gap-2 justify-end mb-2">
+                <Text className="text-foreground font-semibold text-sm">نسبة الهدر</Text>
+                <MaterialIcons name="percent" size={18} color={wasteColor} />
+              </View>
+              <Text style={{ color: wasteColor, fontWeight: "bold", fontSize: 22, textAlign: "right" }}>
+                {grandWastePercent.toFixed(2)}%
+              </Text>
+              <Text className="text-muted text-xs text-right mt-1">
+                {"هدر / وزن الخيوط × 100 | "}{grandWastePercent > 5 ? "⚠️ تجاوز الحد المسموح (5%)" : "✅ ضمن الحد المسموح"}
+              </Text>
             </View>
           </View>
         );
