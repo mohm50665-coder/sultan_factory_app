@@ -46,18 +46,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     section: "production",
     departments: ["production"],
   },
-  {
-    id: "production-totals",
-    labelAr: "إجمالي بيانات المكائن",
-    labelEn: "Machines Totals",
-    icon: "summarize",
-    color: "#0d9488",
-    route: "/production-totals",
-    descriptionAr: "إنتاج تام - نخب ثاني - هدر - خيوط - إبر - نسبة الهدر",
-    descriptionEn: "Production - Second Grade - Waste - Yarn - Needles - Waste %",
-    section: "production",
-    departments: ["production"],
-  },
+
   {
     id: "manufacturing",
     labelAr: "مراحل تسليم الإنتاج",
