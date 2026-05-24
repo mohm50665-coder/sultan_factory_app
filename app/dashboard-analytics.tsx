@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { localStorageService } from "@/lib/services/local-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface KPI {
   label: string;
@@ -47,31 +47,33 @@ export default function DashboardAnalyticsScreen() {
     try {
       setIsLoading(true);
 
-      // جلب البيانات من التخزين المحلي
-      const productionData = await localStorageService.getAllData("production");
-      const salesData = await localStorageService.getAllData("sales");
-      const maintenanceData = await localStorageService.getAllData(
-        "maintenance"
-      );
+      // جلب البيانات من التخزين المحلي بالمفاتيح الصحيحة
+      const prodRaw = await AsyncStorage.getItem("sultan_production_data_v2");
+      const prodEntries = prodRaw ? JSON.parse(prodRaw) : [];
+      let totalProduction = 0;
+      let totalWaste = 0;
+      let totalSecondGrade = 0;
+      prodEntries.forEach((entry: any) => {
+        if (entry.machines) {
+          Object.values(entry.machines).forEach((m: any) => {
+            totalProduction += parseInt(m.productionDozen || "0");
+            totalWaste += parseInt(m.wasteThreadGrams || "0") + parseInt(m.wasteSocksGrams || "0");
+            totalSecondGrade += parseInt(m.secondGradePairs || "0");
+          });
+        }
+      });
 
-      // حساب المؤشرات
-      const totalProduction = productionData.reduce(
-        (sum: number, item: any) => sum + (parseInt(item.quantity) || 0),
-        0
-      );
-      const totalWaste = productionData.reduce(
-        (sum: number, item: any) => sum + (parseInt(item.waste) || 0),
-        0
-      );
-      const wastePercentage =
-        totalProduction > 0
-          ? ((totalWaste / totalProduction) * 100).toFixed(2)
-          : 0;
-      const totalSales = salesData.reduce(
-        (sum: number, item: any) => sum + (parseFloat(item.amount) || 0),
-        0
-      );
-      const maintenanceCount = maintenanceData.length;
+      const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
+      const salesEntries = salesRaw ? JSON.parse(salesRaw) : [];
+      const totalSales = salesEntries.reduce((s: number, e: any) => s + (parseFloat(e.totalAmount) || 0), 0);
+
+      const maintPeriodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
+      const maintEmergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
+      const periodic = maintPeriodicRaw ? JSON.parse(maintPeriodicRaw) : [];
+      const emergency = maintEmergencyRaw ? JSON.parse(maintEmergencyRaw) : [];
+      const maintenanceCount = periodic.length + emergency.length;
+
+      const wastePercentage = totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(2) : "0";
 
       const newKpis: KPI[] = [
         {
@@ -80,8 +82,8 @@ export default function DashboardAnalyticsScreen() {
           unit: "درزن",
           icon: "factory",
           color: "#0a7ea4",
-          trend: "up",
-          percentage: 12,
+          trend: "stable",
+          percentage: 0,
         },
         {
           label: "معدل الهدر",
@@ -89,17 +91,17 @@ export default function DashboardAnalyticsScreen() {
           unit: "%",
           icon: "warning",
           color: "#ef4444",
-          trend: totalWaste > 0 ? "up" : "stable",
-          percentage: totalWaste > 0 ? 5 : 0,
+          trend: "stable",
+          percentage: 0,
         },
         {
           label: "إجمالي المبيعات",
-          value: totalSales.toFixed(2),
+          value: totalSales > 0 ? totalSales.toFixed(0) : "0",
           unit: "ريال",
           icon: "shopping-cart",
           color: "#22c55e",
-          trend: "up",
-          percentage: 8,
+          trend: "stable",
+          percentage: 0,
         },
         {
           label: "عمليات الصيانة",
@@ -114,12 +116,13 @@ export default function DashboardAnalyticsScreen() {
 
       setKpis(newKpis);
 
-      // تحضير بيانات الرسم البياني
-      const productionBySection = [
-        { label: "الإنتاج", value: totalProduction, percentage: 60 },
-        { label: "الهدر", value: totalWaste, percentage: 15 },
-        { label: "النخب الثاني", value: totalProduction * 0.1, percentage: 25 },
-      ];
+      // تحضير بيانات الرسم البياني من البيانات الفعلية
+      const total = totalProduction + totalWaste + totalSecondGrade;
+      const productionBySection = total > 0 ? [
+        { label: "الإنتاج", value: totalProduction, percentage: Math.round((totalProduction / total) * 100) },
+        { label: "الهدر", value: totalWaste, percentage: Math.round((totalWaste / total) * 100) },
+        { label: "النخب الثاني", value: totalSecondGrade, percentage: Math.round((totalSecondGrade / total) * 100) },
+      ] : [];
 
       setChartData(productionBySection);
     } catch (error) {

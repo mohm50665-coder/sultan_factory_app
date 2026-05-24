@@ -90,7 +90,7 @@ export default function SectionReportsScreen() {
 
   // Load Production Report
   const loadProductionReport = async () => {
-    const raw = await AsyncStorage.getItem("production_entries");
+    const raw = await AsyncStorage.getItem("sultan_production_data_v2");
     const entries = raw ? JSON.parse(raw) : [];
     const totalProduction = entries.reduce((s: number, e: any) => s + (e.productionDozen || 0), 0);
     const totalWasteThread = entries.reduce((s: number, e: any) => s + (e.wasteThread || 0), 0);
@@ -124,7 +124,7 @@ export default function SectionReportsScreen() {
     let totalEntries = 0;
 
     for (const stage of stages) {
-      const raw = await AsyncStorage.getItem(`manufacturing_${stage}`);
+      const raw = await AsyncStorage.getItem(`sultan_manufacturing_${stage}`);
       const entries = raw ? JSON.parse(raw) : [];
       stageData[stage] = entries;
       totalEntries += entries.length;
@@ -141,8 +141,8 @@ export default function SectionReportsScreen() {
 
   // Load Warehouse Report
   const loadWarehouseReport = async () => {
-    const inRaw = await AsyncStorage.getItem("warehouse_in");
-    const outRaw = await AsyncStorage.getItem("warehouse_out");
+    const inRaw = await AsyncStorage.getItem("sultan_warehouse_raw");
+    const outRaw = await AsyncStorage.getItem("sultan_warehouse_out");
     const inEntries = inRaw ? JSON.parse(inRaw) : [];
     const outEntries = outRaw ? JSON.parse(outRaw) : [];
 
@@ -161,8 +161,8 @@ export default function SectionReportsScreen() {
 
   // Load Sales Report
   const loadSalesReport = async () => {
-    const salesRaw = await AsyncStorage.getItem("sales_entries");
-    const collectRaw = await AsyncStorage.getItem("collection_entries");
+    const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
+    const collectRaw = await AsyncStorage.getItem("sultan_collection_data");
     const sales = salesRaw ? JSON.parse(salesRaw) : [];
     const collections = collectRaw ? JSON.parse(collectRaw) : [];
 
@@ -182,7 +182,7 @@ export default function SectionReportsScreen() {
 
   // Load Expenses Report
   const loadExpensesReport = async () => {
-    const raw = await AsyncStorage.getItem("financial_entries");
+    const raw = await AsyncStorage.getItem("sultan_expenses");
     const entries = raw ? JSON.parse(raw) : [];
     const totalExpenses = entries.reduce((s: number, e: any) => s + (e.amount || 0), 0);
 
@@ -201,9 +201,9 @@ export default function SectionReportsScreen() {
 
   // Load Maintenance Report
   const loadMaintenanceReport = async () => {
-    const periodicRaw = await AsyncStorage.getItem("maintenance_periodic");
-    const emergencyRaw = await AsyncStorage.getItem("maintenance_emergency");
-    const stoppedRaw = await AsyncStorage.getItem("maintenance_stopped");
+    const periodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
+    const emergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
+    const stoppedRaw = await AsyncStorage.getItem("sultan_maintenance_stopped-devices");
 
     const periodic = periodicRaw ? JSON.parse(periodicRaw) : [];
     const emergency = emergencyRaw ? JSON.parse(emergencyRaw) : [];
@@ -236,7 +236,7 @@ export default function SectionReportsScreen() {
 
   // Load Administrative Report
   const loadAdministrativeReport = async () => {
-    const raw = await AsyncStorage.getItem("administrative_entries");
+    const raw = await AsyncStorage.getItem("sultan_administrative_data");
     const entries = raw ? JSON.parse(raw) : [];
 
     const approved = entries.filter((e: any) => e.status === "approved").length;

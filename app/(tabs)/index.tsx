@@ -380,6 +380,18 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           )}
+          {user?.role === "admin" && (
+            <TouchableOpacity
+              onPress={() => handleNavigate("/employee-performance")}
+              style={styles.toolItem}
+              activeOpacity={0.7}
+            >
+              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+                <MaterialIcons name="assessment" size={24} color="#059669" />
+                <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "أداء الموظفين" : "Performance"}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </ScreenContainer>

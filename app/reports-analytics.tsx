@@ -34,7 +34,7 @@ export default function ReportsAnalyticsScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await AsyncStorage.getItem("production_entries");
+      const data = await AsyncStorage.getItem("sultan_production_data_v2");
       if (data) {
         const entries = JSON.parse(data);
         setProductionData(entries);

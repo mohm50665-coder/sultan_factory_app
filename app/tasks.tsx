@@ -20,6 +20,7 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { taskService, TaskData } from "@/lib/services/data.service";
 import { simpleAuthService } from "@/lib/services/simple-auth";
+import { notificationsService } from "@/lib/services/notifications.service";
 
 // مصادر التكليف
 const ASSIGNMENT_SOURCES = [
@@ -67,6 +68,9 @@ export default function TasksScreen() {
   const [showDecision, setShowDecision] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
+
+  const [filterEmployee, setFilterEmployee] = useState<string>("all");
+  const [filterResult, setFilterResult] = useState<string>("all");
 
   const [formData, setFormData] = useState<TaskData>({
     assignmentSource: "general_manager",
@@ -119,6 +123,12 @@ export default function TasksScreen() {
         Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث المهمة" : "Task updated");
       } else {
         await taskService.create(formData);
+        // إشعار تلقائي عند إسناد مهمة
+        await notificationsService.add({
+          type: "task",
+          title: isAr ? "مهمة جديدة" : "New Task",
+          message: isAr ? `تم تكليف ${getEmployeeLabel(formData.assignedEmployee)} بمهمة جديدة: ${formData.taskDescription.substring(0, 50)}` : `New task assigned to ${getEmployeeLabel(formData.assignedEmployee)}: ${formData.taskDescription.substring(0, 50)}`,
+        });
         Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إنشاء المهمة" : "Task created");
       }
       setShowForm(false);
@@ -183,6 +193,11 @@ export default function TasksScreen() {
       return;
     }
     await taskService.update(selectedTask.id, { ...selectedTask, adminEvaluation: evaluationText });
+    await notificationsService.add({
+      type: "task",
+      title: isAr ? "تقييم جديد" : "New Evaluation",
+      message: isAr ? `تم إضافة تقييم لمهمة: ${selectedTask.taskDescription?.substring(0, 40)}` : `Evaluation added for task: ${selectedTask.taskDescription?.substring(0, 40)}`,
+    });
     setShowEvaluation(false);
     loadTasks();
     Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حفظ التقييم" : "Evaluation saved");
@@ -402,6 +417,46 @@ export default function TasksScreen() {
         </View>
       </View>
 
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => setFilterEmployee("all")}
+            style={[styles.filterChip, filterEmployee === "all" && { backgroundColor: colors.primary }]}
+          >
+            <Text style={[styles.filterChipText, filterEmployee === "all" && { color: "white" }]}>{isAr ? "الكل" : "All"}</Text>
+          </TouchableOpacity>
+          {ASSIGNED_EMPLOYEES.map((emp) => (
+            <TouchableOpacity
+              key={emp.value}
+              onPress={() => setFilterEmployee(emp.value)}
+              style={[styles.filterChip, filterEmployee === emp.value && { backgroundColor: colors.primary }]}
+            >
+              <Text style={[styles.filterChipText, filterEmployee === emp.value && { color: "white" }]}>{isAr ? emp.label : emp.labelEn}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => setFilterResult("all")}
+            style={[styles.filterChip, filterResult === "all" && { backgroundColor: colors.primary }]}
+          >
+            <Text style={[styles.filterChipText, filterResult === "all" && { color: "white" }]}>{isAr ? "كل الحالات" : "All Status"}</Text>
+          </TouchableOpacity>
+          {RESULTS.map((r) => (
+            <TouchableOpacity
+              key={r.value}
+              onPress={() => setFilterResult(r.value)}
+              style={[styles.filterChip, filterResult === r.value && { backgroundColor: getResultColor(r.value) }]}
+            >
+              <Text style={[styles.filterChipText, filterResult === r.value && { color: "white" }]}>{isAr ? r.label : r.labelEn}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Tasks List */}
       {isLoading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -409,7 +464,11 @@ export default function TasksScreen() {
         </View>
       ) : (
         <FlatList
-          data={tasks}
+          data={tasks.filter((t) => {
+            const empMatch = filterEmployee === "all" || t.assignedEmployee === filterEmployee;
+            const resultMatch = filterResult === "all" || t.result === filterResult;
+            return empMatch && resultMatch;
+          })}
           renderItem={renderTaskItem}
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
@@ -778,6 +837,9 @@ const styles = StyleSheet.create({
   adminActions: { flexDirection: "row", gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6" },
   adminBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 8, borderRadius: 8 },
   adminBtnText: { fontSize: 11, fontWeight: "600" },
+  filterRow: { paddingVertical: 6 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "#f3f4f6", borderWidth: 1, borderColor: "#e5e7eb" },
+  filterChipText: { fontSize: 11, fontWeight: "600", color: "#4b5563" },
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyText: { fontSize: 16, color: "#6b7280", marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },

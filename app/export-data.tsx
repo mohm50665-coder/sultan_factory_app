@@ -13,7 +13,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { exportService } from "@/lib/services/export.service";
-import { localStorageService, STORAGE_KEYS } from "@/lib/services/local-storage";
 
 interface ExportSection {
   id: string;
@@ -34,63 +33,63 @@ export default function ExportDataScreen() {
     {
       id: "production",
       label: "الإنتاج",
-      storageKey: STORAGE_KEYS.PRODUCTION_DATA,
+      storageKey: "sultan_production_data_v2",
       icon: "factory",
       selected: true,
     },
     {
       id: "manufacturing",
       label: "مراحل التصنيع",
-      storageKey: STORAGE_KEYS.MANUFACTURING_DATA,
+      storageKey: "sultan_manufacturing_machines",
       icon: "precision-manufacturing",
       selected: true,
     },
     {
       id: "sales",
       label: "المبيعات",
-      storageKey: STORAGE_KEYS.SALES_DATA,
+      storageKey: "sultan_sales_data",
       icon: "shopping-cart",
       selected: true,
     },
     {
       id: "collection",
       label: "التحصيل",
-      storageKey: STORAGE_KEYS.COLLECTION_DATA,
+      storageKey: "sultan_collection_data",
       icon: "attach-money",
       selected: true,
     },
     {
       id: "warehouse",
       label: "المستودعات",
-      storageKey: STORAGE_KEYS.WAREHOUSE_DATA,
+      storageKey: "sultan_warehouse_raw",
       icon: "warehouse",
       selected: true,
     },
     {
       id: "maintenance",
       label: "الصيانة",
-      storageKey: STORAGE_KEYS.MAINTENANCE_DATA,
+      storageKey: "sultan_maintenance_periodic",
       icon: "build",
       selected: true,
     },
     {
       id: "administrative",
       label: "الإجراءات الإدارية",
-      storageKey: STORAGE_KEYS.ADMINISTRATIVE_DATA,
+      storageKey: "sultan_administrative_data",
       icon: "assignment",
       selected: true,
     },
     {
       id: "financial",
       label: "الشؤون المالية",
-      storageKey: STORAGE_KEYS.FINANCIAL_DATA,
+      storageKey: "sultan_expenses",
       icon: "account-balance",
       selected: true,
     },
     {
       id: "tasks",
       label: "المهام",
-      storageKey: STORAGE_KEYS.TASKS_DATA,
+      storageKey: "tasks_entries",
       icon: "checklist",
       selected: true,
     },

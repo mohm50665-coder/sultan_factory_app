@@ -1,74 +1,106 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface MonthlyReport {
+interface MonthlyData {
   month: string;
   totalProduction: number;
+  totalWaste: number;
   wastePercentage: number;
   totalSales: number;
-  revenue: number;
-  efficiency: number;
-  topEmployee: string;
-  topEmployeeProduction: number;
+  totalExpenses: number;
   maintenanceCount: number;
-  equipmentDowntime: number;
+  tasksCompleted: number;
+  tasksPending: number;
 }
-
-const mockReports: MonthlyReport[] = [
-  {
-    month: "يناير 2026",
-    totalProduction: 45000,
-    wastePercentage: 3.2,
-    totalSales: 38000,
-    revenue: 285000,
-    efficiency: 96.8,
-    topEmployee: "محمد أحمد",
-    topEmployeeProduction: 8500,
-    maintenanceCount: 5,
-    equipmentDowntime: 12,
-  },
-  {
-    month: "فبراير 2026",
-    totalProduction: 48000,
-    wastePercentage: 2.8,
-    totalSales: 41000,
-    revenue: 307500,
-    efficiency: 97.2,
-    topEmployee: "شفيق",
-    topEmployeeProduction: 9200,
-    maintenanceCount: 3,
-    equipmentDowntime: 8,
-  },
-  {
-    month: "مارس 2026",
-    totalProduction: 52000,
-    wastePercentage: 2.5,
-    totalSales: 44000,
-    revenue: 330000,
-    efficiency: 97.5,
-    topEmployee: "رنا",
-    topEmployeeProduction: 10000,
-    maintenanceCount: 4,
-    equipmentDowntime: 6,
-  },
-];
 
 export default function MonthlyReportsScreen() {
   const colors = useColors();
-  const [selectedMonth, setSelectedMonth] = useState(0);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const router = useRouter();
+  const { language, isRtl } = useLanguage();
+  const isAr = language === "ar";
+  const [isLoading, setIsLoading] = useState(true);
+  const [monthlyData, setMonthlyData] = useState<MonthlyData | null>(null);
 
-  const report = mockReports[selectedMonth];
-  const screenWidth = Dimensions.get("window").width;
+  useEffect(() => {
+    loadRealData();
+  }, []);
+
+  const loadRealData = async () => {
+    setIsLoading(true);
+    try {
+      // Load production data
+      const prodRaw = await AsyncStorage.getItem("sultan_production_data_v2");
+      const prodEntries = prodRaw ? JSON.parse(prodRaw) : [];
+      let totalProduction = 0;
+      let totalWaste = 0;
+      prodEntries.forEach((entry: any) => {
+        if (entry.machines) {
+          Object.values(entry.machines).forEach((m: any) => {
+            totalProduction += parseInt(m.productionDozen || "0");
+            totalWaste += parseInt(m.wasteThreadGrams || "0") + parseInt(m.wasteSocksGrams || "0");
+          });
+        }
+      });
+
+      // Load sales data
+      const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
+      const salesEntries = salesRaw ? JSON.parse(salesRaw) : [];
+      const totalSales = salesEntries.length;
+
+      // Load expenses data
+      const expRaw = await AsyncStorage.getItem("sultan_expenses");
+      const expEntries = expRaw ? JSON.parse(expRaw) : [];
+      const totalExpenses = expEntries.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
+
+      // Load maintenance data
+      const maintPeriodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
+      const maintEmergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
+      const periodic = maintPeriodicRaw ? JSON.parse(maintPeriodicRaw) : [];
+      const emergency = maintEmergencyRaw ? JSON.parse(maintEmergencyRaw) : [];
+      const maintenanceCount = periodic.length + emergency.length;
+
+      // Load tasks data
+      const tasksRaw = await AsyncStorage.getItem("tasks_entries");
+      const tasksEntries = tasksRaw ? JSON.parse(tasksRaw) : [];
+      const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
+      const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
+
+      const wastePercentage = totalProduction > 0 ? (totalWaste / totalProduction) * 100 : 0;
+
+      const now = new Date();
+      const monthNames = isAr
+        ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+        : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+      setMonthlyData({
+        month: `${monthNames[now.getMonth()]} ${now.getFullYear()}`,
+        totalProduction,
+        totalWaste,
+        wastePercentage,
+        totalSales,
+        totalExpenses,
+        maintenanceCount,
+        tasksCompleted,
+        tasksPending,
+      });
+    } catch (error) {
+      setMonthlyData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const StatCard = ({
     label,
@@ -132,315 +164,155 @@ export default function MonthlyReportsScreen() {
     </View>
   );
 
-  const SectionHeader = ({
-    title,
-    icon,
-    onPress,
-  }: {
-    title: string;
-    icon: string;
-    onPress: () => void;
-  }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
-        backgroundColor: colors.surface,
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 12,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderWidth: 1,
-        borderColor: colors.border,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <MaterialIcons name={icon as any} size={20} color={colors.primary} />
-        <Text
-          style={{
-            color: colors.foreground,
-            fontSize: 14,
-            fontWeight: "600",
-          }}
-        >
-          {title}
-        </Text>
-      </View>
-      <MaterialIcons
-        name={
-          expandedSection === title ? "expand-less" : "expand-more"
-        }
-        size={20}
-        color={colors.muted}
-      />
-    </TouchableOpacity>
+  const hasData = monthlyData && (
+    monthlyData.totalProduction > 0 ||
+    monthlyData.totalSales > 0 ||
+    monthlyData.totalExpenses > 0 ||
+    monthlyData.maintenanceCount > 0 ||
+    monthlyData.tasksCompleted > 0 ||
+    monthlyData.tasksPending > 0
   );
 
   return (
     <ScreenContainer className="bg-background">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        {/* رأس الصفحة */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>
-          <Text
-            style={{
-              color: colors.foreground,
-              fontSize: 24,
-              fontWeight: "bold",
-              marginBottom: 4,
-            }}
-          >
-            التقارير الشهرية
+      {/* Header */}
+      <View style={{ backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.2)" }}>
+          <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={{ fontSize: 18, fontWeight: "bold", color: "white" }}>
+          {isAr ? "التقارير الشهرية" : "Monthly Reports"}
+        </Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {isLoading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.muted, marginTop: 12 }}>
+            {isAr ? "جارٍ تحميل البيانات..." : "Loading data..."}
           </Text>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>
-            تحليل شامل لأداء المصنع الشهري
+        </View>
+      ) : !hasData ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <MaterialIcons name="analytics" size={64} color="#d1d5db" />
+          <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", marginTop: 16, textAlign: "center" }}>
+            {isAr ? "لا توجد بيانات بعد" : "No data available yet"}
+          </Text>
+          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: "center" }}>
+            {isAr ? "ابدأ بإدخال البيانات في أقسام التطبيق المختلفة لعرض التقرير الشهري" : "Start entering data in the app sections to view monthly reports"}
           </Text>
         </View>
-
-        {/* اختيار الشهر */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <Text
-            style={{
-              color: colors.foreground,
-              fontSize: 12,
-              fontWeight: "600",
-              marginBottom: 8,
-            }}
-          >
-            اختر الشهر
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -16, paddingHorizontal: 16 }}
-          >
-            {mockReports.map((r, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setSelectedMonth(index)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  borderRadius: 20,
-                  backgroundColor:
-                    selectedMonth === index ? colors.primary : colors.surface,
-                  borderWidth: 1,
-                  borderColor:
-                    selectedMonth === index ? colors.primary : colors.border,
-                  marginRight: 8,
-                }}
-              >
-                <Text
-                  style={{
-                    color:
-                      selectedMonth === index ? "white" : colors.foreground,
-                    fontSize: 12,
-                    fontWeight: "500",
-                  }}
-                >
-                  {r.month}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* الإحصائيات الرئيسية */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <Text
-            style={{
-              color: colors.foreground,
-              fontSize: 13,
-              fontWeight: "600",
-              marginBottom: 12,
-            }}
-          >
-            الإحصائيات الرئيسية
-          </Text>
-
-          <StatCard
-            label="إجمالي الإنتاج"
-            value={report.totalProduction.toLocaleString("ar-SA")}
-            unit="وحدة"
-            icon="factory"
-            color={colors.primary}
-          />
-
-          <StatCard
-            label="نسبة الهدر"
-            value={report.wastePercentage.toFixed(1)}
-            unit="%"
-            icon="warning"
-            color="#FF9800"
-          />
-
-          <StatCard
-            label="إجمالي المبيعات"
-            value={report.totalSales.toLocaleString("ar-SA")}
-            unit="وحدة"
-            icon="shopping-cart"
-            color={colors.success}
-          />
-
-          <StatCard
-            label="الإيرادات"
-            value={report.revenue.toLocaleString("ar-SA")}
-            unit="ريال"
-            icon="attach-money"
-            color="#4CAF50"
-          />
-
-          <StatCard
-            label="كفاءة الإنتاج"
-            value={report.efficiency.toFixed(1)}
-            unit="%"
-            icon="trending-up"
-            color="#2196F3"
-          />
-        </View>
-
-        {/* الموظف الأفضل */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <SectionHeader
-            title="الموظف الأفضل"
-            icon="star"
-            onPress={() =>
-              setExpandedSection(
-                expandedSection === "الموظف الأفضل" ? null : "الموظف الأفضل"
-              )
-            }
-          />
-          {expandedSection === "الموظف الأفضل" && (
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                padding: 14,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>
-                  الاسم
-                </Text>
-                <Text
-                  style={{
-                    color: colors.foreground,
-                    fontSize: 14,
-                    fontWeight: "600",
-                  }}
-                >
-                  {report.topEmployee}
-                </Text>
-              </View>
-              <View>
-                <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>
-                  إنتاجه الشهري
-                </Text>
-                <Text
-                  style={{
-                    color: colors.primary,
-                    fontSize: 18,
-                    fontWeight: "bold",
-                  }}
-                >
-                  {report.topEmployeeProduction.toLocaleString("ar-SA")} وحدة
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* الصيانة والتوقفات */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <SectionHeader
-            title="الصيانة والتوقفات"
-            icon="build"
-            onPress={() =>
-              setExpandedSection(
-                expandedSection === "الصيانة والتوقفات"
-                  ? null
-                  : "الصيانة والتوقفات"
-              )
-            }
-          />
-          {expandedSection === "الصيانة والتوقفات" && (
-            <View
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                padding: 14,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>
-                    عدد مرات الصيانة
-                  </Text>
-                  <Text
-                    style={{
-                      color: colors.foreground,
-                      fontSize: 16,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {report.maintenanceCount}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4 }}>
-                    ساعات التوقف
-                  </Text>
-                  <Text
-                    style={{
-                      color: colors.warning,
-                      fontSize: 16,
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {report.equipmentDowntime} ساعة
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* ملخص الشهر */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <View
-            style={{
-              backgroundColor: colors.primary,
-              borderRadius: 12,
-              padding: 16,
-              opacity: 0.1,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.foreground,
-                fontSize: 12,
-                lineHeight: 18,
-              }}
-            >
-              الشهر الحالي يظهر أداءً قوياً مع تحسن في كفاءة الإنتاج وانخفاض نسبة
-              الهدر. استمرار هذا الاتجاه الإيجابي سيساهم في تحقيق الأهداف السنوية
-              للمصنع.
+      ) : (
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
+          {/* عنوان الشهر */}
+          <View style={{ backgroundColor: `${colors.primary}15`, borderRadius: 12, padding: 16, marginBottom: 20, alignItems: "center" }}>
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "bold" }}>
+              {monthlyData!.month}
+            </Text>
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+              {isAr ? "ملخص الأداء الشهري" : "Monthly Performance Summary"}
             </Text>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* الإنتاج */}
+          {monthlyData!.totalProduction > 0 && (
+            <>
+              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12 }}>
+                {isAr ? "الإنتاج" : "Production"}
+              </Text>
+              <StatCard
+                label={isAr ? "إجمالي الإنتاج" : "Total Production"}
+                value={monthlyData!.totalProduction.toLocaleString()}
+                unit={isAr ? "درزن" : "dozen"}
+                icon="factory"
+                color={colors.primary}
+              />
+              <StatCard
+                label={isAr ? "إجمالي الهدر" : "Total Waste"}
+                value={monthlyData!.totalWaste.toLocaleString()}
+                unit={isAr ? "جرام" : "g"}
+                icon="warning"
+                color="#FF9800"
+              />
+              <StatCard
+                label={isAr ? "نسبة الهدر" : "Waste %"}
+                value={monthlyData!.wastePercentage.toFixed(1)}
+                unit="%"
+                icon="pie-chart"
+                color="#ef4444"
+              />
+            </>
+          )}
+
+          {/* المبيعات */}
+          {monthlyData!.totalSales > 0 && (
+            <>
+              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
+                {isAr ? "المبيعات" : "Sales"}
+              </Text>
+              <StatCard
+                label={isAr ? "عمليات البيع" : "Sales Operations"}
+                value={monthlyData!.totalSales}
+                icon="shopping-cart"
+                color="#10b981"
+              />
+            </>
+          )}
+
+          {/* المصروفات */}
+          {monthlyData!.totalExpenses > 0 && (
+            <>
+              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
+                {isAr ? "المصروفات" : "Expenses"}
+              </Text>
+              <StatCard
+                label={isAr ? "إجمالي المصروفات" : "Total Expenses"}
+                value={monthlyData!.totalExpenses.toLocaleString()}
+                unit={isAr ? "ريال" : "SAR"}
+                icon="payments"
+                color="#6366f1"
+              />
+            </>
+          )}
+
+          {/* الصيانة */}
+          {monthlyData!.maintenanceCount > 0 && (
+            <>
+              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
+                {isAr ? "الصيانة" : "Maintenance"}
+              </Text>
+              <StatCard
+                label={isAr ? "عمليات الصيانة" : "Maintenance Ops"}
+                value={monthlyData!.maintenanceCount}
+                icon="build"
+                color="#ef4444"
+              />
+            </>
+          )}
+
+          {/* المهام */}
+          {(monthlyData!.tasksCompleted > 0 || monthlyData!.tasksPending > 0) && (
+            <>
+              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
+                {isAr ? "المهام" : "Tasks"}
+              </Text>
+              <StatCard
+                label={isAr ? "مهام مكتملة" : "Completed Tasks"}
+                value={monthlyData!.tasksCompleted}
+                icon="check-circle"
+                color="#10b981"
+              />
+              <StatCard
+                label={isAr ? "مهام معلقة" : "Pending Tasks"}
+                value={monthlyData!.tasksPending}
+                icon="pending"
+                color="#f59e0b"
+              />
+            </>
+          )}
+        </ScrollView>
+      )}
     </ScreenContainer>
   );
 }
