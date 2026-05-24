@@ -59,7 +59,7 @@ export default function DashboardAnalyticsScreen() {
           Object.values(entry.machines).forEach((m: any) => {
             totalProduction += parseInt(m.productionDozen || "0");
             totalWaste += parseInt(m.wasteThreadGrams || "0") + parseInt(m.wasteSocksGrams || "0");
-            totalSecondGrade += parseInt(m.secondGradePairs || "0");
+            totalSecondGrade += (parseInt(m.secondGradeDozen || "0") * 12) + parseInt(m.secondGradePairs || "0");
           });
         }
       });

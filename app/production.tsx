@@ -28,6 +28,7 @@ interface MachineData {
   productionPairs: string;
   wasteThreadGrams: string;
   wasteSocksGrams: string;
+  secondGradeDozen: string;
   secondGradePairs: string;
   wasteNeedles: string;
   // مدة الإنتاج
@@ -55,6 +56,7 @@ const emptyMachineData = (): MachineData => ({
   productionPairs: "",
   wasteThreadGrams: "",
   wasteSocksGrams: "",
+  secondGradeDozen: "",
   secondGradePairs: "",
   wasteNeedles: "",
   productionHours: "",
@@ -158,6 +160,7 @@ export default function ProductionScreen() {
         productionPairs: data.productionPairs || "0",
         wasteThreadGrams: data.wasteThreadGrams || "0",
         wasteSocksGrams: data.wasteSocksGrams || "0",
+        secondGradeDozen: data.secondGradeDozen || "0",
         secondGradePairs: data.secondGradePairs || "0",
         wasteNeedles: data.wasteNeedles || "0",
         productionHours: data.productionHours || "0",
@@ -238,6 +241,7 @@ export default function ProductionScreen() {
     let totalPairs = 0;
     let totalWasteThread = 0;
     let totalWasteSocks = 0;
+    let totalSecondDozen = 0;
     let totalSecondPairs = 0;
     let totalNeedles = 0;
     let totalHours = 0;
@@ -254,6 +258,7 @@ export default function ProductionScreen() {
       totalPairs += parseFloat(m.productionPairs) || 0;
       totalWasteThread += parseFloat(m.wasteThreadGrams) || 0;
       totalWasteSocks += parseFloat(m.wasteSocksGrams) || 0;
+      totalSecondDozen += parseFloat(m.secondGradeDozen) || 0;
       totalSecondPairs += parseFloat(m.secondGradePairs) || 0;
       totalNeedles += parseFloat(m.wasteNeedles) || 0;
       totalHours += parseFloat(m.productionHours) || 0;
@@ -277,7 +282,7 @@ export default function ProductionScreen() {
     const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
 
     return {
-      totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles,
+      totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondDozen, totalSecondPairs, totalNeedles,
       totalHours, totalMinutes,
       totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
       totalYarnWeight, totalWasteAll, wastePercentage,
@@ -337,7 +342,7 @@ export default function ProductionScreen() {
                   هدر جوارب: <Text className="text-error font-semibold">{data.wasteSocksGrams}</Text> جم
                 </Text>
                 <Text className="text-muted text-xs">
-                  نخب ثاني: <Text className="text-warning font-semibold">{data.secondGradePairs}</Text> زوج
+                  نخب ثاني: <Text className="text-warning font-semibold">{data.secondGradeDozen || "0"}</Text> درزن <Text className="text-warning font-semibold">{data.secondGradePairs || "0"}</Text> زوج
                 </Text>
                 <Text className="text-muted text-xs">
                   إبر: <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> حبة
@@ -375,7 +380,7 @@ export default function ProductionScreen() {
               هدر جوارب: <Text className="text-error font-bold">{totals.totalWasteSocks}</Text> جم
             </Text>
             <Text className="text-muted text-xs">
-              نخب ثاني: <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> زوج
+              نخب ثاني: <Text className="text-warning font-bold">{totals.totalSecondDozen}</Text> درزن <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> زوج
             </Text>
             <Text className="text-muted text-xs">
               إبر: <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> حبة
@@ -531,6 +536,17 @@ export default function ProductionScreen() {
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.secondGradePairs || ""}
                 onChangeText={(v) => updateMachineField(machine, "secondGradePairs", v)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">نخب ثاني (درزن)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.secondGradeDozen || ""}
+                onChangeText={(v) => updateMachineField(machine, "secondGradeDozen", v)}
                 keyboardType="numeric"
               />
             </View>
