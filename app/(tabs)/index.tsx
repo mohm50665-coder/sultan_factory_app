@@ -295,18 +295,32 @@ export default function HomeScreen() {
 
       {/* Admin Dashboard Button */}
       {user?.role === "admin" && (
-        <TouchableOpacity
-          onPress={() => handleNavigate("/admin-dashboard")}
-          style={styles.adminButton}
-        >
-          <MaterialIcons name="chevron-left" size={20} color="#f59e0b" />
-          <View style={styles.adminButtonContent}>
-            <Text style={styles.adminButtonText}>
-              {isAr ? "لوحة تحكم ADMIN" : "Admin Dashboard"}
-            </Text>
-            <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
-          </View>
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/admin-dashboard")}
+            style={styles.adminButton}
+          >
+            <MaterialIcons name="chevron-left" size={20} color="#f59e0b" />
+            <View style={styles.adminButtonContent}>
+              <Text style={styles.adminButtonText}>
+                {isAr ? "لوحة تحكم ADMIN" : "Admin Dashboard"}
+              </Text>
+              <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/admin-settings")}
+            style={[styles.adminButton, { borderColor: "#7c3aed", marginTop: 8 }]}
+          >
+            <MaterialIcons name="chevron-left" size={20} color="#7c3aed" />
+            <View style={styles.adminButtonContent}>
+              <Text style={[styles.adminButtonText, { color: "#7c3aed" }]}>
+                {isAr ? "إعدادات المدير" : "Admin Settings"}
+              </Text>
+              <MaterialIcons name="settings" size={20} color="#7c3aed" />
+            </View>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Grid */}
