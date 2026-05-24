@@ -29,10 +29,18 @@ export interface CollectionData {
 export interface AdministrativeData {
   id?: number;
   employeeName: string;
+  employeeNumber: string;
+  department: string;
   requestType: string;
   requestDetails: string;
-  approvedByHR: boolean;
-  approvedByManager: boolean;
+  attachments: string[];
+  approvedByBoardRep: boolean;
+  approvedByDirectManager: boolean;
+  rejectionReason: string;
+  status: "pending" | "approved" | "rejected";
+  // Legacy fields for backward compatibility
+  approvedByHR?: boolean;
+  approvedByManager?: boolean;
 }
 
 export interface FinancialData {
@@ -210,13 +218,14 @@ export const collectionService = {
   },
 };
 
-// Administrative Service
+// Administrative Service - AsyncStorage based
+const ADMINISTRATIVE_KEY = "administrative_entries";
+
 export const administrativeService = {
   async getAll(): Promise<AdministrativeData[]> {
     try {
-      const response = await fetch("/api/administrative");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      const raw = await AsyncStorage.getItem(ADMINISTRATIVE_KEY);
+      return raw ? JSON.parse(raw) : [];
     } catch (error) {
       console.error("Error fetching administrative requests:", error);
       return [];
@@ -224,30 +233,29 @@ export const administrativeService = {
   },
 
   async create(data: AdministrativeData): Promise<AdministrativeData> {
-    const response = await fetch("/api/administrative", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const items = await this.getAll();
+    const newItem: AdministrativeData = {
+      ...data,
+      id: Date.now(),
+    };
+    items.push(newItem);
+    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
+    return newItem;
   },
 
   async update(id: number, data: AdministrativeData): Promise<AdministrativeData> {
-    const response = await fetch(`/api/administrative/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    const items = await this.getAll();
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1) throw new Error("Request not found");
+    items[index] = { ...data, id };
+    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
+    return items[index];
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/administrative/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    const items = await this.getAll();
+    const filtered = items.filter((item) => item.id !== id);
+    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(filtered));
   },
 };
 
