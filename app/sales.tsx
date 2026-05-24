@@ -708,7 +708,7 @@ export default function SalesScreen() {
         </View>
 
         {/* زر الرجوع */}
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <MaterialIcons name="arrow-forward" size={24} color="white" />
         </TouchableOpacity>
       </View>

@@ -512,7 +512,7 @@ export default function MaintenanceSectionScreen() {
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>

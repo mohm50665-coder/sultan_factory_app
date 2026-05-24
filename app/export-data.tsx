@@ -140,7 +140,7 @@ export default function ExportDataScreen() {
       <ScrollView className="flex-1">
         {/* رأس الصفحة */}
         <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")} className="mr-4">
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <View className="flex-1">

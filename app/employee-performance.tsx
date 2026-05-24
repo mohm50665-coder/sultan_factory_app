@@ -100,7 +100,7 @@ export default function EmployeePerformanceScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.headerBtn}>
           <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isAr ? "أداء الموظفين" : "Employee Performance"}</Text>

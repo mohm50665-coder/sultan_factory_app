@@ -89,7 +89,7 @@ export default function ManufacturingScreen() {
           <Text className="text-white font-bold text-xl">مراحل التصنيع</Text>
           <Text className="text-white/80 text-sm mt-1">اختر مرحلة لعرض وإدخال بيانات العمال</Text>
         </View>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
           <MaterialIcons name="arrow-forward" size={24} color="white" />
         </TouchableOpacity>
       </View>

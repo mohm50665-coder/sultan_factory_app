@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 40,
     backgroundColor: "#0a7ea4",
-    backgroundGradient: "linear-gradient(180deg, #0a7ea4 0%, #065a75 100%)",
+
   },
   logoSection: {
     alignItems: "center",

@@ -376,7 +376,7 @@ export default function WarehouseFinishedScreen() {
           <Text style={styles.headerTitle}>مستودع الإنتاج التام</Text>
           <Text style={styles.headerSub}>{entries.length} سجل</Text>
         </View>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.headerBtn}>
           <MaterialIcons name="arrow-forward" size={24} color="white" />
         </TouchableOpacity>
       </View>

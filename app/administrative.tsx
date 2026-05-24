@@ -201,7 +201,7 @@ export default function AdministrativeScreen() {
       {/* رأس الصفحة */}
       <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
         <View>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")}>
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
         </View>

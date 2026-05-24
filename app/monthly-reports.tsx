@@ -177,7 +177,7 @@ export default function MonthlyReportsScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.2)" }}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={{ padding: 8, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.2)" }}>
           <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
         </TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: "bold", color: "white" }}>

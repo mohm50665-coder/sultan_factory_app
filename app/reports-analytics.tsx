@@ -89,7 +89,7 @@ export default function ReportsAnalyticsScreen() {
     <ScreenContainer className="bg-background">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
           <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>

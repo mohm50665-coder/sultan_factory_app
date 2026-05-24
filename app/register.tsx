@@ -148,7 +148,7 @@ export default function RegisterScreen() {
           <View style={styles.mainContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <TouchableOpacity onPress={() => router.replace("/login")} style={styles.backBtn}>
                 <MaterialIcons name="arrow-back" size={22} color="white" />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>{t("register")}</Text>

@@ -86,7 +86,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.container}>
           {/* زر العودة */}
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/login")}
             style={styles.backButton}
           >
             <MaterialIcons name="arrow-back" size={24} color="white" />

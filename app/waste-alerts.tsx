@@ -103,7 +103,7 @@ export default function WasteAlertsScreen() {
     <ScreenContainer>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>تنبيهات الهدر</Text>

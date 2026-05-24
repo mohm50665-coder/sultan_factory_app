@@ -56,7 +56,7 @@ export default function WarehouseScreen() {
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)")}
           style={styles.backButton}
         >
           <MaterialIcons name="arrow-forward" size={24} color="white" />
