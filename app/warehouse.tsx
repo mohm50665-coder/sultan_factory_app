@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth } from "@/lib/auth-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -22,6 +23,14 @@ interface WarehouseSection {
 }
 
 const WAREHOUSE_SECTIONS: WarehouseSection[] = [
+  {
+    id: "manufacturing_view",
+    label: "مراحل تسليم الإنتاج",
+    icon: "precision-manufacturing",
+    color: "#8b5cf6",
+    route: "/manufacturing",
+    description: "عرض مراحل التسليم (قراءة فقط)",
+  },
   {
     id: "finished_in",
     label: "مستودع الإنتاج التام",
@@ -51,6 +60,7 @@ const WAREHOUSE_SECTIONS: WarehouseSection[] = [
 export default function WarehouseScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
 
   return (
     <ScreenContainer className="bg-background">
