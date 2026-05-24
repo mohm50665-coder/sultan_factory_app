@@ -1,7 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system/legacy";
-import { Platform } from "react-native";
+import { Platform, Share } from "react-native";
 
 export interface BackupData {
   version: string;
@@ -85,15 +83,12 @@ class BackupService {
       URL.revokeObjectURL(url);
       return "downloaded";
     } else {
-      // Native: save and share
-      const fileName = `sultan_backup_${new Date().toISOString().split("T")[0]}.json`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(filePath, json);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(filePath);
-      }
-      return filePath;
+      // Native: share via system share
+      await Share.share({
+        message: json,
+        title: `sultan_backup_${new Date().toISOString().split("T")[0]}.json`,
+      });
+      return "shared";
     }
   }
 
