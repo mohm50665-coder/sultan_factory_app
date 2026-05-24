@@ -30,6 +30,16 @@ interface MachineData {
   wasteSocksGrams: string;
   secondGradePairs: string;
   wasteNeedles: string;
+  // مدة الإنتاج
+  productionHours: string;
+  productionMinutes: string;
+  // وزن الخيوط حسب النوع (بالجرام)
+  yarnRubber: string;      // مطاط
+  yarnSpandex: string;     // اسباندكس
+  yarnNylon: string;       // نايلون
+  yarnCotton: string;      // قطن
+  yarnBamboo: string;      // بامبو
+  yarnSpan: string;        // اسبان
 }
 
 interface ProductionEntry {
@@ -47,6 +57,14 @@ const emptyMachineData = (): MachineData => ({
   wasteSocksGrams: "",
   secondGradePairs: "",
   wasteNeedles: "",
+  productionHours: "",
+  productionMinutes: "",
+  yarnRubber: "",
+  yarnSpandex: "",
+  yarnNylon: "",
+  yarnCotton: "",
+  yarnBamboo: "",
+  yarnSpan: "",
 });
 
 // تنسيق التاريخ
@@ -141,6 +159,14 @@ export default function ProductionScreen() {
         wasteSocksGrams: data.wasteSocksGrams || "0",
         secondGradePairs: data.secondGradePairs || "0",
         wasteNeedles: data.wasteNeedles || "0",
+        productionHours: data.productionHours || "0",
+        productionMinutes: data.productionMinutes || "0",
+        yarnRubber: data.yarnRubber || "0",
+        yarnSpandex: data.yarnSpandex || "0",
+        yarnNylon: data.yarnNylon || "0",
+        yarnCotton: data.yarnCotton || "0",
+        yarnBamboo: data.yarnBamboo || "0",
+        yarnSpan: data.yarnSpan || "0",
       };
     });
 
@@ -193,6 +219,18 @@ export default function ProductionScreen() {
     }
   };
 
+  // حساب إجمالي وزن الخيوط لمكينة واحدة
+  const getMachineTotalYarn = (m: MachineData): number => {
+    return (
+      (parseFloat(m.yarnRubber) || 0) +
+      (parseFloat(m.yarnSpandex) || 0) +
+      (parseFloat(m.yarnNylon) || 0) +
+      (parseFloat(m.yarnCotton) || 0) +
+      (parseFloat(m.yarnBamboo) || 0) +
+      (parseFloat(m.yarnSpan) || 0)
+    );
+  };
+
   // حساب المجاميع لسجل واحد
   const getEntryTotals = (entry: ProductionEntry) => {
     let totalDozen = 0;
@@ -201,6 +239,14 @@ export default function ProductionScreen() {
     let totalWasteSocks = 0;
     let totalSecondPairs = 0;
     let totalNeedles = 0;
+    let totalHours = 0;
+    let totalMinutes = 0;
+    let totalYarnRubber = 0;
+    let totalYarnSpandex = 0;
+    let totalYarnNylon = 0;
+    let totalYarnCotton = 0;
+    let totalYarnBamboo = 0;
+    let totalYarnSpan = 0;
 
     Object.values(entry.machines).forEach((m) => {
       totalDozen += parseFloat(m.productionDozen) || 0;
@@ -209,9 +255,30 @@ export default function ProductionScreen() {
       totalWasteSocks += parseFloat(m.wasteSocksGrams) || 0;
       totalSecondPairs += parseFloat(m.secondGradePairs) || 0;
       totalNeedles += parseFloat(m.wasteNeedles) || 0;
+      totalHours += parseFloat(m.productionHours) || 0;
+      totalMinutes += parseFloat(m.productionMinutes) || 0;
+      totalYarnRubber += parseFloat(m.yarnRubber) || 0;
+      totalYarnSpandex += parseFloat(m.yarnSpandex) || 0;
+      totalYarnNylon += parseFloat(m.yarnNylon) || 0;
+      totalYarnCotton += parseFloat(m.yarnCotton) || 0;
+      totalYarnBamboo += parseFloat(m.yarnBamboo) || 0;
+      totalYarnSpan += parseFloat(m.yarnSpan) || 0;
     });
 
-    return { totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles };
+    // تحويل الدقائق الزائدة إلى ساعات
+    totalHours += Math.floor(totalMinutes / 60);
+    totalMinutes = totalMinutes % 60;
+
+    const totalYarnWeight = totalYarnRubber + totalYarnSpandex + totalYarnNylon + totalYarnCotton + totalYarnBamboo + totalYarnSpan;
+    // إجمالي نسبة الهدر = هدر الخيوط / إجمالي وزن الخيوط * 100
+    const wastePercentage = totalYarnWeight > 0 ? ((totalWasteThread / totalYarnWeight) * 100).toFixed(2) : "0";
+
+    return {
+      totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondPairs, totalNeedles,
+      totalHours, totalMinutes,
+      totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
+      totalYarnWeight, wastePercentage,
+    };
   };
 
   // عرض سجل إنتاج يوم كامل
@@ -246,12 +313,19 @@ export default function ProductionScreen() {
         {/* بيانات كل مكينة */}
         {machineKeys.map((machine) => {
           const data = entry.machines[machine];
+          const machineYarnTotal = getMachineTotalYarn(data);
+          const machineWastePercent = machineYarnTotal > 0
+            ? (((parseFloat(data.wasteThreadGrams) || 0) / machineYarnTotal) * 100).toFixed(2)
+            : "0";
           return (
             <View key={machine} className="bg-background rounded-lg p-3 mb-2 border border-border">
               <Text className="text-foreground font-bold text-sm mb-2 text-right">{machine}</Text>
               <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
                 <Text className="text-muted text-xs">
                   إنتاج: <Text className="text-foreground font-semibold">{data.productionDozen}</Text> درزن / <Text className="text-foreground font-semibold">{data.productionPairs}</Text> زوج
+                </Text>
+                <Text className="text-muted text-xs">
+                  مدة: <Text className="text-foreground font-semibold">{data.productionHours || "0"}</Text>س <Text className="text-foreground font-semibold">{data.productionMinutes || "0"}</Text>د
                 </Text>
                 <Text className="text-muted text-xs">
                   هدر خيوط: <Text className="text-error font-semibold">{data.wasteThreadGrams}</Text> جم
@@ -266,6 +340,17 @@ export default function ProductionScreen() {
                   إبر: <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> حبة
                 </Text>
               </View>
+              {/* وزن الخيوط */}
+              <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
+                {parseFloat(data.yarnRubber) > 0 && <Text className="text-muted text-xs">مطاط: <Text className="text-foreground font-semibold">{data.yarnRubber}</Text>جم</Text>}
+                {parseFloat(data.yarnSpandex) > 0 && <Text className="text-muted text-xs">اسباندكس: <Text className="text-foreground font-semibold">{data.yarnSpandex}</Text>جم</Text>}
+                {parseFloat(data.yarnNylon) > 0 && <Text className="text-muted text-xs">نايلون: <Text className="text-foreground font-semibold">{data.yarnNylon}</Text>جم</Text>}
+                {parseFloat(data.yarnCotton) > 0 && <Text className="text-muted text-xs">قطن: <Text className="text-foreground font-semibold">{data.yarnCotton}</Text>جم</Text>}
+                {parseFloat(data.yarnBamboo) > 0 && <Text className="text-muted text-xs">بامبو: <Text className="text-foreground font-semibold">{data.yarnBamboo}</Text>جم</Text>}
+                {parseFloat(data.yarnSpan) > 0 && <Text className="text-muted text-xs">اسبان: <Text className="text-foreground font-semibold">{data.yarnSpan}</Text>جم</Text>}
+                <Text className="text-muted text-xs">إجمالي: <Text className="text-primary font-bold">{machineYarnTotal}</Text>جم</Text>
+                <Text className="text-muted text-xs">نسبة الهدر: <Text className="text-error font-bold">{machineWastePercent}%</Text></Text>
+              </View>
             </View>
           );
         })}
@@ -276,6 +361,9 @@ export default function ProductionScreen() {
           <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
             <Text className="text-muted text-xs">
               إنتاج: <Text className="text-foreground font-bold">{totals.totalDozen}</Text> درزن / <Text className="text-foreground font-bold">{totals.totalPairs}</Text> زوج
+            </Text>
+            <Text className="text-muted text-xs">
+              مدة الإنتاج: <Text className="text-foreground font-bold">{totals.totalHours}</Text>س <Text className="text-foreground font-bold">{totals.totalMinutes}</Text>د
             </Text>
             <Text className="text-muted text-xs">
               هدر خيوط: <Text className="text-error font-bold">{totals.totalWasteThread}</Text> جم
@@ -289,6 +377,11 @@ export default function ProductionScreen() {
             <Text className="text-muted text-xs">
               إبر: <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> حبة
             </Text>
+          </View>
+          {/* إجمالي وزن الخيوط ونسبة الهدر */}
+          <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
+            <Text className="text-muted text-xs">إجمالي الخيوط: <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> جم</Text>
+            <Text className="text-muted text-xs">نسبة الهدر: <Text className="text-error font-bold">{totals.wastePercentage}%</Text></Text>
           </View>
         </View>
       </View>
@@ -414,7 +507,7 @@ export default function ProductionScreen() {
           </View>
 
           {/* النخب الثاني وهدر الإبر */}
-          <View className="flex-row gap-2">
+          <View className="flex-row gap-2 mb-3">
             <View className="flex-1">
               <Text className="text-muted text-xs mb-1 text-right">هدر إبر (حبة)</Text>
               <TextInput
@@ -436,6 +529,109 @@ export default function ProductionScreen() {
                 onChangeText={(v) => updateMachineField(machine, "secondGradePairs", v)}
                 keyboardType="numeric"
               />
+            </View>
+          </View>
+
+          {/* مدة الإنتاج */}
+          <View className="flex-row gap-2 mb-3">
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">مدة الإنتاج (دقيقة)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.productionMinutes || ""}
+                onChangeText={(v) => updateMachineField(machine, "productionMinutes", v)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-muted text-xs mb-1 text-right">مدة الإنتاج (ساعة)</Text>
+              <TextInput
+                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                placeholder="0"
+                placeholderTextColor={colors.muted}
+                value={machinesData[machine]?.productionHours || ""}
+                onChangeText={(v) => updateMachineField(machine, "productionHours", v)}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          {/* وزن الخيوط حسب النوع */}
+          <View className="border-t border-border pt-3 mt-1">
+            <Text className="text-foreground font-semibold text-xs mb-2 text-right">وزن الخيوط المستخدمة (جرام)</Text>
+            <View className="flex-row gap-2 mb-2">
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">اسباندكس</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnSpandex || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnSpandex", v)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">مطاط</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnRubber || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnRubber", v)}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View className="flex-row gap-2 mb-2">
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">قطن</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnCotton || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnCotton", v)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">نايلون</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnNylon || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnNylon", v)}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">اسبان</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnSpan || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnSpan", v)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-muted text-xs mb-1 text-right">بامبو</Text>
+                <TextInput
+                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  placeholder="0"
+                  placeholderTextColor={colors.muted}
+                  value={machinesData[machine]?.yarnBamboo || ""}
+                  onChangeText={(v) => updateMachineField(machine, "yarnBamboo", v)}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
           </View>
         </View>
