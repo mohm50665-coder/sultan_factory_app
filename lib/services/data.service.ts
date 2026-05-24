@@ -49,6 +49,8 @@ export interface TaskData {
   assignmentSource: "board_representative" | "general_manager";
   // الموظف المكلف
   assignedEmployee: string;
+  // اسم المستخدم المكلف (لربط المهمة بالشخص)
+  assignedUsername?: string;
   // وصف المهمة
   taskDescription: string;
   // تاريخ إنشاء المهمة

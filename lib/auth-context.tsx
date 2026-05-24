@@ -6,9 +6,9 @@ interface AuthContextType {
   isLoading: boolean;
   isSignedIn: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (name: string, username: string, phone: string, position: string, password: string) => Promise<void>;
+  register: (name: string, username: string, phone: string, position: string, department: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  signUp: (name: string, username: string, phone: string, position: string, password: string) => Promise<void>;
+  signUp: (name: string, username: string, phone: string, position: string, department: string, password: string) => Promise<void>;
   updateProfile: (data: { name?: string; username?: string; phone?: string; position?: string }) => Promise<void>;
   error: string | null;
 }
@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     username: string,
     phone: string,
     position: string,
+    department: string,
     password: string
   ) => {
     setIsLoading(true);
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username,
         phone,
         position,
+        department,
         password,
       });
       setUser(userData);

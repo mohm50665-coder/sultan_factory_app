@@ -7,6 +7,7 @@ export interface User {
   email: string;
   phone: string;
   position: string;
+  department: string;
   role: string;
   isActive: boolean;
   createdAt?: string;
@@ -32,6 +33,7 @@ async function initializeUsers() {
           email: "admin@sultan.com",
           phone: "0501234567",
           position: "مدير عام",
+          department: "board_representative",
           role: "admin",
           password: "123456",
           isActive: true,
@@ -52,6 +54,15 @@ async function initializeUsers() {
           u.isActive = true;
           needsUpdate = true;
         }
+        if (!u.department) {
+          // Backfill department for existing users based on role
+          if (u.role === "admin") {
+            u.department = "board_representative";
+          } else {
+            u.department = "";
+          }
+          needsUpdate = true;
+        }
       });
       if (needsUpdate) {
         await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
@@ -69,6 +80,7 @@ export const simpleAuthService = {
     email?: string;
     phone: string;
     position: string;
+    department: string;
     password: string;
   }): Promise<User> {
     try {
@@ -89,6 +101,7 @@ export const simpleAuthService = {
         email: data.email || "",
         phone: data.phone,
         position: data.position,
+        department: data.department,
         password: data.password,
         role: "user",
         isActive: true,

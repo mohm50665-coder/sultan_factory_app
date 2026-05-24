@@ -4,7 +4,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -19,6 +19,15 @@ import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
+const DEPARTMENTS = [
+  { id: "production", labelAr: "قسم الإنتاج", labelEn: "Production Department" },
+  { id: "administrative", labelAr: "قسم الإجراءات الإدارية والمصروفات", labelEn: "Administrative & Expenses" },
+  { id: "sales", labelAr: "قسم المبيعات والتحصيل", labelEn: "Sales & Collection" },
+  { id: "maintenance", labelAr: "قسم الصيانة", labelEn: "Maintenance Department" },
+  { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative" },
+  { id: "warehouse", labelAr: "قسم المستودعات", labelEn: "Warehouse Department" },
+];
+
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
@@ -27,11 +36,13 @@ export default function RegisterScreen() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     username: "",
     position: "",
+    department: "",
     phone: "",
     password: "",
     confirmPassword: "",
@@ -39,23 +50,33 @@ export default function RegisterScreen() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const textAlign = isRtl ? "right" : "left";
+  const isAr = language === "ar";
+
+  const getSelectedDepartmentLabel = () => {
+    const dept = DEPARTMENTS.find((d) => d.id === formData.department);
+    if (!dept) return isAr ? "اختر القسم" : "Select Department";
+    return isAr ? dept.labelAr : dept.labelEn;
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) {
-      newErrors.name = language === "ar" ? "الاسم مطلوب" : "Name is required";
+      newErrors.name = isAr ? "الاسم مطلوب" : "Name is required";
     }
     if (!formData.username.trim()) {
-      newErrors.username = language === "ar" ? "اسم المستخدم مطلوب" : "Username is required";
+      newErrors.username = isAr ? "اسم المستخدم مطلوب" : "Username is required";
+    }
+    if (!formData.department) {
+      newErrors.department = isAr ? "القسم مطلوب" : "Department is required";
     }
     if (!formData.position.trim()) {
-      newErrors.position = language === "ar" ? "المنصب مطلوب" : "Position is required";
+      newErrors.position = isAr ? "المنصب مطلوب" : "Position is required";
     }
     if (!formData.phone.trim()) {
-      newErrors.phone = language === "ar" ? "رقم الجوال مطلوب" : "Phone is required";
+      newErrors.phone = isAr ? "رقم الجوال مطلوب" : "Phone is required";
     }
     if (!formData.password) {
-      newErrors.password = language === "ar" ? "كلمة المرور مطلوبة" : "Password is required";
+      newErrors.password = isAr ? "كلمة المرور مطلوبة" : "Password is required";
     } else if (formData.password.length < 6) {
       newErrors.password = t("password_min");
     }
@@ -63,7 +84,7 @@ export default function RegisterScreen() {
       newErrors.confirmPassword = t("passwords_not_match");
     }
     if (!agreedToTerms) {
-      newErrors.terms = language === "ar" ? "يجب الموافقة على الشروط والأحكام" : "You must agree to the terms";
+      newErrors.terms = isAr ? "يجب الموافقة على الشروط والأحكام" : "You must agree to the terms";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -78,13 +99,22 @@ export default function RegisterScreen() {
         formData.username,
         formData.phone,
         formData.position,
+        formData.department,
         formData.password
       );
-      Alert.alert(t("success"), t("register_success"));
+      if (Platform.OS === "web") {
+        window.alert(isAr ? "تم التسجيل بنجاح" : "Registration successful");
+      } else {
+        Alert.alert(t("success"), t("register_success"));
+      }
       router.replace("/(tabs)");
     } catch (error) {
       const message = error instanceof Error ? error.message : t("error");
-      Alert.alert(t("error"), message);
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert(t("error"), message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -101,13 +131,13 @@ export default function RegisterScreen() {
       <Text style={[styles.label, { textAlign }]}>{label}</Text>
       <View style={[styles.inputContainer, errors[field] ? styles.inputError : null]}>
         {options?.secure && (
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          <Pressable onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
             <MaterialIcons
               name={showPassword ? "visibility" : "visibility-off"}
               size={18}
               color="#9ca3af"
             />
-          </TouchableOpacity>
+          </Pressable>
         )}
         <TextInput
           style={[styles.input, { textAlign }]}
@@ -138,12 +168,15 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
           {/* Language Toggle */}
           <View style={styles.langRow}>
-            <TouchableOpacity onPress={toggleLanguage} style={styles.langBtn}>
+            <Pressable
+              onPress={toggleLanguage}
+              style={({ pressed }) => [styles.langBtn, pressed && { opacity: 0.7 }]}
+            >
               <MaterialIcons name="language" size={16} color="white" />
               <Text style={styles.langBtnText}>
-                {language === "ar" ? "English" : "العربية"}
+                {isAr ? "English" : "العربية"}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <View style={styles.mainContainer}>
@@ -152,7 +185,7 @@ export default function RegisterScreen() {
               <BackButton target="/login" />
               <Text style={styles.headerTitle}>{t("register")}</Text>
               <Text style={styles.headerSubtitle}>
-                {language === "ar"
+                {isAr
                   ? "أنشئ حسابك للبدء في استخدام التطبيق"
                   : "Create your account to start using the app"}
               </Text>
@@ -162,10 +195,41 @@ export default function RegisterScreen() {
             <View style={styles.formCard}>
               {renderInput("name", t("full_name"), t("enter_full_name"), "person-outline")}
               {renderInput("username", t("username"), t("enter_username"), "account-circle")}
+
+              {/* Department Picker */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { textAlign }]}>
+                  {isAr ? "القسم" : "Department"}
+                </Text>
+                <Pressable
+                  onPress={() => setShowDepartmentPicker(true)}
+                  style={({ pressed }) => [
+                    styles.inputContainer,
+                    errors.department ? styles.inputError : null,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <MaterialIcons name="arrow-drop-down" size={20} color="#9ca3af" />
+                  <Text
+                    style={[
+                      styles.input,
+                      { textAlign },
+                      !formData.department && { color: "#9ca3af" },
+                    ]}
+                  >
+                    {getSelectedDepartmentLabel()}
+                  </Text>
+                  <MaterialIcons name="business" size={18} color="#9ca3af" />
+                </Pressable>
+                {errors.department && (
+                  <Text style={[styles.errorText, { textAlign }]}>{errors.department}</Text>
+                )}
+              </View>
+
               {renderInput(
                 "position",
-                language === "ar" ? "المنصب الوظيفي" : "Job Position",
-                language === "ar" ? "أدخل منصبك الوظيفي" : "Enter your position",
+                isAr ? "المنصب الوظيفي" : "Job Position",
+                isAr ? "أدخل منصبك الوظيفي" : "Enter your position",
                 "work-outline"
               )}
               {renderInput("phone", t("phone"), t("enter_phone"), "phone", { keyboard: "phone-pad" })}
@@ -173,16 +237,16 @@ export default function RegisterScreen() {
               {renderInput(
                 "confirmPassword",
                 t("confirm_password"),
-                language === "ar" ? "أعد إدخال كلمة المرور" : "Re-enter password",
+                isAr ? "أعد إدخال كلمة المرور" : "Re-enter password",
                 "lock",
                 { secure: true }
               )}
 
               {/* Terms */}
               <View style={styles.termsContainer}>
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setAgreedToTerms(!agreedToTerms)}
-                  style={styles.checkboxRow}
+                  style={({ pressed }) => [styles.checkboxRow, pressed && { opacity: 0.7 }]}
                 >
                   <MaterialIcons
                     name={agreedToTerms ? "check-box" : "check-box-outline-blank"}
@@ -190,41 +254,108 @@ export default function RegisterScreen() {
                     color={agreedToTerms ? "#0a7ea4" : "#9ca3af"}
                   />
                   <Text style={styles.termsText}>
-                    {language === "ar" ? "أوافق على " : "I agree to "}
+                    {isAr ? "أوافق على " : "I agree to "}
                   </Text>
-                  <TouchableOpacity onPress={() => setShowTerms(true)}>
+                  <Pressable onPress={() => setShowTerms(true)} style={{ padding: 2 }}>
                     <Text style={styles.termsLink}>
-                      {language === "ar" ? "الشروط والأحكام" : "Terms & Conditions"}
+                      {isAr ? "الشروط والأحكام" : "Terms & Conditions"}
                     </Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
+                  </Pressable>
+                </Pressable>
                 {errors.terms && <Text style={[styles.errorText, { textAlign }]}>{errors.terms}</Text>}
               </View>
 
               {/* Register Button */}
-              <TouchableOpacity
+              <Pressable
                 onPress={handleRegister}
                 disabled={isLoading}
-                style={[styles.registerButton, isLoading && { opacity: 0.6 }]}
+                style={({ pressed }) => [
+                  styles.registerButton,
+                  isLoading && { opacity: 0.6 },
+                  pressed && { opacity: 0.8 },
+                ]}
               >
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
                   <Text style={styles.registerButtonText}>{t("register")}</Text>
                 )}
-              </TouchableOpacity>
+              </Pressable>
 
               {/* Login Link */}
               <View style={styles.loginRow}>
                 <Text style={styles.loginLabel}>{t("have_account")} </Text>
-                <TouchableOpacity onPress={() => router.push("/login")}>
+                <Pressable
+                  onPress={() => router.push("/login")}
+                  style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                >
                   <Text style={styles.loginLink}>{t("login")}</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Department Picker Modal */}
+      <Modal visible={showDepartmentPicker} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {isAr ? "اختر القسم" : "Select Department"}
+              </Text>
+              <Pressable
+                onPress={() => setShowDepartmentPicker(false)}
+                style={({ pressed }) => [{ padding: 4 }, pressed && { opacity: 0.6 }]}
+              >
+                <MaterialIcons name="close" size={24} color="#1f2937" />
+              </Pressable>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              {DEPARTMENTS.map((dept) => (
+                <Pressable
+                  key={dept.id}
+                  onPress={() => {
+                    setFormData({ ...formData, department: dept.id });
+                    if (errors.department) setErrors({ ...errors, department: "" });
+                    setShowDepartmentPicker(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.departmentItem,
+                    formData.department === dept.id && styles.departmentItemSelected,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <MaterialIcons
+                    name={
+                      dept.id === "production" ? "precision-manufacturing" :
+                      dept.id === "administrative" ? "admin-panel-settings" :
+                      dept.id === "sales" ? "point-of-sale" :
+                      dept.id === "maintenance" ? "build" :
+                      dept.id === "board_representative" ? "groups" :
+                      "warehouse"
+                    }
+                    size={24}
+                    color={formData.department === dept.id ? "#0a7ea4" : "#6b7280"}
+                  />
+                  <Text
+                    style={[
+                      styles.departmentItemText,
+                      formData.department === dept.id && styles.departmentItemTextSelected,
+                    ]}
+                  >
+                    {isAr ? dept.labelAr : dept.labelEn}
+                  </Text>
+                  {formData.department === dept.id && (
+                    <MaterialIcons name="check-circle" size={22} color="#0a7ea4" />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Terms Modal */}
       <Modal visible={showTerms} animationType="slide" transparent>
@@ -232,15 +363,18 @@ export default function RegisterScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {language === "ar" ? "الشروط والأحكام" : "Terms & Conditions"}
+                {isAr ? "الشروط والأحكام" : "Terms & Conditions"}
               </Text>
-              <TouchableOpacity onPress={() => setShowTerms(false)}>
+              <Pressable
+                onPress={() => setShowTerms(false)}
+                style={({ pressed }) => [{ padding: 4 }, pressed && { opacity: 0.6 }]}
+              >
                 <MaterialIcons name="close" size={24} color="#1f2937" />
-              </TouchableOpacity>
+              </Pressable>
             </View>
             <ScrollView style={styles.modalBody}>
               <Text style={[styles.termsContent, { textAlign }]}>
-                {language === "ar"
+                {isAr
                   ? `الشروط والأحكام
 
 1- يلزم مدير الإدارة وكل من أوكلت إليه مهام بإعداد التقرير اليومي من خلال تعبئة البيانات في تطبيق متابعة الأداء، وفي حالة عدم الالتزام بتعبئة بيانات التطبيق والالتزام بالتقارير اليومية يطبق نظام العقوبات.
@@ -269,18 +403,18 @@ export default function RegisterScreen() {
 By agreeing to these terms, I acknowledge that I have read and understood all the above provisions and agree to comply with them.`}
               </Text>
             </ScrollView>
-            <TouchableOpacity
+            <Pressable
               onPress={() => {
                 setAgreedToTerms(true);
                 setShowTerms(false);
                 if (errors.terms) setErrors({ ...errors, terms: "" });
               }}
-              style={styles.agreeButton}
+              style={({ pressed }) => [styles.agreeButton, pressed && { opacity: 0.8 }]}
             >
               <Text style={styles.agreeButtonText}>
-                {language === "ar" ? "أوافق على الشروط والأحكام" : "I Agree to Terms"}
+                {isAr ? "أوافق على الشروط والأحكام" : "I Agree to Terms"}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -321,12 +455,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
     paddingTop: 8,
-  },
-  backBtn: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    padding: 4,
   },
   headerTitle: {
     fontSize: 26,
@@ -475,5 +603,31 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15,
     textAlign: "center",
+  },
+  departmentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    gap: 12,
+  },
+  departmentItemSelected: {
+    backgroundColor: "#e0f2fe",
+    borderColor: "#0a7ea4",
+  },
+  departmentItemText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#374151",
+    fontWeight: "500",
+  },
+  departmentItemTextSelected: {
+    color: "#0a7ea4",
+    fontWeight: "700",
   },
 });

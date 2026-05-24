@@ -247,7 +247,13 @@ export default function TasksScreen() {
   };
 
   const renderTaskItem = ({ item }: { item: TaskData }) => {
-    const canSeeEvaluation = isAdmin || (currentUser?.username && item.assignedEmployee === currentUser.role);
+    const canSeeEvaluation = isAdmin || (
+      currentUser?.username && (
+        item.assignedUsername === currentUser.username ||
+        item.assignedEmployee === currentUser.username ||
+        item.assignedEmployee === currentUser.role
+      )
+    );
 
     return (
       <View style={styles.taskCard}>
@@ -464,6 +470,15 @@ export default function TasksScreen() {
       ) : (
         <FlatList
           data={tasks.filter((t) => {
+            // المستخدم العادي يرى فقط المهام المكلف بها
+            if (!isAdmin && currentUser) {
+              // مطابقة باسم المستخدم أو بالدور
+              const isAssignedToMe = 
+                t.assignedUsername === currentUser.username ||
+                t.assignedEmployee === currentUser.username ||
+                t.assignedEmployee === currentUser.role;
+              if (!isAssignedToMe) return false;
+            }
             const empMatch = filterEmployee === "all" || t.assignedEmployee === filterEmployee;
             const resultMatch = filterResult === "all" || t.result === filterResult;
             return empMatch && resultMatch;

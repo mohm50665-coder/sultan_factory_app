@@ -29,6 +29,8 @@ interface DashboardItem {
   descriptionAr: string;
   descriptionEn: string;
   section: string; // maps to RolesService.canAccessSection
+  departments: string[]; // which departments can see this item (empty = all)
+  isShared?: boolean; // if true, visible to all departments
 }
 
 const DASHBOARD_ITEMS: DashboardItem[] = [
@@ -42,6 +44,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "رقم المكينة - الكمية - الهدر - النخب الثاني",
     descriptionEn: "Machine No. - Quantity - Waste - Second Grade",
     section: "production",
+    departments: ["production"],
   },
   {
     id: "manufacturing",
@@ -53,6 +56,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
     descriptionEn: "Machines - Rosso - Turning - Ironing - Inspection - Packing - Storage",
     section: "manufacturing",
+    departments: ["production"],
   },
   {
     id: "sales",
@@ -64,6 +68,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "تسجيل المبيعات وتحصيل المبالغ",
     descriptionEn: "Record sales and collect payments",
     section: "sales",
+    departments: ["sales"],
   },
   {
     id: "warehouse",
@@ -75,6 +80,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "مواد خام - منتج تام - مستلزمات",
     descriptionEn: "Raw materials - Finished goods - Supplies",
     section: "warehouse",
+    departments: ["warehouse"],
   },
   {
     id: "maintenance",
@@ -86,6 +92,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "أجهزة مصانة - متوقفة - توصيات",
     descriptionEn: "Maintained - Stopped - Recommendations",
     section: "maintenance",
+    departments: ["maintenance"],
   },
   {
     id: "financial",
@@ -97,6 +104,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "التاريخ - مبلغ الصرف - بيان الصرف - التقرير المالي",
     descriptionEn: "Date - Amount - Description - Financial Report",
     section: "financial",
+    departments: ["administrative"],
   },
   {
     id: "administrative",
@@ -108,6 +116,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "الطلبات والإجراءات الإدارية",
     descriptionEn: "Requests and administrative procedures",
     section: "hr",
+    departments: ["administrative"],
   },
   {
     id: "tasks",
@@ -119,6 +128,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     descriptionAr: "إدارة المهام والمتابعة",
     descriptionEn: "Task management and follow-up",
     section: "tasks",
+    departments: [],
+    isShared: true,
   },
 ];
 
@@ -143,10 +154,21 @@ export default function HomeScreen() {
     return unsubscribe;
   }, []);
 
-  // Filter dashboard items based on user permissions
-  const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) =>
-    RolesService.canAccessSection(userRole, item.section)
-  );
+  // Filter dashboard items based on user department + admin sees all
+  const userDepartment = user?.department || "";
+  const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
+    // Admin sees everything
+    if (user?.role === "admin") return true;
+    // Board representative sees tasks + reports only (not section data entry)
+    if (userDepartment === "board_representative") {
+      return item.isShared || item.id === "tasks";
+    }
+    // Shared items (tasks) visible to all
+    if (item.isShared) return true;
+    // Department-specific items
+    if (item.departments.length === 0) return true;
+    return item.departments.includes(userDepartment);
+  });
 
   const handleLogout = async () => {
     const confirmMessage = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
