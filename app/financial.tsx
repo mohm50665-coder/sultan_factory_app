@@ -14,6 +14,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+
 
 const STORAGE_KEY = "sultan_expenses";
 const REPORT_STORAGE_KEY = "sultan_financial_reports";
@@ -191,12 +193,7 @@ export default function FinancialScreen() {
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
         <Text style={styles.headerTitle}>المصروفات</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/administrative" as any)}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-        >
-          <MaterialIcons name="assignment" size={24} color="white" />
-        </TouchableOpacity>
+        <AdminBadgeIcon />
       </View>
 
       {/* التبويبات */}

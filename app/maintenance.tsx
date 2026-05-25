@@ -11,6 +11,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+
 
 const DATA_ENTRY_NAMES = ["محمد الشيخ", "محمد احمد", "افضل"];
 
@@ -92,12 +94,7 @@ export default function MaintenanceScreen() {
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
         <Text style={styles.headerTitle}>الصيانة</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/administrative" as any)}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-        >
-          <MaterialIcons name="assignment" size={24} color="white" />
-        </TouchableOpacity>
+        <AdminBadgeIcon />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 30 }}>

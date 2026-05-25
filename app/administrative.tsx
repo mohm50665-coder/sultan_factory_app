@@ -16,6 +16,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { administrativeService, AdministrativeData } from "@/lib/services/data.service";
+import { administrativeExportService } from "@/lib/services/administrative-export";
+import { notificationsService } from "@/lib/services/notifications.service";
 
 const REQUEST_TYPES = [
   { label: "\u0637\u0644\u0628 \u0625\u062c\u0627\u0632\u0629", value: "leave_request" },
@@ -110,8 +112,29 @@ export default function AdministrativeScreen() {
       setIsLoading(true);
       if (editingId) {
         await administrativeService.update(editingId, formData);
+        // إشعار عند تحديث الطلب
+        const oldRequest = requests.find(r => r.id === editingId);
+        if (oldRequest) {
+          if (oldRequest.directManagerStatus !== formData.directManagerStatus ||
+              oldRequest.generalManagerStatus !== formData.generalManagerStatus ||
+              oldRequest.boardRepStatus !== formData.boardRepStatus) {
+            notificationsService.add({
+              type: "admin",
+              title: "تحديث حالة طلب",
+              message: `تم تحديث حالة طلب ${formData.employeeName} - ${getRequestTypeLabel(formData.requestType)}`,
+              data: { requestId: editingId },
+            });
+          }
+        }
       } else {
         await administrativeService.create(formData);
+        // إشعار عند إنشاء طلب جديد
+        notificationsService.add({
+          type: "admin",
+          title: "طلب إداري جديد",
+          message: `تم إنشاء طلب جديد: ${getRequestTypeLabel(formData.requestType)} - ${formData.employeeName}`,
+          data: { requestType: formData.requestType },
+        });
       }
       setShowForm(false);
       resetForm();
@@ -382,7 +405,7 @@ export default function AdministrativeScreen() {
 
       {/* Print/Share Button - large and visible */}
       <TouchableOpacity
-        onPress={() => handlePrintShare(item)}
+        onPress={() => administrativeExportService.exportSingle(item)}
         style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.primary + "12", borderRadius: 10, borderWidth: 1, borderColor: colors.primary + "30" }}
       >
         <MaterialIcons name="print" size={20} color={colors.primary} />
@@ -677,13 +700,21 @@ export default function AdministrativeScreen() {
         style={{ backgroundColor: colors.primary }}
         className="px-6 py-5 flex-row items-center justify-between"
       >
-        {/* \u0632\u0631 \u0627\u0644\u0625\u0636\u0627\u0641\u0629 */}
-        <TouchableOpacity
-          onPress={() => { resetForm(); setShowForm(true); }}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, padding: 8 }}
-        >
-          <MaterialIcons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        {/* \u0632\u0631 \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u0648\u0627\u0644\u062a\u0635\u062f\u064a\u0631 */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => { resetForm(); setShowForm(true); }}
+            style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, padding: 8 }}
+          >
+            <MaterialIcons name="add" size={24} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => administrativeExportService.exportAll()}
+            style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12, padding: 8 }}
+          >
+            <MaterialIcons name="picture-as-pdf" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
         {/* \u0627\u0644\u0639\u0646\u0648\u0627\u0646 */}
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">{"\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629"}</Text>

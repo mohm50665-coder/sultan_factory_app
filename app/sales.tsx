@@ -14,6 +14,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+
 
 // أسماء البائعين
 const SELLERS = ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"];
@@ -699,12 +701,7 @@ export default function SalesScreen() {
         </TouchableOpacity>
 
         {/* أيقونة الإجراءات الإدارية */}
-        <TouchableOpacity
-          onPress={() => router.push("/administrative" as any)}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-        >
-          <MaterialIcons name="assignment" size={24} color="white" />
-        </TouchableOpacity>
+        <AdminBadgeIcon />
         {/* العنوان */}
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">المبيعات والتحصيل</Text>

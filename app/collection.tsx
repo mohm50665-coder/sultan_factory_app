@@ -16,6 +16,8 @@ import { FormInput, FormNumberInput } from "@/components/form-input";
 import { collectionService, CollectionData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+
 
 export default function CollectionScreen() {
   const router = useRouter();
@@ -154,12 +156,9 @@ export default function CollectionScreen() {
           <BackButton />
         </View>
         <Text className="text-white font-bold text-lg">التحصيل</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/administrative" as any)}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8, marginRight: 8 }}
-        >
-          <MaterialIcons name="assignment" size={22} color="white" />
-        </TouchableOpacity>
+        <View style={{ marginRight: 8 }}>
+          <AdminBadgeIcon />
+        </View>
         <TouchableOpacity
           onPress={() => {
             resetForm();

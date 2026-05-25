@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+
 
 interface ManufacturingStage {
   id: string;
@@ -85,12 +87,7 @@ export default function ManufacturingScreen() {
     <ScreenContainer className="bg-background">
       {/* رأس الصفحة */}
       <View className="bg-primary px-6 py-5 flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={() => router.push("/administrative" as any)}
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-        >
-          <MaterialIcons name="assignment" size={24} color="white" />
-        </TouchableOpacity>
+        <AdminBadgeIcon />
         <View className="flex-1 items-center">
           <Text className="text-white font-bold text-xl">مراحل التصنيع</Text>
           <Text className="text-white/80 text-sm mt-1">اختر مرحلة لعرض وإدخال بيانات العمال</Text>
