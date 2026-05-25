@@ -191,7 +191,12 @@ export default function FinancialScreen() {
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
         <Text style={styles.headerTitle}>المصروفات</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => router.push("/administrative" as any)}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="assignment" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
       {/* التبويبات */}

@@ -161,9 +161,9 @@ export default function HomeScreen() {
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // Admin sees everything
     if (user?.role === "admin") return true;
-    // Board representative sees tasks + reports only (not section data entry)
+    // Board representative sees tasks + shared items + administrative
     if (userDepartment === "board_representative") {
-      return item.isShared || item.id === "tasks";
+      return item.isShared || item.id === "tasks" || item.id === "administrative";
     }
     // Shared items (tasks) visible to all
     if (item.isShared) return true;

@@ -222,6 +222,12 @@ export default function DashboardAnalyticsScreen() {
             </Text>
           </View>
           <TouchableOpacity
+            onPress={() => router.push("/administrative" as any)}
+            style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8, marginRight: 8 }}
+          >
+            <MaterialIcons name="assignment" size={20} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={loadAnalyticsData}
             className="bg-white/20 rounded-full p-2"
           >
