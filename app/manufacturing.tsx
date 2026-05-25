@@ -6,6 +6,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 interface ManufacturingStage {
@@ -94,6 +95,9 @@ export default function ManufacturingScreen() {
         </View>
         <BackButton />
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       <ScrollView className="flex-1 px-4 py-4">
         {STAGES.map((stage) => (

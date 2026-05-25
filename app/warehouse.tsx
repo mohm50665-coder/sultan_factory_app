@@ -13,6 +13,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 interface WarehouseSection {
@@ -75,6 +76,9 @@ export default function WarehouseScreen() {
         </View>
         <AdminBadgeIcon />
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       {/* الأقسام */}
       <ScrollView contentContainerStyle={styles.content}>

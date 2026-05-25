@@ -12,6 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 const DATA_ENTRY_NAMES = ["محمد الشيخ", "محمد احمد", "افضل"];
@@ -96,6 +97,9 @@ export default function MaintenanceScreen() {
         <Text style={styles.headerTitle}>الصيانة</Text>
         <AdminBadgeIcon />
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 30 }}>
         {/* اختيار مدخل البيانات */}

@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 // أسماء البائعين
@@ -715,6 +716,9 @@ export default function SalesScreen() {
         {/* زر الرجوع */}
         <BackButton />
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       {/* التبويبات */}
       <View className="flex-row border-b border-border">

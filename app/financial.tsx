@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 const STORAGE_KEY = "sultan_expenses";
@@ -195,6 +196,9 @@ export default function FinancialScreen() {
         <Text style={styles.headerTitle}>المصروفات</Text>
         <AdminBadgeIcon />
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       {/* التبويبات */}
       <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>

@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 // أرقام المكائن
@@ -856,6 +857,10 @@ export default function ProductionScreen() {
             <MaterialIcons name="summarize" size={28} color="white" />
           </View>
         </TouchableOpacity>
+      )}
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      {!showForm && (
+      <AdminCard />
       )}
       {/* المحتوى */}
       {showForm ? (

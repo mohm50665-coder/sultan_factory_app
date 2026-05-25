@@ -17,6 +17,7 @@ import { collectionService, CollectionData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 export default function CollectionScreen() {
@@ -169,6 +170,9 @@ export default function CollectionScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
+
+      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      <AdminCard />
 
       {/* ملخص التحصيلات */}
       <View className="bg-success/10 border-b border-border p-4">

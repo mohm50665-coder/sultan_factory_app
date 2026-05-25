@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
+import { AdminCard } from "@/components/admin-card";
 
 
 interface KPI {
@@ -231,6 +232,9 @@ export default function DashboardAnalyticsScreen() {
             <MaterialIcons name="refresh" size={20} color="white" />
           </TouchableOpacity>
         </View>
+
+        {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+        <AdminCard />
 
         {/* اختيار نطاق الوقت */}
         <View className="px-6 py-4 flex-row gap-2">
