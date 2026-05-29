@@ -62,6 +62,7 @@ function NavigationContent() {
       <Stack.Screen name="manufacturing" />
       <Stack.Screen name="manufacturing-stage" />
       <Stack.Screen name="production" />
+      <Stack.Screen name="production-totals" />
       <Stack.Screen name="sales" />
       <Stack.Screen name="collection" />
       <Stack.Screen name="warehouse" />
@@ -81,6 +82,7 @@ function NavigationContent() {
       <Stack.Screen name="search" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="admin-dashboard" />
+      <Stack.Screen name="admin-settings" />
       <Stack.Screen name="dashboard-analytics" />
       <Stack.Screen name="role-management" />
       <Stack.Screen name="users-management" />
