@@ -16,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { useLanguage } from "@/lib/language-context";
 
 
 const STORAGE_KEY = "sultan_expenses";

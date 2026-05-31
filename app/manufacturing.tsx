@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { useLanguage } from "@/lib/language-context";
 
 
 interface ManufacturingStage {

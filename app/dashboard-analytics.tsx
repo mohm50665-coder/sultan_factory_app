@@ -15,6 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { useLanguage } from "@/lib/language-context";
 
 
 interface KPI {
@@ -36,6 +37,7 @@ interface ChartData {
 export default function DashboardAnalyticsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { t, language } = useLanguage();
   const [isLoading, setIsLoading] = useState(true);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -81,16 +83,16 @@ export default function DashboardAnalyticsScreen() {
 
       const newKpis: KPI[] = [
         {
-          label: "إجمالي الإنتاج",
+          label: t("total_production"),
           value: totalProduction,
-          unit: "درزن",
+          unit: t("dozen"),
           icon: "factory",
           color: "#0a7ea4",
           trend: "stable",
           percentage: 0,
         },
         {
-          label: "معدل الهدر",
+          label: t("waste_rate"),
           value: wastePercentage,
           unit: "%",
           icon: "warning",
@@ -99,18 +101,18 @@ export default function DashboardAnalyticsScreen() {
           percentage: 0,
         },
         {
-          label: "إجمالي المبيعات",
+          label: t("total_sales"),
           value: totalSales > 0 ? totalSales.toFixed(0) : "0",
-          unit: "ريال",
+          unit: t("sar"),
           icon: "shopping-cart",
           color: "#22c55e",
           trend: "stable",
           percentage: 0,
         },
         {
-          label: "عمليات الصيانة",
+          label: t("maintenance_operations"),
           value: maintenanceCount,
-          unit: "عملية",
+          unit: t("operation"),
           icon: "build",
           color: "#f59e0b",
           trend: "stable",
@@ -123,9 +125,9 @@ export default function DashboardAnalyticsScreen() {
       // تحضير بيانات الرسم البياني من البيانات الفعلية
       const total = totalProduction + totalWaste + totalSecondGrade;
       const productionBySection = total > 0 ? [
-        { label: "الإنتاج", value: totalProduction, percentage: Math.round((totalProduction / total) * 100) },
-        { label: "الهدر", value: totalWaste, percentage: Math.round((totalWaste / total) * 100) },
-        { label: "النخب الثاني", value: totalSecondGrade, percentage: Math.round((totalSecondGrade / total) * 100) },
+        { label: t("production"), value: totalProduction, percentage: Math.round((totalProduction / total) * 100) },
+        { label: t("waste"), value: totalWaste, percentage: Math.round((totalWaste / total) * 100) },
+        { label: t("second_grade"), value: totalSecondGrade, percentage: Math.round((totalSecondGrade / total) * 100) },
       ] : [];
 
       setChartData(productionBySection);
@@ -180,7 +182,7 @@ export default function DashboardAnalyticsScreen() {
                       : "text-warning"
                 }`}
               >
-                {kpi.percentage}% مقارنة بالأمس
+                {kpi.percentage}% {t("compared_to_yesterday")}
               </Text>
             </View>
           )}
@@ -219,9 +221,9 @@ export default function DashboardAnalyticsScreen() {
         <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
           <BackButton />
           <View className="flex-1">
-            <Text className="text-white font-bold text-xl">لوحة المعلومات</Text>
+            <Text className="text-white font-bold text-xl">{t("dashboard")}</Text>
             <Text className="text-white/80 text-sm mt-1">
-              مؤشرات الأداء الرئيسية
+              {t("key_performance_indicators")}
             </Text>
           </View>
           <AdminBadgeIcon />
@@ -254,10 +256,10 @@ export default function DashboardAnalyticsScreen() {
                 }`}
               >
                 {range === "day"
-                  ? "يوم"
+                  ? t("day")
                   : range === "week"
-                    ? "أسبوع"
-                    : "شهر"}
+                    ? t("week")
+                    : t("month")}
               </Text>
             </TouchableOpacity>
           ))}
@@ -267,14 +269,14 @@ export default function DashboardAnalyticsScreen() {
           {isLoading ? (
             <View className="items-center justify-center py-8">
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text className="text-muted text-sm mt-4">جاري تحميل البيانات...</Text>
+              <Text className="text-muted text-sm mt-4">{t("loading_data")}</Text>
             </View>
           ) : (
             <>
               {/* مؤشرات الأداء الرئيسية */}
               <View className="mb-6">
                 <Text className="text-foreground font-bold text-base mb-4">
-                  مؤشرات الأداء
+                  {t("performance_indicators")}
                 </Text>
                 {kpis.map(renderKPICard)}
               </View>
@@ -282,7 +284,7 @@ export default function DashboardAnalyticsScreen() {
               {/* الرسم البياني */}
               <View className="bg-surface rounded-lg p-4 border border-border">
                 <Text className="text-foreground font-bold text-base mb-4">
-                  توزيع الإنتاج
+                  {t("production_distribution")}
                 </Text>
                 {chartData.map(renderProgressBar)}
               </View>
@@ -293,12 +295,10 @@ export default function DashboardAnalyticsScreen() {
                   <MaterialIcons name="info" size={20} color={colors.primary} />
                   <View className="ml-3 flex-1">
                     <Text className="text-foreground font-semibold text-sm mb-1">
-                      معلومات مهمة
+                      {t("important_info")}
                     </Text>
                     <Text className="text-muted text-xs leading-5">
-                      تتحدث لوحة المعلومات في الوقت الفعلي. يتم تحديث البيانات
-                      تلقائياً كل 30 ثانية. يمكنك الضغط على زر التحديث للحصول على
-                      أحدث البيانات فوراً.
+                      {t("dashboard_info_text")}
                     </Text>
                   </View>
                 </View>
