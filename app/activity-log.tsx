@@ -12,44 +12,42 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { MaterialIcons } from "@expo/vector-icons";
 import { activityLogService, type ActivityLogEntry } from "@/lib/services/activity-log";
-import { useLanguage } from "@/lib/language-context";
 
-const getActionLabels = (t: any) => ({
-  create: { label: t("action_create"), color: "#22c55e", icon: "add-circle" },
-  update: { label: t("action_update"), color: "#3b82f6", icon: "edit" },
-  delete: { label: t("action_delete"), color: "#ef4444", icon: "delete" },
-  login: { label: t("action_login"), color: "#8b5cf6", icon: "login" },
-  logout: { label: t("action_logout"), color: "#6b7280", icon: "logout" },
-  export: { label: t("action_export"), color: "#f59e0b", icon: "file-download" },
-  alert: { label: t("action_alert"), color: "#ec4899", icon: "warning" },
-});
+const ACTION_LABELS: Record<string, { label: string; color: string; icon: string }> = {
+  create: { label: "إضافة", color: "#22c55e", icon: "add-circle" },
+  update: { label: "تعديل", color: "#3b82f6", icon: "edit" },
+  delete: { label: "حذف", color: "#ef4444", icon: "delete" },
+  login: { label: "دخول", color: "#8b5cf6", icon: "login" },
+  logout: { label: "خروج", color: "#6b7280", icon: "logout" },
+  export: { label: "تصدير", color: "#f59e0b", icon: "file-download" },
+  alert: { label: "تنبيه", color: "#ec4899", icon: "warning" },
+};
 
-const getModuleLabels = (t: any) => ({
-  production: t("module_production"),
-  sales: t("module_sales"),
-  warehouse: t("module_warehouse"),
-  maintenance: t("module_maintenance"),
-  financial: t("module_financial"),
-  users: t("module_users"),
-  manufacturing: t("module_manufacturing"),
-  administrative: t("module_administrative"),
-  tasks: t("module_tasks"),
-  auth: t("module_auth"),
-});
+const MODULE_LABELS: Record<string, string> = {
+  production: "الإنتاج",
+  sales: "المبيعات",
+  warehouse: "المستودعات",
+  maintenance: "الصيانة",
+  financial: "المصروفات",
+  users: "المستخدمين",
+  manufacturing: "مراحل التصنيع",
+  administrative: "الإجراءات الإدارية",
+  tasks: "المهام",
+  auth: "المصادقة",
+};
 
-const getFilterActions = (t: any) => [
-  { value: "", label: t("all") },
-  { value: "create", label: t("action_create") },
-  { value: "update", label: t("action_update") },
-  { value: "delete", label: t("action_delete") },
-  { value: "login", label: t("action_login") },
-  { value: "export", label: t("action_export") },
-  { value: "alert", label: t("action_alert") },
+const FILTER_ACTIONS = [
+  { value: "", label: "الكل" },
+  { value: "create", label: "إضافة" },
+  { value: "update", label: "تعديل" },
+  { value: "delete", label: "حذف" },
+  { value: "login", label: "دخول" },
+  { value: "export", label: "تصدير" },
+  { value: "alert", label: "تنبيه" },
 ];
 
 export default function ActivityLogScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [filterAction, setFilterAction] = useState("");
   const [stats, setStats] = useState({ total: 0, today: 0, byModule: {} as Record<string, number>, byAction: {} as Record<string, number> });
@@ -69,12 +67,12 @@ export default function ActivityLogScreen() {
 
   const handleClearAll = () => {
     Alert.alert(
-      t("confirm_clear"),
-      t("are_you_sure"),
+      "تأكيد المسح",
+      "هل أنت متأكد من مسح جميع سجلات النشاطات؟ لا يمكن التراجع عن هذا الإجراء.",
       [
-        { text: t("cancel_action") },
+        { text: "إلغاء" },
         {
-          text: t("clear_all"),
+          text: "مسح الكل",
           style: "destructive",
           onPress: async () => {
             await activityLogService.clearAll();
@@ -100,7 +98,7 @@ export default function ActivityLogScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>{t("activity_log")}</Text>
+        <Text style={styles.headerTitle}>سجل النشاطات</Text>
         <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
           <MaterialIcons name="delete-sweep" size={22} color="white" />
         </TouchableOpacity>
@@ -110,21 +108,21 @@ export default function ActivityLogScreen() {
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: "#e0f2fe" }]}>
           <Text style={[styles.statNumber, { color: "#0369a1" }]}>{stats.total}</Text>
-          <Text style={styles.statLabel}>{t("activity_total")}</Text>
+          <Text style={styles.statLabel}>إجمالي</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#dcfce7" }]}>
           <Text style={[styles.statNumber, { color: "#15803d" }]}>{stats.today}</Text>
-          <Text style={styles.statLabel}>{t("activity_today")}</Text>
+          <Text style={styles.statLabel}>اليوم</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#fef3c7" }]}>
           <Text style={[styles.statNumber, { color: "#92400e" }]}>{logs.length}</Text>
-          <Text style={styles.statLabel}>{t("activity_shown")}</Text>
+          <Text style={styles.statLabel}>معروض</Text>
         </View>
       </View>
 
       {/* Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
-        {getFilterActions(t).map((f) => (
+        {FILTER_ACTIONS.map((f) => (
           <TouchableOpacity
             key={f.value}
             onPress={() => setFilterAction(f.value)}
@@ -150,14 +148,12 @@ export default function ActivityLogScreen() {
         {logs.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialIcons name="history" size={48} color="#d1d5db" />
-            <Text style={styles.emptyText}>{t("no_data")}</Text>
-            <Text style={styles.emptySubtext}>{t("no_alerts")}</Text>
+            <Text style={styles.emptyText}>لا توجد سجلات نشاطات</Text>
+            <Text style={styles.emptySubtext}>ستظهر هنا جميع العمليات التي يقوم بها المستخدمون</Text>
           </View>
         ) : (
           logs.map((log) => {
-            const ACTION_LABELS = getActionLabels(t);
-            const MODULE_LABELS = getModuleLabels(t);
-            const actionInfo = ACTION_LABELS[log.action as keyof typeof ACTION_LABELS] || { label: log.action, color: "#6b7280", icon: "info" };
+            const actionInfo = ACTION_LABELS[log.action] || { label: log.action, color: "#6b7280", icon: "info" };
             return (
               <View key={log.id} style={styles.logCard}>
                 <View style={[styles.logIcon, { backgroundColor: `${actionInfo.color}15` }]}>
@@ -170,7 +166,7 @@ export default function ActivityLogScreen() {
                   </View>
                   <Text style={styles.logDescription}>{log.description}</Text>
                   <View style={styles.logFooter}>
-                    <Text style={styles.logModule}>{MODULE_LABELS[log.module as keyof typeof MODULE_LABELS] || log.module}</Text>
+                    <Text style={styles.logModule}>{MODULE_LABELS[log.module] || log.module}</Text>
                     <Text style={styles.logUser}>{log.userName}</Text>
                   </View>
                   {log.details && <Text style={styles.logDetails}>{log.details}</Text>}
