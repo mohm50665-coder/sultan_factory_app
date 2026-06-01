@@ -310,3 +310,7 @@
 - [x] إصلاح crash: إزالة Notifications.setNotificationHandler من module-level في notification.service.ts (كان يسبب crash فوري)
 - [x] تحويل expo-notifications إلى lazy import داخل functions فقط
 - [x] إزالة forceWriteFileSystem من metro.config.js (قد يسبب مشاكل في production)
+- [x] إصلاح جذري: إزالة nativewind/babel preset من babel.config.js (كان يضيف worklets/plugin مكرر تلقائياً)
+- [x] استخدام react-native-css-interop/babel-plugin مباشرة بدلاً من nativewind/babel
+- [x] إزالة ThemeProvider من _layout.tsx (كان يستخدم vars() من nativewind التي تسبب race condition)
+- [x] تحديث use-color-scheme.ts لاستخدام React Native useColorScheme مباشرة

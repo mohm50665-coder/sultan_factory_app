@@ -1,13 +1,21 @@
 module.exports = function (api) {
   api.cache(true);
-  let plugins = [];
-
-  // reanimated plugin includes worklets internally, so we only need reanimated
-  // MUST be last plugin in the list
-  plugins.push("react-native-reanimated/plugin");
 
   return {
-    presets: [["babel-preset-expo", { jsxImportSource: "nativewind" }], "nativewind/babel"],
-    plugins,
+    presets: [
+      [
+        "babel-preset-expo",
+        {
+          // Use react-native-css-interop as JSX import source for NativeWind className support
+          jsxImportSource: "react-native-css-interop",
+        },
+      ],
+    ],
+    plugins: [
+      // NativeWind's babel plugin for CSS class processing
+      require("react-native-css-interop/dist/babel-plugin").default,
+      // reanimated plugin MUST be last - it includes worklets internally
+      "react-native-reanimated/plugin",
+    ],
   };
 };

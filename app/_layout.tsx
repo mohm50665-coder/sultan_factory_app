@@ -5,33 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform, View, Text } from "react-native";
-// nativewind-pressable removed - was causing native crash on Android production builds
 
-// Error Boundary to prevent white screen crash
-class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error('App Error:', error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>حدث خطأ</Text>
-          <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>{this.state.error?.message || 'خطأ غير معروف'}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
-import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { LanguageProvider } from "@/lib/language-context";
 import {
@@ -54,6 +28,46 @@ export const unstable_settings = {
 // الشاشات التي لا تتطلب تسجيل دخول
 const AUTH_SCREENS = ["login", "register", "forgot-password"];
 
+// Error Boundary to prevent white screen crash
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error("App Error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+            backgroundColor: "#fff",
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
+            حدث خطأ
+          </Text>
+          <Text style={{ fontSize: 14, color: "#666", textAlign: "center" }}>
+            {this.state.error?.message || "خطأ غير معروف"}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Navigation component that uses useAuth
 function NavigationContent() {
   const { isSignedIn, isLoading } = useAuth();
@@ -64,17 +78,13 @@ function NavigationContent() {
     if (isLoading) return;
 
     const currentSegment = segments[0] as string;
-    const inAuthGroup = currentSegment === "(tabs)";
     const isAuthScreen = AUTH_SCREENS.includes(currentSegment);
 
     if (isSignedIn && isAuthScreen) {
-      // مسجل دخول ولكن في شاشة تسجيل دخول → انتقل للرئيسية
       router.replace("/(tabs)");
     } else if (!isSignedIn && !isAuthScreen && currentSegment !== "oauth") {
-      // غير مسجل دخول وليس في شاشة تسجيل → انتقل لتسجيل الدخول
       router.replace("/login");
     }
-    // في أي حالة أخرى (مسجل دخول ويتصفح شاشات التطبيق) → لا تفعل شيئاً
   }, [isSignedIn, segments, isLoading]);
 
   return (
@@ -150,7 +160,10 @@ function RootLayoutContent() {
   }, [handleSafeAreaUpdate]);
 
   const providerInitialMetrics = useMemo(() => {
-    const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
+    const metrics = initialWindowMetrics ?? {
+      insets: initialInsets,
+      frame: initialFrame,
+    };
     return {
       ...metrics,
       insets: {
@@ -176,22 +189,20 @@ function RootLayoutContent() {
 
   if (shouldOverrideSafeArea) {
     return (
-      <ThemeProvider>
-        <SafeAreaProvider initialMetrics={providerInitialMetrics}>
-          <SafeAreaFrameContext.Provider value={frame}>
-            <SafeAreaInsetsContext.Provider value={insets}>
-              {content}
-            </SafeAreaInsetsContext.Provider>
-          </SafeAreaFrameContext.Provider>
-        </SafeAreaProvider>
-      </ThemeProvider>
+      <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+        <SafeAreaFrameContext.Provider value={frame}>
+          <SafeAreaInsetsContext.Provider value={insets}>
+            {content}
+          </SafeAreaInsetsContext.Provider>
+        </SafeAreaFrameContext.Provider>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <ThemeProvider>
-      <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
-    </ThemeProvider>
+    <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+      {content}
+    </SafeAreaProvider>
   );
 }
 
