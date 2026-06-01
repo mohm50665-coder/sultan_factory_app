@@ -299,3 +299,8 @@
 - [x] ترجمة backup-restore.tsx
 - [x] ترجمة production-export.tsx
 - [x] ترجمة AdminCard component
+
+## إصلاح خطأ البناء (Build Failed)
+- [x] إصلاح Duplicate plugin error (react-native-worklets/plugin + react-native-reanimated/plugin)
+- [x] إزالة react-native-worklets/plugin من babel.config.js (reanimated يتضمنه داخلياً)
+- [x] التحقق من نجاح expo export --platform android محلياً
