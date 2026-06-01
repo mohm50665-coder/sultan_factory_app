@@ -18,13 +18,11 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
-import { useLanguage } from "@/lib/language-context";
 
 
 export default function CollectionScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t } = useLanguage();
 
   const [collections, setCollections] = useState<CollectionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -250,7 +248,7 @@ export default function CollectionScreen() {
                 onChangeText={(text) =>
                   setFormData({ ...formData, amount: parseInt(text) || 0 })
                 }
-                unit={t("sar")}
+                unit="ريال"
                 required
               />
             </ScrollView>

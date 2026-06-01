@@ -18,7 +18,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { administrativeService, AdministrativeData } from "@/lib/services/data.service";
 import { administrativeExportService } from "@/lib/services/administrative-export";
 import { notificationsService } from "@/lib/services/notifications.service";
-import { useLanguage } from "@/lib/language-context";
 
 const REQUEST_TYPES = [
   { label: "\u0637\u0644\u0628 \u0625\u062c\u0627\u0632\u0629", value: "leave_request" },
