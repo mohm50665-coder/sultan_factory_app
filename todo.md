@@ -307,3 +307,6 @@
 - [x] إزالة remapProps من nativewind-pressable.ts (كان يسبب native crash على Android production)
 - [x] تبسيط theme-provider.tsx (إزالة vars() التي قد تسبب مشاكل)
 - [x] إبقاء newArchEnabled: true (مطلوب إجبارياً لـ react-native-worklets)
+- [x] إصلاح crash: إزالة Notifications.setNotificationHandler من module-level في notification.service.ts (كان يسبب crash فوري)
+- [x] تحويل expo-notifications إلى lazy import داخل functions فقط
+- [x] إزالة forceWriteFileSystem من metro.config.js (قد يسبب مشاكل في production)

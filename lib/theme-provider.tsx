@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Appearance, Platform, useColorScheme as useSystemColorScheme } from "react-native";
-import { colorScheme as nativewindColorScheme } from "nativewind";
+import { Appearance, Platform, View, useColorScheme as useSystemColorScheme } from "react-native";
+import { colorScheme as nativewindColorScheme, vars } from "nativewind";
 import { SchemeColors, type ColorScheme } from "@/constants/theme";
 
 type ThemeContextValue = {
@@ -51,6 +51,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyScheme(colorScheme);
   }, [applyScheme, colorScheme]);
 
+  // CSS Variables for NativeWind on native platforms
+  const themeVariables = useMemo(() => {
+    try {
+      const palette = SchemeColors[colorScheme];
+      if (!palette) return {};
+      return vars({
+        "--color-primary": palette.primary,
+        "--color-background": palette.background,
+        "--color-surface": palette.surface,
+        "--color-foreground": palette.foreground,
+        "--color-muted": palette.muted,
+        "--color-border": palette.border,
+        "--color-success": palette.success,
+        "--color-warning": palette.warning,
+        "--color-error": palette.error,
+      });
+    } catch (e) {
+      return {};
+    }
+  }, [colorScheme]);
+
   const value = useMemo(
     () => ({
       colorScheme,
@@ -61,7 +82,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={value}>
-      {children}
+      <View style={[{ flex: 1 }, themeVariables]}>{children}</View>
     </ThemeContext.Provider>
   );
 }

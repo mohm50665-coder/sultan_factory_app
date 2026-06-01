@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
 export interface Notification {
   id: string;
@@ -14,16 +14,8 @@ export interface Notification {
 const NOTIFICATIONS_KEY = "notifications";
 const NOTIFICATION_SETTINGS_KEY = "notification_settings";
 
-// إعداد معالج الإشعارات
-Notifications.setNotificationHandler({
-  handleNotification: async () => {
-    return {
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    } as Notifications.NotificationBehavior;
-  },
-});
+// لا نستدعي expo-notifications على module level لتجنب crash
+// يتم تهيئة الإشعارات فقط عند الحاجة وداخل useEffect
 
 interface NotificationSettings {
   taskCompleted: boolean;
@@ -44,16 +36,32 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 };
 
 class NotificationService {
+  private initialized = false;
+
   /**
-   * تهيئة الإشعارات
+   * تهيئة الإشعارات - يجب استدعاؤها داخل useEffect فقط
    */
   async initialize(): Promise<void> {
+    if (this.initialized) return;
     try {
-      // طلب إذن الإشعارات
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== "granted") {
-        console.warn("Notification permission not granted");
+      if (Platform.OS !== "web") {
+        // Lazy import لتجنب crash عند تحميل الملف
+        const Notifications = await import("expo-notifications");
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== "granted") {
+          console.warn("Notification permission not granted");
+        }
       }
+      this.initialized = true;
 
       // تهيئة الإعدادات الافتراضية
       const settings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
@@ -64,7 +72,7 @@ class NotificationService {
         );
       }
     } catch (error) {
-      console.error("Error initializing notifications:", error);
+      console.warn("Error initializing notifications:", error);
     }
   }
 
@@ -85,17 +93,23 @@ class NotificationService {
         return;
       }
 
-      // إرسال الإشعار
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: settings.soundEnabled ? "default" : undefined,
-          vibrate: settings.vibrationEnabled ? [0, 250, 250, 250] : undefined,
-          data: data || {},
-        },
-        trigger: null, // إرسال فوري
-      });
+      // إرسال الإشعار عبر expo-notifications فقط على native
+      if (Platform.OS !== "web") {
+        try {
+          const Notifications = await import("expo-notifications");
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title,
+              body,
+              sound: settings.soundEnabled ? "default" : undefined,
+              data: data || {},
+            },
+            trigger: null, // إرسال فوري
+          });
+        } catch (e) {
+          // Silently fail - notifications are optional
+        }
+      }
 
       // حفظ الإشعار في السجل
       await this.saveNotification({
