@@ -304,3 +304,6 @@
 - [x] إصلاح Duplicate plugin error (react-native-worklets/plugin + react-native-reanimated/plugin)
 - [x] إزالة react-native-worklets/plugin من babel.config.js (reanimated يتضمنه داخلياً)
 - [x] التحقق من نجاح expo export --platform android محلياً
+- [x] إزالة remapProps من nativewind-pressable.ts (كان يسبب native crash على Android production)
+- [x] تبسيط theme-provider.tsx (إزالة vars() التي قد تسبب مشاكل)
+- [x] إبقاء newArchEnabled: true (مطلوب إجبارياً لـ react-native-worklets)

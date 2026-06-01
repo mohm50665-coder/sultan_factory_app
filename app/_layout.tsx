@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform, View, Text } from "react-native";
-import "@/lib/_core/nativewind-pressable";
+// nativewind-pressable removed - was causing native crash on Android production builds
 
 // Error Boundary to prevent white screen crash
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
