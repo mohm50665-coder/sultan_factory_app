@@ -27,20 +27,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       const saved = await AsyncStorage.getItem(LANGUAGE_KEY);
       if (saved === "ar" || saved === "en") {
         setLanguageState(saved);
-        applyRTL(saved);
       }
     } catch (error) {
-      console.error("Failed to load language:", error);
-    }
-  };
-
-  const applyRTL = (lang: Language) => {
-    const rtl = isRTL(lang);
-    if (Platform.OS !== "web") {
-      if (I18nManager.isRTL !== rtl) {
-        I18nManager.allowRTL(rtl);
-        I18nManager.forceRTL(rtl);
-      }
+      // Silently fail - default to Arabic
     }
   };
 
@@ -48,9 +37,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(LANGUAGE_KEY, lang);
       setLanguageState(lang);
-      applyRTL(lang);
     } catch (error) {
-      console.error("Failed to save language:", error);
+      // Silently fail
     }
   }, []);
 

@@ -1,5 +1,7 @@
-// NativeWind + Pressable: className can swallow onPress. Disable className mapping globally.
-import { Pressable } from "react-native";
+// NativeWind + Pressable/TouchableOpacity: className can swallow onPress or cause crash on Android.
+// Disable className mapping globally for interactive components.
+import { Pressable, TouchableOpacity } from "react-native";
 import { remapProps } from "nativewind";
 
 remapProps(Pressable, { className: false });
+remapProps(TouchableOpacity, { className: false });
