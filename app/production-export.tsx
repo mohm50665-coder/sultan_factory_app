@@ -17,10 +17,13 @@ import { productionExportService, type ProductionRecord } from "@/lib/services/p
 import { activityLogService } from "@/lib/services/activity-log";
 import { useAuth } from "@/lib/auth-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "@/lib/language-context";
 
 export default function ProductionExportScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [date, setDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -46,7 +49,7 @@ export default function ProductionExportScreen() {
 
   const handleExport = async () => {
     if (records.length === 0) {
-      Alert.alert("تنبيه", "لا توجد بيانات إنتاج لهذا التاريخ");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date");
       return;
     }
 
@@ -64,16 +67,16 @@ export default function ProductionExportScreen() {
       // Log the export activity
       await activityLogService.addEntry({
         userId: user?.id || "unknown",
-        userName: user?.name || "مجهول",
+        userName: user?.name || (isAr ? "مجهول" : "Unknown"),
         action: "export",
         module: "production",
-        description: `تصدير تقرير الإنتاج ليوم ${date} بتنسيق ${format.toUpperCase()}`,
-        details: `عدد السجلات: ${records.length}`,
+        description: isAr ? `تصدير تقرير الإنتاج ليوم ${date} بتنسيق ${format.toUpperCase()}` : `Export production report for ${date} in ${format.toUpperCase()} format`,
+        details: isAr ? `عدد السجلات: ${records.length}` : `Number of records: ${records.length}`,
       });
 
-      Alert.alert("نجاح", `تم تصدير التقرير بنجاح بتنسيق ${format.toUpperCase()}`);
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? `تم تصدير التقرير بنجاح بتنسيق ${format.toUpperCase()}` : `Report exported successfully in ${format.toUpperCase()} format`);
     } catch (error) {
-      Alert.alert("خطأ", "فشل تصدير التقرير");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل تصدير التقرير" : "Failed to export report");
     } finally {
       setIsLoading(false);
     }
@@ -96,14 +99,14 @@ export default function ProductionExportScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>تصدير بيانات الإنتاج</Text>
+        <Text style={styles.headerTitle}>{isAr ? "تصدير بيانات الإنتاج" : "Export Production Data"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Date Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>اختر التاريخ</Text>
+          <Text style={styles.sectionTitle}>{isAr ? "اختر التاريخ" : "Select Date"}</Text>
           <TextInput
             style={styles.dateInput}
             value={date}
@@ -115,7 +118,7 @@ export default function ProductionExportScreen() {
 
         {/* Format Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>تنسيق التصدير</Text>
+          <Text style={styles.sectionTitle}>{isAr ? "تنسيق التصدير" : "Export Format"}</Text>
           <View style={styles.formatRow}>
             <TouchableOpacity
               onPress={() => setFormat("html")}
@@ -123,7 +126,7 @@ export default function ProductionExportScreen() {
             >
               <MaterialIcons name="web" size={24} color={format === "html" ? "#0a7ea4" : "#687076"} />
               <Text style={[styles.formatText, format === "html" && styles.formatTextActive]}>HTML</Text>
-              <Text style={styles.formatDesc}>تقرير مرئي جاهز للطباعة</Text>
+              <Text style={styles.formatDesc}>{isAr ? "تقرير مرئي جاهز للطباعة" : "Visual report ready for printing"}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setFormat("csv")}
@@ -131,44 +134,44 @@ export default function ProductionExportScreen() {
             >
               <MaterialIcons name="table-chart" size={24} color={format === "csv" ? "#0a7ea4" : "#687076"} />
               <Text style={[styles.formatText, format === "csv" && styles.formatTextActive]}>CSV</Text>
-              <Text style={styles.formatDesc}>جدول بيانات (Excel)</Text>
+              <Text style={styles.formatDesc}>{isAr ? "جدول بيانات (Excel)" : "Spreadsheet (Excel)"}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Preview Stats */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ملخص البيانات</Text>
+          <Text style={styles.sectionTitle}>{isAr ? "ملخص البيانات" : "Data Summary"}</Text>
           {records.length === 0 ? (
             <View style={styles.noData}>
               <MaterialIcons name="info-outline" size={32} color="#d1d5db" />
-              <Text style={styles.noDataText}>لا توجد بيانات إنتاج لهذا التاريخ</Text>
+              <Text style={styles.noDataText}>{isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date"}</Text>
             </View>
           ) : (
             <View style={styles.statsGrid}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{records.length}</Text>
-                <Text style={styles.statLabel}>عدد المكائن</Text>
+                <Text style={styles.statLabel}>{isAr ? "عدد المكائن" : "Number of Machines"}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totals.productionDozen}</Text>
-                <Text style={styles.statLabel}>الإنتاج (درزن)</Text>
+                <Text style={styles.statLabel}>{isAr ? "الإنتاج (درزن)" : "Production (Dozen)"}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totals.productionPairs}</Text>
-                <Text style={styles.statLabel}>الإنتاج (زوج)</Text>
+                <Text style={styles.statLabel}>{isAr ? "الإنتاج (زوج)" : "Production (Pairs)"}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totals.wasteThread}</Text>
-                <Text style={styles.statLabel}>هدر خيوط (جرام)</Text>
+                <Text style={styles.statLabel}>{isAr ? "هدر خيوط (جرام)" : "Thread Waste (g)"}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totals.wasteSocks}</Text>
-                <Text style={styles.statLabel}>هدر جوارب (جرام)</Text>
+                <Text style={styles.statLabel}>{isAr ? "هدر جوارب (جرام)" : "Socks Waste (g)"}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{totals.secondGrade}</Text>
-                <Text style={styles.statLabel}>نخب ثاني (زوج)</Text>
+                <Text style={styles.statLabel}>{isAr ? "نخب ثاني (زوج)" : "Second Grade (Pairs)"}</Text>
               </View>
             </View>
           )}
@@ -186,7 +189,7 @@ export default function ProductionExportScreen() {
             <>
               <MaterialIcons name="file-download" size={22} color="white" />
               <Text style={styles.exportBtnText}>
-                تصدير التقرير ({format.toUpperCase()})
+                {isAr ? `تصدير التقرير (${format.toUpperCase()})` : `Export Report (${format.toUpperCase()})`}
               </Text>
             </>
           )}

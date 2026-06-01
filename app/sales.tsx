@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -18,21 +19,6 @@ import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 
 
-// أسماء البائعين
-const SELLERS = ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"];
-
-// فئات العملاء
-const CUSTOMER_CATEGORIES = [
-  "كلاو",
-  "فالكون",
-  "جملة",
-  "تجزئة",
-  "تصنيع خاص شركات",
-  "تصنيع خاص افراد",
-];
-
-// طرق الدفع
-const PAYMENT_METHODS = ["نقداً", "آجل"];
 
 interface SaleEntry {
   id: string;
@@ -59,6 +45,12 @@ const COLLECTION_KEY = "sultan_collection_data";
 export default function SalesScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
+  const SELLERS = isAr ? ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"] : ["Shalaby", "Omar", "Al-Maghrabi", "Yasser", "Falcon Store", "Adel", "Special Manufacturing"];
+  const CUSTOMER_CATEGORIES = isAr ? ["كلاو", "فالكون", "جملة", "تجزئة", "تصنيع خاص شركات", "تصنيع خاص افراد"] : ["Claw", "Falcon", "Wholesale", "Retail", "Special Manufacturing Companies", "Special Manufacturing Individuals"];
+  const PAYMENT_METHODS = isAr ? ["نقداً", "آجل"] : ["Cash", "Credit"];
 
   // التبويب الحالي: sales أو collection
   const [activeTab, setActiveTab] = useState<"sales" | "collection">("sales");
@@ -120,19 +112,19 @@ export default function SalesScreen() {
 
   const handleSaveSale = async () => {
     if (!selectedSeller) {
-      Alert.alert("تنبيه", "يرجى اختيار اسم البائع");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار اسم البائع" : "Please select a seller name");
       return;
     }
     if (!selectedCategory) {
-      Alert.alert("تنبيه", "يرجى اختيار فئة العميل");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار فئة العميل" : "Please select a customer category");
       return;
     }
     if (!saleDozen && !salePairs) {
-      Alert.alert("تنبيه", "يرجى إدخال الكمية المباعة");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال الكمية المباعة" : "Please enter the sold quantity");
       return;
     }
     if (!selectedPayment) {
-      Alert.alert("تنبيه", "يرجى اختيار طريقة الدفع");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار طريقة الدفع" : "Please select a payment method");
       return;
     }
 
@@ -157,7 +149,7 @@ export default function SalesScreen() {
     await saveSales(newEntries);
     resetSalesForm();
     setShowSalesForm(false);
-    Alert.alert("تم بنجاح ✓", editingSale ? "تم تعديل المبيعة" : "تم حفظ المبيعة");
+    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingSale ? (isAr ? "تم تعديل المبيعة" : "Sale updated") : (isAr ? "تم حفظ المبيعة" : "Sale saved"));
   };
 
   const handleEditSale = (entry: SaleEntry) => {
@@ -172,15 +164,15 @@ export default function SalesScreen() {
   };
 
   const handleDeleteSale = (entry: SaleEntry) => {
-    Alert.alert("تأكيد الحذف", `هل تريد حذف مبيعة "${entry.sellerName}"؟`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف مبيعة "${entry.sellerName}"؟` : `Do you want to delete sale "${entry.sellerName}"?`, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           const newEntries = salesEntries.filter((e) => e.id !== entry.id);
           await saveSales(newEntries);
-          Alert.alert("تم ✓", "تم حذف السجل");
+          Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
         },
       },
     ]);
@@ -196,15 +188,15 @@ export default function SalesScreen() {
 
   const handleSaveCollection = async () => {
     if (!selectedCollector) {
-      Alert.alert("تنبيه", "يرجى اختيار اسم المحصل");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار اسم المحصل" : "Please select a collector name");
       return;
     }
     if (!collectionCustomer) {
-      Alert.alert("تنبيه", "يرجى إدخال اسم العميل");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال اسم العميل" : "Please enter the customer name");
       return;
     }
     if (!collectionAmount) {
-      Alert.alert("تنبيه", "يرجى إدخال المبلغ");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال المبلغ" : "Please enter the amount");
       return;
     }
 
@@ -226,7 +218,7 @@ export default function SalesScreen() {
     await saveCollections(newEntries);
     resetCollectionForm();
     setShowCollectionForm(false);
-    Alert.alert("تم بنجاح ✓", editingCollection ? "تم تعديل التحصيل" : "تم حفظ التحصيل");
+    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingCollection ? (isAr ? "تم تعديل التحصيل" : "Collection updated") : (isAr ? "تم حفظ التحصيل" : "Collection saved"));
   };
 
   const handleEditCollection = (entry: CollectionEntry) => {
@@ -238,15 +230,15 @@ export default function SalesScreen() {
   };
 
   const handleDeleteCollection = (entry: CollectionEntry) => {
-    Alert.alert("تأكيد الحذف", `هل تريد حذف تحصيل "${entry.customerName}"؟`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف تحصيل "${entry.customerName}"؟` : `Do you want to delete collection "${entry.customerName}"?`, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           const newEntries = collectionEntries.filter((e) => e.id !== entry.id);
           await saveCollections(newEntries);
-          Alert.alert("تم ✓", "تم حذف السجل");
+          Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
         },
       },
     ]);
@@ -281,28 +273,28 @@ export default function SalesScreen() {
       <View className="bg-background rounded-lg p-3">
         <View className="flex-row justify-between items-center mb-2">
           <Text className="text-foreground text-sm">{item.customerCategory}</Text>
-          <Text className="text-muted text-sm font-semibold">فئة العميل</Text>
+          <Text className="text-muted text-sm font-semibold">{isAr ? "فئة العميل" : "Customer Category"}</Text>
         </View>
         {item.customerName && item.customerName !== "-" ? (
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-foreground text-sm">{item.customerName}</Text>
-            <Text className="text-muted text-sm font-semibold">اسم العميل</Text>
+            <Text className="text-muted text-sm font-semibold">{isAr ? "اسم العميل" : "Customer Name"}</Text>
           </View>
         ) : null}
         <View className="flex-row justify-between items-center mb-2">
           <View className="flex-row items-center gap-2">
             <Text className="text-foreground font-bold">{item.quantityDozen}</Text>
-            <Text className="text-muted text-xs">درزن</Text>
+            <Text className="text-muted text-xs">{isAr ? "درزن" : "Dozen"}</Text>
             <Text className="text-muted mx-1">|</Text>
             <Text className="text-foreground font-bold">{item.quantityPairs}</Text>
-            <Text className="text-muted text-xs">زوج</Text>
+            <Text className="text-muted text-xs">{isAr ? "زوج" : "Pair"}</Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">الكمية</Text>
+          <Text className="text-muted text-sm font-semibold">{isAr ? "الكمية" : "Quantity"}</Text>
         </View>
         <View className="flex-row justify-between items-center">
           <View
             style={{
-              backgroundColor: item.paymentMethod === "نقداً" ? "#22c55e20" : "#f59e0b20",
+              backgroundColor: item.paymentMethod === (isAr ? "نقداً" : "Cash") ? "#22c55e20" : "#f59e0b20",
               borderRadius: 12,
               paddingHorizontal: 10,
               paddingVertical: 4,
@@ -310,7 +302,7 @@ export default function SalesScreen() {
           >
             <Text
               style={{
-                color: item.paymentMethod === "نقداً" ? "#22c55e" : "#f59e0b",
+                color: item.paymentMethod === (isAr ? "نقداً" : "Cash") ? "#22c55e" : "#f59e0b",
                 fontWeight: "700",
                 fontSize: 12,
               }}
@@ -318,7 +310,7 @@ export default function SalesScreen() {
               {item.paymentMethod}
             </Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">طريقة الدفع</Text>
+          <Text className="text-muted text-sm font-semibold">{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
         </View>
       </View>
       <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
@@ -354,14 +346,14 @@ export default function SalesScreen() {
       <View className="bg-background rounded-lg p-3">
         <View className="flex-row justify-between items-center mb-2">
           <Text className="text-foreground text-sm">{item.customerName}</Text>
-          <Text className="text-muted text-sm font-semibold">العميل المحصل منه</Text>
+          <Text className="text-muted text-sm font-semibold">{isAr ? "العميل المحصل منه" : "Collected From"}</Text>
         </View>
         <View className="flex-row justify-between items-center">
           <View className="flex-row items-center gap-1">
             <Text className="text-foreground font-bold text-lg">{item.amount}</Text>
-            <Text className="text-muted text-sm">ريال</Text>
+            <Text className="text-muted text-sm">{isAr ? "ريال" : "SAR"}</Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">المبلغ</Text>
+          <Text className="text-muted text-sm font-semibold">{isAr ? "المبلغ" : "Amount"}</Text>
         </View>
       </View>
       <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
@@ -373,12 +365,12 @@ export default function SalesScreen() {
     <ScrollView className="flex-1 px-4 py-4">
       <View className="bg-surface rounded-xl p-5 border border-border">
         <Text className="text-foreground font-bold text-lg mb-5 text-right">
-          {editingSale ? "✏️ تعديل مبيعة" : "➕ إضافة مبيعة جديدة"}
+          {editingSale ? (isAr ? "✏️ تعديل مبيعة" : "✏️ Edit Sale") : (isAr ? "➕ إضافة مبيعة جديدة" : "➕ Add New Sale")}
         </Text>
 
         {/* اسم البائع */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اسم البائع</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اسم البائع" : "Seller Name"}</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {SELLERS.map((seller) => (
               <TouchableOpacity
@@ -409,7 +401,7 @@ export default function SalesScreen() {
 
         {/* فئة العميل */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">فئة العميل</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "فئة العميل" : "Customer Category"}</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {CUSTOMER_CATEGORIES.map((cat) => (
               <TouchableOpacity
@@ -441,11 +433,11 @@ export default function SalesScreen() {
         {/* اسم العميل */}
         <View className="mb-4">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-            اسم العميل (اختياري)
+            {isAr ? "اسم العميل (اختياري)" : "Customer Name (Optional)"}
           </Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="أدخل اسم العميل"
+            placeholder={isAr ? "أدخل اسم العميل" : "Enter customer name"}
             placeholderTextColor={colors.muted}
             value={customerName}
             onChangeText={setCustomerName}
@@ -456,7 +448,7 @@ export default function SalesScreen() {
         {/* الكمية بالدرزن */}
         <View className="mb-4">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-            الكمية المباعة (درزن)
+            {isAr ? "الكمية المباعة (درزن)" : "Sold Quantity (Dozen)"}
           </Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
@@ -472,7 +464,7 @@ export default function SalesScreen() {
         {/* الكمية بالزوج */}
         <View className="mb-4">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-            الكمية المباعة (زوج)
+            {isAr ? "الكمية المباعة (زوج)" : "Sold Quantity (Pairs)"}
           </Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
@@ -487,7 +479,7 @@ export default function SalesScreen() {
 
         {/* طريقة الدفع */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">طريقة الدفع</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
           <View className="flex-row gap-3 justify-end">
             {PAYMENT_METHODS.map((method) => (
               <TouchableOpacity
@@ -535,7 +527,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-base">إلغاء</Text>
+            <Text className="text-foreground font-semibold text-base">{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={20} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -553,7 +545,7 @@ export default function SalesScreen() {
             }}
           >
             <Text className="text-white font-semibold text-base">
-              {editingSale ? "تعديل" : "حفظ"}
+              {editingSale ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}
             </Text>
             <MaterialIcons name={editingSale ? "edit" : "save"} size={20} color="white" />
           </TouchableOpacity>
@@ -567,12 +559,12 @@ export default function SalesScreen() {
     <ScrollView className="flex-1 px-4 py-4">
       <View className="bg-surface rounded-xl p-5 border border-border">
         <Text className="text-foreground font-bold text-lg mb-5 text-right">
-          {editingCollection ? "✏️ تعديل تحصيل" : "➕ إضافة تحصيل جديد"}
+          {editingCollection ? (isAr ? "✏️ تعديل تحصيل" : "✏️ Edit Collection") : (isAr ? "➕ إضافة تحصيل جديد" : "➕ Add New Collection")}
         </Text>
 
         {/* اسم المحصل */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اسم المحصل</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اسم المحصل" : "Collector Name"}</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {SELLERS.map((name) => (
               <TouchableOpacity
@@ -604,11 +596,11 @@ export default function SalesScreen() {
         {/* اسم العميل المحصل منه */}
         <View className="mb-4">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-            اسم العميل المحصل منه
+            {isAr ? "اسم العميل المحصل منه" : "Collected From Customer"}
           </Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
-            placeholder="أدخل اسم العميل"
+            placeholder={isAr ? "أدخل اسم العميل" : "Enter customer name"}
             placeholderTextColor={colors.muted}
             value={collectionCustomer}
             onChangeText={setCollectionCustomer}
@@ -619,7 +611,7 @@ export default function SalesScreen() {
         {/* المبلغ بالريال */}
         <View className="mb-5">
           <Text className="text-foreground font-semibold text-sm mb-2 text-right">
-            المبلغ (ريال)
+            {isAr ? "المبلغ (ريال)" : "Amount (SAR)"}
           </Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
@@ -651,7 +643,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-base">إلغاء</Text>
+            <Text className="text-foreground font-semibold text-base">{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={20} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -669,7 +661,7 @@ export default function SalesScreen() {
             }}
           >
             <Text className="text-white font-semibold text-base">
-              {editingCollection ? "تعديل" : "حفظ"}
+              {editingCollection ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}
             </Text>
             <MaterialIcons name={editingCollection ? "edit" : "save"} size={20} color="white" />
           </TouchableOpacity>
@@ -705,11 +697,11 @@ export default function SalesScreen() {
         <AdminBadgeIcon />
         {/* العنوان */}
         <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">المبيعات والتحصيل</Text>
+          <Text className="text-white font-bold text-xl">{isAr ? "المبيعات والتحصيل" : "Sales and Collection"}</Text>
           <Text className="text-white/80 text-sm mt-1">
             {activeTab === "sales"
-              ? `${salesEntries.length} مبيعة`
-              : `${collectionEntries.length} تحصيل`}
+              ? (isAr ? `${salesEntries.length} مبيعة` : `${salesEntries.length} Sales`)
+              : (isAr ? `${collectionEntries.length} تحصيل` : `${collectionEntries.length} Collections`)}
           </Text>
         </View>
 
@@ -740,7 +732,7 @@ export default function SalesScreen() {
                 fontSize: 15,
               }}
             >
-              المبيعات
+              {isAr ? "المبيعات" : "Sales"}
             </Text>
             <MaterialIcons
               name="point-of-sale"
@@ -768,7 +760,7 @@ export default function SalesScreen() {
                 fontSize: 15,
               }}
             >
-              التحصيل
+              {isAr ? "التحصيل" : "Collection"}
             </Text>
             <MaterialIcons
               name="account-balance-wallet"
@@ -794,9 +786,9 @@ export default function SalesScreen() {
                 <View style={{ backgroundColor: "#0a7ea415", borderRadius: 40, padding: 20 }}>
                   <MaterialIcons name="point-of-sale" size={48} color="#0a7ea4" />
                 </View>
-                <Text className="text-foreground text-lg mt-5 font-bold">المبيعات</Text>
+                <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "المبيعات" : "Sales"}</Text>
                 <Text className="text-muted text-sm mt-2 text-center px-8">
-                  لا توجد بيانات مبيعات بعد.{"\n"}اضغط على زر (+) لإضافة مبيعة جديدة.
+                  {isAr ? "لا توجد بيانات مبيعات بعد." : "No sales data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة مبيعة جديدة." : "Press (+) to add a new sale."}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -806,7 +798,7 @@ export default function SalesScreen() {
                   style={{ backgroundColor: "#0a7ea4", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text className="text-white font-semibold">إضافة مبيعة</Text>
+                    <Text className="text-white font-semibold">{isAr ? "إضافة مبيعة" : "Add Sale"}</Text>
                     <MaterialIcons name="add" size={20} color="white" />
                   </View>
                 </TouchableOpacity>
@@ -827,9 +819,9 @@ export default function SalesScreen() {
               <View style={{ backgroundColor: "#7c3aed15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="account-balance-wallet" size={48} color="#7c3aed" />
               </View>
-              <Text className="text-foreground text-lg mt-5 font-bold">التحصيل</Text>
+              <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "التحصيل" : "Collection"}</Text>
               <Text className="text-muted text-sm mt-2 text-center px-8">
-                لا توجد بيانات تحصيل بعد.{"\n"}اضغط على زر (+) لإضافة تحصيل جديد.
+                {isAr ? "لا توجد بيانات تحصيل بعد." : "No collection data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة تحصيل جديد." : "Press (+) to add a new collection."}
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -839,7 +831,7 @@ export default function SalesScreen() {
                 style={{ backgroundColor: "#7c3aed", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text className="text-white font-semibold">إضافة تحصيل</Text>
+                  <Text className="text-white font-semibold">{isAr ? "إضافة تحصيل" : "Add Collection"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>

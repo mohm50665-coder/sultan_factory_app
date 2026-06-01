@@ -3,9 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { administrativeService } from "@/lib/services/data.service";
+import { useLanguage } from "@/lib/language-context";
 
 export function AdminCard() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -35,16 +38,16 @@ export function AdminCard() {
       style={styles.card}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-        <MaterialIcons name="chevron-left" size={24} color="#0369a1" />
+        <MaterialIcons name={isAr ? "chevron-left" : "chevron-right"} size={24} color="#0369a1" />
       </View>
-      <View style={{ flex: 1, alignItems: "flex-end" }}>
-        <Text style={styles.title}>الإجراءات الإدارية</Text>
+      <View style={{ flex: 1, alignItems: isAr ? "flex-end" : "flex-start" }}>
+        <Text style={styles.title}>{isAr ? "الإجراءات الإدارية" : "Administrative Actions"}</Text>
         <Text style={styles.subtitle}>
-          الطلبات والإجراءات الإدارية للموظفين
+          {isAr ? "الطلبات والإجراءات الإدارية للموظفين" : "Employee requests and administrative procedures"}
         </Text>
         {pendingCount > 0 && (
           <View style={styles.badgeRow}>
-            <Text style={styles.badgeText}>{pendingCount} طلب معلق</Text>
+            <Text style={styles.badgeText}>{isAr ? `${pendingCount} طلب معلق` : `${pendingCount} pending`}</Text>
             <View style={styles.badge} />
           </View>
         )}

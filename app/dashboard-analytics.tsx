@@ -15,6 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { useLanguage } from "@/lib/language-context";
 
 
 interface KPI {
@@ -40,12 +41,14 @@ export default function DashboardAnalyticsScreen() {
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [timeRange, setTimeRange] = useState<"day" | "week" | "month">("day");
+  const { language } = useLanguage();
+  const isAr = language === "ar";
 
   useEffect(() => {
     loadAnalyticsData();
     const interval = setInterval(loadAnalyticsData, 30000); // تحديث كل 30 ثانية
     return () => clearInterval(interval);
-  }, [timeRange]);
+  }, [timeRange, isAr]);
 
   const loadAnalyticsData = async () => {
     try {
@@ -81,16 +84,16 @@ export default function DashboardAnalyticsScreen() {
 
       const newKpis: KPI[] = [
         {
-          label: "إجمالي الإنتاج",
+          label: isAr ? "إجمالي الإنتاج" : "Total Production",
           value: totalProduction,
-          unit: "درزن",
+          unit: isAr ? "درزن" : "Dozen",
           icon: "factory",
           color: "#0a7ea4",
           trend: "stable",
           percentage: 0,
         },
         {
-          label: "معدل الهدر",
+          label: isAr ? "معدل الهدر" : "Waste Rate",
           value: wastePercentage,
           unit: "%",
           icon: "warning",
@@ -99,18 +102,18 @@ export default function DashboardAnalyticsScreen() {
           percentage: 0,
         },
         {
-          label: "إجمالي المبيعات",
+          label: isAr ? "إجمالي المبيعات" : "Total Sales",
           value: totalSales > 0 ? totalSales.toFixed(0) : "0",
-          unit: "ريال",
+          unit: isAr ? "ريال" : "SAR",
           icon: "shopping-cart",
           color: "#22c55e",
           trend: "stable",
           percentage: 0,
         },
         {
-          label: "عمليات الصيانة",
+          label: isAr ? "عمليات الصيانة" : "Maintenance Operations",
           value: maintenanceCount,
-          unit: "عملية",
+          unit: isAr ? "عملية" : "Operation",
           icon: "build",
           color: "#f59e0b",
           trend: "stable",
@@ -123,9 +126,9 @@ export default function DashboardAnalyticsScreen() {
       // تحضير بيانات الرسم البياني من البيانات الفعلية
       const total = totalProduction + totalWaste + totalSecondGrade;
       const productionBySection = total > 0 ? [
-        { label: "الإنتاج", value: totalProduction, percentage: Math.round((totalProduction / total) * 100) },
-        { label: "الهدر", value: totalWaste, percentage: Math.round((totalWaste / total) * 100) },
-        { label: "النخب الثاني", value: totalSecondGrade, percentage: Math.round((totalSecondGrade / total) * 100) },
+        { label: isAr ? "الإنتاج" : "Production", value: totalProduction, percentage: Math.round((totalProduction / total) * 100) },
+        { label: isAr ? "الهدر" : "Waste", value: totalWaste, percentage: Math.round((totalWaste / total) * 100) },
+        { label: isAr ? "النخب الثاني" : "Second Grade", value: totalSecondGrade, percentage: Math.round((totalSecondGrade / total) * 100) },
       ] : [];
 
       setChartData(productionBySection);
@@ -180,7 +183,7 @@ export default function DashboardAnalyticsScreen() {
                       : "text-warning"
                 }`}
               >
-                {kpi.percentage}% مقارنة بالأمس
+                {isAr ? `${kpi.percentage}% مقارنة بالأمس` : `${kpi.percentage}% compared to yesterday`}
               </Text>
             </View>
           )}
@@ -219,9 +222,9 @@ export default function DashboardAnalyticsScreen() {
         <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
           <BackButton />
           <View className="flex-1">
-            <Text className="text-white font-bold text-xl">لوحة المعلومات</Text>
+            <Text className="text-white font-bold text-xl">{isAr ? "لوحة المعلومات" : "Dashboard"}</Text>
             <Text className="text-white/80 text-sm mt-1">
-              مؤشرات الأداء الرئيسية
+              {isAr ? "مؤشرات الأداء الرئيسية" : "Key Performance Indicators"}
             </Text>
           </View>
           <AdminBadgeIcon />
@@ -254,10 +257,10 @@ export default function DashboardAnalyticsScreen() {
                 }`}
               >
                 {range === "day"
-                  ? "يوم"
+                  ? (isAr ? "يوم" : "Day")
                   : range === "week"
-                    ? "أسبوع"
-                    : "شهر"}
+                    ? (isAr ? "أسبوع" : "Week")
+                    : (isAr ? "شهر" : "Month")}
               </Text>
             </TouchableOpacity>
           ))}
@@ -267,14 +270,14 @@ export default function DashboardAnalyticsScreen() {
           {isLoading ? (
             <View className="items-center justify-center py-8">
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text className="text-muted text-sm mt-4">جاري تحميل البيانات...</Text>
+              <Text className="text-muted text-sm mt-4">{isAr ? "جاري تحميل البيانات..." : "Loading data..."}</Text>
             </View>
           ) : (
             <>
               {/* مؤشرات الأداء الرئيسية */}
               <View className="mb-6">
                 <Text className="text-foreground font-bold text-base mb-4">
-                  مؤشرات الأداء
+                  {isAr ? "مؤشرات الأداء" : "Performance Indicators"}
                 </Text>
                 {kpis.map(renderKPICard)}
               </View>
@@ -282,7 +285,7 @@ export default function DashboardAnalyticsScreen() {
               {/* الرسم البياني */}
               <View className="bg-surface rounded-lg p-4 border border-border">
                 <Text className="text-foreground font-bold text-base mb-4">
-                  توزيع الإنتاج
+                  {isAr ? "توزيع الإنتاج" : "Production Distribution"}
                 </Text>
                 {chartData.map(renderProgressBar)}
               </View>
@@ -293,12 +296,10 @@ export default function DashboardAnalyticsScreen() {
                   <MaterialIcons name="info" size={20} color={colors.primary} />
                   <View className="ml-3 flex-1">
                     <Text className="text-foreground font-semibold text-sm mb-1">
-                      معلومات مهمة
+                      {isAr ? "معلومات مهمة" : "Important Information"}
                     </Text>
                     <Text className="text-muted text-xs leading-5">
-                      تتحدث لوحة المعلومات في الوقت الفعلي. يتم تحديث البيانات
-                      تلقائياً كل 30 ثانية. يمكنك الضغط على زر التحديث للحصول على
-                      أحدث البيانات فوراً.
+                      {isAr ? "تتحدث لوحة المعلومات في الوقت الفعلي. يتم تحديث البيانات تلقائياً كل 30 ثانية. يمكنك الضغط على زر التحديث للحصول على أحدث البيانات فوراً." : "The dashboard updates in real-time. Data is automatically updated every 30 seconds. You can press the refresh button to get the latest data immediately."}
                     </Text>
                   </View>
                 </View>

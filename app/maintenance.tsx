@@ -13,74 +13,80 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
-
-
-const DATA_ENTRY_NAMES = ["محمد الشيخ", "محمد احمد", "افضل"];
-
-interface MaintenanceSection {
-  id: string;
-  label: string;
-  icon: string;
-  description: string;
-  color: string;
-}
-
-const MAINTENANCE_SECTIONS: MaintenanceSection[] = [
-  {
-    id: "periodic",
-    label: "الجدول الدوري للصيانة",
-    icon: "event-note",
-    description: "التاريخ، الأجهزة، نتائج الصيانة، التوصيات",
-    color: "#0891b2",
-  },
-  {
-    id: "emergency",
-    label: "الطوارئ",
-    icon: "warning",
-    description: "مكان العطل، الأسباب، إجراء الصيانة، المدة",
-    color: "#dc2626",
-  },
-  {
-    id: "stopped-devices",
-    label: "تقرير الأجهزة المتوقفة",
-    icon: "error-outline",
-    description: "حالة الأجهزة: يعمل، لا يعمل، صيانة",
-    color: "#ea580c",
-  },
-  {
-    id: "safety",
-    label: "السلامة",
-    icon: "health-and-safety",
-    description: "متطلبات السلامة: مطابق، غير مطابق، تحسين",
-    color: "#16a34a",
-  },
-  {
-    id: "safety-recommendations",
-    label: "توصيات السلامة والصحة المهنية",
-    icon: "lightbulb",
-    description: "توصيات السلامة والصحة المهنية",
-    color: "#7c3aed",
-  },
-  {
-    id: "work-injuries",
-    label: "إصابات العمل",
-    icon: "personal-injury",
-    description: "بيانات المصاب، تحديد الإصابة، الإجراءات",
-    color: "#b91c1c",
-  },
-  {
-    id: "sick-leaves",
-    label: "حصر الإجازات المرضية",
-    icon: "medical-services",
-    description: "اسم الموظف، مصدر الإجازة، المدة، التوصيات",
-    color: "#0d9488",
-  },
-];
+import { useLanguage } from "@/lib/language-context";
 
 export default function MaintenanceScreen() {
   const router = useRouter();
   const colors = useColors();
   const [selectedEntryPerson, setSelectedEntryPerson] = useState("");
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
+  const DATA_ENTRY_NAMES = [
+    isAr ? "محمد الشيخ" : "Mohammed Al-Sheikh",
+    isAr ? "محمد احمد" : "Mohammed Ahmed",
+    isAr ? "افضل" : "Afzal"
+  ];
+
+  interface MaintenanceSection {
+    id: string;
+    label: string;
+    icon: string;
+    description: string;
+    color: string;
+  }
+
+  const MAINTENANCE_SECTIONS: MaintenanceSection[] = [
+    {
+      id: "periodic",
+      label: isAr ? "الجدول الدوري للصيانة" : "Periodic Maintenance Schedule",
+      icon: "event-note",
+      description: isAr ? "التاريخ، الأجهزة، نتائج الصيانة، التوصيات" : "Date, Devices, Maintenance Results, Recommendations",
+      color: "#0891b2",
+    },
+    {
+      id: "emergency",
+      label: isAr ? "الطوارئ" : "Emergency",
+      icon: "warning",
+      description: isAr ? "مكان العطل، الأسباب، إجراء الصيانة، المدة" : "Fault Location, Causes, Maintenance Procedure, Duration",
+      color: "#dc2626",
+    },
+    {
+      id: "stopped-devices",
+      label: isAr ? "تقرير الأجهزة المتوقفة" : "Stopped Devices Report",
+      icon: "error-outline",
+      description: isAr ? "حالة الأجهزة: يعمل، لا يعمل، صيانة" : "Device Status: Working, Not Working, Maintenance",
+      color: "#ea580c",
+    },
+    {
+      id: "safety",
+      label: isAr ? "السلامة" : "Safety",
+      icon: "health-and-safety",
+      description: isAr ? "متطلبات السلامة: مطابق، غير مطابق، تحسين" : "Safety Requirements: Compliant, Non-Compliant, Improvement",
+      color: "#16a34a",
+    },
+    {
+      id: "safety-recommendations",
+      label: isAr ? "توصيات السلامة والصحة المهنية" : "Occupational Health and Safety Recommendations",
+      icon: "lightbulb",
+      description: isAr ? "توصيات السلامة والصحة المهنية" : "Occupational Health and Safety Recommendations",
+      color: "#7c3aed",
+    },
+    {
+      id: "work-injuries",
+      label: isAr ? "إصابات العمل" : "Work Injuries",
+      icon: "personal-injury",
+      description: isAr ? "بيانات المصاب، تحديد الإصابة، الإجراءات" : "Injured Data, Injury Identification, Procedures",
+      color: "#b91c1c",
+    },
+    {
+      id: "sick-leaves",
+      label: isAr ? "حصر الإجازات المرضية" : "Sick Leaves Inventory",
+      icon: "medical-services",
+      description: isAr ? "اسم الموظف، مصدر الإجازة، المدة، التوصيات" : "Employee Name, Leave Source, Duration, Recommendations",
+      color: "#0d9488",
+    },
+  ];
 
   const handleSectionPress = (sectionId: string) => {
     if (!selectedEntryPerson) {
@@ -94,7 +100,7 @@ export default function MaintenanceScreen() {
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>الصيانة</Text>
+        <Text style={styles.headerTitle}>{isAr ? "الصيانة" : "Maintenance"}</Text>
         <AdminBadgeIcon />
       </View>
 
@@ -104,7 +110,7 @@ export default function MaintenanceScreen() {
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 30 }}>
         {/* اختيار مدخل البيانات */}
         <View style={[styles.card, { borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>اسم المدخل (المسؤول)</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isAr ? "اسم المدخل (المسؤول)" : "Entry Person Name (Responsible)"}</Text>
           <View style={styles.chipRow}>
             {DATA_ENTRY_NAMES.map((name) => (
               <TouchableOpacity
@@ -130,7 +136,7 @@ export default function MaintenanceScreen() {
           </View>
           {!selectedEntryPerson && (
             <Text style={[styles.warningText, { color: colors.error }]}>
-              يرجى اختيار اسم المدخل أولاً
+              {isAr ? "يرجى اختيار اسم المدخل أولاً" : "Please select the entry person name first"}
             </Text>
           )}
         </View>

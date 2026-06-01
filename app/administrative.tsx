@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -60,6 +61,8 @@ const emptyFormData = (): AdministrativeData => ({
 });
 
 export default function AdministrativeScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [requests, setRequests] = useState<AdministrativeData[]>([]);
@@ -120,8 +123,8 @@ export default function AdministrativeScreen() {
               oldRequest.boardRepStatus !== formData.boardRepStatus) {
             notificationsService.add({
               type: "admin",
-              title: "تحديث حالة طلب",
-              message: `تم تحديث حالة طلب ${formData.employeeName} - ${getRequestTypeLabel(formData.requestType)}`,
+              title: isAr ? "تحديث حالة طلب" : "Update Request Status",
+              message: isAr ? `تم تحديث حالة طلب ${formData.employeeName} - ${getRequestTypeLabel(formData.requestType)}` : `Request status updated ${formData.employeeName} - ${getRequestTypeLabel(formData.requestType)}`,
               data: { requestId: editingId },
             });
           }
@@ -131,8 +134,8 @@ export default function AdministrativeScreen() {
         // إشعار عند إنشاء طلب جديد
         notificationsService.add({
           type: "admin",
-          title: "طلب إداري جديد",
-          message: `تم إنشاء طلب جديد: ${getRequestTypeLabel(formData.requestType)} - ${formData.employeeName}`,
+          title: isAr ? "طلب إداري جديد" : "New Administrative Request",
+          message: isAr ? `تم إنشاء طلب جديد: ${getRequestTypeLabel(formData.requestType)} - ${formData.employeeName}` : `New request created: ${getRequestTypeLabel(formData.requestType)} - ${formData.employeeName}`,
           data: { requestType: formData.requestType },
         });
       }
@@ -223,10 +226,10 @@ export default function AdministrativeScreen() {
 
   const getStatusLabel = (request: AdministrativeData) => {
     const status = request.status || "pending";
-    if (status === "approved") return "موافق";
-    if (status === "rejected") return "مرفوض";
-    if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return "قيد المراجعة";
-    return "قيد الانتظار";
+    if (status === "approved") return isAr ? "موافق" : "Approved";
+    if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
+    if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return isAr ? "قيد المراجعة" : "Under Review";
+    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
   };
 
   const getStatusColor = (request: AdministrativeData) => {
@@ -238,9 +241,9 @@ export default function AdministrativeScreen() {
   };
 
   const getApproverStatusLabel = (status: string) => {
-    if (status === "approved") return "موافق";
-    if (status === "rejected") return "مرفوض";
-    return "قيد الانتظار";
+    if (status === "approved") return isAr ? "موافق" : "Approved";
+    if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
+    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
   };
 
   const formatDate = (dateStr?: string) => {
@@ -253,18 +256,40 @@ export default function AdministrativeScreen() {
     const boardStatus = item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending");
     const directStatus = item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending");
     const generalStatus = item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending");
-    const content = `طلب إداري - ${getRequestTypeLabel(item.requestType)}\n` +
-      (item.referenceNumber ? `الرقم المرجعي: ${item.referenceNumber}\n` : "") +
-      (item.submissionDate ? `تاريخ التقديم: ${formatDate(item.submissionDate)}\n` : "") +
-      `اسم الموظف: ${item.employeeName}\n` +
-      `الرقم الوظيفي: ${item.employeeNumber || "غير محدد"}\n` +
-      `الإدارة/القسم: ${getDepartmentLabel(item.department)}\n` +
-      `تفاصيل الطلب: ${item.requestDetails}\n` +
-      (item.attachments && item.attachments.length > 0 ? `المرفقات: ${item.attachments.join(", ")}\n` : "") +
-      `\nالموافقات:\n` +
-      `- المدير المباشر: ${getApproverStatusLabel(directStatus)}${item.directManagerActionDate ? " (" + formatDate(item.directManagerActionDate) + ")" : ""}${item.directManagerRejectionReason ? " - سبب الرفض: " + item.directManagerRejectionReason : ""}\n` +
-      `- المدير العام: ${getApproverStatusLabel(generalStatus)}${item.generalManagerActionDate ? " (" + formatDate(item.generalManagerActionDate) + ")" : ""}${item.generalManagerRejectionReason ? " - سبب الرفض: " + item.generalManagerRejectionReason : ""}\n` +
-      `- ممثل مجلس الإدارة: ${getApproverStatusLabel(boardStatus)}${item.boardRepActionDate ? " (" + formatDate(item.boardRepActionDate) + ")" : ""}${item.boardRepRejectionReason ? " - سبب الرفض: " + item.boardRepRejectionReason : ""}`;
+    const content = isAr ? `طلب إداري - ${getRequestTypeLabel(item.requestType)}
+` : `Administrative Request - ${getRequestTypeLabel(item.requestType)}
+` +
+      (item.referenceNumber ? isAr ? `الرقم المرجعي: ${item.referenceNumber}
+` : `Reference Number: ${item.referenceNumber}
+` : "") +
+      (item.submissionDate ? isAr ? `تاريخ التقديم: ${formatDate(item.submissionDate)}
+` : `Submission Date: ${formatDate(item.submissionDate)}
+` : "") +
+      isAr ? `اسم الموظف: ${item.employeeName}
+` : `Employee Name: ${item.employeeName}
+` +
+      `الرقم الوظيفي: ${item.employeeNumber || isAr ? isAr ? "غير محدد" : "Not specified" : "Not specified"}\n` +
+      isAr ? `الإدارة/القسم: ${getDepartmentLabel(item.department)}
+` : `Department/Section: ${getDepartmentLabel(item.department)}
+` +
+      isAr ? `تفاصيل الطلب: ${item.requestDetails}
+` : `Request Details: ${item.requestDetails}
+` +
+      (item.attachments && item.attachments.length > 0 ? isAr ? `المرفقات: ${item.attachments.join(", ")}
+` : `Attachments: ${item.attachments.join(", ")}
+` : "") +
+      isAr ? `
+الموافقات:
+` : `
+Approvals:
+` +
+      isAr ? `- المدير المباشر: ${getApproverStatusLabel(directStatus)}${item.directManagerActionDate ? " (" + formatDate(item.directManagerActionDate) + ")" : ""}${item.directManagerRejectionReason ? " - سبب الرفض: " + item.directManagerRejectionReason : ""}
+` : `- Direct Manager: ${getApproverStatusLabel(directStatus)}${item.directManagerActionDate ? " (" + formatDate(item.directManagerActionDate) + ")" : ""}${item.directManagerRejectionReason ? " - Rejection Reason: " + item.directManagerRejectionReason : ""}
+` +
+      isAr ? `- المدير العام: ${getApproverStatusLabel(generalStatus)}${item.generalManagerActionDate ? " (" + formatDate(item.generalManagerActionDate) + ")" : ""}${item.generalManagerRejectionReason ? " - سبب الرفض: " + item.generalManagerRejectionReason : ""}
+` : `- General Manager: ${getApproverStatusLabel(generalStatus)}${item.generalManagerActionDate ? " (" + formatDate(item.generalManagerActionDate) + ")" : ""}${item.generalManagerRejectionReason ? " - Rejection Reason: " + item.generalManagerRejectionReason : ""}
+` +
+      isAr ? `- ممثل مجلس الإدارة: ${getApproverStatusLabel(boardStatus)}${item.boardRepActionDate ? " (" + formatDate(item.boardRepActionDate) + ")" : ""}${item.boardRepRejectionReason ? " - سبب الرفض: " + item.boardRepRejectionReason : ""}` : `- Board Representative: ${getApproverStatusLabel(boardStatus)}${item.boardRepActionDate ? " (" + formatDate(item.boardRepActionDate) + ")" : ""}${item.boardRepRejectionReason ? " - Rejection Reason: " + item.boardRepRejectionReason : ""}`;
     if (Platform.OS === "web") {
       const printWindow = window.open("", "_blank");
       if (printWindow) {
@@ -274,7 +299,7 @@ export default function AdministrativeScreen() {
       }
     } else {
       import("react-native").then(({ Share }) => {
-        Share.share({ message: content, title: `طلب إداري - ${item.employeeName}` });
+        Share.share({ message: content, title: isAr ? `طلب إداري - ${item.employeeName}` : `Administrative Request - ${item.employeeName}` });
       });
     }
   };

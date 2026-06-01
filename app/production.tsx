@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -81,6 +82,8 @@ const formatDate = (d: Date): string => {
 };
 
 export default function ProductionScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
@@ -151,7 +154,7 @@ export default function ProductionScreen() {
 
   const handleSave = async () => {
     if (activeMachines.length === 0) {
-      Alert.alert("تنبيه", "يرجى اختيار مكينة واحدة على الأقل");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
       return;
     }
 
@@ -194,7 +197,7 @@ export default function ProductionScreen() {
     await saveEntries(newEntries);
     resetForm();
     setShowForm(false);
-    Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
   };
 
   const handleEdit = (entry: ProductionEntry) => {
@@ -207,16 +210,16 @@ export default function ProductionScreen() {
 
   const handleDelete = (entry: ProductionEntry) => {
     if (Platform.OS === "web") {
-      const confirmed = confirm(`هل تريد حذف بيانات يوم "${entry.date}"؟`);
+      const confirmed = confirm(isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`);
       if (confirmed) {
         const newEntries = entries.filter((e) => e.id !== entry.id);
         saveEntries(newEntries);
       }
     } else {
-      Alert.alert("تأكيد الحذف", `هل تريد حذف بيانات يوم "${entry.date}"؟`, [
-        { text: "إلغاء", style: "cancel" },
+      Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`, [
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
-          text: "حذف",
+          text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
             const newEntries = entries.filter((e) => e.id !== entry.id);
@@ -334,34 +337,34 @@ export default function ProductionScreen() {
               <Text className="text-foreground font-bold text-sm mb-2 text-right">{machine}</Text>
               <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
                 <Text className="text-muted text-xs">
-                  إنتاج: <Text className="text-foreground font-semibold">{data.productionDozen}</Text> درزن / <Text className="text-foreground font-semibold">{data.productionPairs}</Text> زوج
+                  {isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-semibold">{data.productionDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text className="text-foreground font-semibold">{data.productionPairs}</Text> {isAr ? "زوج" : "Pairs"}
                 </Text>
                 <Text className="text-muted text-xs">
-                  مدة: <Text className="text-foreground font-semibold">{data.productionHours || "0"}</Text>س <Text className="text-foreground font-semibold">{data.productionMinutes || "0"}</Text>د
+                  {isAr ? "مدة:" : "Duration:"} <Text className="text-foreground font-semibold">{data.productionHours || "0"}</Text>{isAr ? "س" : "h"} <Text className="text-foreground font-semibold">{data.productionMinutes || "0"}</Text>{isAr ? "د" : "m"}
                 </Text>
                 <Text className="text-muted text-xs">
-                  هدر خيوط: <Text className="text-error font-semibold">{data.wasteThreadGrams}</Text> جم
+                  {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-semibold">{data.wasteThreadGrams}</Text> {isAr ? "جم" : "g"}
                 </Text>
                 <Text className="text-muted text-xs">
-                  هدر جوارب: <Text className="text-error font-semibold">{data.wasteSocksGrams}</Text> جم
+                  {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-semibold">{data.wasteSocksGrams}</Text> {isAr ? "جم" : "g"}
                 </Text>
                 <Text className="text-muted text-xs">
-                  نخب ثاني: <Text className="text-warning font-semibold">{data.secondGradeDozen || "0"}</Text> درزن <Text className="text-warning font-semibold">{data.secondGradePairs || "0"}</Text> زوج
+                  {isAr ? "نخب ثاني:" : "Second Grade:"} <Text className="text-warning font-semibold">{data.secondGradeDozen || "0"}</Text> {isAr ? "درزن" : "Dozen"} <Text className="text-warning font-semibold">{data.secondGradePairs || "0"}</Text> {isAr ? "زوج" : "Pairs"}
                 </Text>
                 <Text className="text-muted text-xs">
-                  إبر: <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> حبة
+                  {isAr ? "إبر:" : "Needles:"} <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> {isAr ? "حبة" : "pcs"}
                 </Text>
               </View>
               {/* وزن الخيوط */}
               <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
-                {parseFloat(data.yarnRubber) > 0 && <Text className="text-muted text-xs">مطاط: <Text className="text-foreground font-semibold">{data.yarnRubber}</Text>جم</Text>}
-                {parseFloat(data.yarnSpandex) > 0 && <Text className="text-muted text-xs">اسباندكس: <Text className="text-foreground font-semibold">{data.yarnSpandex}</Text>جم</Text>}
-                {parseFloat(data.yarnNylon) > 0 && <Text className="text-muted text-xs">نايلون: <Text className="text-foreground font-semibold">{data.yarnNylon}</Text>جم</Text>}
-                {parseFloat(data.yarnCotton) > 0 && <Text className="text-muted text-xs">قطن: <Text className="text-foreground font-semibold">{data.yarnCotton}</Text>جم</Text>}
-                {parseFloat(data.yarnBamboo) > 0 && <Text className="text-muted text-xs">بامبو: <Text className="text-foreground font-semibold">{data.yarnBamboo}</Text>جم</Text>}
-                {parseFloat(data.yarnSpan) > 0 && <Text className="text-muted text-xs">اسبان: <Text className="text-foreground font-semibold">{data.yarnSpan}</Text>جم</Text>}
-                <Text className="text-muted text-xs">إجمالي: <Text className="text-primary font-bold">{machineYarnTotal}</Text>جم</Text>
-                <Text className="text-muted text-xs">نسبة الهدر: <Text className="text-error font-bold">{machineWastePercent}%</Text></Text>
+                {parseFloat(data.yarnRubber) > 0 && <Text className="text-muted text-xs">{isAr ? "مطاط:" : "Rubber:"} <Text className="text-foreground font-semibold">{data.yarnRubber}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnSpandex) > 0 && <Text className="text-muted text-xs">{isAr ? "اسباندكس:" : "Spandex:"} <Text className="text-foreground font-semibold">{data.yarnSpandex}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnNylon) > 0 && <Text className="text-muted text-xs">{isAr ? "نايلون:" : "Nylon:"} <Text className="text-foreground font-semibold">{data.yarnNylon}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnCotton) > 0 && <Text className="text-muted text-xs">{isAr ? "قطن:" : "Cotton:"} <Text className="text-foreground font-semibold">{data.yarnCotton}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnBamboo) > 0 && <Text className="text-muted text-xs">{isAr ? "بامبو:" : "Bamboo:"} <Text className="text-foreground font-semibold">{data.yarnBamboo}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnSpan) > 0 && <Text className="text-muted text-xs">{isAr ? "اسبان:" : "Span:"} <Text className="text-foreground font-semibold">{data.yarnSpan}</Text>{isAr ? "جم" : "g"}</Text>}
+                <Text className="text-muted text-xs">{isAr ? "إجمالي:" : "Total:"} <Text className="text-primary font-bold">{machineYarnTotal}</Text>{isAr ? "جم" : "g"}</Text>
+                <Text className="text-muted text-xs">{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text className="text-error font-bold">{machineWastePercent}%</Text></Text>
               </View>
             </View>
           );
@@ -369,32 +372,32 @@ export default function ProductionScreen() {
 
         {/* المجموع */}
         <View className="bg-background rounded-lg p-3 mt-1 border-2 border-primary/30">
-          <Text className="text-primary font-bold text-sm mb-1 text-right">المجموع</Text>
+          <Text className="text-primary font-bold text-sm mb-1 text-right">{isAr ? "المجموع" : "Total"}</Text>
           <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
             <Text className="text-muted text-xs">
-              إنتاج: <Text className="text-foreground font-bold">{totals.totalDozen}</Text> درزن / <Text className="text-foreground font-bold">{totals.totalPairs}</Text> زوج
+              {isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-bold">{totals.totalDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text className="text-foreground font-bold">{totals.totalPairs}</Text> {isAr ? "زوج" : "Pairs"}
             </Text>
             <Text className="text-muted text-xs">
-              مدة الإنتاج: <Text className="text-foreground font-bold">{totals.totalHours}</Text>س <Text className="text-foreground font-bold">{totals.totalMinutes}</Text>د
+              مدة ال{isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-bold">{totals.totalHours}</Text>{isAr ? "س" : "h"} <Text className="text-foreground font-bold">{totals.totalMinutes}</Text>{isAr ? "د" : "m"}
             </Text>
             <Text className="text-muted text-xs">
-              هدر خيوط: <Text className="text-error font-bold">{totals.totalWasteThread}</Text> جم
+              {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-bold">{totals.totalWasteThread}</Text> {isAr ? "جم" : "g"}
             </Text>
             <Text className="text-muted text-xs">
-              هدر جوارب: <Text className="text-error font-bold">{totals.totalWasteSocks}</Text> جم
+              {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-bold">{totals.totalWasteSocks}</Text> {isAr ? "جم" : "g"}
             </Text>
             <Text className="text-muted text-xs">
-              نخب ثاني: <Text className="text-warning font-bold">{totals.totalSecondDozen}</Text> درزن <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> زوج
+              {isAr ? "نخب ثاني:" : "Second Grade:"} <Text className="text-warning font-bold">{totals.totalSecondDozen}</Text> {isAr ? "درزن" : "Dozen"} <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> {isAr ? "زوج" : "Pairs"}
             </Text>
             <Text className="text-muted text-xs">
-              إبر: <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> حبة
+              {isAr ? "إبر:" : "Needles:"} <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> {isAr ? "حبة" : "pcs"}
             </Text>
           </View>
           {/* إجمالي وزن الخيوط ونسبة الهدر */}
           <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
-            <Text className="text-muted text-xs">إجمالي وزن الخيوط: <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> جم</Text>
-            <Text className="text-muted text-xs">إجمالي كمية الهدر: <Text className="text-error font-bold">{totals.totalWasteAll}</Text> جم</Text>
-            <Text className="text-muted text-xs">نسبة الهدر: <Text className="text-error font-bold">{totals.wastePercentage}%</Text></Text>
+            <Text className="text-muted text-xs">{isAr ? "إجمالي وزن الخيوط:" : "Total Yarn Weight:"} <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> {isAr ? "جم" : "g"}</Text>
+            <Text className="text-muted text-xs">{isAr ? "إجمالي كمية الهدر:" : "Total Waste Amount:"} <Text className="text-error font-bold">{totals.totalWasteAll}</Text> {isAr ? "جم" : "g"}</Text>
+            <Text className="text-muted text-xs">{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text className="text-error font-bold">{totals.wastePercentage}%</Text></Text>
           </View>
         </View>
       </View>
@@ -406,12 +409,12 @@ export default function ProductionScreen() {
     <ScrollView className="flex-1 px-4 py-4">
       <View className="bg-surface rounded-xl p-5 border border-border mb-4">
         <Text className="text-foreground font-bold text-lg mb-5 text-right">
-          {editingEntry ? "✏️ تعديل بيانات الإنتاج" : "➕ إضافة بيانات إنتاج"}
+          {editingEntry ? isAr ? "✏️ تعديل بيانات الإنتاج" : "✏️ Edit Production Data" : isAr ? "➕ إضافة بيانات إنتاج" : "➕ Add Production Data"}
         </Text>
 
         {/* التاريخ الموحد */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">تاريخ الإنتاج</Text>
+          <Text className="text-foreground font-semibold text-sm mb-2 text-right">{isAr ? "تاريخ الإنتاج" : "Production Date"}</Text>
           <TextInput
             className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
             placeholder="YYYY-MM-DD"
@@ -420,12 +423,12 @@ export default function ProductionScreen() {
             onChangeText={setSelectedDate}
             returnKeyType="next"
           />
-          <Text className="text-muted text-xs mt-1 text-right">تاريخ واحد لجميع المكائن</Text>
+          <Text className="text-muted text-xs mt-1 text-right">{isAr ? "تاريخ واحد لجميع المكائن" : "One date for all machines"}</Text>
         </View>
 
         {/* اختيار المكائن التي عملت */}
         <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">اختر المكائن التي عملت في هذا اليوم</Text>
+          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اختر المكائن التي عملت في هذا اليوم" : "Select machines that worked today"}</Text>
           <View className="flex-row flex-wrap gap-2 justify-end">
             {MACHINES.map((machine) => (
               <TouchableOpacity
@@ -470,7 +473,7 @@ export default function ProductionScreen() {
           {/* كمية الإنتاج */}
           <View className="flex-row gap-2 mb-3">
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">إنتاج (زوج)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "إنتاج (زوج)" : "Production (Pairs)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -481,7 +484,7 @@ export default function ProductionScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">إنتاج (درزن)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "إنتاج (درزن)" : "Production (Dozen)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -496,7 +499,7 @@ export default function ProductionScreen() {
           {/* هدر الخيوط وهدر الجوارب */}
           <View className="flex-row gap-2 mb-3">
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">هدر جوارب (جم)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر جوارب (جم)" : "Socks Waste (g)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -507,7 +510,7 @@ export default function ProductionScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">هدر خيوط (جم)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر خيوط (جم)" : "Thread Waste (g)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -522,7 +525,7 @@ export default function ProductionScreen() {
           {/* النخب الثاني وهدر الإبر */}
           <View className="flex-row gap-2 mb-3">
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">هدر إبر (حبة)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر إبر (حبة)" : "Needles Waste (pcs)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -533,7 +536,7 @@ export default function ProductionScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">نخب ثاني (زوج)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نخب ثاني (زوج)" : "Second Grade (Pairs)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -544,7 +547,7 @@ export default function ProductionScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">نخب ثاني (درزن)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نخب ثاني (درزن)" : "Second Grade (Dozen)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -559,7 +562,7 @@ export default function ProductionScreen() {
           {/* مدة الإنتاج */}
           <View className="flex-row gap-2 mb-3">
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">مدة الإنتاج (دقيقة)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مدة الإنتاج (دقيقة)" : "Production Duration (Minutes)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -570,7 +573,7 @@ export default function ProductionScreen() {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">مدة الإنتاج (ساعة)</Text>
+              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مدة الإنتاج (ساعة)" : "Production Duration (Hours)"}</Text>
               <TextInput
                 className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                 placeholder="0"
@@ -584,10 +587,10 @@ export default function ProductionScreen() {
 
           {/* وزن الخيوط حسب النوع */}
           <View className="border-t border-border pt-3 mt-1">
-            <Text className="text-foreground font-semibold text-xs mb-2 text-right">وزن الخيوط المستخدمة (جرام)</Text>
+            <Text className="text-foreground font-semibold text-xs mb-2 text-right">{isAr ? "وزن الخيوط المستخدمة (جرام)" : "Used Yarn Weight (grams)"}</Text>
             <View className="flex-row gap-2 mb-2">
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">اسباندكس</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "اسباندكس" : "Spandex"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -598,7 +601,7 @@ export default function ProductionScreen() {
                 />
               </View>
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">مطاط</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مطاط" : "Rubber"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -611,7 +614,7 @@ export default function ProductionScreen() {
             </View>
             <View className="flex-row gap-2 mb-2">
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">قطن</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "قطن" : "Cotton"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -622,7 +625,7 @@ export default function ProductionScreen() {
                 />
               </View>
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">نايلون</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نايلون" : "Nylon"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -635,7 +638,7 @@ export default function ProductionScreen() {
             </View>
             <View className="flex-row gap-2">
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">اسبان</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "اسبان" : "Span"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -646,7 +649,7 @@ export default function ProductionScreen() {
                 />
               </View>
               <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">بامبو</Text>
+                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "بامبو" : "Bamboo"}</Text>
                 <TextInput
                   className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
                   placeholder="0"
@@ -678,7 +681,7 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-sm">إلغاء</Text>
+            <Text className="text-foreground font-semibold text-sm">{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={18} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -696,7 +699,7 @@ export default function ProductionScreen() {
                 gap: 6,
               }}
             >
-              <Text className="text-white font-semibold text-sm">تعديل</Text>
+              <Text className="text-white font-semibold text-sm">{isAr ? "تعديل" : "Edit"}</Text>
               <MaterialIcons name="edit" size={18} color="white" />
             </TouchableOpacity>
           )}
@@ -714,7 +717,7 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-white font-semibold text-sm">حفظ</Text>
+            <Text className="text-white font-semibold text-sm">{isAr ? "حفظ" : "Save"}</Text>
             <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -745,7 +748,7 @@ export default function ProductionScreen() {
           <MaterialIcons name="analytics" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* أيقونة إجمالي بيانات المكائن - يفتح شاشة منفصلة */}
+        {/* أيقونة {isAr ? "إجمالي بيانات المكائن" : "Total Machine Data"} - يفتح شاشة منفصلة */}
         <TouchableOpacity
           onPress={() => router.push("/production-totals" as any)}
           style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
@@ -757,8 +760,8 @@ export default function ProductionScreen() {
 
         {/* العنوان */}
         <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">الإنتاج</Text>
-          <Text className="text-white/80 text-sm mt-1">{entries.length} سجل</Text>
+          <Text className="text-white font-bold text-xl">{isAr ? "الإنتاج" : "Production"}</Text>
+          <Text className="text-white/80 text-sm mt-1">{entries.length} {isAr ? "سجل" : "Record"}</Text>
         </View>
 
         {/* زر الرجوع */}
@@ -771,7 +774,7 @@ export default function ProductionScreen() {
         const todayStr = formatDate(new Date());
         const todayEntries = entries.filter(e => e.date === todayStr);
         const allEntries = todayEntries.length > 0 ? todayEntries : entries;
-        const label = todayEntries.length > 0 ? `ملخص اليوم (${todayStr})` : `ملخص آخر يوم (${allEntries[0]?.date})`;
+        const label = todayEntries.length > 0 ? isAr ? `ملخص اليوم (${todayStr})` : `Today's Summary (${todayStr})` : isAr ? `ملخص آخر يوم (${allEntries[0]?.date})` : `Last Day's Summary (${allEntries[0]?.date})`;
         
         let sumYarnWeight = 0;
         let sumWasteThread = 0;
@@ -799,32 +802,32 @@ export default function ProductionScreen() {
             <View className="flex-row justify-between items-center mb-2">
               <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
                 <MaterialIcons name="scale" size={22} color="#0a7ea4" />
-                <Text className="text-muted text-xs mt-1">إجمالي وزن الخيوط</Text>
+                <Text className="text-muted text-xs mt-1">{isAr ? "إجمالي وزن الخيوط" : "Total Yarn Weight"}</Text>
                 <Text className="text-primary font-bold text-lg">{sumYarnWeight.toFixed(0)}</Text>
-                <Text className="text-muted text-xs">جرام</Text>
+                <Text className="text-muted text-xs">{isAr ? "جرام" : "grams"}</Text>
               </View>
               <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
                 <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
-                <Text className="text-muted text-xs mt-1">إجمالي كمية الهدر</Text>
+                <Text className="text-muted text-xs mt-1">{isAr ? "إجمالي كمية الهدر" : "Total Waste Amount"}</Text>
                 <Text className="text-error font-bold text-lg">{sumWasteAll.toFixed(0)}</Text>
-                <Text className="text-muted text-xs">جرام</Text>
+                <Text className="text-muted text-xs">{isAr ? "جرام" : "grams"}</Text>
               </View>
               <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
                 <MaterialIcons name="percent" size={22} color="#f59e0b" />
-                <Text className="text-muted text-xs mt-1">نسبة الهدر</Text>
+                <Text className="text-muted text-xs mt-1">{isAr ? "نسبة الهدر" : "Waste Percentage"}</Text>
                 <Text className="text-warning font-bold text-lg">{wastePercent}%</Text>
-                <Text className="text-muted text-xs">من الخيوط</Text>
+                <Text className="text-muted text-xs">{isAr ? "من الخيوط" : "of Yarn"}</Text>
               </View>
             </View>
             <View className="flex-row justify-end gap-4 mt-2 pt-2 border-t border-border">
-              <Text className="text-muted text-xs">هدر خيوط: <Text className="text-error font-semibold">{sumWasteThread.toFixed(0)}</Text> جم</Text>
-              <Text className="text-muted text-xs">هدر جوارب: <Text className="text-error font-semibold">{sumWasteSocks.toFixed(0)}</Text> جم</Text>
+              <Text className="text-muted text-xs">{isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-semibold">{sumWasteThread.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
+              <Text className="text-muted text-xs">{isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-semibold">{sumWasteSocks.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
             </View>
           </View>
         );
       })()}
 
-      {/* بطاقة إجمالي بيانات المكائن - كبيرة وواضحة */}
+      {/* بطاقة {isAr ? "إجمالي بيانات المكائن" : "Total Machine Data"} - كبيرة وواضحة */}
       {!showForm && (
         <TouchableOpacity
           onPress={() => router.push("/production-totals" as any)}
@@ -847,10 +850,10 @@ export default function ProductionScreen() {
           </View>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
             <Text style={{ fontSize: 16, fontWeight: "bold", color: "#16a34a" }}>
-              إجمالي بيانات المكائن
+              {isAr ? "إجمالي بيانات المكائن" : "Total Machine Data"}
             </Text>
             <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>
-              عرض إجماليات الإنتاج والهدر والخيوط
+              {isAr ? "عرض إجماليات الإنتاج والهدر والخيوط" : "View Production, Waste, and Yarn Totals"}
             </Text>
           </View>
           <View style={{ backgroundColor: "#16a34a", borderRadius: 12, padding: 10, marginLeft: 12 }}>
@@ -872,16 +875,16 @@ export default function ProductionScreen() {
               <View style={{ backgroundColor: "#16a34a15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="precision-manufacturing" size={48} color="#16a34a" />
               </View>
-              <Text className="text-foreground text-lg mt-5 font-bold">الإنتاج</Text>
+              <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "الإنتاج" : "Production"}</Text>
               <Text className="text-muted text-sm mt-2 text-center px-8">
-                لا توجد بيانات إنتاج بعد.{"\n"}اضغط على زر (+) لإضافة بيانات إنتاج جديدة.
+                {isAr ? "لا توجد بيانات إنتاج بعد." : "No production data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة بيانات إنتاج جديدة." : "Press the (+) button to add new production data."}
               </Text>
               <TouchableOpacity
                 onPress={() => { resetForm(); setShowForm(true); }}
                 style={{ backgroundColor: "#16a34a", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text className="text-white font-semibold">إضافة إنتاج</Text>
+                  <Text className="text-white font-semibold">{isAr ? "إضافة إنتاج" : "Add Production"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>

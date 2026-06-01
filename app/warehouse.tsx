@@ -14,7 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
-
+import { useLanguage } from "@/lib/language-context";
 
 interface WarehouseSection {
   id: string;
@@ -25,45 +25,47 @@ interface WarehouseSection {
   description: string;
 }
 
-const WAREHOUSE_SECTIONS: WarehouseSection[] = [
-  {
-    id: "manufacturing_view",
-    label: "مراحل تسليم الإنتاج",
-    icon: "precision-manufacturing",
-    color: "#8b5cf6",
-    route: "/manufacturing",
-    description: "عرض مراحل التسليم (قراءة فقط)",
-  },
-  {
-    id: "finished_in",
-    label: "مستودع الإنتاج التام",
-    icon: "inventory",
-    color: "#16a34a",
-    route: "/warehouse-finished",
-    description: "إدخال الإنتاج التام والنخب الثاني",
-  },
-  {
-    id: "raw_in",
-    label: "مستودع المواد الخام",
-    icon: "inventory-2",
-    color: "#3b82f6",
-    route: "/warehouse-raw",
-    description: "إدخال المواد الخام والخيوط وقطع الغيار",
-  },
-  {
-    id: "out",
-    label: "الخارج من المستودعات",
-    icon: "output",
-    color: "#ef4444",
-    route: "/warehouse-out",
-    description: "إخراج من مستودع الإنتاج التام أو المواد الخام",
-  },
-];
-
 export default function WarehouseScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
+  const WAREHOUSE_SECTIONS: WarehouseSection[] = [
+    {
+      id: "manufacturing_view",
+      label: isAr ? "مراحل تسليم الإنتاج" : "Production Delivery Stages",
+      icon: "precision-manufacturing",
+      color: "#8b5cf6",
+      route: "/manufacturing",
+      description: isAr ? "عرض مراحل التسليم (قراءة فقط)" : "View delivery stages (Read only)",
+    },
+    {
+      id: "finished_in",
+      label: isAr ? "مستودع الإنتاج التام" : "Finished Goods Warehouse",
+      icon: "inventory",
+      color: "#16a34a",
+      route: "/warehouse-finished",
+      description: isAr ? "إدخال الإنتاج التام والنخب الثاني" : "Input finished goods and second grade",
+    },
+    {
+      id: "raw_in",
+      label: isAr ? "مستودع المواد الخام" : "Raw Materials Warehouse",
+      icon: "inventory-2",
+      color: "#3b82f6",
+      route: "/warehouse-raw",
+      description: isAr ? "إدخال المواد الخام والخيوط وقطع الغيار" : "Input raw materials, threads, and spare parts",
+    },
+    {
+      id: "out",
+      label: isAr ? "الخارج من المستودعات" : "Warehouse Outbound",
+      icon: "output",
+      color: "#ef4444",
+      route: "/warehouse-out",
+      description: isAr ? "إخراج من مستودع الإنتاج التام أو المواد الخام" : "Output from finished goods or raw materials warehouse",
+    },
+  ];
 
   return (
     <ScreenContainer className="bg-background">
@@ -71,8 +73,8 @@ export default function WarehouseScreen() {
       <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
         <BackButton />
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>المستودعات</Text>
-          <Text style={styles.headerSubtitle}>إدارة المخزون والمواد</Text>
+          <Text style={styles.headerTitle}>{isAr ? "المستودعات" : "Warehouses"}</Text>
+          <Text style={styles.headerSubtitle}>{isAr ? "إدارة المخزون والمواد" : "Inventory and Materials Management"}</Text>
         </View>
         <AdminBadgeIcon />
       </View>

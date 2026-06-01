@@ -15,10 +15,13 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { backupService } from "@/lib/services/backup.service";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/language-context";
 
 export default function BackupRestoreScreen() {
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [stats, setStats] = useState<{ totalKeys: number; totalSize: string; lastBackup: string | null }>({
     totalKeys: 0,
     totalSize: "0 bytes",
@@ -43,9 +46,9 @@ export default function BackupRestoreScreen() {
       await backupService.exportBackup(user?.username || "admin");
       await backupService.saveLastBackupDate();
       await loadStats();
-      Alert.alert("نجاح", "تم إنشاء النسخة الاحتياطية بنجاح");
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إنشاء النسخة الاحتياطية بنجاح" : "Backup created successfully");
     } catch (e: any) {
-      Alert.alert("خطأ", e.message || "فشل إنشاء النسخة الاحتياطية");
+      Alert.alert(isAr ? "خطأ" : "Error", e.message || (isAr ? "فشل إنشاء النسخة الاحتياطية" : "Failed to create backup"));
     } finally {
       setIsLoading(false);
       setAction("");
@@ -69,27 +72,27 @@ export default function BackupRestoreScreen() {
           const backup = JSON.parse(text);
 
           if (!backup.version || !backup.data) {
-            throw new Error("ملف النسخة الاحتياطية غير صالح");
+            throw new Error(isAr ? "ملف النسخة الاحتياطية غير صالح" : "Invalid backup file");
           }
 
           Alert.alert(
-            "تأكيد الاستعادة",
-            `هل تريد استعادة النسخة الاحتياطية المؤرخة ${new Date(backup.createdAt).toLocaleDateString("ar-SA")}؟\nسيتم استبدال البيانات الحالية.`,
+            isAr ? "تأكيد الاستعادة" : "Confirm Restore",
+            isAr ? `هل تريد استعادة النسخة الاحتياطية المؤرخة ${new Date(backup.createdAt).toLocaleDateString("ar-SA")}؟\nسيتم استبدال البيانات الحالية.` : `Do you want to restore the backup dated ${new Date(backup.createdAt).toLocaleDateString("en-US")}?\nCurrent data will be replaced.`,
             [
-              { text: "إلغاء", style: "cancel" },
+              { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
               {
-                text: "استعادة",
+                text: isAr ? "استعادة" : "Restore",
                 style: "destructive",
                 onPress: async () => {
                   const result = await backupService.restoreBackup(backup);
                   await loadStats();
-                  Alert.alert("نجاح", `تم استعادة ${result.restored} عنصر بنجاح`);
+                  Alert.alert(isAr ? "نجاح" : "Success", isAr ? `تم استعادة ${result.restored} عنصر بنجاح` : `Successfully restored ${result.restored} items`);
                 },
               },
             ]
           );
         } catch (e: any) {
-          Alert.alert("خطأ", e.message || "فشل قراءة ملف النسخة الاحتياطية");
+          Alert.alert(isAr ? "خطأ" : "Error", e.message || (isAr ? "فشل قراءة ملف النسخة الاحتياطية" : "Failed to read backup file"));
         } finally {
           setIsLoading(false);
           setAction("");
@@ -97,7 +100,7 @@ export default function BackupRestoreScreen() {
       };
       input.click();
     } else {
-      Alert.alert("استعادة", "يرجى اختيار ملف النسخة الاحتياطية (.json) من جهازك");
+      Alert.alert(isAr ? "استعادة" : "Restore", isAr ? "يرجى اختيار ملف النسخة الاحتياطية (.json) من جهازك" : "Please select a backup file (.json) from your device");
       setIsLoading(false);
     }
   };
@@ -106,31 +109,31 @@ export default function BackupRestoreScreen() {
     <ScreenContainer>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>النسخ الاحتياطي والاستعادة</Text>
+        <Text style={styles.headerTitle}>{isAr ? "النسخ الاحتياطي والاستعادة" : "Backup and Restore"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content}>
         {/* إحصائيات */}
         <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.statsTitle, { color: colors.foreground }]}>حالة البيانات</Text>
+          <Text style={[styles.statsTitle, { color: colors.foreground }]}>{isAr ? "حالة البيانات" : "Data Status"}</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <MaterialIcons name="storage" size={28} color={colors.primary} />
               <Text style={[styles.statValue, { color: colors.foreground }]}>{stats.totalKeys}</Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>أقسام محفوظة</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>{isAr ? "أقسام محفوظة" : "Saved Sections"}</Text>
             </View>
             <View style={styles.statItem}>
               <MaterialIcons name="sd-storage" size={28} color="#f59e0b" />
               <Text style={[styles.statValue, { color: colors.foreground }]}>{stats.totalSize}</Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>حجم البيانات</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>{isAr ? "حجم البيانات" : "Data Size"}</Text>
             </View>
             <View style={styles.statItem}>
               <MaterialIcons name="schedule" size={28} color="#22c55e" />
               <Text style={[styles.statValue, { color: colors.foreground }]}>
-                {stats.lastBackup ? new Date(stats.lastBackup).toLocaleDateString("ar-SA") : "لا يوجد"}
+                {stats.lastBackup ? new Date(stats.lastBackup).toLocaleDateString(isAr ? "ar-SA" : "en-US") : (isAr ? "لا يوجد" : "None")}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.muted }]}>آخر نسخة</Text>
+              <Text style={[styles.statLabel, { color: colors.muted }]}>{isAr ? "آخر نسخة" : "Last Backup"}</Text>
             </View>
           </View>
         </View>
@@ -140,9 +143,9 @@ export default function BackupRestoreScreen() {
           <View style={styles.actionHeader}>
             <MaterialIcons name="backup" size={32} color={colors.primary} />
             <View style={styles.actionInfo}>
-              <Text style={[styles.actionTitle, { color: colors.foreground }]}>إنشاء نسخة احتياطية</Text>
+              <Text style={[styles.actionTitle, { color: colors.foreground }]}>{isAr ? "إنشاء نسخة احتياطية" : "Create Backup"}</Text>
               <Text style={[styles.actionDesc, { color: colors.muted }]}>
-                حفظ جميع بيانات التطبيق في ملف JSON يمكن استعادته لاحقاً
+                {isAr ? "حفظ جميع بيانات التطبيق في ملف JSON يمكن استعادته لاحقاً" : "Save all app data in a JSON file that can be restored later"}
               </Text>
             </View>
           </View>
@@ -161,7 +164,7 @@ export default function BackupRestoreScreen() {
             ) : (
               <>
                 <MaterialIcons name="cloud-download" size={20} color="white" />
-                <Text style={styles.actionBtnText}>تصدير النسخة الاحتياطية</Text>
+                <Text style={styles.actionBtnText}>{isAr ? "تصدير النسخة الاحتياطية" : "Export Backup"}</Text>
               </>
             )}
           </Pressable>
@@ -172,9 +175,9 @@ export default function BackupRestoreScreen() {
           <View style={styles.actionHeader}>
             <MaterialIcons name="restore" size={32} color="#f59e0b" />
             <View style={styles.actionInfo}>
-              <Text style={[styles.actionTitle, { color: colors.foreground }]}>استعادة من نسخة احتياطية</Text>
+              <Text style={[styles.actionTitle, { color: colors.foreground }]}>{isAr ? "استعادة من نسخة احتياطية" : "Restore from Backup"}</Text>
               <Text style={[styles.actionDesc, { color: colors.muted }]}>
-                استيراد بيانات من ملف نسخة احتياطية سابقة (سيتم استبدال البيانات الحالية)
+                {isAr ? "استيراد بيانات من ملف نسخة احتياطية سابقة (سيتم استبدال البيانات الحالية)" : "Import data from a previous backup file (current data will be replaced)"}
               </Text>
             </View>
           </View>
@@ -193,7 +196,7 @@ export default function BackupRestoreScreen() {
             ) : (
               <>
                 <MaterialIcons name="cloud-upload" size={20} color="white" />
-                <Text style={styles.actionBtnText}>استيراد نسخة احتياطية</Text>
+                <Text style={styles.actionBtnText}>{isAr ? "استيراد نسخة احتياطية" : "Import Backup"}</Text>
               </>
             )}
           </Pressable>
@@ -203,12 +206,9 @@ export default function BackupRestoreScreen() {
         <View style={[styles.warningCard, { backgroundColor: "#fef3c7", borderColor: "#f59e0b" }]}>
           <MaterialIcons name="warning" size={24} color="#f59e0b" />
           <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={[styles.warningTitle, { color: "#92400e" }]}>تنبيهات مهمة</Text>
+            <Text style={[styles.warningTitle, { color: "#92400e" }]}>{isAr ? "تنبيهات مهمة" : "Important Alerts"}</Text>
             <Text style={[styles.warningText, { color: "#92400e" }]}>
-              • احرص على إنشاء نسخة احتياطية بشكل دوري{"\n"}
-              • عند الاستعادة سيتم استبدال جميع البيانات الحالية{"\n"}
-              • احفظ ملف النسخة الاحتياطية في مكان آمن{"\n"}
-              • لا تعدل محتوى ملف النسخة الاحتياطية يدوياً
+              {isAr ? "• احرص على إنشاء نسخة احتياطية بشكل دوري\n• عند الاستعادة سيتم استبدال جميع البيانات الحالية\n• احفظ ملف النسخة الاحتياطية في مكان آمن\n• لا تعدل محتوى ملف النسخة الاحتياطية يدوياً" : "• Make sure to create a backup periodically\n• When restoring, all current data will be replaced\n• Save the backup file in a safe place\n• Do not manually modify the backup file content"}
             </Text>
           </View>
         </View>

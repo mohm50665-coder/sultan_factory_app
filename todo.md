@@ -276,3 +276,26 @@
 - [x] إضافة خاصية تصدير الطلبات كملف PDF
 - [x] إضافة إشعارات تنبيهية عند إنشاء طلب جديد أو تغيير حالة طلب
 - [x] إضافة بطاقة كبيرة وواضحة للإجراءات الإدارية (AdminCard) داخل جميع شاشات الأقسام (الإنتاج، المبيعات، المستودعات، الصيانة، المصروفات، التصنيع، التحصيل) وفي لوحة معلومات ممثل مجلس الإدارة
+
+## إصلاح crash التطبيق وترجمة شاملة
+- [x] تعطيل New Architecture (newArchEnabled: false) لتجنب crash على الجوال
+- [x] إضافة Error Boundary لمنع crash التطبيق وعرض رسالة خطأ بدلاً من إغلاق
+- [x] إزالة console.log من theme-provider.tsx
+- [x] ترجمة شاملة لجميع شاشات التطبيق (16 ملف + AdminCard) باستخدام نمط isAr ? ar : en
+- [x] ترجمة production.tsx
+- [x] ترجمة sales.tsx
+- [x] ترجمة warehouse.tsx
+- [x] ترجمة maintenance.tsx
+- [x] ترجمة financial.tsx
+- [x] ترجمة manufacturing.tsx
+- [x] ترجمة collection.tsx
+- [x] ترجمة administrative.tsx
+- [x] ترجمة production-totals.tsx
+- [x] ترجمة admin-dashboard.tsx
+- [x] ترجمة dashboard-analytics.tsx
+- [x] ترجمة login.tsx
+- [x] ترجمة activity-log.tsx
+- [x] ترجمة waste-alerts.tsx
+- [x] ترجمة backup-restore.tsx
+- [x] ترجمة production-export.tsx
+- [x] ترجمة AdminCard component

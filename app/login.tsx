@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const colors = useColors();
   const { login } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -35,10 +36,10 @@ export default function LoginScreen() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.username.trim()) {
-      newErrors.username = language === "ar" ? "اسم المستخدم مطلوب" : "Username is required";
+      newErrors.username = isAr ? "اسم المستخدم مطلوب" : "Username is required";
     }
     if (!formData.password) {
-      newErrors.password = language === "ar" ? "كلمة المرور مطلوبة" : "Password is required";
+      newErrors.password = isAr ? "كلمة المرور مطلوبة" : "Password is required";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -73,7 +74,7 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={toggleLanguage} style={styles.langBtn}>
               <MaterialIcons name="language" size={18} color="white" />
               <Text style={styles.langBtnText}>
-                {language === "ar" ? "English" : "العربية"}
+                {isAr ? "English" : "العربية"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -172,7 +173,7 @@ export default function LoginScreen() {
               {/* Divider */}
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>{language === "ar" ? "أو" : "or"}</Text>
+                <Text style={styles.dividerText}>{isAr ? "أو" : "or"}</Text>
                 <View style={styles.dividerLine} />
               </View>
 

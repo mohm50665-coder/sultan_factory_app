@@ -14,14 +14,11 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { MaterialIcons } from "@expo/vector-icons";
 import { wasteAlertsService, type WasteAlert, type WasteThreshold } from "@/lib/services/waste-alerts";
-
-const ALERT_TYPE_INFO: Record<string, { label: string; color: string; icon: string }> = {
-  waste_percentage: { label: "نسبة هدر عالية", color: "#ef4444", icon: "warning" },
-  needles_excess: { label: "هدر إبر مرتفع", color: "#f59e0b", icon: "push-pin" },
-  second_grade: { label: "نخب ثاني مرتفع", color: "#8b5cf6", icon: "low-priority" },
-};
+import { useLanguage } from "@/lib/language-context";
 
 export default function WasteAlertsScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const [alerts, setAlerts] = useState<WasteAlert[]>([]);
   const [thresholds, setThresholds] = useState<WasteThreshold[]>([]);
@@ -32,6 +29,12 @@ export default function WasteAlertsScreen() {
     maxSecondGradePercentage: "3",
   });
   const [activeTab, setActiveTab] = useState<"alerts" | "settings">("alerts");
+
+  const ALERT_TYPE_INFO: Record<string, { label: string; color: string; icon: string }> = {
+    waste_percentage: { label: isAr ? "نسبة هدر عالية" : "High Waste Percentage", color: "#ef4444", icon: "warning" },
+    needles_excess: { label: isAr ? "هدر إبر مرتفع" : "High Needles Waste", color: "#f59e0b", icon: "push-pin" },
+    second_grade: { label: isAr ? "نخب ثاني مرتفع" : "High Second Grade", color: "#8b5cf6", icon: "low-priority" },
+  };
 
   const loadData = useCallback(async () => {
     const a = await wasteAlertsService.getAlerts();
@@ -57,17 +60,21 @@ export default function WasteAlertsScreen() {
   };
 
   const handleClearAlerts = () => {
-    Alert.alert("تأكيد", "هل تريد مسح جميع التنبيهات؟", [
-      { text: "إلغاء" },
-      {
-        text: "مسح",
-        style: "destructive",
-        onPress: async () => {
-          await wasteAlertsService.clearAlerts();
-          loadData();
+    Alert.alert(
+      isAr ? "تأكيد" : "Confirm",
+      isAr ? "هل تريد مسح جميع التنبيهات؟" : "Do you want to clear all alerts?",
+      [
+        { text: isAr ? "إلغاء" : "Cancel" },
+        {
+          text: isAr ? "مسح" : "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await wasteAlertsService.clearAlerts();
+            loadData();
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleSaveThreshold = async () => {
@@ -80,7 +87,10 @@ export default function WasteAlertsScreen() {
       isActive: true,
     };
     await wasteAlertsService.updateThreshold(threshold);
-    Alert.alert("نجاح", "تم حفظ إعدادات الحدود بنجاح");
+    Alert.alert(
+      isAr ? "نجاح" : "Success",
+      isAr ? "تم حفظ إعدادات الحدود بنجاح" : "Threshold settings saved successfully"
+    );
     loadData();
   };
 
@@ -105,7 +115,7 @@ export default function WasteAlertsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>تنبيهات الهدر</Text>
+        <Text style={styles.headerTitle}>{isAr ? "تنبيهات الهدر" : "Waste Alerts"}</Text>
         <View style={styles.headerActions}>
           {unreadCount > 0 && (
             <TouchableOpacity onPress={handleMarkAllRead} style={styles.headerActionBtn}>
@@ -122,7 +132,7 @@ export default function WasteAlertsScreen() {
           style={[styles.tab, activeTab === "alerts" && styles.tabActive]}
         >
           <Text style={[styles.tabText, activeTab === "alerts" && styles.tabTextActive]}>
-            التنبيهات {unreadCount > 0 ? `(${unreadCount})` : ""}
+            {isAr ? "التنبيهات" : "Alerts"} {unreadCount > 0 ? `(${unreadCount})` : ""}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -130,7 +140,7 @@ export default function WasteAlertsScreen() {
           style={[styles.tab, activeTab === "settings" && styles.tabActive]}
         >
           <Text style={[styles.tabText, activeTab === "settings" && styles.tabTextActive]}>
-            إعدادات الحدود
+            {isAr ? "إعدادات الحدود" : "Threshold Settings"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -140,13 +150,15 @@ export default function WasteAlertsScreen() {
           {alerts.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialIcons name="check-circle" size={48} color="#22c55e" />
-              <Text style={styles.emptyText}>لا توجد تنبيهات</Text>
-              <Text style={styles.emptySubtext}>جميع المكائن تعمل ضمن الحدود المسموحة</Text>
+              <Text style={styles.emptyText}>{isAr ? "لا توجد تنبيهات" : "No Alerts"}</Text>
+              <Text style={styles.emptySubtext}>
+                {isAr ? "جميع المكائن تعمل ضمن الحدود المسموحة" : "All machines are operating within allowed limits"}
+              </Text>
             </View>
           ) : (
             <>
               {alerts.map((alert) => {
-                const typeInfo = ALERT_TYPE_INFO[alert.alertType] || { label: "تنبيه", color: "#6b7280", icon: "info" };
+                const typeInfo = ALERT_TYPE_INFO[alert.alertType] || { label: isAr ? "تنبيه" : "Alert", color: "#6b7280", icon: "info" };
                 return (
                   <TouchableOpacity
                     key={alert.id}
@@ -163,8 +175,8 @@ export default function WasteAlertsScreen() {
                       </View>
                       <Text style={styles.alertMessage}>{alert.message}</Text>
                       <View style={styles.alertFooter}>
-                        <Text style={styles.alertMachine}>المكينة: {alert.machineId}</Text>
-                        <Text style={styles.alertDate}>التاريخ: {alert.date}</Text>
+                        <Text style={styles.alertMachine}>{isAr ? "المكينة:" : "Machine:"} {alert.machineId}</Text>
+                        <Text style={styles.alertDate}>{isAr ? "التاريخ:" : "Date:"} {alert.date}</Text>
                       </View>
                     </View>
                     {!alert.isRead && <View style={styles.unreadDot} />}
@@ -173,7 +185,7 @@ export default function WasteAlertsScreen() {
               })}
               <TouchableOpacity onPress={handleClearAlerts} style={styles.clearAllBtn}>
                 <MaterialIcons name="delete-sweep" size={18} color="#ef4444" />
-                <Text style={styles.clearAllText}>مسح جميع التنبيهات</Text>
+                <Text style={styles.clearAllText}>{isAr ? "مسح جميع التنبيهات" : "Clear All Alerts"}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -181,13 +193,13 @@ export default function WasteAlertsScreen() {
       ) : (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           <View style={styles.settingsCard}>
-            <Text style={styles.settingsTitle}>حدود الهدر المسموحة</Text>
+            <Text style={styles.settingsTitle}>{isAr ? "حدود الهدر المسموحة" : "Allowed Waste Thresholds"}</Text>
             <Text style={styles.settingsDesc}>
-              سيتم إرسال تنبيه عند تجاوز أي من هذه الحدود أثناء إدخال بيانات الإنتاج
+              {isAr ? "سيتم إرسال تنبيه عند تجاوز أي من هذه الحدود أثناء إدخال بيانات الإنتاج" : "An alert will be sent when any of these thresholds are exceeded during production data entry"}
             </Text>
 
             <View style={styles.settingItem}>
-              <Text style={styles.settingLabel}>الحد الأقصى لنسبة الهدر (%)</Text>
+              <Text style={styles.settingLabel}>{isAr ? "الحد الأقصى لنسبة الهدر (%)" : "Max Waste Percentage (%)"}</Text>
               <TextInput
                 style={styles.settingInput}
                 value={editThreshold.maxWastePercentage}
@@ -198,7 +210,7 @@ export default function WasteAlertsScreen() {
             </View>
 
             <View style={styles.settingItem}>
-              <Text style={styles.settingLabel}>الحد الأقصى لهدر الإبر (حبة/يوم)</Text>
+              <Text style={styles.settingLabel}>{isAr ? "الحد الأقصى لهدر الإبر (حبة/يوم)" : "Max Needles Waste (pcs/day)"}</Text>
               <TextInput
                 style={styles.settingInput}
                 value={editThreshold.maxNeedlesPerDay}
@@ -209,7 +221,7 @@ export default function WasteAlertsScreen() {
             </View>
 
             <View style={styles.settingItem}>
-              <Text style={styles.settingLabel}>الحد الأقصى لنسبة النخب الثاني (%)</Text>
+              <Text style={styles.settingLabel}>{isAr ? "الحد الأقصى لنسبة النخب الثاني (%)" : "Max Second Grade Percentage (%)"}</Text>
               <TextInput
                 style={styles.settingInput}
                 value={editThreshold.maxSecondGradePercentage}
@@ -221,7 +233,7 @@ export default function WasteAlertsScreen() {
 
             <TouchableOpacity onPress={handleSaveThreshold} style={styles.saveBtn}>
               <MaterialIcons name="save" size={20} color="white" />
-              <Text style={styles.saveBtnText}>حفظ الإعدادات</Text>
+              <Text style={styles.saveBtnText}>{isAr ? "حفظ الإعدادات" : "Save Settings"}</Text>
             </TouchableOpacity>
           </View>
 
@@ -229,9 +241,9 @@ export default function WasteAlertsScreen() {
           <View style={styles.infoCard}>
             <MaterialIcons name="info-outline" size={20} color="#0a7ea4" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>كيف تعمل التنبيهات؟</Text>
+              <Text style={styles.infoTitle}>{isAr ? "كيف تعمل التنبيهات؟" : "How do alerts work?"}</Text>
               <Text style={styles.infoText}>
-                عند إدخال بيانات الإنتاج لأي مكينة، يقوم النظام تلقائياً بمقارنة نسب الهدر مع الحدود المحددة. إذا تجاوزت أي قيمة الحد المسموح، يتم إنشاء تنبيه فوري.
+                {isAr ? "عند إدخال بيانات الإنتاج لأي مكينة، يقوم النظام تلقائياً بمقارنة نسب الهدر مع الحدود المحددة. إذا تجاوزت أي قيمة الحد المسموح، يتم إنشاء تنبيه فوري." : "When entering production data for any machine, the system automatically compares waste percentages with the specified thresholds. If any value exceeds the allowed limit, an instant alert is generated."}
               </Text>
             </View>
           </View>

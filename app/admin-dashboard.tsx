@@ -11,33 +11,36 @@ import {
   Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { FormInput, FormSelect, FormCheckbox } from "@/components/form-input";
 import { adminService, AdminUserData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 
-const ROLES = [
-  { label: "مدير عام", value: "general_manager" },
-  { label: "مدير إنتاج", value: "production_manager" },
-  { label: "مدير مبيعات", value: "sales_manager" },
-  { label: "محاسب", value: "accountant" },
-  { label: "موظف", value: "employee" },
-];
-
-const PERMISSIONS = [
-  { id: "view_data", label: "عرض البيانات" },
-  { id: "add_data", label: "إضافة بيانات" },
-  { id: "edit_data", label: "تعديل البيانات" },
-  { id: "delete_data", label: "حذف البيانات" },
-  { id: "view_reports", label: "عرض التقارير" },
-  { id: "manage_users", label: "إدارة المستخدمين" },
-  { id: "reset_password", label: "إعادة تعيين كلمات المرور" },
-];
-
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
+  const ROLES = [
+    { label: isAr ? "مدير عام" : "General Manager", value: "general_manager" },
+    { label: isAr ? "مدير إنتاج" : "Production Manager", value: "production_manager" },
+    { label: isAr ? "مدير مبيعات" : "Sales Manager", value: "sales_manager" },
+    { label: isAr ? "محاسب" : "Accountant", value: "accountant" },
+    { label: isAr ? "موظف" : "Employee", value: "employee" },
+  ];
+
+  const PERMISSIONS = [
+    { id: "view_data", label: isAr ? "عرض البيانات" : "View Data" },
+    { id: "add_data", label: isAr ? "إضافة بيانات" : "Add Data" },
+    { id: "edit_data", label: isAr ? "تعديل البيانات" : "Edit Data" },
+    { id: "delete_data", label: isAr ? "حذف البيانات" : "Delete Data" },
+    { id: "view_reports", label: isAr ? "عرض التقارير" : "View Reports" },
+    { id: "manage_users", label: isAr ? "إدارة المستخدمين" : "Manage Users" },
+    { id: "reset_password", label: isAr ? "إعادة تعيين كلمات المرور" : "Reset Passwords" },
+  ];
 
   const [users, setUsers] = useState<AdminUserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +65,7 @@ export default function AdminDashboardScreen() {
       const data = await adminService.getAllUsers();
       setUsers(data);
     } catch (error) {
-      Alert.alert("خطأ", "فشل تحميل بيانات المستخدمين");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل تحميل بيانات المستخدمين" : "Failed to load users data");
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +73,7 @@ export default function AdminDashboardScreen() {
 
   const handleSave = async () => {
     if (!formData.name || !formData.email) {
-      Alert.alert("خطأ", "يرجى ملء جميع الحقول المطلوبة");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
     }
 
@@ -78,16 +81,16 @@ export default function AdminDashboardScreen() {
       setIsLoading(true);
       if (editingId) {
         await adminService.updateUser(editingId, formData);
-        Alert.alert("نجاح", "تم تحديث بيانات المستخدم بنجاح");
+        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث بيانات المستخدم بنجاح" : "User data updated successfully");
       } else {
         await adminService.createUser(formData);
-        Alert.alert("نجاح", "تم إضافة المستخدم بنجاح");
+        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة المستخدم بنجاح" : "User added successfully");
       }
       setShowForm(false);
       resetForm();
       loadUsers();
     } catch (error) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     } finally {
       setIsLoading(false);
     }
@@ -95,20 +98,20 @@ export default function AdminDashboardScreen() {
 
   const handleDelete = async (id: number) => {
     Alert.alert(
-      "تأكيد الحذف",
-      "هل أنت متأكد من حذف هذا المستخدم؟",
+      isAr ? "تأكيد الحذف" : "Confirm Deletion",
+      isAr ? "هل أنت متأكد من حذف هذا المستخدم؟" : "Are you sure you want to delete this user?",
       [
-        { text: "إلغاء", onPress: () => {} },
+        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
         {
-          text: "حذف",
+          text: isAr ? "حذف" : "Delete",
           onPress: async () => {
             try {
               setIsLoading(true);
               await adminService.deleteUser(id);
-              Alert.alert("نجاح", "تم حذف المستخدم بنجاح");
+              Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف المستخدم بنجاح" : "User deleted successfully");
               loadUsers();
             } catch (error) {
-              Alert.alert("خطأ", "فشل حذف البيانات");
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حذف البيانات" : "Failed to delete data");
             } finally {
               setIsLoading(false);
             }
@@ -161,7 +164,7 @@ export default function AdminDashboardScreen() {
           <Text className="text-foreground font-bold text-base">{item.name}</Text>
           <Text className="text-muted text-sm mt-1">{item.email}</Text>
           <Text className="text-muted text-xs mt-1">
-            الدور: {getRoleLabel(item.role)}
+            {isAr ? "الدور:" : "Role:"} {getRoleLabel(item.role)}
           </Text>
         </View>
         <View className="flex-row gap-2">
@@ -184,16 +187,16 @@ export default function AdminDashboardScreen() {
         {item.isActive ? (
           <View className="flex-row items-center gap-1 bg-success/10 px-2 py-1 rounded">
             <MaterialIcons name="check-circle" size={14} color={colors.success} />
-            <Text className="text-success text-xs font-semibold">نشط</Text>
+            <Text className="text-success text-xs font-semibold">{isAr ? "نشط" : "Active"}</Text>
           </View>
         ) : (
           <View className="flex-row items-center gap-1 bg-error/10 px-2 py-1 rounded">
             <MaterialIcons name="cancel" size={14} color={colors.error} />
-            <Text className="text-error text-xs font-semibold">معطل</Text>
+            <Text className="text-error text-xs font-semibold">{isAr ? "معطل" : "Inactive"}</Text>
           </View>
         )}
         <Text className="text-muted text-xs">
-          {(item.permissions || []).length} صلاحية
+          {(item.permissions || []).length} {isAr ? "صلاحية" : "Permissions"}
         </Text>
       </View>
     </View>
@@ -201,12 +204,12 @@ export default function AdminDashboardScreen() {
 
   return (
     <ScreenContainer className="bg-background">
-      {/* رأس الصفحة */}
+      {/* Header */}
       <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
         <View>
           <BackButton />
         </View>
-        <Text className="text-white font-bold text-lg">لوحة تحكم ADMIN</Text>
+        <Text className="text-white font-bold text-lg">{isAr ? "لوحة تحكم ADMIN" : "ADMIN Dashboard"}</Text>
         <TouchableOpacity
           onPress={() => {
             resetForm();
@@ -218,13 +221,13 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ملخص المستخدمين */}
+      {/* Users Summary */}
       <View className="bg-primary/10 border-b border-border p-4">
-        <Text className="text-muted text-xs mb-1">إجمالي المستخدمين</Text>
+        <Text className="text-muted text-xs mb-1">{isAr ? "إجمالي المستخدمين" : "Total Users"}</Text>
         <Text className="text-primary font-bold text-2xl">{users.length}</Text>
       </View>
 
-      {/* قائمة المستخدمين */}
+      {/* Users List */}
       {isLoading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={colors.primary} />
@@ -238,13 +241,13 @@ export default function AdminDashboardScreen() {
           ListEmptyComponent={
             <View className="flex-1 justify-center items-center">
               <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text className="text-muted text-center mt-4">لا توجد مستخدمين</Text>
+              <Text className="text-muted text-center mt-4">{isAr ? "لا توجد مستخدمين" : "No users found"}</Text>
             </View>
           }
         />
       )}
 
-      {/* نموذج الإضافة/التعديل */}
+      {/* Add/Edit Form */}
       <Modal
         visible={showForm}
         animationType="slide"
@@ -253,42 +256,42 @@ export default function AdminDashboardScreen() {
       >
         <View className="flex-1 bg-black/50">
           <View className="flex-1 bg-background rounded-t-3xl mt-12">
-            {/* رأس النموذج */}
+            {/* Form Header */}
             <View className="flex-row justify-between items-center p-6 border-b border-border">
               <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text className="text-primary font-semibold">إلغاء</Text>
+                <Text className="text-primary font-semibold">{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
               <Text className="text-foreground font-bold text-lg">
-                {editingId ? "تعديل المستخدم" : "إضافة مستخدم جديد"}
+                {editingId ? (isAr ? "تعديل المستخدم" : "Edit User") : (isAr ? "إضافة مستخدم جديد" : "Add New User")}
               </Text>
               <TouchableOpacity onPress={handleSave} disabled={isLoading}>
                 <Text className={`font-semibold ${isLoading ? "text-muted" : "text-primary"}`}>
-                  {isLoading ? "جاري..." : "حفظ"}
+                  {isLoading ? (isAr ? "جاري..." : "Saving...") : (isAr ? "حفظ" : "Save")}
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* محتوى النموذج */}
+            {/* Form Content */}
             <ScrollView className="flex-1 p-6">
               <FormInput
-                label="اسم المستخدم"
+                label={isAr ? "اسم المستخدم" : "Username"}
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder="أدخل اسم المستخدم"
+                placeholder={isAr ? "أدخل اسم المستخدم" : "Enter username"}
                 required
               />
 
               <FormInput
-                label="البريد الإلكتروني"
+                label={isAr ? "البريد الإلكتروني" : "Email"}
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
-                placeholder="أدخل البريد الإلكتروني"
+                placeholder={isAr ? "أدخل البريد الإلكتروني" : "Enter email"}
                 keyboardType="email-address"
                 required
               />
 
               <FormSelect
-                label="الدور الوظيفي"
+                label={isAr ? "الدور الوظيفي" : "Role"}
                 value={formData.role}
                 options={ROLES}
                 onValueChange={(value) =>
@@ -298,7 +301,7 @@ export default function AdminDashboardScreen() {
               />
 
               <View className="mt-6 border-t border-border pt-6">
-                <Text className="text-foreground font-semibold text-sm mb-4">الصلاحيات</Text>
+                <Text className="text-foreground font-semibold text-sm mb-4">{isAr ? "الصلاحيات" : "Permissions"}</Text>
                 {PERMISSIONS.map((permission) => (
                   <FormCheckbox
                     key={permission.id}
@@ -311,7 +314,7 @@ export default function AdminDashboardScreen() {
 
               <View className="mt-6 border-t border-border pt-6">
                 <FormCheckbox
-                  label="حساب نشط"
+                  label={isAr ? "حساب نشط" : "Active Account"}
                   value={formData.isActive}
                   onValueChange={(value) =>
                     setFormData({ ...formData, isActive: value })

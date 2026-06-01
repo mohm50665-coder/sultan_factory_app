@@ -9,45 +9,49 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { MaterialIcons } from "@expo/vector-icons";
 import { activityLogService, type ActivityLogEntry } from "@/lib/services/activity-log";
 
-const ACTION_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  create: { label: "إضافة", color: "#22c55e", icon: "add-circle" },
-  update: { label: "تعديل", color: "#3b82f6", icon: "edit" },
-  delete: { label: "حذف", color: "#ef4444", icon: "delete" },
-  login: { label: "دخول", color: "#8b5cf6", icon: "login" },
-  logout: { label: "خروج", color: "#6b7280", icon: "logout" },
-  export: { label: "تصدير", color: "#f59e0b", icon: "file-download" },
-  alert: { label: "تنبيه", color: "#ec4899", icon: "warning" },
-};
-
-const MODULE_LABELS: Record<string, string> = {
-  production: "الإنتاج",
-  sales: "المبيعات",
-  warehouse: "المستودعات",
-  maintenance: "الصيانة",
-  financial: "المصروفات",
-  users: "المستخدمين",
-  manufacturing: "مراحل التصنيع",
-  administrative: "الإجراءات الإدارية",
-  tasks: "المهام",
-  auth: "المصادقة",
-};
-
-const FILTER_ACTIONS = [
-  { value: "", label: "الكل" },
-  { value: "create", label: "إضافة" },
-  { value: "update", label: "تعديل" },
-  { value: "delete", label: "حذف" },
-  { value: "login", label: "دخول" },
-  { value: "export", label: "تصدير" },
-  { value: "alert", label: "تنبيه" },
-];
-
 export default function ActivityLogScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
+
+  const ACTION_LABELS: Record<string, { label: string; color: string; icon: string }> = {
+    create: { label: isAr ? "إضافة" : "Add", color: "#22c55e", icon: "add-circle" },
+    update: { label: isAr ? "تعديل" : "Update", color: "#3b82f6", icon: "edit" },
+    delete: { label: isAr ? "حذف" : "Delete", color: "#ef4444", icon: "delete" },
+    login: { label: isAr ? "دخول" : "Login", color: "#8b5cf6", icon: "login" },
+    logout: { label: isAr ? "خروج" : "Logout", color: "#6b7280", icon: "logout" },
+    export: { label: isAr ? "تصدير" : "Export", color: "#f59e0b", icon: "file-download" },
+    alert: { label: isAr ? "تنبيه" : "Alert", color: "#ec4899", icon: "warning" },
+  };
+
+  const MODULE_LABELS: Record<string, string> = {
+    production: isAr ? "الإنتاج" : "Production",
+    sales: isAr ? "المبيعات" : "Sales",
+    warehouse: isAr ? "المستودعات" : "Warehouse",
+    maintenance: isAr ? "الصيانة" : "Maintenance",
+    financial: isAr ? "المصروفات" : "Expenses",
+    users: isAr ? "المستخدمين" : "Users",
+    manufacturing: isAr ? "مراحل التصنيع" : "Manufacturing Stages",
+    administrative: isAr ? "الإجراءات الإدارية" : "Administrative Procedures",
+    tasks: isAr ? "المهام" : "Tasks",
+    auth: isAr ? "المصادقة" : "Authentication",
+  };
+
+  const FILTER_ACTIONS = [
+    { value: "", label: isAr ? "الكل" : "All" },
+    { value: "create", label: isAr ? "إضافة" : "Add" },
+    { value: "update", label: isAr ? "تعديل" : "Update" },
+    { value: "delete", label: isAr ? "حذف" : "Delete" },
+    { value: "login", label: isAr ? "دخول" : "Login" },
+    { value: "export", label: isAr ? "تصدير" : "Export" },
+    { value: "alert", label: isAr ? "تنبيه" : "Alert" },
+  ];
+
   const [logs, setLogs] = useState<ActivityLogEntry[]>([]);
   const [filterAction, setFilterAction] = useState("");
   const [stats, setStats] = useState({ total: 0, today: 0, byModule: {} as Record<string, number>, byAction: {} as Record<string, number> });
@@ -67,12 +71,12 @@ export default function ActivityLogScreen() {
 
   const handleClearAll = () => {
     Alert.alert(
-      "تأكيد المسح",
-      "هل أنت متأكد من مسح جميع سجلات النشاطات؟ لا يمكن التراجع عن هذا الإجراء.",
+      isAr ? "تأكيد المسح" : "Confirm Clear",
+      isAr ? "هل أنت متأكد من مسح جميع سجلات النشاطات؟ لا يمكن التراجع عن هذا الإجراء." : "Are you sure you want to clear all activity logs? This action cannot be undone.",
       [
-        { text: "إلغاء" },
+        { text: isAr ? "إلغاء" : "Cancel" },
         {
-          text: "مسح الكل",
+          text: isAr ? "مسح الكل" : "Clear All",
           style: "destructive",
           onPress: async () => {
             await activityLogService.clearAll();
@@ -98,7 +102,7 @@ export default function ActivityLogScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>سجل النشاطات</Text>
+        <Text style={styles.headerTitle}>{isAr ? "سجل النشاطات" : "Activity Log"}</Text>
         <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
           <MaterialIcons name="delete-sweep" size={22} color="white" />
         </TouchableOpacity>
@@ -108,15 +112,15 @@ export default function ActivityLogScreen() {
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: "#e0f2fe" }]}>
           <Text style={[styles.statNumber, { color: "#0369a1" }]}>{stats.total}</Text>
-          <Text style={styles.statLabel}>إجمالي</Text>
+          <Text style={styles.statLabel}>{isAr ? "إجمالي" : "Total"}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#dcfce7" }]}>
           <Text style={[styles.statNumber, { color: "#15803d" }]}>{stats.today}</Text>
-          <Text style={styles.statLabel}>اليوم</Text>
+          <Text style={styles.statLabel}>{isAr ? "اليوم" : "Today"}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#fef3c7" }]}>
           <Text style={[styles.statNumber, { color: "#92400e" }]}>{logs.length}</Text>
-          <Text style={styles.statLabel}>معروض</Text>
+          <Text style={styles.statLabel}>{isAr ? "معروض" : "Displayed"}</Text>
         </View>
       </View>
 
@@ -148,8 +152,8 @@ export default function ActivityLogScreen() {
         {logs.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialIcons name="history" size={48} color="#d1d5db" />
-            <Text style={styles.emptyText}>لا توجد سجلات نشاطات</Text>
-            <Text style={styles.emptySubtext}>ستظهر هنا جميع العمليات التي يقوم بها المستخدمون</Text>
+            <Text style={styles.emptyText}>{isAr ? "لا توجد سجلات نشاطات" : "No activity logs"}</Text>
+            <Text style={styles.emptySubtext}>{isAr ? "ستظهر هنا جميع العمليات التي يقوم بها المستخدمون" : "All operations performed by users will appear here"}</Text>
           </View>
         ) : (
           logs.map((log) => {

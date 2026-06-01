@@ -1,11 +1,36 @@
 import "@/global.css";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { Platform } from "react-native";
+import { Platform, View, Text } from "react-native";
 import "@/lib/_core/nativewind-pressable";
+
+// Error Boundary to prevent white screen crash
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('App Error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>حدث خطأ</Text>
+          <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>{this.state.error?.message || 'خطأ غير معروف'}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 import { ThemeProvider } from "@/lib/theme-provider";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { LanguageProvider } from "@/lib/language-context";
@@ -171,5 +196,9 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
-  return <RootLayoutContent />;
+  return (
+    <ErrorBoundary>
+      <RootLayoutContent />
+    </ErrorBoundary>
+  );
 }
