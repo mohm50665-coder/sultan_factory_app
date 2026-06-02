@@ -221,11 +221,11 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
-      <View className="bg-primary px-6 py-6">
-        <View className="flex-row justify-between items-start mb-2">
-          <View className="flex-row gap-2">
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable
               onPress={handleLogout}
               disabled={isLoading}
@@ -283,12 +283,12 @@ export default function HomeScreen() {
               <MaterialIcons name="settings" size={20} color="white" />
             </TouchableOpacity>
           </View>
-          <View className="items-end">
-            <Text className="text-white text-sm opacity-80">
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ color: '#ffffff', fontSize: 14, opacity: 0.8 }}>
               {isAr ? "أهلاً بك" : "Welcome"}
             </Text>
-            <Text className="text-white font-bold text-xl mt-1">{user?.name || (isAr ? "المستخدم" : "User")}</Text>
-            <Text className="text-white/70 text-xs mt-1">
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20, marginTop: 4 }}>{user?.name || (isAr ? "المستخدم" : "User")}</Text>
+            <Text style={{ fontSize: 12, marginTop: 4 }}>
               {user?.position || (user?.role === "admin" ? t("admin") : (isAr ? "موظف" : "Employee"))}
             </Text>
           </View>
@@ -335,16 +335,16 @@ export default function HomeScreen() {
               style={styles.gridItem}
               activeOpacity={0.7}
             >
-              <View className="bg-surface rounded-2xl p-4 border border-border" style={styles.card}>
+              <View style={[{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }, styles.card]}>
                 <View
                   style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
                 >
                   <MaterialIcons name={item.icon as any} size={26} color={item.color} />
                 </View>
-                <Text className="text-foreground font-bold text-sm" style={{ textAlign: isRtl ? "right" : "left" }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, textAlign: isRtl ? "right" : "left" }}>
                   {isAr ? item.labelAr : item.labelEn}
                 </Text>
-                <Text className="text-muted text-xs mt-1" style={[styles.description, { textAlign: isRtl ? "right" : "left" }]}>
+                <Text style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, styles.description, { textAlign: isRtl ? "right" : "left" }]}>
                   {isAr ? item.descriptionAr : item.descriptionEn}
                 </Text>
               </View>
@@ -353,7 +353,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Extra Tools */}
-        <Text className="text-foreground font-bold text-base" style={[styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
+        <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
           {t("extra_tools")}
         </Text>
         <View style={styles.toolsGrid}>
@@ -362,9 +362,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("reports")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("reports")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -372,9 +372,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="notifications" size={24} color="#d97706" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("notifications")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("notifications")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -382,9 +382,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="file-download" size={24} color="#6366f1" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("export")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("export")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -392,9 +392,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="history" size={24} color="#0891b2" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("activity_log")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("activity_log")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -402,9 +402,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="print" size={24} color="#16a34a" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("production_export")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("production_export")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -412,9 +412,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="warning-amber" size={24} color="#dc2626" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{t("waste_alerts")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("waste_alerts")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -422,9 +422,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "التحليلات" : "Analytics"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "التحليلات" : "Analytics"}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -432,9 +432,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="summarize" size={24} color="#0891b2" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "تقارير الأقسام" : "Reports"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "تقارير الأقسام" : "Reports"}</Text>
             </View>
           </TouchableOpacity>
           {user?.role === "admin" && (
@@ -443,9 +443,9 @@ export default function HomeScreen() {
               style={styles.toolItem}
               activeOpacity={0.7}
             >
-              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
                 <MaterialIcons name="people" size={24} color="#7c3aed" />
-                <Text className="text-foreground text-xs font-semibold mt-2">{t("users_management")}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("users_management")}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -455,9 +455,9 @@ export default function HomeScreen() {
               style={styles.toolItem}
               activeOpacity={0.7}
             >
-              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
                 <MaterialIcons name="assessment" size={24} color="#059669" />
-                <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "أداء الموظفين" : "Performance"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "أداء الموظفين" : "Performance"}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -467,9 +467,9 @@ export default function HomeScreen() {
               style={styles.toolItem}
               activeOpacity={0.7}
             >
-              <View className="bg-surface rounded-xl p-3 border border-border items-center">
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
                 <MaterialIcons name="backup" size={24} color="#6366f1" />
-                <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "نسخ احتياطي" : "Backup"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "نسخ احتياطي" : "Backup"}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -478,9 +478,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="precision-manufacturing" size={24} color="#8b5cf6" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "مقارنة المكائن" : "Machines"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مقارنة المكائن" : "Machines"}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -488,9 +488,9 @@ export default function HomeScreen() {
             style={styles.toolItem}
             activeOpacity={0.7}
           >
-            <View className="bg-surface rounded-xl p-3 border border-border items-center">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="share" size={24} color="#0ea5e9" />
-              <Text className="text-foreground text-xs font-semibold mt-2">{isAr ? "مشاركة التقارير" : "Share"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مشاركة التقارير" : "Share"}</Text>
             </View>
           </TouchableOpacity>
         </View>

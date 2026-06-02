@@ -302,10 +302,10 @@ export default function ProductionScreen() {
     const machineKeys = Object.keys(entry.machines);
 
     return (
-      <View key={entry.id} className="bg-surface rounded-xl p-4 mb-4 border border-border">
+      <View key={entry.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
         {/* رأس السجل */}
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => handleEdit(entry)}
               style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
@@ -319,8 +319,8 @@ export default function ProductionScreen() {
               <MaterialIcons name="delete" size={18} color="#ef4444" />
             </TouchableOpacity>
           </View>
-          <View className="flex-row items-center gap-2">
-            <Text className="text-foreground font-bold text-base">{entry.date}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{entry.date}</Text>
             <MaterialIcons name="calendar-today" size={18} color="#16a34a" />
           </View>
         </View>
@@ -333,71 +333,71 @@ export default function ProductionScreen() {
             ? (((parseFloat(data.wasteThreadGrams) || 0) / machineYarnTotal) * 100).toFixed(2)
             : "0";
           return (
-            <View key={machine} className="bg-background rounded-lg p-3 mb-2 border border-border">
-              <Text className="text-foreground font-bold text-sm mb-2 text-right">{machine}</Text>
-              <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
-                <Text className="text-muted text-xs">
-                  {isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-semibold">{data.productionDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text className="text-foreground font-semibold">{data.productionPairs}</Text> {isAr ? "زوج" : "Pairs"}
+            <View key={machine} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{machine}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 4, justifyContent: 'flex-end' }}>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "إنتاج:" : "Production:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.productionDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.productionPairs}</Text> {isAr ? "زوج" : "Pairs"}
                 </Text>
-                <Text className="text-muted text-xs">
-                  {isAr ? "مدة:" : "Duration:"} <Text className="text-foreground font-semibold">{data.productionHours || "0"}</Text>{isAr ? "س" : "h"} <Text className="text-foreground font-semibold">{data.productionMinutes || "0"}</Text>{isAr ? "د" : "m"}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "مدة:" : "Duration:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.productionHours || "0"}</Text>{isAr ? "س" : "h"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.productionMinutes || "0"}</Text>{isAr ? "د" : "m"}
                 </Text>
-                <Text className="text-muted text-xs">
-                  {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-semibold">{data.wasteThreadGrams}</Text> {isAr ? "جم" : "g"}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text style={{ color: colors.error, fontWeight: '600' }}>{data.wasteThreadGrams}</Text> {isAr ? "جم" : "g"}
                 </Text>
-                <Text className="text-muted text-xs">
-                  {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-semibold">{data.wasteSocksGrams}</Text> {isAr ? "جم" : "g"}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text style={{ color: colors.error, fontWeight: '600' }}>{data.wasteSocksGrams}</Text> {isAr ? "جم" : "g"}
                 </Text>
-                <Text className="text-muted text-xs">
-                  {isAr ? "نخب ثاني:" : "Second Grade:"} <Text className="text-warning font-semibold">{data.secondGradeDozen || "0"}</Text> {isAr ? "درزن" : "Dozen"} <Text className="text-warning font-semibold">{data.secondGradePairs || "0"}</Text> {isAr ? "زوج" : "Pairs"}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "نخب ثاني:" : "Second Grade:"} <Text style={{ color: colors.warning, fontWeight: '600' }}>{data.secondGradeDozen || "0"}</Text> {isAr ? "درزن" : "Dozen"} <Text style={{ color: colors.warning, fontWeight: '600' }}>{data.secondGradePairs || "0"}</Text> {isAr ? "زوج" : "Pairs"}
                 </Text>
-                <Text className="text-muted text-xs">
-                  {isAr ? "إبر:" : "Needles:"} <Text className="text-foreground font-semibold">{data.wasteNeedles}</Text> {isAr ? "حبة" : "pcs"}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {isAr ? "إبر:" : "Needles:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.wasteNeedles}</Text> {isAr ? "حبة" : "pcs"}
                 </Text>
               </View>
               {/* وزن الخيوط */}
-              <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
-                {parseFloat(data.yarnRubber) > 0 && <Text className="text-muted text-xs">{isAr ? "مطاط:" : "Rubber:"} <Text className="text-foreground font-semibold">{data.yarnRubber}</Text>{isAr ? "جم" : "g"}</Text>}
-                {parseFloat(data.yarnSpandex) > 0 && <Text className="text-muted text-xs">{isAr ? "اسباندكس:" : "Spandex:"} <Text className="text-foreground font-semibold">{data.yarnSpandex}</Text>{isAr ? "جم" : "g"}</Text>}
-                {parseFloat(data.yarnNylon) > 0 && <Text className="text-muted text-xs">{isAr ? "نايلون:" : "Nylon:"} <Text className="text-foreground font-semibold">{data.yarnNylon}</Text>{isAr ? "جم" : "g"}</Text>}
-                {parseFloat(data.yarnCotton) > 0 && <Text className="text-muted text-xs">{isAr ? "قطن:" : "Cotton:"} <Text className="text-foreground font-semibold">{data.yarnCotton}</Text>{isAr ? "جم" : "g"}</Text>}
-                {parseFloat(data.yarnBamboo) > 0 && <Text className="text-muted text-xs">{isAr ? "بامبو:" : "Bamboo:"} <Text className="text-foreground font-semibold">{data.yarnBamboo}</Text>{isAr ? "جم" : "g"}</Text>}
-                {parseFloat(data.yarnSpan) > 0 && <Text className="text-muted text-xs">{isAr ? "اسبان:" : "Span:"} <Text className="text-foreground font-semibold">{data.yarnSpan}</Text>{isAr ? "جم" : "g"}</Text>}
-                <Text className="text-muted text-xs">{isAr ? "إجمالي:" : "Total:"} <Text className="text-primary font-bold">{machineYarnTotal}</Text>{isAr ? "جم" : "g"}</Text>
-                <Text className="text-muted text-xs">{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text className="text-error font-bold">{machineWastePercent}%</Text></Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, justifyContent: 'flex-end', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
+                {parseFloat(data.yarnRubber) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "مطاط:" : "Rubber:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnRubber}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnSpandex) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "اسباندكس:" : "Spandex:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnSpandex}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnNylon) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "نايلون:" : "Nylon:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnNylon}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnCotton) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "قطن:" : "Cotton:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnCotton}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnBamboo) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "بامبو:" : "Bamboo:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnBamboo}</Text>{isAr ? "جم" : "g"}</Text>}
+                {parseFloat(data.yarnSpan) > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "اسبان:" : "Span:"} <Text style={{ color: colors.foreground, fontWeight: '600' }}>{data.yarnSpan}</Text>{isAr ? "جم" : "g"}</Text>}
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "إجمالي:" : "Total:"} <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{machineYarnTotal}</Text>{isAr ? "جم" : "g"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text style={{ color: colors.error, fontWeight: 'bold' }}>{machineWastePercent}%</Text></Text>
               </View>
             </View>
           );
         })}
 
         {/* المجموع */}
-        <View className="bg-background rounded-lg p-3 mt-1 border-2 border-primary/30">
-          <Text className="text-primary font-bold text-sm mb-1 text-right">{isAr ? "المجموع" : "Total"}</Text>
-          <View className="flex-row flex-wrap gap-x-4 gap-y-1 justify-end">
-            <Text className="text-muted text-xs">
-              {isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-bold">{totals.totalDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text className="text-foreground font-bold">{totals.totalPairs}</Text> {isAr ? "زوج" : "Pairs"}
+        <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 4, borderWidth: 2 }}>
+          <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14, marginBottom: 4, textAlign: 'right' }}>{isAr ? "المجموع" : "Total"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 4, justifyContent: 'flex-end' }}>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              {isAr ? "إنتاج:" : "Production:"} <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{totals.totalDozen}</Text> {isAr ? "درزن /" : "Dozen /"} <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{totals.totalPairs}</Text> {isAr ? "زوج" : "Pairs"}
             </Text>
-            <Text className="text-muted text-xs">
-              مدة ال{isAr ? "إنتاج:" : "Production:"} <Text className="text-foreground font-bold">{totals.totalHours}</Text>{isAr ? "س" : "h"} <Text className="text-foreground font-bold">{totals.totalMinutes}</Text>{isAr ? "د" : "m"}
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              مدة ال{isAr ? "إنتاج:" : "Production:"} <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{totals.totalHours}</Text>{isAr ? "س" : "h"} <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{totals.totalMinutes}</Text>{isAr ? "د" : "m"}
             </Text>
-            <Text className="text-muted text-xs">
-              {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-bold">{totals.totalWasteThread}</Text> {isAr ? "جم" : "g"}
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              {isAr ? "هدر خيوط:" : "Thread Waste:"} <Text style={{ color: colors.error, fontWeight: 'bold' }}>{totals.totalWasteThread}</Text> {isAr ? "جم" : "g"}
             </Text>
-            <Text className="text-muted text-xs">
-              {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-bold">{totals.totalWasteSocks}</Text> {isAr ? "جم" : "g"}
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              {isAr ? "هدر جوارب:" : "Socks Waste:"} <Text style={{ color: colors.error, fontWeight: 'bold' }}>{totals.totalWasteSocks}</Text> {isAr ? "جم" : "g"}
             </Text>
-            <Text className="text-muted text-xs">
-              {isAr ? "نخب ثاني:" : "Second Grade:"} <Text className="text-warning font-bold">{totals.totalSecondDozen}</Text> {isAr ? "درزن" : "Dozen"} <Text className="text-warning font-bold">{totals.totalSecondPairs}</Text> {isAr ? "زوج" : "Pairs"}
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              {isAr ? "نخب ثاني:" : "Second Grade:"} <Text style={{ color: colors.warning, fontWeight: 'bold' }}>{totals.totalSecondDozen}</Text> {isAr ? "درزن" : "Dozen"} <Text style={{ color: colors.warning, fontWeight: 'bold' }}>{totals.totalSecondPairs}</Text> {isAr ? "زوج" : "Pairs"}
             </Text>
-            <Text className="text-muted text-xs">
-              {isAr ? "إبر:" : "Needles:"} <Text className="text-foreground font-bold">{totals.totalNeedles}</Text> {isAr ? "حبة" : "pcs"}
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              {isAr ? "إبر:" : "Needles:"} <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{totals.totalNeedles}</Text> {isAr ? "حبة" : "pcs"}
             </Text>
           </View>
           {/* إجمالي وزن الخيوط ونسبة الهدر */}
-          <View className="flex-row flex-wrap gap-x-3 gap-y-1 justify-end mt-2 pt-2 border-t border-border">
-            <Text className="text-muted text-xs">{isAr ? "إجمالي وزن الخيوط:" : "Total Yarn Weight:"} <Text className="text-primary font-bold">{totals.totalYarnWeight}</Text> {isAr ? "جم" : "g"}</Text>
-            <Text className="text-muted text-xs">{isAr ? "إجمالي كمية الهدر:" : "Total Waste Amount:"} <Text className="text-error font-bold">{totals.totalWasteAll}</Text> {isAr ? "جم" : "g"}</Text>
-            <Text className="text-muted text-xs">{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text className="text-error font-bold">{totals.wastePercentage}%</Text></Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, justifyContent: 'flex-end', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "إجمالي وزن الخيوط:" : "Total Yarn Weight:"} <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{totals.totalYarnWeight}</Text> {isAr ? "جم" : "g"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "إجمالي كمية الهدر:" : "Total Waste Amount:"} <Text style={{ color: colors.error, fontWeight: 'bold' }}>{totals.totalWasteAll}</Text> {isAr ? "جم" : "g"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "نسبة الهدر:" : "Waste Percentage:"} <Text style={{ color: colors.error, fontWeight: 'bold' }}>{totals.wastePercentage}%</Text></Text>
           </View>
         </View>
       </View>
@@ -406,30 +406,30 @@ export default function ProductionScreen() {
 
   // نموذج الإدخال - جميع المكائن المفعلة مع حقولها
   const renderForm = () => (
-    <ScrollView className="flex-1 px-4 py-4">
-      <View className="bg-surface rounded-xl p-5 border border-border mb-4">
-        <Text className="text-foreground font-bold text-lg mb-5 text-right">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+        <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
           {editingEntry ? isAr ? "✏️ تعديل بيانات الإنتاج" : "✏️ Edit Production Data" : isAr ? "➕ إضافة بيانات إنتاج" : "➕ Add Production Data"}
         </Text>
 
         {/* التاريخ الموحد */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">{isAr ? "تاريخ الإنتاج" : "Production Date"}</Text>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "تاريخ الإنتاج" : "Production Date"}</Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.muted}
             value={selectedDate}
             onChangeText={setSelectedDate}
             returnKeyType="next"
           />
-          <Text className="text-muted text-xs mt-1 text-right">{isAr ? "تاريخ واحد لجميع المكائن" : "One date for all machines"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4, textAlign: 'right' }}>{isAr ? "تاريخ واحد لجميع المكائن" : "One date for all machines"}</Text>
         </View>
 
         {/* اختيار المكائن التي عملت */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اختر المكائن التي عملت في هذا اليوم" : "Select machines that worked today"}</Text>
-          <View className="flex-row flex-wrap gap-2 justify-end">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اختر المكائن التي عملت في هذا اليوم" : "Select machines that worked today"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {MACHINES.map((machine) => (
               <TouchableOpacity
                 key={machine}
@@ -462,20 +462,20 @@ export default function ProductionScreen() {
 
       {/* حقول الإدخال لكل مكينة مفعلة */}
       {activeMachines.map((machine) => (
-        <View key={machine} className="bg-surface rounded-xl p-4 border border-border mb-3">
-          <View className="flex-row items-center gap-2 mb-3 justify-end">
-            <Text className="text-foreground font-bold text-base">{machine}</Text>
+        <View key={machine} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, justifyContent: 'flex-end' }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{machine}</Text>
             <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
               <MaterialIcons name="precision-manufacturing" size={16} color="#16a34a" />
             </View>
           </View>
 
           {/* كمية الإنتاج */}
-          <View className="flex-row gap-2 mb-3">
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "إنتاج (زوج)" : "Production (Pairs)"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (زوج)" : "Production (Pairs)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.productionPairs || ""}
@@ -483,10 +483,10 @@ export default function ProductionScreen() {
                 keyboardType="numeric"
               />
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "إنتاج (درزن)" : "Production (Dozen)"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (درزن)" : "Production (Dozen)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.productionDozen || ""}
@@ -497,11 +497,11 @@ export default function ProductionScreen() {
           </View>
 
           {/* هدر الخيوط وهدر الجوارب */}
-          <View className="flex-row gap-2 mb-3">
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر جوارب (جم)" : "Socks Waste (g)"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر جوارب (جم)" : "Socks Waste (g)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.wasteSocksGrams || ""}
@@ -509,10 +509,10 @@ export default function ProductionScreen() {
                 keyboardType="numeric"
               />
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر خيوط (جم)" : "Thread Waste (g)"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر خيوط (جم)" : "Thread Waste (g)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.wasteThreadGrams || ""}
@@ -523,11 +523,11 @@ export default function ProductionScreen() {
           </View>
 
           {/* النخب الثاني وهدر الإبر */}
-          <View className="flex-row gap-2 mb-3">
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "هدر إبر (حبة)" : "Needles Waste (pcs)"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر إبر (حبة)" : "Needles Waste (pcs)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.wasteNeedles || ""}
@@ -535,10 +535,10 @@ export default function ProductionScreen() {
                 keyboardType="numeric"
               />
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نخب ثاني (زوج)" : "Second Grade (Pairs)"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (زوج)" : "Second Grade (Pairs)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.secondGradePairs || ""}
@@ -546,10 +546,10 @@ export default function ProductionScreen() {
                 keyboardType="numeric"
               />
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نخب ثاني (درزن)" : "Second Grade (Dozen)"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (درزن)" : "Second Grade (Dozen)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.secondGradeDozen || ""}
@@ -560,11 +560,11 @@ export default function ProductionScreen() {
           </View>
 
           {/* مدة الإنتاج */}
-          <View className="flex-row gap-2 mb-3">
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مدة الإنتاج (دقيقة)" : "Production Duration (Minutes)"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "مدة الإنتاج (دقيقة)" : "Production Duration (Minutes)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.productionMinutes || ""}
@@ -572,10 +572,10 @@ export default function ProductionScreen() {
                 keyboardType="numeric"
               />
             </View>
-            <View className="flex-1">
-              <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مدة الإنتاج (ساعة)" : "Production Duration (Hours)"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "مدة الإنتاج (ساعة)" : "Production Duration (Hours)"}</Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 value={machinesData[machine]?.productionHours || ""}
@@ -586,13 +586,13 @@ export default function ProductionScreen() {
           </View>
 
           {/* وزن الخيوط حسب النوع */}
-          <View className="border-t border-border pt-3 mt-1">
-            <Text className="text-foreground font-semibold text-xs mb-2 text-right">{isAr ? "وزن الخيوط المستخدمة (جرام)" : "Used Yarn Weight (grams)"}</Text>
-            <View className="flex-row gap-2 mb-2">
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "اسباندكس" : "Spandex"}</Text>
+          <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 12, marginTop: 4 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12, marginBottom: 8, textAlign: 'right' }}>{isAr ? "وزن الخيوط المستخدمة (جرام)" : "Used Yarn Weight (grams)"}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسباندكس" : "Spandex"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnSpandex || ""}
@@ -600,10 +600,10 @@ export default function ProductionScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "مطاط" : "Rubber"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "مطاط" : "Rubber"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnRubber || ""}
@@ -612,11 +612,11 @@ export default function ProductionScreen() {
                 />
               </View>
             </View>
-            <View className="flex-row gap-2 mb-2">
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "قطن" : "Cotton"}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "قطن" : "Cotton"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnCotton || ""}
@@ -624,10 +624,10 @@ export default function ProductionScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "نايلون" : "Nylon"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نايلون" : "Nylon"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnNylon || ""}
@@ -636,11 +636,11 @@ export default function ProductionScreen() {
                 />
               </View>
             </View>
-            <View className="flex-row gap-2">
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "اسبان" : "Span"}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسبان" : "Span"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnSpan || ""}
@@ -648,10 +648,10 @@ export default function ProductionScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <View className="flex-1">
-                <Text className="text-muted text-xs mb-1 text-right">{isAr ? "بامبو" : "Bamboo"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بامبو" : "Bamboo"}</Text>
                 <TextInput
-                  className="bg-background border border-border rounded-lg px-3 py-2 text-foreground text-right text-sm"
+                  style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
                   placeholder="0"
                   placeholderTextColor={colors.muted}
                   value={machinesData[machine]?.yarnBamboo || ""}
@@ -666,7 +666,7 @@ export default function ProductionScreen() {
 
       {/* أزرار الحفظ والتعديل والإلغاء */}
       {activeMachines.length > 0 && (
-        <View className="flex-row gap-3 mt-2 mb-8">
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
           <TouchableOpacity
             onPress={() => { setShowForm(false); resetForm(); }}
             style={{
@@ -681,7 +681,7 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-sm">{isAr ? "إلغاء" : "Cancel"}</Text>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={18} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -699,7 +699,7 @@ export default function ProductionScreen() {
                 gap: 6,
               }}
             >
-              <Text className="text-white font-semibold text-sm">{isAr ? "تعديل" : "Edit"}</Text>
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{isAr ? "تعديل" : "Edit"}</Text>
               <MaterialIcons name="edit" size={18} color="white" />
             </TouchableOpacity>
           )}
@@ -717,7 +717,7 @@ export default function ProductionScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-white font-semibold text-sm">{isAr ? "حفظ" : "Save"}</Text>
+            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{isAr ? "حفظ" : "Save"}</Text>
             <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -726,11 +726,10 @@ export default function ProductionScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View
-        style={{ backgroundColor: "#16a34a" }}
-        className="px-6 py-5 flex-row items-center justify-between"
+        style={{ backgroundColor: "#16a34a", paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
         {/* زر الإضافة */}
         <TouchableOpacity
@@ -759,9 +758,9 @@ export default function ProductionScreen() {
         <AdminBadgeIcon />
 
         {/* العنوان */}
-        <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{isAr ? "الإنتاج" : "Production"}</Text>
-          <Text className="text-white/80 text-sm mt-1">{entries.length} {isAr ? "سجل" : "Record"}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "الإنتاج" : "Production"}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4 }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
         </View>
 
         {/* زر الرجوع */}
@@ -792,36 +791,36 @@ export default function ProductionScreen() {
         const wastePercent = sumYarnWeight > 0 ? ((sumWasteAll / sumYarnWeight) * 100).toFixed(2) : "0";
         
         return (
-          <View className="mx-4 mt-3 bg-surface rounded-xl p-4 border border-border">
-            <View className="flex-row items-center gap-2 mb-3 justify-end">
-              <Text className="text-foreground font-bold text-base">{label}</Text>
+          <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, justifyContent: 'flex-end' }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{label}</Text>
               <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
                 <MaterialIcons name="analytics" size={18} color="#16a34a" />
               </View>
             </View>
-            <View className="flex-row justify-between items-center mb-2">
-              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4, borderWidth: 1, borderColor: colors.border }}>
                 <MaterialIcons name="scale" size={22} color="#0a7ea4" />
-                <Text className="text-muted text-xs mt-1">{isAr ? "إجمالي وزن الخيوط" : "Total Yarn Weight"}</Text>
-                <Text className="text-primary font-bold text-lg">{sumYarnWeight.toFixed(0)}</Text>
-                <Text className="text-muted text-xs">{isAr ? "جرام" : "grams"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{isAr ? "إجمالي وزن الخيوط" : "Total Yarn Weight"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18 }}>{sumYarnWeight.toFixed(0)}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "جرام" : "grams"}</Text>
               </View>
-              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4, borderWidth: 1, borderColor: colors.border }}>
                 <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
-                <Text className="text-muted text-xs mt-1">{isAr ? "إجمالي كمية الهدر" : "Total Waste Amount"}</Text>
-                <Text className="text-error font-bold text-lg">{sumWasteAll.toFixed(0)}</Text>
-                <Text className="text-muted text-xs">{isAr ? "جرام" : "grams"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{isAr ? "إجمالي كمية الهدر" : "Total Waste Amount"}</Text>
+                <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 18 }}>{sumWasteAll.toFixed(0)}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "جرام" : "grams"}</Text>
               </View>
-              <View className="flex-1 items-center bg-background rounded-lg p-3 mx-1 border border-border">
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4, borderWidth: 1, borderColor: colors.border }}>
                 <MaterialIcons name="percent" size={22} color="#f59e0b" />
-                <Text className="text-muted text-xs mt-1">{isAr ? "نسبة الهدر" : "Waste Percentage"}</Text>
-                <Text className="text-warning font-bold text-lg">{wastePercent}%</Text>
-                <Text className="text-muted text-xs">{isAr ? "من الخيوط" : "of Yarn"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{isAr ? "نسبة الهدر" : "Waste Percentage"}</Text>
+                <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 18 }}>{wastePercent}%</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "من الخيوط" : "of Yarn"}</Text>
               </View>
             </View>
-            <View className="flex-row justify-end gap-4 mt-2 pt-2 border-t border-border">
-              <Text className="text-muted text-xs">{isAr ? "هدر خيوط:" : "Thread Waste:"} <Text className="text-error font-semibold">{sumWasteThread.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
-              <Text className="text-muted text-xs">{isAr ? "هدر جوارب:" : "Socks Waste:"} <Text className="text-error font-semibold">{sumWasteSocks.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "هدر خيوط:" : "Thread Waste:"} <Text style={{ color: colors.error, fontWeight: '600' }}>{sumWasteThread.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "هدر جوارب:" : "Socks Waste:"} <Text style={{ color: colors.error, fontWeight: '600' }}>{sumWasteSocks.toFixed(0)}</Text> {isAr ? "جم" : "g"}</Text>
             </View>
           </View>
         );
@@ -871,12 +870,12 @@ export default function ProductionScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
           {entries.length === 0 ? (
-            <View className="flex-1 items-center justify-center py-20">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
               <View style={{ backgroundColor: "#16a34a15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="precision-manufacturing" size={48} color="#16a34a" />
               </View>
-              <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "الإنتاج" : "Production"}</Text>
-              <Text className="text-muted text-sm mt-2 text-center px-8">
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "الإنتاج" : "Production"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
                 {isAr ? "لا توجد بيانات إنتاج بعد." : "No production data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة بيانات إنتاج جديدة." : "Press the (+) button to add new production data."}
               </Text>
               <TouchableOpacity
@@ -884,7 +883,7 @@ export default function ProductionScreen() {
                 style={{ backgroundColor: "#16a34a", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text className="text-white font-semibold">{isAr ? "إضافة إنتاج" : "Add Production"}</Text>
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>{isAr ? "إضافة إنتاج" : "Add Production"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>

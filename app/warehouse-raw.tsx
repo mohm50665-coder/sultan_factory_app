@@ -322,7 +322,7 @@ export default function WarehouseRawScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <View style={[styles.header, { backgroundColor: "#3b82f6" }]}>
         <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>
           <MaterialIcons name="add" size={24} color="white" />

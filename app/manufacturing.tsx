@@ -87,13 +87,13 @@ export default function ManufacturingScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View className="bg-primary px-6 py-5 flex-row items-center justify-between">
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <AdminBadgeIcon />
-        <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{isAr ? "مراحل التصنيع" : "Manufacturing Stages"}</Text>
-          <Text className="text-white/80 text-sm mt-1">{isAr ? "اختر مرحلة لعرض وإدخال بيانات العمال" : "Select a stage to view and enter workers data"}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "مراحل التصنيع" : "Manufacturing Stages"}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4 }}>{isAr ? "اختر مرحلة لعرض وإدخال بيانات العمال" : "Select a stage to view and enter workers data"}</Text>
         </View>
         <BackButton />
       </View>
@@ -101,19 +101,19 @@ export default function ManufacturingScreen() {
       {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
       <AdminCard />
 
-      <ScrollView className="flex-1 px-4 py-4">
+      <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
         {STAGES.map((stage) => (
           <TouchableOpacity
             key={stage.id}
             onPress={() => handleStagePress(stage.id)}
-            className="bg-surface rounded-xl p-4 mb-3 border border-border"
+            style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}
             activeOpacity={0.7}
           >
-            <View className="flex-row items-center">
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <MaterialIcons name="chevron-left" size={24} color={colors.muted} />
-              <View className="flex-1 mr-3">
-                <Text className="text-foreground font-bold text-base text-right">{stage.label}</Text>
-                <Text className="text-muted text-xs mt-1 text-right">
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>{stage.label}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4, textAlign: 'right' }}>
                   {isAr ? "العمال: " : "Workers: "}{stage.workers.join(isAr ? "، " : ", ")}
                 </Text>
               </View>

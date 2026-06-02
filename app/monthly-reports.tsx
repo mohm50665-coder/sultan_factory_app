@@ -175,7 +175,7 @@ export default function MonthlyReportsScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 }}>
         <BackButton />

@@ -85,7 +85,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* رأس الصفحة */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 }}>

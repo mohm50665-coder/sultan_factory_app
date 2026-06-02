@@ -228,7 +228,7 @@ export default function AdminSettingsScreen() {
 
   // Main menu
   const renderMainMenu = () => (
-    <ScrollView className="flex-1 px-4 py-4">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
       {/* إدارة البيانات */}
       <TouchableOpacity
         onPress={() => setSection("data-management")}
@@ -236,10 +236,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text className="text-foreground font-bold text-base text-right">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "إدارة البيانات" : "Data Management"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "عرض وتعديل وحذف جميع بيانات الأقسام" : "View, edit and delete all section data"}
             </Text>
           </View>
@@ -256,10 +256,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text className="text-foreground font-bold text-base text-right">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "إدارة المستخدمين" : "User Management"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "إضافة وتعديل وحذف المستخدمين والصلاحيات" : "Add, edit and delete users and permissions"}
             </Text>
           </View>
@@ -276,10 +276,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text className="text-foreground font-bold text-base text-right">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "النسخ الاحتياطي والاستعادة" : "Backup & Restore"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "نسخ احتياطي واستعادة جميع البيانات" : "Backup and restore all data"}
             </Text>
           </View>
@@ -296,10 +296,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text className="text-foreground font-bold text-base text-right">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "إعدادات التطبيق" : "App Settings"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "اللغة والمظهر والإشعارات" : "Language, appearance and notifications"}
             </Text>
           </View>
@@ -316,10 +316,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text className="text-foreground font-bold text-base text-right">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "سجل النشاط" : "Activity Log"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "عرض جميع العمليات والتغييرات" : "View all operations and changes"}
             </Text>
           </View>
@@ -350,10 +350,10 @@ export default function AdminSettingsScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#ef4444" }} className="font-bold text-base text-right">
+            <Text style={{ color: "#ef4444", fontWeight: 'bold', fontSize: 16, textAlign: 'right' }}>
               {isAr ? "حذف جميع البيانات" : "Delete All Data"}
             </Text>
-            <Text className="text-muted text-xs text-right mt-1">
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 4 }}>
               {isAr ? "حذف جميع بيانات التطبيق نهائياً" : "Permanently delete all app data"}
             </Text>
           </View>
@@ -375,14 +375,14 @@ export default function AdminSettingsScreen() {
 
   // Data management section
   const renderDataManagement = () => (
-    <ScrollView className="flex-1 px-4 py-4">
-      <Text className="text-foreground font-bold text-lg mb-4 text-right">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+      <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 16, textAlign: 'right' }}>
         {isAr ? "إدارة بيانات الأقسام" : "Section Data Management"}
       </Text>
       {ALL_STORAGE_KEYS.map((item) => (
         <View
           key={item.key}
-          className="bg-surface rounded-xl p-4 mb-3 border border-border"
+          style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}
         >
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             {/* Actions */}
@@ -404,10 +404,10 @@ export default function AdminSettingsScreen() {
             {/* Label */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, justifyContent: "flex-end" }}>
               <View>
-                <Text className="text-foreground font-semibold text-sm text-right">
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right' }}>
                   {isAr ? item.labelAr : item.labelEn}
                 </Text>
-                <Text className="text-muted text-xs text-right">
+                <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right' }}>
                   {dataCounts[item.key] || 0} {isAr ? "سجل" : "records"}
                 </Text>
               </View>
@@ -423,18 +423,18 @@ export default function AdminSettingsScreen() {
 
   // View data records
   const renderViewData = () => (
-    <View className="flex-1">
-      <View className="px-4 py-3 border-b border-border flex-row items-center justify-between">
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <TouchableOpacity onPress={() => setSection("data-management")}>
           <MaterialIcons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text className="text-foreground font-bold text-base">{selectedKeyLabel}</Text>
-        <Text className="text-muted text-sm">{records.length} {isAr ? "سجل" : "records"}</Text>
+        <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{selectedKeyLabel}</Text>
+        <Text style={{ color: colors.muted, fontSize: 14 }}>{records.length} {isAr ? "سجل" : "records"}</Text>
       </View>
       {records.length === 0 ? (
-        <View className="flex-1 items-center justify-center py-20">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
           <MaterialIcons name="inbox" size={48} color={colors.muted} />
-          <Text className="text-muted text-base mt-4">
+          <Text style={{ color: colors.muted, fontSize: 16, marginTop: 16 }}>
             {isAr ? "لا توجد بيانات" : "No data"}
           </Text>
         </View>
@@ -444,23 +444,23 @@ export default function AdminSettingsScreen() {
           keyExtractor={(item, index) => item.id || String(index)}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
               {/* Record fields */}
               {Object.entries(item)
                 .filter(([k]) => k !== "id")
                 .slice(0, 6)
                 .map(([key, value]) => (
                   <View key={key} style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                    <Text className="text-foreground text-xs" style={{ flex: 1 }}>
+                    <Text style={{ color: colors.foreground, fontSize: 12, flex: 1 }}>
                       {typeof value === "object" ? JSON.stringify(value).slice(0, 30) : String(value ?? "").slice(0, 40)}
                     </Text>
-                    <Text className="text-muted text-xs font-semibold" style={{ marginLeft: 8 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '600', marginLeft: 8 }}>
                       {getFieldLabel(key)}
                     </Text>
                   </View>
                 ))}
               {Object.keys(item).length > 7 && (
-                <Text className="text-muted text-xs mt-1">
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
                   +{Object.keys(item).length - 7} {isAr ? "حقول أخرى" : "more fields"}
                 </Text>
               )}
@@ -490,28 +490,27 @@ export default function AdminSettingsScreen() {
 
   // Edit record
   const renderEditRecord = () => (
-    <ScrollView className="flex-1 px-4 py-4">
-      <View className="px-0 py-3 mb-4 flex-row items-center justify-between">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+      <View style={{ paddingHorizontal: 0, paddingVertical: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <TouchableOpacity onPress={() => setSection("view-data")}>
           <MaterialIcons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text className="text-foreground font-bold text-base">
+        <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>
           {isAr ? "تعديل السجل" : "Edit Record"}
         </Text>
         <View style={{ width: 24 }} />
       </View>
 
       {Object.entries(editFields).map(([key, value]) => (
-        <View key={key} className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View key={key} style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {getFieldLabel(key)}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={[{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }, value.length > 50 ? { minHeight: 80, textAlignVertical: "top" } : undefined]}
             value={value}
             onChangeText={(text) => setEditFields((prev) => ({ ...prev, [key]: text }))}
             multiline={value.length > 50}
-            style={value.length > 50 ? { minHeight: 80, textAlignVertical: "top" } : undefined}
           />
         </View>
       ))}
@@ -519,16 +518,15 @@ export default function AdminSettingsScreen() {
       <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
         <TouchableOpacity
           onPress={() => setSection("view-data")}
-          className="flex-1 bg-background border border-border rounded-xl py-4 items-center"
+          style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
         >
-          <Text className="text-foreground font-semibold text-base">{isAr ? "إلغاء" : "Cancel"}</Text>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleSaveEdit}
-          style={{ backgroundColor: "#3b82f6" }}
-          className="flex-1 rounded-xl py-4 items-center"
+          style={{ backgroundColor: "#3b82f6", flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
         >
-          <Text className="text-white font-semibold text-base">{isAr ? "حفظ التعديل" : "Save"}</Text>
+          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>{isAr ? "حفظ التعديل" : "Save"}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -544,9 +542,9 @@ export default function AdminSettingsScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{ backgroundColor: "#f59e0b" }} className="px-6 py-5 flex-row items-center justify-between">
+      <View style={{ backgroundColor: "#f59e0b", paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {section !== "main" && section !== "view-data" && section !== "edit-record" ? (
           <TouchableOpacity onPress={() => setSection("main")} style={{ padding: 4 }}>
             <MaterialIcons name="arrow-back" size={24} color="white" />
@@ -557,7 +555,7 @@ export default function AdminSettingsScreen() {
           <View style={{ width: 32 }} />
         )}
 
-        <Text className="text-white font-bold text-xl flex-1 text-center">
+        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20, flex: 1, textAlign: 'center' }}>
           {section === "main" ? (isAr ? "إعدادات المدير" : "Admin Settings") : ""}
         </Text>
 

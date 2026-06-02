@@ -137,42 +137,34 @@ export default function ExportDataScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
-      <ScrollView className="flex-1">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
+      <ScrollView style={{ flex: 1 }}>
         {/* رأس الصفحة */}
-        <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
+        <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: 'row', alignItems: 'center' }}>
           <BackButton />
-          <View className="flex-1">
-            <Text className="text-white font-bold text-xl">تصدير البيانات</Text>
-            <Text className="text-white/80 text-sm mt-1">
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>تصدير البيانات</Text>
+            <Text style={{ fontSize: 14, marginTop: 4 }}>
               اختر الأقسام والصيغة المطلوبة
             </Text>
           </View>
         </View>
 
-        <View className="p-6">
+        <View style={{ padding: 24 }}>
           {/* اختيار صيغة التصدير */}
-          <View className="mb-6">
-            <Text className="text-foreground font-semibold text-base mb-3">
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16, marginBottom: 12 }}>
               صيغة التصدير
             </Text>
-            <View className="flex-row gap-2">
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               {(["json", "html", "csv"] as const).map((format) => (
                 <TouchableOpacity
                   key={format}
                   onPress={() => setExportFormat(format)}
-                  className={`flex-1 rounded-lg p-3 items-center justify-center border ${
-                    exportFormat === format
-                      ? "bg-primary border-primary"
-                      : "bg-surface border-border"
-                  }`}
+                  style={{ flex: 1, borderRadius: 8, padding: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 }}
                 >
                   <Text
-                    className={`font-semibold text-sm ${
-                      exportFormat === format
-                        ? "text-white"
-                        : "text-foreground"
-                    }`}
+                    style={{ fontWeight: '600', fontSize: 14 }}
                   >
                     {format.toUpperCase()}
                   </Text>
@@ -182,9 +174,9 @@ export default function ExportDataScreen() {
           </View>
 
           {/* اختيار الأقسام */}
-          <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-foreground font-semibold text-base">
+          <View style={{ marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>
                 الأقسام
               </Text>
               <TouchableOpacity
@@ -198,7 +190,7 @@ export default function ExportDataScreen() {
                   );
                 }}
               >
-                <Text className="text-primary text-sm font-semibold">
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
                   {sections.every((s) => s.selected)
                     ? "إلغاء الكل"
                     : "تحديد الكل"}
@@ -206,21 +198,19 @@ export default function ExportDataScreen() {
               </TouchableOpacity>
             </View>
 
-            <View className="bg-surface rounded-lg overflow-hidden border border-border">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
               {sections.map((section, index) => (
                 <View
                   key={section.id}
-                  className={`flex-row items-center justify-between p-4 ${
-                    index !== sections.length - 1 ? "border-b border-border" : ""
-                  }`}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}
                 >
-                  <View className="flex-row items-center flex-1">
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                     <MaterialIcons
                       name={section.icon as any}
                       size={20}
                       color={colors.primary}
                     />
-                    <Text className="text-foreground font-semibold text-sm ml-3">
+                    <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                       {section.label}
                     </Text>
                   </View>
@@ -236,14 +226,14 @@ export default function ExportDataScreen() {
           </View>
 
           {/* معلومات التصدير */}
-          <View className="bg-blue/10 rounded-lg p-4 mb-6 border border-border">
-            <View className="flex-row items-start">
+          <View style={{ borderRadius: 8, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
               <MaterialIcons name="info" size={20} color={colors.primary} />
-              <View className="ml-3 flex-1">
-                <Text className="text-foreground font-semibold text-sm mb-1">
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
                   معلومات التصدير
                 </Text>
-                <Text className="text-muted text-xs leading-5">
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
                   سيتم تصدير جميع البيانات المحفوظة في الأقسام المختارة بالصيغة
                   المحددة. يمكنك العثور على الملف في مجلد المستندات.
                 </Text>
@@ -255,14 +245,14 @@ export default function ExportDataScreen() {
           <TouchableOpacity
             onPress={handleExport}
             disabled={isLoading}
-            className="bg-primary rounded-lg p-4 items-center justify-center"
+            style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 16, alignItems: 'center', justifyContent: 'center' }}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <View className="flex-row items-center">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <MaterialIcons name="download" size={20} color="white" />
-                <Text className="text-white font-semibold text-base ml-2">
+                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
                   تصدير البيانات
                 </Text>
               </View>

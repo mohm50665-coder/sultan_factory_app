@@ -305,7 +305,7 @@ Approvals:
   };
 
   const renderRequestItem = ({ item }: { item: AdministrativeData }) => (
-    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
       {/* Reference Number & Submission Date */}
       {(item.referenceNumber || item.submissionDate) && (
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
@@ -320,15 +320,15 @@ Approvals:
         </View>
       )}
       {/* Header */}
-      <View className="flex-row justify-between items-start mb-3">
-        <View className="flex-1">
-          <Text className="text-foreground font-bold text-base">{item.employeeName}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.employeeName}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
             {item.employeeNumber ? (
-              <Text className="text-muted text-xs">{"\u0631\u0642\u0645 \u0648\u0638\u064a\u0641\u064a: "}{item.employeeNumber}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>{"\u0631\u0642\u0645 \u0648\u0638\u064a\u0641\u064a: "}{item.employeeNumber}</Text>
             ) : null}
             {item.department ? (
-              <Text className="text-muted text-xs">| {getDepartmentLabel(item.department)}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>| {getDepartmentLabel(item.department)}</Text>
             ) : null}
           </View>
           <View style={{ marginTop: 8, backgroundColor: colors.primary + "15", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
@@ -337,7 +337,7 @@ Approvals:
             </Text>
           </View>
         </View>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
             style={{ backgroundColor: colors.primary + "15", borderRadius: 8, padding: 8 }}
@@ -354,7 +354,7 @@ Approvals:
       </View>
 
       {/* Details */}
-      <Text className="text-muted text-sm mb-3" style={{ lineHeight: 20 }}>{item.requestDetails}</Text>
+      <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 12, lineHeight: 20 }}>{item.requestDetails}</Text>
 
       {/* Attachments */}
       {item.attachments && item.attachments.length > 0 && (
@@ -447,8 +447,8 @@ Approvals:
       transparent
       onRequestClose={() => setShowForm(false)}
     >
-      <View className="flex-1 bg-black/50">
-        <View className="flex-1 bg-background rounded-t-3xl mt-8">
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: colors.background, marginTop: 32 }}>
           {/* Form Header */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border }}>
             <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }}>
@@ -719,11 +719,10 @@ Approvals:
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* \u0631\u0623\u0633 \u0627\u0644\u0635\u0641\u062d\u0629 */}
       <View
-        style={{ backgroundColor: colors.primary }}
-        className="px-6 py-5 flex-row items-center justify-between"
+        style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
         {/* \u0632\u0631 \u0627\u0644\u0625\u0636\u0627\u0641\u0629 \u0648\u0627\u0644\u062a\u0635\u062f\u064a\u0631 */}
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -741,9 +740,9 @@ Approvals:
           </TouchableOpacity>
         </View>
         {/* \u0627\u0644\u0639\u0646\u0648\u0627\u0646 */}
-        <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{"\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629"}</Text>
-          <Text className="text-white/80 text-sm mt-1">{requests.length} {"\u0637\u0644\u0628"}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{"\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629"}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4 }}>{requests.length} {"\u0637\u0644\u0628"}</Text>
         </View>
         {/* \u0632\u0631 \u0627\u0644\u0631\u062c\u0648\u0639 */}
         <BackButton />
@@ -801,7 +800,7 @@ Approvals:
 
       {/* \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0637\u0644\u0628\u0627\u062a */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
@@ -811,7 +810,7 @@ Approvals:
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 justify-center items-center" style={{ paddingVertical: 80 }}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 }}>
               <View style={{ backgroundColor: colors.primary + "15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="description" size={48} color={colors.primary} />
               </View>

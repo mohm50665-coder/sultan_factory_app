@@ -142,21 +142,21 @@ export default function DashboardAnalyticsScreen() {
   const renderKPICard = (kpi: KPI) => (
     <View
       key={kpi.label}
-      className="bg-surface rounded-lg p-4 mb-4 border border-border"
+      style={{ backgroundColor: colors.surface, borderRadius: 8, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}
     >
-      <View className="flex-row items-start justify-between">
-        <View className="flex-1">
-          <Text className="text-muted text-sm mb-2">{kpi.label}</Text>
-          <View className="flex-row items-baseline">
-            <Text className="text-foreground font-bold text-2xl">
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 8 }}>{kpi.label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 24 }}>
               {kpi.value}
             </Text>
             {kpi.unit && (
-              <Text className="text-muted text-sm ml-2">{kpi.unit}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginLeft: 8 }}>{kpi.unit}</Text>
             )}
           </View>
           {kpi.percentage !== undefined && kpi.percentage > 0 && (
-            <View className="flex-row items-center mt-2">
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
               <MaterialIcons
                 name={
                   kpi.trend === "up"
@@ -175,13 +175,7 @@ export default function DashboardAnalyticsScreen() {
                 }
               />
               <Text
-                className={`text-xs ml-1 ${
-                  kpi.trend === "up"
-                    ? "text-success"
-                    : kpi.trend === "down"
-                      ? "text-error"
-                      : "text-warning"
-                }`}
+                style={{ fontSize: 12, marginLeft: 4 }}
               >
                 {isAr ? `${kpi.percentage}% مقارنة بالأمس` : `${kpi.percentage}% compared to yesterday`}
               </Text>
@@ -189,8 +183,7 @@ export default function DashboardAnalyticsScreen() {
           )}
         </View>
         <View
-          className="w-12 h-12 rounded-full items-center justify-center"
-          style={{ backgroundColor: kpi.color + "20" }}
+          style={{ width: 48, height: 48, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: kpi.color + "20" }}
         >
           <MaterialIcons name={kpi.icon as any} size={24} color={kpi.color} />
         </View>
@@ -199,38 +192,37 @@ export default function DashboardAnalyticsScreen() {
   );
 
   const renderProgressBar = (data: ChartData) => (
-    <View key={data.label} className="mb-4">
-      <View className="flex-row justify-between mb-2">
-        <Text className="text-foreground text-sm font-semibold">
+    <View key={data.label} style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: '600' }}>
           {data.label}
         </Text>
-        <Text className="text-muted text-xs">{data.percentage}%</Text>
+        <Text style={{ color: colors.muted, fontSize: 12 }}>{data.percentage}%</Text>
       </View>
-      <View className="h-2 bg-border rounded-full overflow-hidden">
+      <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 9999, overflow: 'hidden' }}>
         <View
-          className="h-full bg-primary rounded-full"
-          style={{ width: `${data.percentage}%` }}
+          style={[{ height: '100%', backgroundColor: colors.primary, borderRadius: 9999 }, { width: `${data.percentage}%` }]}
         />
       </View>
     </View>
   );
 
   return (
-    <ScreenContainer className="bg-background">
-      <ScrollView className="flex-1">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
+      <ScrollView style={{ flex: 1 }}>
         {/* رأس الصفحة */}
-        <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center">
+        <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: 'row', alignItems: 'center' }}>
           <BackButton />
-          <View className="flex-1">
-            <Text className="text-white font-bold text-xl">{isAr ? "لوحة المعلومات" : "Dashboard"}</Text>
-            <Text className="text-white/80 text-sm mt-1">
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "لوحة المعلومات" : "Dashboard"}</Text>
+            <Text style={{ fontSize: 14, marginTop: 4 }}>
               {isAr ? "مؤشرات الأداء الرئيسية" : "Key Performance Indicators"}
             </Text>
           </View>
           <AdminBadgeIcon />
           <TouchableOpacity
             onPress={loadAnalyticsData}
-            className="bg-white/20 rounded-full p-2"
+            style={{ borderRadius: 9999, padding: 8 }}
           >
             <MaterialIcons name="refresh" size={20} color="white" />
           </TouchableOpacity>
@@ -240,21 +232,15 @@ export default function DashboardAnalyticsScreen() {
         <AdminCard />
 
         {/* اختيار نطاق الوقت */}
-        <View className="px-6 py-4 flex-row gap-2">
+        <View style={{ paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', gap: 8 }}>
           {(["day", "week", "month"] as const).map((range) => (
             <TouchableOpacity
               key={range}
               onPress={() => setTimeRange(range)}
-              className={`flex-1 rounded-lg py-2 px-3 items-center justify-center border ${
-                timeRange === range
-                  ? "bg-primary border-primary"
-                  : "bg-surface border-border"
-              }`}
+              style={{ flex: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 }}
             >
               <Text
-                className={`font-semibold text-sm ${
-                  timeRange === range ? "text-white" : "text-foreground"
-                }`}
+                style={{ fontWeight: '600', fontSize: 14 }}
               >
                 {range === "day"
                   ? (isAr ? "يوم" : "Day")
@@ -266,39 +252,39 @@ export default function DashboardAnalyticsScreen() {
           ))}
         </View>
 
-        <View className="px-6 pb-6">
+        <View style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
           {isLoading ? (
-            <View className="items-center justify-center py-8">
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text className="text-muted text-sm mt-4">{isAr ? "جاري تحميل البيانات..." : "Loading data..."}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 16 }}>{isAr ? "جاري تحميل البيانات..." : "Loading data..."}</Text>
             </View>
           ) : (
             <>
               {/* مؤشرات الأداء الرئيسية */}
-              <View className="mb-6">
-                <Text className="text-foreground font-bold text-base mb-4">
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
                   {isAr ? "مؤشرات الأداء" : "Performance Indicators"}
                 </Text>
                 {kpis.map(renderKPICard)}
               </View>
 
               {/* الرسم البياني */}
-              <View className="bg-surface rounded-lg p-4 border border-border">
-                <Text className="text-foreground font-bold text-base mb-4">
+              <View style={{ backgroundColor: colors.surface, borderRadius: 8, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
                   {isAr ? "توزيع الإنتاج" : "Production Distribution"}
                 </Text>
                 {chartData.map(renderProgressBar)}
               </View>
 
               {/* معلومات إضافية */}
-              <View className="bg-blue/10 rounded-lg p-4 mt-6 border border-border">
-                <View className="flex-row items-start">
+              <View style={{ borderRadius: 8, padding: 16, marginTop: 24, borderWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <MaterialIcons name="info" size={20} color={colors.primary} />
-                  <View className="ml-3 flex-1">
-                    <Text className="text-foreground font-semibold text-sm mb-1">
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
                       {isAr ? "معلومات مهمة" : "Important Information"}
                     </Text>
-                    <Text className="text-muted text-xs leading-5">
+                    <Text style={{ color: colors.muted, fontSize: 12 }}>
                       {isAr ? "تتحدث لوحة المعلومات في الوقت الفعلي. يتم تحديث البيانات تلقائياً كل 30 ثانية. يمكنك الضغط على زر التحديث للحصول على أحدث البيانات فوراً." : "The dashboard updates in real-time. Data is automatically updated every 30 seconds. You can press the refresh button to get the latest data immediately."}
                     </Text>
                   </View>

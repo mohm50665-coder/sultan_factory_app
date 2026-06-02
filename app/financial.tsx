@@ -192,7 +192,7 @@ export default function FinancialScreen() {
   };
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />

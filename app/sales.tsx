@@ -246,9 +246,9 @@ export default function SalesScreen() {
 
   // عرض سجل مبيعات
   const renderSaleItem = ({ item }: { item: SaleEntry }) => (
-    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row gap-2">
+    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEditSale(item)}
             style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
@@ -262,36 +262,36 @@ export default function SalesScreen() {
             <MaterialIcons name="delete" size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
-        <View className="flex-row items-center gap-2">
-          <Text className="text-foreground font-bold text-base">{item.sellerName}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.sellerName}</Text>
           <View style={{ backgroundColor: "#0a7ea420", borderRadius: 16, padding: 6 }}>
             <MaterialIcons name="point-of-sale" size={18} color="#0a7ea4" />
           </View>
         </View>
       </View>
 
-      <View className="bg-background rounded-lg p-3">
-        <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-foreground text-sm">{item.customerCategory}</Text>
-          <Text className="text-muted text-sm font-semibold">{isAr ? "فئة العميل" : "Customer Category"}</Text>
+      <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.customerCategory}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "فئة العميل" : "Customer Category"}</Text>
         </View>
         {item.customerName && item.customerName !== "-" ? (
-          <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-foreground text-sm">{item.customerName}</Text>
-            <Text className="text-muted text-sm font-semibold">{isAr ? "اسم العميل" : "Customer Name"}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.customerName}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "اسم العميل" : "Customer Name"}</Text>
           </View>
         ) : null}
-        <View className="flex-row justify-between items-center mb-2">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-foreground font-bold">{item.quantityDozen}</Text>
-            <Text className="text-muted text-xs">{isAr ? "درزن" : "Dozen"}</Text>
-            <Text className="text-muted mx-1">|</Text>
-            <Text className="text-foreground font-bold">{item.quantityPairs}</Text>
-            <Text className="text-muted text-xs">{isAr ? "زوج" : "Pair"}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{item.quantityDozen}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "درزن" : "Dozen"}</Text>
+            <Text style={{ color: colors.muted, marginHorizontal: 4 }}>|</Text>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{item.quantityPairs}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "زوج" : "Pair"}</Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">{isAr ? "الكمية" : "Quantity"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "الكمية" : "Quantity"}</Text>
         </View>
-        <View className="flex-row justify-between items-center">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View
             style={{
               backgroundColor: item.paymentMethod === (isAr ? "نقداً" : "Cash") ? "#22c55e20" : "#f59e0b20",
@@ -310,18 +310,18 @@ export default function SalesScreen() {
               {item.paymentMethod}
             </Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
         </View>
       </View>
-      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
+      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'right' }}>{item.date}</Text>
     </View>
   );
 
   // عرض سجل تحصيل
   const renderCollectionItem = ({ item }: { item: CollectionEntry }) => (
-    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
-      <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row gap-2">
+    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEditCollection(item)}
             style={{ backgroundColor: "#7c3aed15", borderRadius: 20, padding: 8 }}
@@ -335,43 +335,43 @@ export default function SalesScreen() {
             <MaterialIcons name="delete" size={18} color="#ef4444" />
           </TouchableOpacity>
         </View>
-        <View className="flex-row items-center gap-2">
-          <Text className="text-foreground font-bold text-base">{item.collectorName}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.collectorName}</Text>
           <View style={{ backgroundColor: "#7c3aed20", borderRadius: 16, padding: 6 }}>
             <MaterialIcons name="account-balance-wallet" size={18} color="#7c3aed" />
           </View>
         </View>
       </View>
 
-      <View className="bg-background rounded-lg p-3">
-        <View className="flex-row justify-between items-center mb-2">
-          <Text className="text-foreground text-sm">{item.customerName}</Text>
-          <Text className="text-muted text-sm font-semibold">{isAr ? "العميل المحصل منه" : "Collected From"}</Text>
+      <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.customerName}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "العميل المحصل منه" : "Collected From"}</Text>
         </View>
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center gap-1">
-            <Text className="text-foreground font-bold text-lg">{item.amount}</Text>
-            <Text className="text-muted text-sm">{isAr ? "ريال" : "SAR"}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>{item.amount}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "ريال" : "SAR"}</Text>
           </View>
-          <Text className="text-muted text-sm font-semibold">{isAr ? "المبلغ" : "Amount"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "المبلغ" : "Amount"}</Text>
         </View>
       </View>
-      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
+      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'right' }}>{item.date}</Text>
     </View>
   );
 
   // نموذج المبيعات
   const renderSalesForm = () => (
-    <ScrollView className="flex-1 px-4 py-4">
-      <View className="bg-surface rounded-xl p-5 border border-border">
-        <Text className="text-foreground font-bold text-lg mb-5 text-right">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+        <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
           {editingSale ? (isAr ? "✏️ تعديل مبيعة" : "✏️ Edit Sale") : (isAr ? "➕ إضافة مبيعة جديدة" : "➕ Add New Sale")}
         </Text>
 
         {/* اسم البائع */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اسم البائع" : "Seller Name"}</Text>
-          <View className="flex-row flex-wrap gap-2 justify-end">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اسم البائع" : "Seller Name"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {SELLERS.map((seller) => (
               <TouchableOpacity
                 key={seller}
@@ -400,9 +400,9 @@ export default function SalesScreen() {
         </View>
 
         {/* فئة العميل */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "فئة العميل" : "Customer Category"}</Text>
-          <View className="flex-row flex-wrap gap-2 justify-end">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "فئة العميل" : "Customer Category"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {CUSTOMER_CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat}
@@ -431,12 +431,12 @@ export default function SalesScreen() {
         </View>
 
         {/* اسم العميل */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "اسم العميل (اختياري)" : "Customer Name (Optional)"}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder={isAr ? "أدخل اسم العميل" : "Enter customer name"}
             placeholderTextColor={colors.muted}
             value={customerName}
@@ -446,12 +446,12 @@ export default function SalesScreen() {
         </View>
 
         {/* الكمية بالدرزن */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "الكمية المباعة (درزن)" : "Sold Quantity (Dozen)"}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={saleDozen}
@@ -462,12 +462,12 @@ export default function SalesScreen() {
         </View>
 
         {/* الكمية بالزوج */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "الكمية المباعة (زوج)" : "Sold Quantity (Pairs)"}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={salePairs}
@@ -478,9 +478,9 @@ export default function SalesScreen() {
         </View>
 
         {/* طريقة الدفع */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
-          <View className="flex-row gap-3 justify-end">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
+          <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end' }}>
             {PAYMENT_METHODS.map((method) => (
               <TouchableOpacity
                 key={method}
@@ -509,7 +509,7 @@ export default function SalesScreen() {
         </View>
 
         {/* أزرار */}
-        <View className="flex-row gap-3 mt-2">
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
           <TouchableOpacity
             onPress={() => {
               setShowSalesForm(false);
@@ -527,7 +527,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-base">{isAr ? "إلغاء" : "Cancel"}</Text>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={20} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -544,7 +544,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-white font-semibold text-base">
+            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
               {editingSale ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}
             </Text>
             <MaterialIcons name={editingSale ? "edit" : "save"} size={20} color="white" />
@@ -556,16 +556,16 @@ export default function SalesScreen() {
 
   // نموذج التحصيل
   const renderCollectionForm = () => (
-    <ScrollView className="flex-1 px-4 py-4">
-      <View className="bg-surface rounded-xl p-5 border border-border">
-        <Text className="text-foreground font-bold text-lg mb-5 text-right">
+    <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+        <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
           {editingCollection ? (isAr ? "✏️ تعديل تحصيل" : "✏️ Edit Collection") : (isAr ? "➕ إضافة تحصيل جديد" : "➕ Add New Collection")}
         </Text>
 
         {/* اسم المحصل */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-3 text-right">{isAr ? "اسم المحصل" : "Collector Name"}</Text>
-          <View className="flex-row flex-wrap gap-2 justify-end">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اسم المحصل" : "Collector Name"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {SELLERS.map((name) => (
               <TouchableOpacity
                 key={name}
@@ -594,12 +594,12 @@ export default function SalesScreen() {
         </View>
 
         {/* اسم العميل المحصل منه */}
-        <View className="mb-4">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "اسم العميل المحصل منه" : "Collected From Customer"}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder={isAr ? "أدخل اسم العميل" : "Enter customer name"}
             placeholderTextColor={colors.muted}
             value={collectionCustomer}
@@ -609,12 +609,12 @@ export default function SalesScreen() {
         </View>
 
         {/* المبلغ بالريال */}
-        <View className="mb-5">
-          <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "المبلغ (ريال)" : "Amount (SAR)"}
           </Text>
           <TextInput
-            className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={collectionAmount}
@@ -625,7 +625,7 @@ export default function SalesScreen() {
         </View>
 
         {/* أزرار */}
-        <View className="flex-row gap-3 mt-2">
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
           <TouchableOpacity
             onPress={() => {
               setShowCollectionForm(false);
@@ -643,7 +643,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-foreground font-semibold text-base">{isAr ? "إلغاء" : "Cancel"}</Text>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={20} color={colors.foreground} />
           </TouchableOpacity>
 
@@ -660,7 +660,7 @@ export default function SalesScreen() {
               gap: 6,
             }}
           >
-            <Text className="text-white font-semibold text-base">
+            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
               {editingCollection ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}
             </Text>
             <MaterialIcons name={editingCollection ? "edit" : "save"} size={20} color="white" />
@@ -671,11 +671,10 @@ export default function SalesScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View
-        style={{ backgroundColor: "#0a7ea4" }}
-        className="px-6 py-5 flex-row items-center justify-between"
+        style={{ backgroundColor: "#0a7ea4", paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
         {/* زر الإضافة */}
         <TouchableOpacity
@@ -696,9 +695,9 @@ export default function SalesScreen() {
         {/* أيقونة الإجراءات الإدارية */}
         <AdminBadgeIcon />
         {/* العنوان */}
-        <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{isAr ? "المبيعات والتحصيل" : "Sales and Collection"}</Text>
-          <Text className="text-white/80 text-sm mt-1">
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "المبيعات والتحصيل" : "Sales and Collection"}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4 }}>
             {activeTab === "sales"
               ? (isAr ? `${salesEntries.length} مبيعة` : `${salesEntries.length} Sales`)
               : (isAr ? `${collectionEntries.length} تحصيل` : `${collectionEntries.length} Collections`)}
@@ -713,7 +712,7 @@ export default function SalesScreen() {
       <AdminCard />
 
       {/* التبويبات */}
-      <View className="flex-row border-b border-border">
+      <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: colors.border }}>
         <TouchableOpacity
           onPress={() => setActiveTab("sales")}
           style={{
@@ -782,12 +781,12 @@ export default function SalesScreen() {
             renderItem={renderSaleItem}
             contentContainerStyle={{ padding: 16, flexGrow: 1 }}
             ListEmptyComponent={
-              <View className="flex-1 items-center justify-center py-20">
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
                 <View style={{ backgroundColor: "#0a7ea415", borderRadius: 40, padding: 20 }}>
                   <MaterialIcons name="point-of-sale" size={48} color="#0a7ea4" />
                 </View>
-                <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "المبيعات" : "Sales"}</Text>
-                <Text className="text-muted text-sm mt-2 text-center px-8">
+                <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "المبيعات" : "Sales"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
                   {isAr ? "لا توجد بيانات مبيعات بعد." : "No sales data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة مبيعة جديدة." : "Press (+) to add a new sale."}
                 </Text>
                 <TouchableOpacity
@@ -798,7 +797,7 @@ export default function SalesScreen() {
                   style={{ backgroundColor: "#0a7ea4", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text className="text-white font-semibold">{isAr ? "إضافة مبيعة" : "Add Sale"}</Text>
+                    <Text style={{ color: '#ffffff', fontWeight: '600' }}>{isAr ? "إضافة مبيعة" : "Add Sale"}</Text>
                     <MaterialIcons name="add" size={20} color="white" />
                   </View>
                 </TouchableOpacity>
@@ -815,12 +814,12 @@ export default function SalesScreen() {
           renderItem={renderCollectionItem}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-20">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
               <View style={{ backgroundColor: "#7c3aed15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="account-balance-wallet" size={48} color="#7c3aed" />
               </View>
-              <Text className="text-foreground text-lg mt-5 font-bold">{isAr ? "التحصيل" : "Collection"}</Text>
-              <Text className="text-muted text-sm mt-2 text-center px-8">
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "التحصيل" : "Collection"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
                 {isAr ? "لا توجد بيانات تحصيل بعد." : "No collection data yet."}{"\n"}{isAr ? "اضغط على زر (+) لإضافة تحصيل جديد." : "Press (+) to add a new collection."}
               </Text>
               <TouchableOpacity
@@ -831,7 +830,7 @@ export default function SalesScreen() {
                 style={{ backgroundColor: "#7c3aed", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text className="text-white font-semibold">{isAr ? "إضافة تحصيل" : "Add Collection"}</Text>
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>{isAr ? "إضافة تحصيل" : "Add Collection"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>

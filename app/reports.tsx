@@ -89,7 +89,7 @@ export default function ReportsScreen() {
   const hasData = kpiData && (kpiData.totalProduction > 0 || kpiData.totalSales > 0 || kpiData.totalCollection > 0 || kpiData.totalExpenses > 0);
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* رأس الصفحة */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

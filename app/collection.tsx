@@ -124,42 +124,42 @@ export default function CollectionScreen() {
   };
 
   const renderCollectionItem = ({ item }: { item: CollectionData }) => (
-    <View className="bg-white rounded-lg p-4 mb-3 border border-border">
-      <View className="flex-row justify-between items-start mb-3">
-        <View className="flex-1">
-          <Text className="text-foreground font-bold text-base">{item.customerName}</Text>
-          <Text className="text-muted text-sm mt-1">{isAr ? `المحصل: ${item.collectorName}` : `Collector: ${item.collectorName}`}</Text>
+    <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.customerName}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 4 }}>{isAr ? `المحصل: ${item.collectorName}` : `Collector: ${item.collectorName}`}</Text>
         </View>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
-            className="bg-primary/10 rounded-lg p-2"
+            style={{ backgroundColor: colors.primary + '19', borderRadius: 8, padding: 8 }}
           >
             <MaterialIcons name="edit" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => item.id && handleDelete(item.id)}
-            className="bg-error/10 rounded-lg p-2"
+            style={{ backgroundColor: colors.error + '19', borderRadius: 8, padding: 8 }}
           >
             <MaterialIcons name="delete" size={18} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View className="bg-success/10 rounded p-2">
-        <Text className="text-success font-semibold text-sm">{isAr ? `المبلغ: ${item.amount} ريال` : `Amount: ${item.amount} SAR`}</Text>
+      <View style={{ backgroundColor: colors.success + '19', borderRadius: 4, padding: 8 }}>
+        <Text style={{ color: colors.success, fontWeight: '600', fontSize: 14 }}>{isAr ? `المبلغ: ${item.amount} ريال` : `Amount: ${item.amount} SAR`}</Text>
       </View>
     </View>
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
           <BackButton />
         </View>
-        <Text className="text-white font-bold text-lg">{isAr ? "التحصيل" : "Collection"}</Text>
+        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{isAr ? "التحصيل" : "Collection"}</Text>
         <View style={{ marginRight: 8 }}>
           <AdminBadgeIcon />
         </View>
@@ -168,7 +168,7 @@ export default function CollectionScreen() {
             resetForm();
             setShowForm(true);
           }}
-          className="bg-white/20 rounded-lg p-2"
+          style={{ borderRadius: 8, padding: 8 }}
         >
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
@@ -178,14 +178,14 @@ export default function CollectionScreen() {
       <AdminCard />
 
       {/* ملخص التحصيلات */}
-      <View className="bg-success/10 border-b border-border p-4">
-        <Text className="text-muted text-xs mb-1">{isAr ? "إجمالي التحصيلات" : "Total Collections"}</Text>
-        <Text className="text-success font-bold text-2xl">{isAr ? `${getTotalCollected()} ريال` : `${getTotalCollected()} SAR`}</Text>
+      <View style={{ backgroundColor: colors.success + '19', borderBottomWidth: 1, borderColor: colors.border, padding: 16 }}>
+        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>{isAr ? "إجمالي التحصيلات" : "Total Collections"}</Text>
+        <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 24 }}>{isAr ? `${getTotalCollected()} ريال` : `${getTotalCollected()} SAR`}</Text>
       </View>
 
       {/* قائمة التحصيلات */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
@@ -195,9 +195,9 @@ export default function CollectionScreen() {
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 justify-center items-center">
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text className="text-muted text-center mt-4">{isAr ? "لا توجد بيانات تحصيل" : "No collection data"}</Text>
+              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 16 }}>{isAr ? "لا توجد بيانات تحصيل" : "No collection data"}</Text>
             </View>
           }
         />
@@ -210,25 +210,25 @@ export default function CollectionScreen() {
         transparent
         onRequestClose={() => setShowForm(false)}
       >
-        <View className="flex-1 bg-black/50">
-          <View className="flex-1 bg-background rounded-t-3xl mt-12">
+        <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, backgroundColor: colors.background, marginTop: 48 }}>
             {/* رأس النموذج */}
-            <View className="flex-row justify-between items-center p-6 border-b border-border">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderColor: colors.border }}>
               <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text className="text-primary font-semibold">{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
-              <Text className="text-foreground font-bold text-lg">
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>
                 {editingId ? (isAr ? "تعديل التحصيل" : "Edit Collection") : (isAr ? "إضافة تحصيل جديد" : "Add New Collection")}
               </Text>
               <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text className={`font-semibold ${isLoading ? "text-muted" : "text-primary"}`}>
+                <Text style={{ fontWeight: '600' }}>
                   {isLoading ? (isAr ? "جاري..." : "Loading...") : (isAr ? "حفظ" : "Save")}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* محتوى النموذج */}
-            <ScrollView className="flex-1 p-6">
+            <ScrollView style={{ flex: 1, padding: 24 }}>
               <FormInput
                 label={isAr ? "اسم المحصل" : "Collector Name"}
                 value={formData.collectorName}

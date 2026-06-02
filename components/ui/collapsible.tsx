@@ -9,9 +9,9 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
   const colors = useColors();
 
   return (
-    <View className="bg-background">
+    <View style={{ backgroundColor: colors.background }}>
       <TouchableOpacity
-        className="flex-row items-center gap-1.5"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
         onPress={() => setIsOpen((value) => !value)}
         activeOpacity={0.8}
       >
@@ -22,9 +22,9 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
           color={colors.icon}
           style={{ transform: [{ rotate: isOpen ? "90deg" : "0deg" }] }}
         />
-        <Text className="text-base font-semibold text-foreground">{title}</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.foreground }}>{title}</Text>
       </TouchableOpacity>
-      {isOpen && <View className="mt-1.5 ml-6">{children}</View>}
+      {isOpen && <View style={{ marginTop: 6, marginLeft: 24 }}>{children}</View>}
     </View>
   );
 }

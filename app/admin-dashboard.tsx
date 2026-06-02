@@ -158,44 +158,44 @@ export default function AdminDashboardScreen() {
   };
 
   const renderUserItem = ({ item }: { item: AdminUserData }) => (
-    <View className="bg-white rounded-lg p-4 mb-3 border border-border">
-      <View className="flex-row justify-between items-start mb-3">
-        <View className="flex-1">
-          <Text className="text-foreground font-bold text-base">{item.name}</Text>
-          <Text className="text-muted text-sm mt-1">{item.email}</Text>
-          <Text className="text-muted text-xs mt-1">
+    <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.name}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 4 }}>{item.email}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
             {isAr ? "الدور:" : "Role:"} {getRoleLabel(item.role)}
           </Text>
         </View>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
-            className="bg-primary/10 rounded-lg p-2"
+            style={{ backgroundColor: colors.primary + '19', borderRadius: 8, padding: 8 }}
           >
             <MaterialIcons name="edit" size={18} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => item.id && handleDelete(item.id)}
-            className="bg-error/10 rounded-lg p-2"
+            style={{ backgroundColor: colors.error + '19', borderRadius: 8, padding: 8 }}
           >
             <MaterialIcons name="delete" size={18} color={colors.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View className="flex-row items-center gap-2">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {item.isActive ? (
-          <View className="flex-row items-center gap-1 bg-success/10 px-2 py-1 rounded">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.success + '19', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
             <MaterialIcons name="check-circle" size={14} color={colors.success} />
-            <Text className="text-success text-xs font-semibold">{isAr ? "نشط" : "Active"}</Text>
+            <Text style={{ color: colors.success, fontSize: 12, fontWeight: '600' }}>{isAr ? "نشط" : "Active"}</Text>
           </View>
         ) : (
-          <View className="flex-row items-center gap-1 bg-error/10 px-2 py-1 rounded">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.error + '19', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
             <MaterialIcons name="cancel" size={14} color={colors.error} />
-            <Text className="text-error text-xs font-semibold">{isAr ? "معطل" : "Inactive"}</Text>
+            <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>{isAr ? "معطل" : "Inactive"}</Text>
           </View>
         )}
-        <Text className="text-muted text-xs">
+        <Text style={{ color: colors.muted, fontSize: 12 }}>
           {(item.permissions || []).length} {isAr ? "صلاحية" : "Permissions"}
         </Text>
       </View>
@@ -203,33 +203,33 @@ export default function AdminDashboardScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
-      <View className="bg-primary px-6 py-4 flex-row justify-between items-center">
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
           <BackButton />
         </View>
-        <Text className="text-white font-bold text-lg">{isAr ? "لوحة تحكم ADMIN" : "ADMIN Dashboard"}</Text>
+        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{isAr ? "لوحة تحكم ADMIN" : "ADMIN Dashboard"}</Text>
         <TouchableOpacity
           onPress={() => {
             resetForm();
             setShowForm(true);
           }}
-          className="bg-white/20 rounded-lg p-2"
+          style={{ borderRadius: 8, padding: 8 }}
         >
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
       {/* Users Summary */}
-      <View className="bg-primary/10 border-b border-border p-4">
-        <Text className="text-muted text-xs mb-1">{isAr ? "إجمالي المستخدمين" : "Total Users"}</Text>
-        <Text className="text-primary font-bold text-2xl">{users.length}</Text>
+      <View style={{ backgroundColor: colors.primary + '19', borderBottomWidth: 1, borderColor: colors.border, padding: 16 }}>
+        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>{isAr ? "إجمالي المستخدمين" : "Total Users"}</Text>
+        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 24 }}>{users.length}</Text>
       </View>
 
       {/* Users List */}
       {isLoading ? (
-        <View className="flex-1 justify-center items-center">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
@@ -239,9 +239,9 @@ export default function AdminDashboardScreen() {
           keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 justify-center items-center">
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text className="text-muted text-center mt-4">{isAr ? "لا توجد مستخدمين" : "No users found"}</Text>
+              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 16 }}>{isAr ? "لا توجد مستخدمين" : "No users found"}</Text>
             </View>
           }
         />
@@ -254,25 +254,25 @@ export default function AdminDashboardScreen() {
         transparent
         onRequestClose={() => setShowForm(false)}
       >
-        <View className="flex-1 bg-black/50">
-          <View className="flex-1 bg-background rounded-t-3xl mt-12">
+        <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, backgroundColor: colors.background, marginTop: 48 }}>
             {/* Form Header */}
-            <View className="flex-row justify-between items-center p-6 border-b border-border">
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderColor: colors.border }}>
               <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text className="text-primary font-semibold">{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
-              <Text className="text-foreground font-bold text-lg">
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>
                 {editingId ? (isAr ? "تعديل المستخدم" : "Edit User") : (isAr ? "إضافة مستخدم جديد" : "Add New User")}
               </Text>
               <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text className={`font-semibold ${isLoading ? "text-muted" : "text-primary"}`}>
+                <Text style={{ fontWeight: '600' }}>
                   {isLoading ? (isAr ? "جاري..." : "Saving...") : (isAr ? "حفظ" : "Save")}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Form Content */}
-            <ScrollView className="flex-1 p-6">
+            <ScrollView style={{ flex: 1, padding: 24 }}>
               <FormInput
                 label={isAr ? "اسم المستخدم" : "Username"}
                 value={formData.name}
@@ -300,8 +300,8 @@ export default function AdminDashboardScreen() {
                 required
               />
 
-              <View className="mt-6 border-t border-border pt-6">
-                <Text className="text-foreground font-semibold text-sm mb-4">{isAr ? "الصلاحيات" : "Permissions"}</Text>
+              <View style={{ marginTop: 24, borderTopWidth: 1, borderColor: colors.border, paddingTop: 24 }}>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 16 }}>{isAr ? "الصلاحيات" : "Permissions"}</Text>
                 {PERMISSIONS.map((permission) => (
                   <FormCheckbox
                     key={permission.id}
@@ -312,7 +312,7 @@ export default function AdminDashboardScreen() {
                 ))}
               </View>
 
-              <View className="mt-6 border-t border-border pt-6">
+              <View style={{ marginTop: 24, borderTopWidth: 1, borderColor: colors.border, paddingTop: 24 }}>
                 <FormCheckbox
                   label={isAr ? "حساب نشط" : "Active Account"}
                   value={formData.isActive}

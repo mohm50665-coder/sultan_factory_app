@@ -68,7 +68,7 @@ export default function WarehouseScreen() {
   ];
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
         <BackButton />

@@ -497,7 +497,7 @@ export default function SectionReportsScreen() {
   const activeSectionConfig = SECTIONS.find((s) => s.key === activeSection);
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />

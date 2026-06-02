@@ -188,15 +188,10 @@ export default function NotificationsCenterScreen() {
     <TouchableOpacity
       key={notification.id}
       onPress={() => handleMarkAsRead(notification.id)}
-      className={`flex-row items-start p-4 border-b border-border ${
-        !notification.read ? "bg-primary/5" : ""
-      }`}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}
     >
       <View
-        className="w-10 h-10 rounded-full items-center justify-center mr-3"
-        style={{
-          backgroundColor: getNotificationColor(notification.type) + "20",
-        }}
+        style={{ width: 40, height: 40, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: getNotificationColor(notification.type) + "20", }}
       >
         <MaterialIcons
           name={getNotificationIcon(notification.type) as any}
@@ -205,19 +200,19 @@ export default function NotificationsCenterScreen() {
         />
       </View>
 
-      <View className="flex-1">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-foreground font-semibold text-sm">
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
             {notification.title}
           </Text>
           {!notification.read && (
-            <View className="w-2 h-2 rounded-full bg-primary" />
+            <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: colors.primary }} />
           )}
         </View>
-        <Text className="text-muted text-xs mt-1 leading-4">
+        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
           {notification.body}
         </Text>
-        <Text className="text-muted text-xs mt-2">
+        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>
           {new Date(notification.timestamp).toLocaleTimeString("ar-SA", {
             hour: "2-digit",
             minute: "2-digit",
@@ -227,7 +222,7 @@ export default function NotificationsCenterScreen() {
 
       <TouchableOpacity
         onPress={() => handleDeleteNotification(notification.id)}
-        className="ml-2 p-1"
+        style={{ marginLeft: 8, padding: 4 }}
       >
         <MaterialIcons name="close" size={18} color={colors.muted} />
       </TouchableOpacity>
@@ -235,21 +230,21 @@ export default function NotificationsCenterScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View className="bg-gradient-to-r from-primary to-primary/80 px-6 py-6 flex-row items-center justify-between">
-        <View className="flex-row items-center flex-1">
+      <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <BackButton />
-          <View className="flex-1">
-            <Text className="text-white font-bold text-xl">الإشعارات</Text>
-            <Text className="text-white/80 text-sm mt-1">
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>الإشعارات</Text>
+            <Text style={{ fontSize: 14, marginTop: 4 }}>
               {notifications.filter((n) => !n.read).length} إشعارات جديدة
             </Text>
           </View>
         </View>
         <TouchableOpacity
           onPress={() => setShowSettings(!showSettings)}
-          className="bg-white/20 rounded-full p-2"
+          style={{ borderRadius: 9999, padding: 8 }}
         >
           <MaterialIcons name="settings" size={20} color="white" />
         </TouchableOpacity>
@@ -257,18 +252,18 @@ export default function NotificationsCenterScreen() {
 
       {showSettings ? (
         // شاشة الإعدادات
-        <ScrollView className="flex-1">
-          <View className="p-6">
-            <Text className="text-foreground font-bold text-base mb-4">
+        <ScrollView style={{ flex: 1 }}>
+          <View style={{ padding: 24 }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
               إعدادات الإشعارات
             </Text>
 
             {/* إعدادات أنواع الإشعارات */}
-            <View className="bg-surface rounded-lg overflow-hidden border border-border mb-6">
-              <View className="flex-row items-center justify-between p-4 border-b border-border">
-                <View className="flex-row items-center flex-1">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="task-alt" size={20} color={colors.primary} />
-                  <Text className="text-foreground font-semibold text-sm ml-3">
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                     إشعارات المهام المكتملة
                   </Text>
                 </View>
@@ -282,10 +277,10 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View className="flex-row items-center justify-between p-4 border-b border-border">
-                <View className="flex-row items-center flex-1">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="error" size={20} color={colors.primary} />
-                  <Text className="text-foreground font-semibold text-sm ml-3">
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                     إشعارات توقف الأجهزة
                   </Text>
                 </View>
@@ -299,10 +294,10 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View className="flex-row items-center justify-between p-4">
-                <View className="flex-row items-center flex-1">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="warning" size={20} color={colors.primary} />
-                  <Text className="text-foreground font-semibold text-sm ml-3">
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                     إشعارات تجاوز الهدر
                   </Text>
                 </View>
@@ -318,15 +313,15 @@ export default function NotificationsCenterScreen() {
             </View>
 
             {/* إعدادات الصوت والاهتزاز */}
-            <Text className="text-foreground font-bold text-base mb-4">
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
               إعدادات الصوت والاهتزاز
             </Text>
 
-            <View className="bg-surface rounded-lg overflow-hidden border border-border">
-              <View className="flex-row items-center justify-between p-4 border-b border-border">
-                <View className="flex-row items-center flex-1">
+            <View style={{ backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="volume-up" size={20} color={colors.primary} />
-                  <Text className="text-foreground font-semibold text-sm ml-3">
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                     تفعيل الصوت
                   </Text>
                 </View>
@@ -340,10 +335,10 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View className="flex-row items-center justify-between p-4">
-                <View className="flex-row items-center flex-1">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="vibration" size={20} color={colors.primary} />
-                  <Text className="text-foreground font-semibold text-sm ml-3">
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
                     تفعيل الاهتزاز
                   </Text>
                 </View>
@@ -361,9 +356,9 @@ export default function NotificationsCenterScreen() {
             {/* زر العودة */}
             <TouchableOpacity
               onPress={() => setShowSettings(false)}
-              className="bg-primary rounded-lg p-4 items-center justify-center mt-6"
+              style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 16, alignItems: 'center', justifyContent: 'center', marginTop: 24 }}
             >
-              <Text className="text-white font-semibold text-base">
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
                 العودة للإشعارات
               </Text>
             </TouchableOpacity>
@@ -373,38 +368,38 @@ export default function NotificationsCenterScreen() {
         // شاشة الإشعارات
         <>
           {isLoading ? (
-            <View className="flex-1 items-center justify-center">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : notifications.length === 0 ? (
-            <View className="flex-1 items-center justify-center px-6">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
               <MaterialIcons name="notifications-none" size={64} color={colors.muted} />
-              <Text className="text-foreground font-semibold text-base mt-4">
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16, marginTop: 16 }}>
                 لا توجد إشعارات
               </Text>
-              <Text className="text-muted text-sm mt-2 text-center">
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center' }}>
                 ستظهر الإشعارات هنا عند حدوث أحداث مهمة في النظام
               </Text>
             </View>
           ) : (
             <>
               {/* أزرار الإجراءات */}
-              <View className="px-6 py-4 flex-row gap-2">
+              <View style={{ paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', gap: 8 }}>
                 {notifications.some((n) => !n.read) && (
                   <TouchableOpacity
                     onPress={handleMarkAllAsRead}
-                    className="flex-1 bg-primary rounded-lg py-2 px-3 items-center justify-center"
+                    style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <Text className="text-white font-semibold text-sm">
+                    <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
                       تحديد الكل كمقروء
                     </Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
                   onPress={handleDeleteAllNotifications}
-                  className="flex-1 bg-error/20 rounded-lg py-2 px-3 items-center justify-center border border-error"
+                  style={{ flex: 1, backgroundColor: colors.error + '33', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.error }}
                 >
-                  <Text className="text-error font-semibold text-sm">
+                  <Text style={{ color: colors.error, fontWeight: '600', fontSize: 14 }}>
                     حذف الكل
                   </Text>
                 </TouchableOpacity>
@@ -416,8 +411,8 @@ export default function NotificationsCenterScreen() {
                 keyExtractor={(item) => item.date}
                 renderItem={({ item: group }) => (
                   <View>
-                    <View className="px-6 py-3 bg-background">
-                      <Text className="text-muted font-semibold text-xs">
+                    <View style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.background }}>
+                      <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 12 }}>
                         {group.date}
                       </Text>
                     </View>

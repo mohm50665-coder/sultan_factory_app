@@ -262,12 +262,12 @@ export default function ManufacturingStageScreen() {
 
   // عرض سجل واحد
   const renderEntry = ({ item }: { item: WorkerEntry }) => (
-    <View className="bg-surface rounded-xl p-4 mb-3 border border-border">
+    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
       {/* اسم العامل والأزرار */}
-      <View className="flex-row items-center justify-between mb-3">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         {/* أيقونات التعديل والحذف - تظهر فقط لغير المستودعات */}
         {!isViewOnly && (
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
             style={{
@@ -292,8 +292,8 @@ export default function ManufacturingStageScreen() {
         )}
 
         {/* اسم العامل */}
-        <View className="flex-row items-center gap-2">
-          <Text className="text-foreground font-bold text-base">{item.workerName}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.workerName}</Text>
           <View
             style={{
               backgroundColor: `${config.color}20`,
@@ -308,75 +308,75 @@ export default function ManufacturingStageScreen() {
 
       {/* بيانات الإنتاج */}
       {isStorageStage ? (
-        <View className="bg-background rounded-lg p-3">
+        <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
           {/* الإنتاج التام */}
-          <Text className="text-foreground font-semibold text-sm text-right mb-2">الإنتاج التام:</Text>
-          <View className="flex-row justify-between items-center mb-1">
-            <View className="flex-row items-center gap-1">
-              <Text className="text-foreground font-bold text-base">{item.finishedDozen || "0"}</Text>
-              <Text className="text-muted text-sm">درزن</Text>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', marginBottom: 8 }}>الإنتاج التام:</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.finishedDozen || "0"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14 }}>درزن</Text>
             </View>
-            <View className="flex-row items-center gap-1">
-              <Text className="text-foreground font-bold text-base">{item.finishedPairs || "0"}</Text>
-              <Text className="text-muted text-sm">زوج</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.finishedPairs || "0"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14 }}>زوج</Text>
             </View>
           </View>
           {/* النخب الثاني */}
-          <View className="border-t border-border mt-2 pt-2">
-            <Text className="text-foreground font-semibold text-sm text-right mb-2">النخب الثاني:</Text>
-            <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center gap-1">
-                <Text className="text-foreground font-bold text-base">{item.secondGradeDozen || "0"}</Text>
-                <Text className="text-muted text-sm">درزن</Text>
+          <View style={{ borderTopWidth: 1, borderColor: colors.border, marginTop: 8, paddingTop: 8 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', marginBottom: 8 }}>النخب الثاني:</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.secondGradeDozen || "0"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>درزن</Text>
               </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="text-foreground font-bold text-base">{item.secondGradePairs || "0"}</Text>
-                <Text className="text-muted text-sm">زوج</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.secondGradePairs || "0"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>زوج</Text>
               </View>
             </View>
           </View>
           {/* جوارب مانع الانزلاق */}
-          <View className="border-t border-border mt-2 pt-2">
-            <Text className="text-foreground font-semibold text-sm text-right mb-2">جوارب مانع الانزلاق:</Text>
-            <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center gap-1">
-                <Text className="text-foreground font-bold text-base">{item.antislipDozen || "0"}</Text>
-                <Text className="text-muted text-sm">درزن</Text>
+          <View style={{ borderTopWidth: 1, borderColor: colors.border, marginTop: 8, paddingTop: 8 }}>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', marginBottom: 8 }}>جوارب مانع الانزلاق:</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.antislipDozen || "0"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>درزن</Text>
               </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="text-foreground font-bold text-base">{item.antislipPairs || "0"}</Text>
-                <Text className="text-muted text-sm">زوج</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.antislipPairs || "0"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 14 }}>زوج</Text>
               </View>
             </View>
           </View>
         </View>
       ) : (
-        <View className="bg-background rounded-lg p-3">
-          <View className="flex-row justify-between items-center mb-2">
-            <View className="flex-row items-center gap-1">
-              <Text className="text-foreground font-bold text-base">{item.productionDozen}</Text>
-              <Text className="text-muted text-sm">درزن</Text>
+        <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.productionDozen}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14 }}>درزن</Text>
             </View>
-            <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالدرزن</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>كمية الإنتاج بالدرزن</Text>
           </View>
-          <View className="flex-row justify-between items-center">
-            <View className="flex-row items-center gap-1">
-              <Text className="text-foreground font-bold text-base">{item.productionPairs}</Text>
-              <Text className="text-muted text-sm">زوج</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.productionPairs}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14 }}>زوج</Text>
             </View>
-            <Text className="text-muted text-sm font-semibold">كمية الإنتاج بالزوج</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>كمية الإنتاج بالزوج</Text>
           </View>
         </View>
       )}
 
       {/* المدة الزمنية للإنجاز */}
       {(parseInt(item.durationHours || "0") > 0 || parseInt(item.durationMinutes || "0") > 0) && (
-        <View className="mt-2 bg-background rounded-lg p-2 flex-row items-center justify-end gap-2">
-          <Text className="text-foreground font-bold text-sm">
+        <View style={{ marginTop: 8, backgroundColor: colors.background, borderRadius: 8, padding: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14 }}>
             {item.durationHours || "0"} ساعة {item.durationMinutes || "0"} دقيقة
           </Text>
-          <View className="flex-row items-center gap-1">
-            <Text className="text-muted text-xs">مدة الإنجاز:</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>مدة الإنجاز:</Text>
             <MaterialIcons name="timer" size={14} color={colors.muted} />
           </View>
         </View>
@@ -384,22 +384,21 @@ export default function ManufacturingStageScreen() {
 
       {/* ملاحظات */}
       {item.notes ? (
-        <View className="mt-2 bg-background rounded-lg p-2">
-          <Text className="text-muted text-xs text-right">{item.notes}</Text>
+        <View style={{ marginTop: 8, backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
+          <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right' }}>{item.notes}</Text>
         </View>
       ) : null}
 
       {/* التاريخ */}
-      <Text className="text-muted text-xs mt-2 text-right">{item.date}</Text>
+      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'right' }}>{item.date}</Text>
     </View>
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View
-        style={{ backgroundColor: config.color }}
-        className="px-6 py-5 flex-row items-center justify-between"
+        style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
         {/* زر الإضافة - يظهر فقط لغير المستودعات */}
         {isViewOnly ? (
@@ -421,9 +420,9 @@ export default function ManufacturingStageScreen() {
         )}
 
         {/* عنوان الصفحة */}
-        <View className="flex-1 items-center">
-          <Text className="text-white font-bold text-xl">{config.name}</Text>
-          <Text className="text-white/80 text-sm mt-1">
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4 }}>
             {entries.length > 0 ? `${entries.length} سجل` : "لا توجد سجلات"}
           </Text>
         </View>
@@ -434,18 +433,18 @@ export default function ManufacturingStageScreen() {
 
       {/* نموذج الإدخال */}
       {showForm ? (
-        <ScrollView className="flex-1 px-4 py-4">
-          <View className="bg-surface rounded-xl p-5 border border-border">
-            <Text className="text-foreground font-bold text-lg mb-5 text-right">
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
               {editingEntry ? "✏️ تعديل بيانات العامل" : "➕ إدخال بيانات جديدة"}
             </Text>
 
             {/* اختيار اسم العامل */}
-            <View className="mb-5">
-              <Text className="text-foreground font-semibold text-sm mb-3 text-right">
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
                 اسم العامل
               </Text>
-              <View className="flex-row flex-wrap gap-2 justify-end">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                 {config.workers.map((worker) => (
                   <TouchableOpacity
                     key={worker}
@@ -473,8 +472,8 @@ export default function ManufacturingStageScreen() {
                 ))}
               </View>
               {selectedWorker ? (
-                <View className="mt-3 flex-row items-center justify-end gap-2">
-                  <Text style={{ color: config.color }} className="font-bold text-sm">
+                <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                  <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14 }}>
                     {selectedWorker}
                   </Text>
                   <MaterialIcons name="check-circle" size={16} color={config.color} />
@@ -486,14 +485,14 @@ export default function ManufacturingStageScreen() {
             {isStorageStage ? (
               <View>
                 {/* الإنتاج التام */}
-                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
-                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
                     الإنتاج التام
                   </Text>
-                  <View className="mb-3">
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالدرزن</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={finishedDozen}
@@ -503,9 +502,9 @@ export default function ManufacturingStageScreen() {
                     />
                   </View>
                   <View>
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالزوج</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={finishedPairs}
@@ -517,14 +516,14 @@ export default function ManufacturingStageScreen() {
                 </View>
 
                 {/* النخب الثاني */}
-                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
-                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
                     النخب الثاني
                   </Text>
-                  <View className="mb-3">
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالدرزن</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={secondGradeDozen}
@@ -534,9 +533,9 @@ export default function ManufacturingStageScreen() {
                     />
                   </View>
                   <View>
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالزوج</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={secondGradePairs}
@@ -548,14 +547,14 @@ export default function ManufacturingStageScreen() {
                 </View>
 
                 {/* جوارب مانع الانزلاق */}
-                <View className="mb-4 bg-background rounded-lg p-3 border border-border">
-                  <Text className="text-foreground font-bold text-sm mb-3 text-right">
+                <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
                     جوارب مانع الانزلاق
                   </Text>
-                  <View className="mb-3">
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالدرزن</Text>
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالدرزن</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={antislipDozen}
@@ -565,9 +564,9 @@ export default function ManufacturingStageScreen() {
                     />
                   </View>
                   <View>
-                    <Text className="text-muted text-xs mb-1 text-right">الكمية بالزوج</Text>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>الكمية بالزوج</Text>
                     <TextInput
-                      className="bg-surface border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                       placeholder="0"
                       placeholderTextColor={colors.muted}
                       value={antislipPairs}
@@ -581,12 +580,12 @@ export default function ManufacturingStageScreen() {
             ) : (
               <View>
                 {/* كمية الإنتاج بالدرزن */}
-                <View className="mb-4">
-                  <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
                     كمية الإنتاج (درزن)
                   </Text>
                   <TextInput
-                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                     placeholder="أدخل الكمية بالدرزن"
                     placeholderTextColor={colors.muted}
                     value={productionDozen}
@@ -597,12 +596,12 @@ export default function ManufacturingStageScreen() {
                 </View>
 
                 {/* كمية الإنتاج بالزوج */}
-                <View className="mb-4">
-                  <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
                     كمية الإنتاج (زوج)
                   </Text>
                   <TextInput
-                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                     placeholder="أدخل الكمية بالزوج"
                     placeholderTextColor={colors.muted}
                     value={productionPairs}
@@ -615,15 +614,15 @@ export default function ManufacturingStageScreen() {
             )}
 
             {/* المدة الزمنية للإنجاز */}
-            <View className="mb-5">
-              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
                 المدة الزمنية للإنجاز
               </Text>
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="text-muted text-xs mb-1 text-right">دقيقة</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>دقيقة</Text>
                   <TextInput
-                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                     placeholder="0"
                     placeholderTextColor={colors.muted}
                     value={durationMinutes}
@@ -632,10 +631,10 @@ export default function ManufacturingStageScreen() {
                     returnKeyType="next"
                   />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-muted text-xs mb-1 text-right">ساعة</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>ساعة</Text>
                   <TextInput
-                    className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
                     placeholder="0"
                     placeholderTextColor={colors.muted}
                     value={durationHours}
@@ -648,12 +647,12 @@ export default function ManufacturingStageScreen() {
             </View>
 
             {/* ملاحظات */}
-            <View className="mb-5">
-              <Text className="text-foreground font-semibold text-sm mb-2 text-right">
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
                 ملاحظات (اختياري)
               </Text>
               <TextInput
-                className="bg-background border border-border rounded-lg px-4 py-3 text-foreground text-right text-base"
+                style={[{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }, { minHeight: 70, textAlignVertical: "top" }]}
                 placeholder="أدخل ملاحظات إضافية"
                 placeholderTextColor={colors.muted}
                 value={notes}
@@ -661,32 +660,29 @@ export default function ManufacturingStageScreen() {
                 multiline
                 numberOfLines={3}
                 returnKeyType="done"
-                style={{ minHeight: 70, textAlignVertical: "top" }}
               />
             </View>
 
             {/* أزرار الإجراءات */}
-            <View className="flex-row gap-3 mt-2">
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
               {/* زر إلغاء */}
               <TouchableOpacity
                 onPress={() => {
                   setShowForm(false);
                   resetForm();
                 }}
-                className="flex-1 bg-background border border-border rounded-xl py-4 items-center"
-                style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}
+                style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 16, alignItems: 'center', flexDirection: "row", justifyContent: "center", gap: 6 }}
               >
-                <Text className="text-foreground font-semibold text-base">إلغاء</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>إلغاء</Text>
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
 
               {/* زر حفظ */}
               <TouchableOpacity
                 onPress={handleSave}
-                style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6 }}
-                className="flex-1 rounded-xl py-4 items-center"
+                style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
               >
-                <Text className="text-white font-semibold text-base">
+                <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
                   {editingEntry ? "تعديل" : "حفظ"}
                 </Text>
                 <MaterialIcons
@@ -706,23 +702,23 @@ export default function ManufacturingStageScreen() {
           renderItem={renderEntry}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-20">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
               <View
                 style={{ backgroundColor: `${config.color}15`, borderRadius: 40, padding: 20 }}
               >
                 <MaterialIcons name={config.icon as any} size={48} color={config.color} />
               </View>
-              <Text className="text-foreground text-lg mt-5 font-bold">{config.name}</Text>
-              <Text className="text-muted text-sm mt-2 text-center px-8">
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{config.name}</Text>
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
                 {isViewOnly ? "لا توجد بيانات مسجلة بعد." : "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة."}
               </Text>
 
               {/* عرض أسماء العمال */}
-              <View className="mt-5 bg-surface rounded-xl p-4 border border-border w-full">
-                <Text className="text-foreground font-semibold text-sm mb-3 text-right">
+              <View style={{ marginTop: 20, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
                   العمال في هذه المرحلة:
                 </Text>
-                <View className="flex-row flex-wrap gap-2 justify-end">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                   {config.workers.map((worker) => (
                     <View
                       key={worker}
@@ -747,11 +743,10 @@ export default function ManufacturingStageScreen() {
                   resetForm();
                   setShowForm(true);
                 }}
-                style={{ backgroundColor: config.color }}
-                className="mt-6 px-8 py-3 rounded-xl"
+                style={{ backgroundColor: config.color, marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text className="text-white font-semibold">إضافة بيانات</Text>
+                  <Text style={{ color: '#ffffff', fontWeight: '600' }}>إضافة بيانات</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>

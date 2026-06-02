@@ -138,7 +138,7 @@ export default function GlobalSearchScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "البحث الشامل" : "Global Search"}</Text>

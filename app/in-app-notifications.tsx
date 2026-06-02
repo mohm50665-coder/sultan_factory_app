@@ -158,7 +158,7 @@ export default function InAppNotificationsScreen() {
   ];
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />

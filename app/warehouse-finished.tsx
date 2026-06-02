@@ -368,7 +368,7 @@ export default function WarehouseFinishedScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <View style={[styles.header, { backgroundColor: "#16a34a" }]}>
         <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>
           <MaterialIcons name="add" size={24} color="white" />

@@ -167,7 +167,7 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <ScreenContainer className="bg-background">
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* رأس الصفحة */}
         <View
