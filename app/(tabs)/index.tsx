@@ -146,15 +146,16 @@ export default function HomeScreen() {
   const userRole = (user?.role || "user") as UserRole;
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    const loadUnread = async () => {
-      const count = await notificationsService.getUnreadCount();
-      setUnreadCount(count);
-    };
-    loadUnread();
-    const unsubscribe = notificationsService.subscribe(loadUnread);
-    return unsubscribe;
-  }, []);
+  // TODO: Fix notifications service - temporarily disabled
+  // useEffect(() => {
+  //   const loadUnread = async () => {
+  //     const count = await notificationsService.getUnreadCount();
+  //     setUnreadCount(count);
+  //   };
+  //   loadUnread();
+  //   const unsubscribe = notificationsService.subscribe(loadUnread);
+  //   return unsubscribe;
+  // }, []);
 
   // Filter dashboard items based on user department + admin sees all
   const userDepartment = user?.department || "";
