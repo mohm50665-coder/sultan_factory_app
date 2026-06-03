@@ -314,3 +314,14 @@
 - [x] استخدام react-native-css-interop/babel-plugin مباشرة بدلاً من nativewind/babel
 - [x] إزالة ThemeProvider من _layout.tsx (كان يستخدم vars() من nativewind التي تسبب race condition)
 - [x] تحديث use-color-scheme.ts لاستخدام React Native useColorScheme مباشرة
+
+## إصلاح crash نهائي - إزالة المكتبات المسببة للمشكلة
+- [x] إزالة import react-native-reanimated من _layout.tsx
+- [x] استبدال GestureHandlerRootView بـ View عادي في _layout.tsx
+- [x] إزالة react-native-reanimated/plugin من babel.config.js
+- [x] تعطيل newArchEnabled (false) في app.config.ts
+- [x] إعادة كتابة hello-wave.tsx بدون reanimated
+- [x] إعادة كتابة parallax-scroll-view.tsx بدون reanimated
+- [x] التحقق من عدم وجود أي imports لـ reanimated/gesture-handler/nativewind في الكود
+- [x] TypeScript: 0 أخطاء
+- [x] البناء المحلي ينجح (Android bundle 4.03 MB)

@@ -1,8 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import "react-native-reanimated";
 import { Platform, View, Text } from "react-native";
 
 import { AuthProvider, useAuth } from "@/lib/auth-context";
@@ -174,14 +172,14 @@ function RootLayoutContent() {
   }, [initialInsets, initialFrame]);
 
   const content = (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <LanguageProvider>
         <AuthProvider>
           <NavigationContent />
           <StatusBar style="auto" />
         </AuthProvider>
       </LanguageProvider>
-    </GestureHandlerRootView>
+    </View>
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";
