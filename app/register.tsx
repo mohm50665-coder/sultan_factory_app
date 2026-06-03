@@ -26,6 +26,7 @@ const DEPARTMENTS = [
   { id: "maintenance", labelAr: "قسم الصيانة", labelEn: "Maintenance Department" },
   { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative" },
   { id: "warehouse", labelAr: "قسم المستودعات", labelEn: "Warehouse Department" },
+  { id: "employees", labelAr: "الموظفين", labelEn: "Employees" },
 ];
 
 export default function RegisterScreen() {
@@ -102,12 +103,18 @@ export default function RegisterScreen() {
         formData.department,
         formData.password
       );
+      const successMsg = isAr
+        ? "تم التسجيل بنجاح! حسابك بانتظار التفعيل من المدير. يرجى التواصل مع الإدارة."
+        : "Registration successful! Your account is pending activation by the admin. Please contact management.";
       if (Platform.OS === "web") {
-        window.alert(isAr ? "تم التسجيل بنجاح" : "Registration successful");
+        window.alert(successMsg);
       } else {
-        Alert.alert(t("success"), t("register_success"));
+        Alert.alert(
+          isAr ? "تم التسجيل" : "Registered",
+          successMsg
+        );
       }
-      router.replace("/(tabs)");
+      router.replace("/login");
     } catch (error) {
       const message = error instanceof Error ? error.message : t("error");
       if (Platform.OS === "web") {

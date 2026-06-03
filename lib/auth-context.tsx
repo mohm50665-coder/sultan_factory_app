@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const userData = await simpleAuthService.register({
+      await simpleAuthService.register({
         name,
         username,
         phone,
@@ -69,7 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         department,
         password,
       });
-      setUser(userData);
+      // لا يتم تسجيل الدخول تلقائياً - الحساب يحتاج تفعيل من الأدمن
+      // setUser لا يُستدعى هنا
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل التسجيل";
       setError(message);

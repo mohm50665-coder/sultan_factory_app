@@ -10,6 +10,7 @@ export interface User {
   department: string;
   role: string;
   isActive: boolean;
+  allowedSections?: string[]; // الأقسام المسموحة للمستخدم (يحددها الأدمن)
   createdAt?: string;
 }
 
@@ -104,17 +105,15 @@ export const simpleAuthService = {
         department: data.department,
         password: data.password,
         role: "user",
-        isActive: true,
+        isActive: false, // المستخدم الجديد غير مفعّل حتى يفعّله الأدمن
         createdAt: new Date().toISOString(),
       };
 
       users.push(newUser);
       await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-      // Auto login after registration
+      // لا يتم تسجيل دخول تلقائي - الحساب يحتاج تفعيل من الأدمن
       const { password, ...userWithoutPassword } = newUser;
-      await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
-
       return userWithoutPassword;
     } catch (error) {
       console.error("Registration error:", error);

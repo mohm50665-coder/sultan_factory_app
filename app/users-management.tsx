@@ -24,6 +24,17 @@ const ROLES = [
   { value: "user", label: "موظف" },
 ];
 
+const ALL_SECTIONS = [
+  { id: "production", label: "الإنتاج" },
+  { id: "manufacturing", label: "مراحل تسليم الإنتاج" },
+  { id: "sales", label: "المبيعات والتحصيل" },
+  { id: "warehouse", label: "المستودعات" },
+  { id: "maintenance", label: "الصيانة" },
+  { id: "financial", label: "المصروفات" },
+  { id: "administrative", label: "الإجراءات الإدارية" },
+  { id: "tasks", label: "المهام" },
+];
+
 export default function UsersManagementScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -35,6 +46,9 @@ export default function UsersManagementScreen() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetUserId, setResetUserId] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showSectionsModal, setShowSectionsModal] = useState(false);
+  const [sectionsUser, setSectionsUser] = useState<User | null>(null);
+  const [selectedSections, setSelectedSections] = useState<string[]>([]);
 
   const loadUsers = useCallback(async () => {
     const allUsers = await simpleAuthService.getAllUsers();
@@ -114,6 +128,29 @@ export default function UsersManagementScreen() {
     return ROLES.find((r) => r.value === role)?.label || role;
   };
 
+  const handleManageSections = (u: User) => {
+    setSectionsUser(u);
+    setSelectedSections(u.allowedSections || []);
+    setShowSectionsModal(true);
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setSelectedSections((prev) =>
+      prev.includes(sectionId)
+        ? prev.filter((s) => s !== sectionId)
+        : [...prev, sectionId]
+    );
+  };
+
+  const handleSaveSections = async () => {
+    if (!sectionsUser) return;
+    await simpleAuthService.updateUser(sectionsUser.id, { allowedSections: selectedSections });
+    setShowSectionsModal(false);
+    setSectionsUser(null);
+    loadUsers();
+    Alert.alert("نجاح", "تم تحديث الصلاحيات بنجاح");
+  };
+
   return (
     <ScreenContainer>
       {/* Header */}
@@ -164,6 +201,14 @@ export default function UsersManagementScreen() {
                 style={[styles.actionBtn, { backgroundColor: "#e0f2fe" }]}
               >
                 <MaterialIcons name="admin-panel-settings" size={18} color="#0369a1" />
+              </TouchableOpacity>
+
+              {/* تحديد الأيقونات/الصلاحيات */}
+              <TouchableOpacity
+                onPress={() => handleManageSections(u)}
+                style={[styles.actionBtn, { backgroundColor: "#f0fdf4" }]}
+              >
+                <MaterialIcons name="apps" size={18} color="#16a34a" />
               </TouchableOpacity>
 
               {/* تفعيل/تعطيل */}
@@ -259,6 +304,57 @@ export default function UsersManagementScreen() {
                 <Text style={styles.cancelBtnText}>إلغاء</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveResetPassword} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>حفظ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal تحديد الأيقونات المسموحة */}
+      <Modal visible={showSectionsModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>تحديد الأيقونات المسموحة: {sectionsUser?.name}</Text>
+            <Text style={{ fontSize: 12, color: "#687076", textAlign: "center", marginBottom: 12 }}>
+              اختر الأقسام التي يمكن للمستخدم الوصول إليها. إذا لم تختر شيئاً سيتم استخدام الصلاحيات الافتراضية حسب القسم.
+            </Text>
+            <ScrollView style={{ maxHeight: 300 }}>
+              {ALL_SECTIONS.map((section) => (
+                <TouchableOpacity
+                  key={section.id}
+                  onPress={() => toggleSection(section.id)}
+                  style={[
+                    styles.roleOption,
+                    { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+                    selectedSections.includes(section.id) && styles.roleOptionActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.roleOptionText,
+                      { textAlign: "right", flex: 1 },
+                      selectedSections.includes(section.id) && styles.roleOptionTextActive,
+                    ]}
+                  >
+                    {section.label}
+                  </Text>
+                  <MaterialIcons
+                    name={selectedSections.includes(section.id) ? "check-box" : "check-box-outline-blank"}
+                    size={22}
+                    color={selectedSections.includes(section.id) ? "#0a7ea4" : "#9ca3af"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={[styles.modalActions, { marginTop: 16 }]}>
+              <TouchableOpacity
+                onPress={() => setShowSectionsModal(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelBtnText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveSections} style={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>حفظ</Text>
               </TouchableOpacity>
             </View>
