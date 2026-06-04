@@ -344,3 +344,13 @@
 - [x] تحويل شاشات الصيانة والمستودعات لاستخدام API
 - [x] تحويل شاشات التقارير والتحليلات لقراءة البيانات من API
 - [x] اختبار النظام كاملاً (TypeScript 0 أخطاء + البناء ناجح)
+
+## إصلاح مشكلة المصادقة على Android (Cookie → x-session-id header)
+- [x] تعديل server/routers.ts لدعم x-session-id header بالإضافة للكوكي
+- [x] إضافة x-session-id إلى CORS allowed headers في server/_core/index.ts
+- [x] تعديل lib/auth-context.tsx لإرسال x-session-id بدل Cookie وإزالة قراءة set-cookie
+- [x] تعديل lib/services/api.service.ts لإرسال x-session-id بدل Cookie
+- [x] تعديل lib/services/data.service.ts لإرسال x-session-id بدل Cookie
+- [x] إضافة دعم GET requests في apiCall (لـ auth.me query)
+- [x] تحسين refreshUser ليجلب البيانات من السيرفر
+- [x] TypeScript: 0 أخطاء

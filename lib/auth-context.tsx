@@ -34,7 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const USER_STORAGE_KEY = "sultan_current_user";
 const SESSION_STORAGE_KEY = "sultan_session_id";
 
-async function apiCall(endpoint: string, body: any) {
+async function apiCall(endpoint: string, body: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
   const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
   
@@ -42,29 +42,31 @@ async function apiCall(endpoint: string, body: any) {
     "Content-Type": "application/json",
   };
   if (sessionId) {
-    headers["Cookie"] = `session_id=${sessionId}`;
+    headers["x-session-id"] = sessionId;
   }
 
-  const response = await fetch(`${baseUrl}/api/trpc/${endpoint}`, {
-    method: "POST",
-    headers,
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
+  let url = `${baseUrl}/api/trpc/${endpoint}`;
+  let options: RequestInit;
 
+  if (method === "query") {
+    if (body !== undefined) {
+      const input = encodeURIComponent(JSON.stringify(body));
+      url += `?input=${input}`;
+    }
+    options = { method: "GET", headers };
+  } else {
+    options = {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    };
+  }
+
+  const response = await fetch(url, options);
   const data = await response.json();
   
   if (data.error) {
     throw new Error(data.error.message || "حدث خطأ");
-  }
-  
-  // Extract session cookie from response
-  const setCookie = response.headers.get("set-cookie");
-  if (setCookie) {
-    const match = setCookie.match(/session_id=([^;]+)/);
-    if (match) {
-      await AsyncStorage.setItem(SESSION_STORAGE_KEY, match[1]);
-    }
   }
   
   return data.result?.data;
@@ -163,10 +165,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
-    // Re-fetch user from stored data
-    const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    try {
+      const result = await apiCall("auth.me", undefined, "query");
+      if (result) {
+        setUser(result);
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result));
+      }
+    } catch (e) {
+      // Fallback to stored data
+      const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
     }
   };
 

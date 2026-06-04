@@ -11,7 +11,7 @@ async function trpcCall(endpoint: string, body?: any, method: "query" | "mutatio
     "Content-Type": "application/json",
   };
   if (sessionId) {
-    headers["Cookie"] = `session_id=${sessionId}`;
+    headers["x-session-id"] = sessionId;
   }
 
   let url = `${baseUrl}/api/trpc/${endpoint}`;
@@ -23,12 +23,11 @@ async function trpcCall(endpoint: string, body?: any, method: "query" | "mutatio
       const input = encodeURIComponent(JSON.stringify(body));
       url += `?input=${input}`;
     }
-    options = { method: "GET", headers, credentials: "include" };
+    options = { method: "GET", headers };
   } else {
     options = {
       method: "POST",
       headers,
-      credentials: "include",
       body: JSON.stringify(body),
     };
   }

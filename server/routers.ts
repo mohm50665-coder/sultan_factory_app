@@ -46,7 +46,10 @@ export const appRouter = router({
     me: publicProcedure.query(async ({ ctx }) => {
       const cookies = ctx.req.headers.cookie || "";
       const cookieMatch = cookies.match(/session_id=([^;]+)/);
-      const sessionId = cookieMatch ? cookieMatch[1] : undefined;
+      const sessionIdFromCookie = cookieMatch ? cookieMatch[1] : undefined;
+      // Support x-session-id header for mobile (Android blocks manual Cookie headers)
+      const sessionIdFromHeader = ctx.req.headers['x-session-id'] as string | undefined;
+      const sessionId = sessionIdFromCookie || sessionIdFromHeader;
       const user = await getUserFromCookie(sessionId);
       if (!user) return null;
       return {
