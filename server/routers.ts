@@ -512,6 +512,8 @@ export const appRouter = router({
         quantityDozen: z.number().optional(),
         quantityPair: z.number().optional(),
         productType: z.string().optional(),
+        productName: z.string().optional(),
+        date: z.string().optional(),
         userId: z.number(),
       }))
       .mutation(async ({ input }) => {

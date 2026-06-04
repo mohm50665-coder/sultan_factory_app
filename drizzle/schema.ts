@@ -65,6 +65,8 @@ export const manufacturingStages = mysqlTable("manufacturingStages", {
   quantityDozen: int("quantityDozen").default(0),
   quantityPair: int("quantityPair").default(0),
   productType: varchar("productType", { length: 100 }),
+  productName: varchar("productName", { length: 255 }).default(""),
+  date: varchar("date", { length: 20 }).default(""),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
