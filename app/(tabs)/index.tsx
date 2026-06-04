@@ -156,14 +156,22 @@ export default function HomeScreen() {
     return unsubscribe;
   }, []);
 
+  // Manufacturing stage departments that map to production
+  const MANUFACTURING_STAGES = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+
   // Filter dashboard items based on user department + admin sees all
   const userDepartment = user?.department || "";
+  const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // Admin sees everything
     if (user?.role === "admin") return true;
     // If admin assigned specific sections to this user, use those
     if (user?.allowedSections && user.allowedSections.length > 0) {
       return user.allowedSections.includes(item.id);
+    }
+    // Manufacturing stage workers: see manufacturing section only + shared
+    if (isManufacturingWorker) {
+      return item.id === "manufacturing" || item.isShared;
     }
     // Employees department: only administrative procedures
     if (userDepartment === "employees") {

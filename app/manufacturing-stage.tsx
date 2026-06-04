@@ -108,15 +108,19 @@ export default function ManufacturingStageScreen() {
   const colors = useColors();
   const { user } = useAuth();
   const stage = (params.stage as string) || "machines";
-  const isViewOnly = user?.department === "warehouse" && user?.role !== "admin";
+  // عمال المرحلة يمكنهم الإدخال، المستودعات view only فقط
+  const isViewOnly = user?.department === "warehouse" && user?.role !== "admin" && stage !== "storage";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const isStorageStage = stage === "storage";
 
+  const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+  const isStageWorker = user?.department && MANUFACTURING_STAGE_IDS.includes(user.department) && user.department === stage;
+
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
-  const [selectedWorker, setSelectedWorker] = useState("");
+  const [selectedWorker, setSelectedWorker] = useState(isStageWorker ? (user?.name || "") : "");
   // منتجات (حتى 5)
   const [products, setProducts] = useState<ProductItem[]>([
     { productName: "", quantityDozen: "", quantityPairs: "" },

@@ -1,4 +1,5 @@
 import React from "react";
+import { useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
@@ -8,6 +9,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 import { useLanguage } from "@/lib/language-context";
+import { useAuth } from "@/lib/auth-context";
 
 interface ManufacturingStage {
   id: string;
@@ -17,11 +19,21 @@ interface ManufacturingStage {
   workers: string[];
 }
 
+const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+
 export default function ManufacturingScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
+
+  // إذا كان الموظف مسجل في مرحلة معينة، يتم توجيهه مباشرة لقسمه
+  useEffect(() => {
+    if (user && user.role !== "admin" && user.department && MANUFACTURING_STAGE_IDS.includes(user.department)) {
+      router.replace(`/manufacturing-stage?stage=${user.department}` as any);
+    }
+  }, [user]);
 
   const STAGES: ManufacturingStage[] = [
     {
