@@ -354,3 +354,11 @@
 - [x] إضافة دعم GET requests في apiCall (لـ auth.me query)
 - [x] تحسين refreshUser ليجلب البيانات من السيرفر
 - [x] TypeScript: 0 أخطاء
+
+## إصلاح مشكلة superjson serialization (السبب الحقيقي لفشل تسجيل الدخول)
+- [x] لف body بـ {json: body} عند إرسال mutations (مطلوب من tRPC + superjson)
+- [x] لف input بـ {json: input} عند إرسال queries
+- [x] قراءة الاستجابة من data.result.data.json بدل data.result.data
+- [x] إصلاح قراءة رسائل الخطأ من data.error.json.message
+- [x] تطبيق الإصلاح في auth-context.tsx و api.service.ts و data.service.ts
+- [x] TypeScript: 0 أخطاء

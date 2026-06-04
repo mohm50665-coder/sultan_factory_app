@@ -18,16 +18,18 @@ async function trpcCall(endpoint: string, body?: any, method: "query" | "mutatio
   let options: RequestInit;
 
   if (method === "query") {
+    // For superjson queries, wrap input in {json: ...}
     if (body !== undefined) {
-      const input = encodeURIComponent(JSON.stringify(body));
+      const input = encodeURIComponent(JSON.stringify({ json: body }));
       url += `?input=${input}`;
     }
     options = { method: "GET", headers };
   } else {
+    // For superjson mutations, wrap body in {json: ...}
     options = {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body: JSON.stringify({ json: body }),
     };
   }
 
@@ -35,10 +37,12 @@ async function trpcCall(endpoint: string, body?: any, method: "query" | "mutatio
   const data = await response.json();
 
   if (data.error) {
-    throw new Error(data.error.message || "حدث خطأ في الخادم");
+    const errMsg = data.error?.json?.message || data.error?.message || "حدث خطأ في الخادم";
+    throw new Error(errMsg);
   }
 
-  return data.result?.data;
+  // superjson wraps response in {result: {data: {json: ...}}}
+  return data.result?.data?.json;
 }
 
 export interface ManufacturingStageData {
