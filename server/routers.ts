@@ -557,6 +557,9 @@ export const appRouter = router({
         customerCategory: z.string().optional(),
         quantityDozen: z.number().optional(),
         quantityPair: z.number().optional(),
+        amount: z.string().optional(),
+        invoiceNumber: z.string().optional(),
+        invoiceDate: z.string().optional(),
         paymentMethod: z.enum(["cash", "credit", "deferred"]),
         userId: z.number(),
       }))
@@ -599,6 +602,8 @@ export const appRouter = router({
         collectorName: z.string(),
         customerName: z.string(),
         amount: z.number(),
+        receiptNumber: z.string().optional(),
+        receiptDate: z.string().optional(),
         userId: z.number(),
       }))
       .mutation(async ({ input }) => {

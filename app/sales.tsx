@@ -18,8 +18,8 @@ import { salesService, collectionService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
-
-
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 
 interface SaleEntry {
   id: string;
@@ -28,7 +28,11 @@ interface SaleEntry {
   customerCategory: string;
   quantityDozen: string;
   quantityPairs: string;
+  amount: string;
+  invoiceNumber: string;
+  invoiceDate: string;
   paymentMethod: string;
+  attachments: string[];
   date: string;
 }
 
@@ -37,10 +41,11 @@ interface CollectionEntry {
   collectorName: string;
   customerName: string;
   amount: string;
+  receiptNumber: string;
+  receiptDate: string;
+  attachments: string[];
   date: string;
 }
-
-
 
 export default function SalesScreen() {
   const router = useRouter();
@@ -53,7 +58,6 @@ export default function SalesScreen() {
   const CUSTOMER_CATEGORIES = isAr ? ["كلاو", "فالكون", "جملة", "تجزئة", "تصنيع خاص شركات", "تصنيع خاص افراد"] : ["Claw", "Falcon", "Wholesale", "Retail", "Special Manufacturing Companies", "Special Manufacturing Individuals"];
   const PAYMENT_METHODS = isAr ? ["نقداً", "آجل"] : ["Cash", "Credit"];
 
-  // التبويب الحالي: sales أو collection
   const [activeTab, setActiveTab] = useState<"sales" | "collection">("sales");
 
   // بيانات المبيعات
@@ -65,7 +69,11 @@ export default function SalesScreen() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [saleDozen, setSaleDozen] = useState("");
   const [salePairs, setSalePairs] = useState("");
+  const [saleAmount, setSaleAmount] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState("");
   const [selectedPayment, setSelectedPayment] = useState("");
+  const [saleAttachments, setSaleAttachments] = useState<string[]>([]);
 
   // بيانات التحصيل
   const [collectionEntries, setCollectionEntries] = useState<CollectionEntry[]>([]);
@@ -74,6 +82,9 @@ export default function SalesScreen() {
   const [selectedCollector, setSelectedCollector] = useState("");
   const [collectionCustomer, setCollectionCustomer] = useState("");
   const [collectionAmount, setCollectionAmount] = useState("");
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [receiptDate, setReceiptDate] = useState("");
+  const [collectionAttachments, setCollectionAttachments] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -90,7 +101,11 @@ export default function SalesScreen() {
           customerCategory: s.customerCategory || "",
           quantityDozen: String(s.quantityDozen || 0),
           quantityPairs: String(s.quantityPair || 0),
+          amount: String(s.amount || 0),
+          invoiceNumber: s.invoiceNumber || "",
+          invoiceDate: s.invoiceDate || "",
           paymentMethod: s.paymentMethod === "cash" ? (language === "ar" ? "نقداً" : "Cash") : (language === "ar" ? "آجل" : "Credit"),
+          attachments: [],
           date: s.createdAt ? new Date(s.createdAt).toLocaleDateString("ar-SA") : "",
         })));
       }
@@ -101,6 +116,9 @@ export default function SalesScreen() {
           collectorName: c.collectorName || "",
           customerName: c.customerName || "",
           amount: String(c.amount || 0),
+          receiptNumber: c.receiptNumber || "",
+          receiptDate: c.receiptDate || "",
+          attachments: [],
           date: c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "",
         })));
       }
@@ -109,7 +127,51 @@ export default function SalesScreen() {
     }
   };
 
+  // === المرفقات ===
+  const pickDocument = async (setSetter: (items: string[]) => void, attachments: string[]) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const fileName = result.assets[0].name || "document";
+        setSetter([...attachments, fileName]);
+      }
+    } catch (error) {
+      console.log("Error picking document:", error);
+    }
+  };
 
+  const pickImage = async (setSetter: (items: string[]) => void, attachments: string[]) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 1,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const fileName = result.assets[0].uri.split("/").pop() || "image";
+        setSetter([...attachments, fileName]);
+      }
+    } catch (error) {
+      console.log("Error picking image:", error);
+    }
+  };
+
+  const takePhoto = async (setSetter: (items: string[]) => void, attachments: string[]) => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 1,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        const fileName = result.assets[0].uri.split("/").pop() || "photo";
+        setSetter([...attachments, fileName]);
+      }
+    } catch (error) {
+      console.log("Error taking photo:", error);
+    }
+  };
 
   // === المبيعات ===
   const resetSalesForm = () => {
@@ -118,7 +180,11 @@ export default function SalesScreen() {
     setSelectedCategory("");
     setSaleDozen("");
     setSalePairs("");
+    setSaleAmount("");
+    setInvoiceNumber("");
+    setInvoiceDate("");
     setSelectedPayment("");
+    setSaleAttachments([]);
     setEditingSale(null);
   };
 
@@ -147,16 +213,13 @@ export default function SalesScreen() {
       customerCategory: selectedCategory,
       quantityDozen: saleDozen || "0",
       quantityPairs: salePairs || "0",
+      amount: saleAmount || "0",
+      invoiceNumber: invoiceNumber || "",
+      invoiceDate: invoiceDate || "",
       paymentMethod: selectedPayment,
+      attachments: saleAttachments,
       date: new Date().toLocaleDateString("ar-SA"),
     };
-
-    let newEntries: SaleEntry[];
-    if (editingSale) {
-      newEntries = salesEntries.map((e) => (e.id === editingSale.id ? entry : e));
-    } else {
-      newEntries = [entry, ...salesEntries];
-    }
 
     try {
       const paymentMap: Record<string, "cash" | "deferred"> = { "نقداً": "cash", "Cash": "cash", "آجل": "deferred", "Credit": "deferred" };
@@ -166,6 +229,9 @@ export default function SalesScreen() {
         customerCategory: entry.customerCategory,
         quantityDozen: parseInt(entry.quantityDozen) || 0,
         quantityPair: parseInt(entry.quantityPairs) || 0,
+        amount: entry.amount,
+        invoiceNumber: entry.invoiceNumber,
+        invoiceDate: entry.invoiceDate,
         paymentMethod: paymentMap[entry.paymentMethod] || "cash",
         userId: user?.id || 1,
       };
@@ -189,7 +255,11 @@ export default function SalesScreen() {
     setSelectedCategory(entry.customerCategory);
     setSaleDozen(entry.quantityDozen);
     setSalePairs(entry.quantityPairs);
+    setSaleAmount(entry.amount);
+    setInvoiceNumber(entry.invoiceNumber);
+    setInvoiceDate(entry.invoiceDate);
     setSelectedPayment(entry.paymentMethod);
+    setSaleAttachments(entry.attachments);
     setEditingSale(entry);
     setShowSalesForm(true);
   };
@@ -200,7 +270,7 @@ export default function SalesScreen() {
       {
         text: isAr ? "حذف" : "Delete",
         style: "destructive",
-                onPress: async () => {
+        onPress: async () => {
           try {
             await salesService.delete(parseInt(entry.id));
             await loadData();
@@ -211,12 +281,14 @@ export default function SalesScreen() {
     ]);
   };
 
-
   // === التحصيل ===
   const resetCollectionForm = () => {
     setSelectedCollector("");
     setCollectionCustomer("");
     setCollectionAmount("");
+    setReceiptNumber("");
+    setReceiptDate("");
+    setCollectionAttachments([]);
     setEditingCollection(null);
   };
 
@@ -239,21 +311,19 @@ export default function SalesScreen() {
       collectorName: selectedCollector,
       customerName: collectionCustomer,
       amount: collectionAmount,
+      receiptNumber: receiptNumber || "",
+      receiptDate: receiptDate || "",
+      attachments: collectionAttachments,
       date: new Date().toLocaleDateString("ar-SA"),
     };
-
-    let newEntries: CollectionEntry[];
-    if (editingCollection) {
-      newEntries = collectionEntries.map((e) => (e.id === editingCollection.id ? entry : e));
-    } else {
-      newEntries = [entry, ...collectionEntries];
-    }
 
     try {
       const collData = {
         collectorName: entry.collectorName,
         customerName: entry.customerName,
         amount: parseInt(entry.amount) || 0,
+        receiptNumber: entry.receiptNumber,
+        receiptDate: entry.receiptDate,
         userId: user?.id || 1,
       };
       if (editingCollection) {
@@ -274,6 +344,9 @@ export default function SalesScreen() {
     setSelectedCollector(entry.collectorName);
     setCollectionCustomer(entry.customerName);
     setCollectionAmount(entry.amount);
+    setReceiptNumber(entry.receiptNumber);
+    setReceiptDate(entry.receiptDate);
+    setCollectionAttachments(entry.attachments);
     setEditingCollection(entry);
     setShowCollectionForm(true);
   };
@@ -342,6 +415,24 @@ export default function SalesScreen() {
           </View>
           <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "الكمية" : "Quantity"}</Text>
         </View>
+        {item.amount && item.amount !== "0" ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold' }}>{item.amount} {isAr ? "ريال" : "SAR"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "المبلغ" : "Amount"}</Text>
+          </View>
+        ) : null}
+        {item.invoiceNumber ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.invoiceNumber}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "رقم الفاتورة" : "Invoice #"}</Text>
+          </View>
+        ) : null}
+        {item.invoiceDate ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.invoiceDate}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "تاريخ الفاتورة" : "Invoice Date"}</Text>
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View
             style={{
@@ -354,60 +445,27 @@ export default function SalesScreen() {
             <Text
               style={{
                 color: item.paymentMethod === (isAr ? "نقداً" : "Cash") ? "#22c55e" : "#f59e0b",
-                fontWeight: "700",
+                fontWeight: "600",
                 fontSize: 12,
               }}
             >
               {item.paymentMethod}
             </Text>
           </View>
-          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "طريقة الدفع" : "Payment"}</Text>
         </View>
-      </View>
-      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'right' }}>{item.date}</Text>
-    </View>
-  );
-
-  // عرض سجل تحصيل
-  const renderCollectionItem = ({ item }: { item: CollectionEntry }) => (
-    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => handleEditCollection(item)}
-            style={{ backgroundColor: "#7c3aed15", borderRadius: 20, padding: 8 }}
-          >
-            <MaterialIcons name="edit" size={18} color="#7c3aed" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDeleteCollection(item)}
-            style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
-          >
-            <MaterialIcons name="delete" size={18} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.collectorName}</Text>
-          <View style={{ backgroundColor: "#7c3aed20", borderRadius: 16, padding: 6 }}>
-            <MaterialIcons name="account-balance-wallet" size={18} color="#7c3aed" />
+        {item.attachments && item.attachments.length > 0 && (
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <MaterialIcons name="attach-file" size={14} color={colors.muted} />
+              <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "600" }}>{isAr ? "المرفقات" : "Attachments"} ({item.attachments.length})</Text>
+            </View>
+            {item.attachments.map((att, idx) => (
+              <Text key={idx} style={{ color: colors.primary, fontSize: 11, marginLeft: 20, marginBottom: 4 }}>• {att}</Text>
+            ))}
           </View>
-        </View>
+        )}
       </View>
-
-      <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.customerName}</Text>
-          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "العميل المحصل منه" : "Collected From"}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>{item.amount}</Text>
-            <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "ريال" : "SAR"}</Text>
-          </View>
-          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "المبلغ" : "Amount"}</Text>
-        </View>
-      </View>
-      <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'right' }}>{item.date}</Text>
     </View>
   );
 
@@ -423,12 +481,12 @@ export default function SalesScreen() {
         <View style={{ marginBottom: 20 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اسم البائع" : "Seller Name"}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-            {SELLERS.map((seller) => (
+            {SELLERS.map((name) => (
               <TouchableOpacity
-                key={seller}
-                onPress={() => setSelectedSeller(seller)}
+                key={name}
+                onPress={() => setSelectedSeller(name)}
                 style={{
-                  backgroundColor: selectedSeller === seller ? "#0a7ea4" : "transparent",
+                  backgroundColor: selectedSeller === name ? "#0a7ea4" : "transparent",
                   borderColor: "#0a7ea4",
                   borderWidth: 1.5,
                   borderRadius: 22,
@@ -438,43 +496,12 @@ export default function SalesScreen() {
               >
                 <Text
                   style={{
-                    color: selectedSeller === seller ? "white" : "#0a7ea4",
+                    color: selectedSeller === name ? "white" : "#0a7ea4",
                     fontWeight: "700",
                     fontSize: 13,
                   }}
                 >
-                  {seller}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* فئة العميل */}
-        <View style={{ marginBottom: 20 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "فئة العميل" : "Customer Category"}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-            {CUSTOMER_CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                onPress={() => setSelectedCategory(cat)}
-                style={{
-                  backgroundColor: selectedCategory === cat ? "#7c3aed" : "transparent",
-                  borderColor: "#7c3aed",
-                  borderWidth: 1.5,
-                  borderRadius: 22,
-                  paddingHorizontal: 16,
-                  paddingVertical: 9,
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedCategory === cat ? "white" : "#7c3aed",
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  {cat}
+                  {name}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -494,6 +521,37 @@ export default function SalesScreen() {
             onChangeText={setCustomerName}
             returnKeyType="next"
           />
+        </View>
+
+        {/* فئة العميل */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "فئة العميل" : "Customer Category"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+            {CUSTOMER_CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                style={{
+                  backgroundColor: selectedCategory === cat ? "#059669" : "transparent",
+                  borderColor: "#059669",
+                  borderWidth: 1.5,
+                  borderRadius: 22,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    color: selectedCategory === cat ? "white" : "#059669",
+                    fontWeight: "700",
+                    fontSize: 12,
+                  }}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* الكمية بالدرزن */}
@@ -528,6 +586,52 @@ export default function SalesScreen() {
           />
         </View>
 
+        {/* المبلغ */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+            {isAr ? "المبلغ (ريال)" : "Amount (SAR)"}
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={saleAmount}
+            onChangeText={setSaleAmount}
+            keyboardType="numeric"
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* رقم الفاتورة */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+            {isAr ? "رقم الفاتورة (اختياري)" : "Invoice Number (Optional)"}
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            placeholder={isAr ? "أدخل رقم الفاتورة" : "Enter invoice number"}
+            placeholderTextColor={colors.muted}
+            value={invoiceNumber}
+            onChangeText={setInvoiceNumber}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* تاريخ الفاتورة */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+            {isAr ? "تاريخ الفاتورة (اختياري)" : "Invoice Date (Optional)"}
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            placeholder={isAr ? "مثال: 2024-01-15" : "Example: 2024-01-15"}
+            placeholderTextColor={colors.muted}
+            value={invoiceDate}
+            onChangeText={setInvoiceDate}
+            returnKeyType="next"
+          />
+        </View>
+
         {/* طريقة الدفع */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
@@ -557,6 +661,46 @@ export default function SalesScreen() {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        {/* المرفقات */}
+        <View style={{ marginBottom: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "المرفقات" : "Attachments"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => pickDocument(setSaleAttachments, saleAttachments)}
+              style={{ backgroundColor: "#0a7ea420", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="attach-file" size={20} color="#0a7ea4" />
+              <Text style={{ color: "#0a7ea4", fontWeight: '600' }}>{isAr ? "ملف" : "File"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => pickImage(setSaleAttachments, saleAttachments)}
+              style={{ backgroundColor: "#7c3aed20", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="image" size={20} color="#7c3aed" />
+              <Text style={{ color: "#7c3aed", fontWeight: '600' }}>{isAr ? "صورة" : "Image"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => takePhoto(setSaleAttachments, saleAttachments)}
+              style={{ backgroundColor: "#f59e0b20", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="camera-alt" size={20} color="#f59e0b" />
+              <Text style={{ color: "#f59e0b", fontWeight: '600' }}>{isAr ? "كاميرا" : "Camera"}</Text>
+            </TouchableOpacity>
+          </View>
+          {saleAttachments.length > 0 && (
+            <View>
+              {saleAttachments.map((att, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: idx < saleAttachments.length - 1 ? 1 : 0, borderBottomColor: colors.border }}>
+                  <TouchableOpacity onPress={() => setSaleAttachments(saleAttachments.filter((_, i) => i !== idx))}>
+                    <MaterialIcons name="close" size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                  <Text style={{ color: colors.foreground, fontSize: 13 }}>{att}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* أزرار */}
@@ -603,6 +747,68 @@ export default function SalesScreen() {
         </View>
       </View>
     </ScrollView>
+  );
+
+  // عرض سجل التحصيل
+  const renderCollectionItem = ({ item }: { item: CollectionEntry }) => (
+    <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => handleEditCollection(item)}
+            style={{ backgroundColor: "#7c3aed15", borderRadius: 20, padding: 8 }}
+          >
+            <MaterialIcons name="edit" size={18} color="#7c3aed" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDeleteCollection(item)}
+            style={{ backgroundColor: "#ef444415", borderRadius: 20, padding: 8 }}
+          >
+            <MaterialIcons name="delete" size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.collectorName}</Text>
+          <View style={{ backgroundColor: "#7c3aed20", borderRadius: 16, padding: 6 }}>
+            <MaterialIcons name="account-balance-wallet" size={18} color="#7c3aed" />
+          </View>
+        </View>
+      </View>
+
+      <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.customerName}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "اسم العميل" : "Customer Name"}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.amount} {isAr ? "ريال" : "SAR"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "المبلغ" : "Amount"}</Text>
+        </View>
+        {item.receiptNumber ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.receiptNumber}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "رقم السند" : "Receipt #"}</Text>
+          </View>
+        ) : null}
+        {item.receiptDate ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: colors.foreground, fontSize: 14 }}>{item.receiptDate}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, fontWeight: '600' }}>{isAr ? "تاريخ السند" : "Receipt Date"}</Text>
+          </View>
+        ) : null}
+        {item.attachments && item.attachments.length > 0 && (
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <MaterialIcons name="attach-file" size={14} color={colors.muted} />
+              <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "600" }}>{isAr ? "المرفقات" : "Attachments"} ({item.attachments.length})</Text>
+            </View>
+            {item.attachments.map((att, idx) => (
+              <Text key={idx} style={{ color: colors.primary, fontSize: 11, marginLeft: 20, marginBottom: 4 }}>• {att}</Text>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
   );
 
   // نموذج التحصيل
@@ -660,7 +866,7 @@ export default function SalesScreen() {
         </View>
 
         {/* المبلغ بالريال */}
-        <View style={{ marginBottom: 20 }}>
+        <View style={{ marginBottom: 16 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
             {isAr ? "المبلغ (ريال)" : "Amount (SAR)"}
           </Text>
@@ -671,8 +877,78 @@ export default function SalesScreen() {
             value={collectionAmount}
             onChangeText={setCollectionAmount}
             keyboardType="numeric"
-            returnKeyType="done"
+            returnKeyType="next"
           />
+        </View>
+
+        {/* رقم السند */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+            {isAr ? "رقم السند (اختياري)" : "Receipt Number (Optional)"}
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            placeholder={isAr ? "أدخل رقم السند" : "Enter receipt number"}
+            placeholderTextColor={colors.muted}
+            value={receiptNumber}
+            onChangeText={setReceiptNumber}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* تاريخ السند */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+            {isAr ? "تاريخ السند (اختياري)" : "Receipt Date (Optional)"}
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            placeholder={isAr ? "مثال: 2024-01-15" : "Example: 2024-01-15"}
+            placeholderTextColor={colors.muted}
+            value={receiptDate}
+            onChangeText={setReceiptDate}
+            returnKeyType="next"
+          />
+        </View>
+
+        {/* المرفقات */}
+        <View style={{ marginBottom: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "المرفقات" : "Attachments"}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => pickDocument(setCollectionAttachments, collectionAttachments)}
+              style={{ backgroundColor: "#0a7ea420", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="attach-file" size={20} color="#0a7ea4" />
+              <Text style={{ color: "#0a7ea4", fontWeight: '600' }}>{isAr ? "ملف" : "File"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => pickImage(setCollectionAttachments, collectionAttachments)}
+              style={{ backgroundColor: "#7c3aed20", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="image" size={20} color="#7c3aed" />
+              <Text style={{ color: "#7c3aed", fontWeight: '600' }}>{isAr ? "صورة" : "Image"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => takePhoto(setCollectionAttachments, collectionAttachments)}
+              style={{ backgroundColor: "#f59e0b20", borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <MaterialIcons name="camera-alt" size={20} color="#f59e0b" />
+              <Text style={{ color: "#f59e0b", fontWeight: '600' }}>{isAr ? "كاميرا" : "Camera"}</Text>
+            </TouchableOpacity>
+          </View>
+          {collectionAttachments.length > 0 && (
+            <View>
+              {collectionAttachments.map((att, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: idx < collectionAttachments.length - 1 ? 1 : 0, borderBottomColor: colors.border }}>
+                  <TouchableOpacity onPress={() => setCollectionAttachments(collectionAttachments.filter((_, i) => i !== idx))}>
+                    <MaterialIcons name="close" size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                  <Text style={{ color: colors.foreground, fontSize: 13 }}>{att}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* أزرار */}
@@ -759,7 +1035,7 @@ export default function SalesScreen() {
         <BackButton />
       </View>
 
-      {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
+      {/* بطاقة الإجراءات الإدارية */}
       <AdminCard />
 
       {/* التبويبات */}
