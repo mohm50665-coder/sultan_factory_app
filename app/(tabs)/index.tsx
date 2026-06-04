@@ -169,9 +169,9 @@ export default function HomeScreen() {
     if (user?.allowedSections && user.allowedSections.length > 0) {
       return user.allowedSections.includes(item.id);
     }
-    // Manufacturing stage workers: see manufacturing section only + shared
+    // Manufacturing stage workers: see manufacturing section + administrative + shared
     if (isManufacturingWorker) {
-      return item.id === "manufacturing" || item.isShared;
+      return item.id === "manufacturing" || item.id === "administrative" || item.isShared;
     }
     // Employees department: only administrative procedures
     if (userDepartment === "employees") {
