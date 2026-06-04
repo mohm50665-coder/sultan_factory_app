@@ -404,6 +404,10 @@ export const appRouter = router({
       .input(z.object({
         date: z.string(),
         machineNumber: z.string(),
+        productName: z.string().optional(),
+        shiftNumber: z.number().optional(),
+        shiftStart: z.string().optional(),
+        shiftEnd: z.string().optional(),
         productionDozen: z.number().optional(),
         productionPairs: z.number().optional(),
         wasteThreadGrams: z.number().optional(),
@@ -434,6 +438,10 @@ export const appRouter = router({
         entries: z.array(z.object({
           date: z.string(),
           machineNumber: z.string(),
+          productName: z.string().optional(),
+          shiftNumber: z.number().optional(),
+          shiftStart: z.string().optional(),
+          shiftEnd: z.string().optional(),
           productionDozen: z.number().optional(),
           productionPairs: z.number().optional(),
           wasteThreadGrams: z.number().optional(),

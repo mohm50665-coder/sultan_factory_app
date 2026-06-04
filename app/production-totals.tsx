@@ -25,6 +25,10 @@ interface MachineData {
   yarnCotton: string;
   yarnBamboo: string;
   yarnSpan: string;
+  productName?: string;
+  shiftNumber?: string;
+  shiftStart?: string;
+  shiftEnd?: string;
 }
 
 interface ProductionEntry {
@@ -47,13 +51,15 @@ export default function ProductionTotalsScreen() {
     try {
       const data = await productionService.getAll();
       if (data && data.length > 0) {
-        // Group by date and reconstruct machines structure
-        const grouped: { [date: string]: { [machine: string]: MachineData } } = {};
+        // Group by date and reconstruct machines structure (machine+shift as key)
+        const grouped: { [date: string]: { [key: string]: MachineData } } = {};
         data.forEach((item: any) => {
           const date = item.date || item.entryDate || "unknown";
           if (!grouped[date]) grouped[date] = {};
           const machine = item.machineNumber || "unknown";
-          grouped[date][machine] = {
+          const shift = item.shiftNumber || "1";
+          const key = `${machine}_S${shift}`;
+          grouped[date][key] = {
             productionDozen: String(item.productionDozen || "0"),
             productionPairs: String(item.productionPairs || "0"),
             wasteThreadGrams: String(item.wasteThreadGrams || "0"),
@@ -69,6 +75,10 @@ export default function ProductionTotalsScreen() {
             yarnCotton: String(item.yarnCotton || "0"),
             yarnBamboo: String(item.yarnBamboo || "0"),
             yarnSpan: String(item.yarnSpan || "0"),
+            productName: item.productName || "",
+            shiftNumber: String(item.shiftNumber || "1"),
+            shiftStart: item.shiftStart || "",
+            shiftEnd: item.shiftEnd || "",
           };
         });
         const entriesArray = Object.entries(grouped).map(([date, machines]) => ({
@@ -314,6 +324,75 @@ export default function ProductionTotalsScreen() {
                 <Text style={{ color: colors.muted, fontSize: 14 }}><Text style={{ color: "#8b5cf6", fontWeight: "bold", fontSize: 20 }}>{grandHours}</Text> {isAr ? "ساعة" : "Hour"}</Text>
               </View>
             </View>
+
+            {/* ملخص حسب المنتج */}
+            {(() => {
+              const productSummary: Record<string, { dozen: number; pairs: number }> = {};
+              entries.forEach(entry => {
+                Object.values(entry.machines).forEach(m => {
+                  const name = m.productName || (isAr ? "بدون اسم" : "Unnamed");
+                  if (!productSummary[name]) productSummary[name] = { dozen: 0, pairs: 0 };
+                  productSummary[name].dozen += parseFloat(m.productionDozen) || 0;
+                  productSummary[name].pairs += parseFloat(m.productionPairs) || 0;
+                });
+              });
+              const products = Object.entries(productSummary);
+              if (products.length === 0) return null;
+              return (
+                <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{isAr ? "الإنتاج حسب المنتج" : "Production by Product"}</Text>
+                    <View style={{ backgroundColor: "#14b8a620", borderRadius: 14, padding: 5 }}>
+                      <MaterialIcons name="category" size={20} color="#14b8a6" />
+                    </View>
+                  </View>
+                  <View style={{ gap: 8 }}>
+                    {products.map(([name, data]) => (
+                      <View key={name} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+                        <Text style={{ color: "#14b8a6", fontWeight: 'bold', fontSize: 16 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
+                        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })()}
+
+            {/* ملخص حسب الوردية */}
+            {(() => {
+              const shiftSummary: Record<string, { dozen: number; count: number }> = {};
+              entries.forEach(entry => {
+                Object.values(entry.machines).forEach(m => {
+                  const shift = `${isAr ? "وردية" : "Shift"} ${m.shiftNumber || "1"}`;
+                  if (!shiftSummary[shift]) shiftSummary[shift] = { dozen: 0, count: 0 };
+                  shiftSummary[shift].dozen += parseFloat(m.productionDozen) || 0;
+                  shiftSummary[shift].count += 1;
+                });
+              });
+              const shifts = Object.entries(shiftSummary);
+              if (shifts.length <= 1) return null;
+              return (
+                <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{isAr ? "الإنتاج حسب الوردية" : "Production by Shift"}</Text>
+                    <View style={{ backgroundColor: "#6366f120", borderRadius: 14, padding: 5 }}>
+                      <MaterialIcons name="schedule" size={20} color="#6366f1" />
+                    </View>
+                  </View>
+                  <View style={{ gap: 8 }}>
+                    {shifts.map(([name, data]) => (
+                      <View key={name} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                          <Text style={{ color: "#6366f1", fontWeight: 'bold', fontSize: 16 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
+                          <Text style={{ color: colors.muted, fontSize: 13 }}>({data.count} {isAr ? "إدخال" : "entries"})</Text>
+                        </View>
+                        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })()}
           </View>
         )}
       </ScrollView>

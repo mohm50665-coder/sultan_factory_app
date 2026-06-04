@@ -99,11 +99,27 @@ export default function SectionReportsScreen() {
     const totalSecondGrade = entries.reduce((s: number, e: any) => s + (parseFloat(e.secondGradeDozen) || 0), 0);
     const totalNeedles = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteNeedles) || 0), 0);
     const machineCount = new Set(entries.map((e: any) => e.machineNumber)).size;
+    const totalShifts = entries.length;
 
+    // بيانات حسب المكينة
     const machineData: Record<string, number> = {};
     entries.forEach((e: any) => {
-      const key = `M${e.machineNumber || "?"}`;
+      const key = e.machineNumber || "?";
       machineData[key] = (machineData[key] || 0) + (parseFloat(e.productionDozen) || 0);
+    });
+
+    // بيانات حسب المنتج
+    const productData: Record<string, number> = {};
+    entries.forEach((e: any) => {
+      const product = e.productName || (isAr ? "بدون اسم" : "Unnamed");
+      productData[product] = (productData[product] || 0) + (parseFloat(e.productionDozen) || 0);
+    });
+
+    // بيانات حسب الوردية
+    const shiftData: Record<string, number> = {};
+    entries.forEach((e: any) => {
+      const shift = `${isAr ? "وردية" : "Shift"} ${e.shiftNumber || 1}`;
+      shiftData[shift] = (shiftData[shift] || 0) + (parseFloat(e.productionDozen) || 0);
     });
 
     return {
@@ -114,7 +130,10 @@ export default function SectionReportsScreen() {
       totalSecondGrade,
       totalNeedles,
       machineCount,
+      totalShifts,
       machineData,
+      productData,
+      shiftData,
     };
   };
 
@@ -241,9 +260,11 @@ export default function SectionReportsScreen() {
 
   const renderProductionReport = () => {
     if (!reportData) return null;
-    const { totalProduction, totalWasteThread, totalWasteSocks, totalSecondGrade, totalNeedles, machineCount, machineData, totalEntries } = reportData;
+    const { totalProduction, totalWasteThread, totalWasteSocks, totalSecondGrade, totalNeedles, machineCount, machineData, totalEntries, totalShifts, productData, shiftData } = reportData;
 
-    const barData = Object.entries(machineData || {}).slice(0, 8).map(([label, value]) => ({ label, value: value as number }));
+    const barData = Object.entries(machineData || {}).slice(0, 10).map(([label, value]) => ({ label, value: value as number }));
+    const productBarData = Object.entries(productData || {}).slice(0, 8).map(([label, value]) => ({ label, value: value as number }));
+    const shiftBarData = Object.entries(shiftData || {}).map(([label, value]) => ({ label, value: value as number }));
     const pieData = [
       { label: isAr ? "خيوط" : "Thread", value: totalWasteThread || 0, color: "#3b82f6" },
       { label: isAr ? "جوارب" : "Socks", value: totalWasteSocks || 0, color: "#ef4444" },
@@ -257,6 +278,10 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "المكائن النشطة" : "Active Machines"} value={`${machineCount}`} color="#10b981" />
         </View>
         <View style={styles.statsRow}>
+          <StatCard title={isAr ? "إجمالي الورديات" : "Total Shifts"} value={`${totalShifts}`} color="#8b5cf6" />
+          <StatCard title={isAr ? "المنتجات" : "Products"} value={`${Object.keys(productData || {}).length}`} color="#14b8a6" />
+        </View>
+        <View style={styles.statsRow}>
           <StatCard title={isAr ? "هدر الخيوط" : "Thread Waste"} value={`${totalWasteThread}`} subtitle={isAr ? "جرام" : "g"} color="#ef4444" />
           <StatCard title={isAr ? "النخب الثاني" : "2nd Grade"} value={`${totalSecondGrade}`} subtitle={isAr ? "زوج" : "pairs"} color="#f59e0b" />
         </View>
@@ -265,6 +290,8 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "هدر الإبر" : "Needle Waste"} value={`${totalNeedles}`} subtitle={isAr ? "حبة" : "pcs"} color="#dc2626" />
         </View>
         {barData.length > 0 && <BarChart data={barData} title={isAr ? "الإنتاج حسب المكينة" : "Production by Machine"} />}
+        {productBarData.length > 0 && <BarChart data={productBarData} title={isAr ? "الإنتاج حسب المنتج" : "Production by Product"} barColor="#14b8a6" />}
+        {shiftBarData.length > 0 && <BarChart data={shiftBarData} title={isAr ? "الإنتاج حسب الوردية" : "Production by Shift"} barColor="#8b5cf6" />}
         {(totalWasteThread > 0 || totalWasteSocks > 0) && <PieChart data={pieData} title={isAr ? "توزيع الهدر" : "Waste Distribution"} />}
       </View>
     );
