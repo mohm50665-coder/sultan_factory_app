@@ -9,7 +9,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService, salesService, collectionService, expensesService } from "@/lib/services/api.service";
 
 interface KPIData {
   totalProduction: number;
@@ -31,44 +31,36 @@ export default function ReportsScreen() {
 
   const loadRealData = async () => {
     try {
-      // تحميل بيانات الإنتاج
-      const prodData = await AsyncStorage.getItem("sultan_production_data_v2");
-      const productions = prodData ? JSON.parse(prodData) : [];
+      // تحميل بيانات الإنتاج من السيرفر
+      const productions = await productionService.getAll() || [];
 
       let totalProduction = 0;
       let totalYarnWeight = 0;
       let totalWasteAll = 0;
 
-      productions.forEach((entry: any) => {
-        if (entry.machines) {
-          Object.values(entry.machines).forEach((m: any) => {
-            totalProduction += parseFloat(m.productionDozen) || 0;
-            const yarnWeight = (parseFloat(m.yarnRubber) || 0) + (parseFloat(m.yarnSpandex) || 0) +
-              (parseFloat(m.yarnNylon) || 0) + (parseFloat(m.yarnCotton) || 0) +
-              (parseFloat(m.yarnBamboo) || 0) + (parseFloat(m.yarnSpan) || 0);
-            totalYarnWeight += yarnWeight;
-            totalWasteAll += (parseFloat(m.wasteThreadGrams) || 0) + (parseFloat(m.wasteSocksGrams) || 0);
-          });
-        }
+      productions.forEach((item: any) => {
+        totalProduction += parseFloat(item.productionDozen) || 0;
+        const yarnWeight = (parseFloat(item.yarnRubber) || 0) + (parseFloat(item.yarnSpandex) || 0) +
+          (parseFloat(item.yarnNylon) || 0) + (parseFloat(item.yarnCotton) || 0) +
+          (parseFloat(item.yarnBamboo) || 0) + (parseFloat(item.yarnSpan) || 0);
+        totalYarnWeight += yarnWeight;
+        totalWasteAll += (parseFloat(item.wasteThreadGrams) || 0) + (parseFloat(item.wasteSocksGrams) || 0);
       });
 
       const wastePercent = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
 
-      // تحميل بيانات المبيعات
-      const salesData = await AsyncStorage.getItem("sultan_sales_data");
-      const sales = salesData ? JSON.parse(salesData) : [];
+      // تحميل بيانات المبيعات من السيرفر
+      const sales = await salesService.getAll() || [];
       let totalSales = 0;
       sales.forEach((s: any) => { totalSales += parseFloat(s.quantity) || 0; });
 
-      // تحميل بيانات التحصيل
-      const collData = await AsyncStorage.getItem("sultan_collection_data");
-      const collections = collData ? JSON.parse(collData) : [];
+      // تحميل بيانات التحصيل من السيرفر
+      const collections = await collectionService.getAll() || [];
       let totalCollection = 0;
       collections.forEach((c: any) => { totalCollection += parseFloat(c.amount) || 0; });
 
-      // تحميل بيانات المصروفات
-      const expData = await AsyncStorage.getItem("sultan_expenses_data");
-      const expenses = expData ? JSON.parse(expData) : [];
+      // تحميل بيانات المصروفات من السيرفر
+      const expenses = await expensesService.getAll() || [];
       let totalExpenses = 0;
       expenses.forEach((e: any) => { totalExpenses += parseFloat(e.amount) || 0; });
 

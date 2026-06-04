@@ -10,7 +10,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService } from "@/lib/services/api.service";
 
 interface MachineStats {
   machineNumber: string;
@@ -34,19 +34,18 @@ export default function MachinesComparisonScreen() {
 
   const loadData = async () => {
     try {
-      const data = await AsyncStorage.getItem("sultan_production_entries");
-      if (data) {
-        const entries = JSON.parse(data);
+      const entries = await productionService.getAll() || [];
+      if (entries.length > 0) {
         const machineMap: Record<string, { production: number; waste: number; secondGrade: number; count: number }> = {};
 
         entries.forEach((entry: any) => {
-          const num = entry.machineNumber || entry.machine_number || "غير محدد";
+          const num = entry.machineNumber || "غير محدد";
           if (!machineMap[num]) {
             machineMap[num] = { production: 0, waste: 0, secondGrade: 0, count: 0 };
           }
-          machineMap[num].production += parseFloat(entry.quantity || entry.production || 0);
-          machineMap[num].waste += parseFloat(entry.waste || 0);
-          machineMap[num].secondGrade += parseFloat(entry.secondGrade || entry.second_grade || 0);
+          machineMap[num].production += parseFloat(entry.productionDozen || 0);
+          machineMap[num].waste += (parseFloat(entry.wasteThreadGrams || 0) + parseFloat(entry.wasteSocksGrams || 0));
+          machineMap[num].secondGrade += parseFloat(entry.secondGradeDozen || 0);
           machineMap[num].count++;
         });
 

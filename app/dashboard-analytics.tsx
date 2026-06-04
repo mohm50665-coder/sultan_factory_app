@@ -12,10 +12,11 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 import { useLanguage } from "@/lib/language-context";
+import { productionService, salesService, maintenanceService } from "@/lib/services/api.service";
+import { maintenanceEntriesService } from "@/lib/services/data.service";
 
 
 interface KPI {
@@ -54,30 +55,22 @@ export default function DashboardAnalyticsScreen() {
     try {
       setIsLoading(true);
 
-      // جلب البيانات من التخزين المحلي بالمفاتيح الصحيحة
-      const prodRaw = await AsyncStorage.getItem("sultan_production_data_v2");
-      const prodEntries = prodRaw ? JSON.parse(prodRaw) : [];
+      // جلب البيانات من السيرفر
+      const prodEntries = await productionService.getAll() || [];
       let totalProduction = 0;
       let totalWaste = 0;
       let totalSecondGrade = 0;
-      prodEntries.forEach((entry: any) => {
-        if (entry.machines) {
-          Object.values(entry.machines).forEach((m: any) => {
-            totalProduction += parseInt(m.productionDozen || "0");
-            totalWaste += parseInt(m.wasteThreadGrams || "0") + parseInt(m.wasteSocksGrams || "0");
-            totalSecondGrade += (parseInt(m.secondGradeDozen || "0") * 12) + parseInt(m.secondGradePairs || "0");
-          });
-        }
+      prodEntries.forEach((item: any) => {
+        totalProduction += parseInt(item.productionDozen || "0");
+        totalWaste += parseInt(item.wasteThreadGrams || "0") + parseInt(item.wasteSocksGrams || "0");
+        totalSecondGrade += (parseInt(item.secondGradeDozen || "0") * 12) + parseInt(item.secondGradePairs || "0");
       });
 
-      const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
-      const salesEntries = salesRaw ? JSON.parse(salesRaw) : [];
+      const salesEntries = await salesService.getAll() || [];
       const totalSales = salesEntries.reduce((s: number, e: any) => s + (parseFloat(e.totalAmount) || 0), 0);
 
-      const maintPeriodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
-      const maintEmergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
-      const periodic = maintPeriodicRaw ? JSON.parse(maintPeriodicRaw) : [];
-      const emergency = maintEmergencyRaw ? JSON.parse(maintEmergencyRaw) : [];
+      const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
+      const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
       const maintenanceCount = periodic.length + emergency.length;
 
       const wastePercentage = totalProduction > 0 ? ((totalWaste / totalProduction) * 100).toFixed(2) : "0";

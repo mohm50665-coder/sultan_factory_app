@@ -1,20 +1,22 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, timestamp, json, mysqlEnum } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
  */
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
+  username: varchar("username", { length: 100 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull(),
   phone: varchar("phone", { length: 20 }),
   position: varchar("position", { length: 255 }),
-  password: varchar("password", { length: 255 }),
+  department: varchar("department", { length: 100 }),
+  password: varchar("password", { length: 255 }).notNull(),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  isActive: int("isActive").default(0).notNull(),
+  allowedSections: json("allowedSections"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -23,16 +25,26 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// جدول الإنتاج
+// جدول الإنتاج - صف واحد لكل مكينة في كل يوم
 export const production = mysqlTable("production", {
   id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 20 }).notNull(),
   machineNumber: varchar("machineNumber", { length: 50 }).notNull(),
-  quantityDozen: int("quantityDozen").default(0),
-  quantityPair: int("quantityPair").default(0),
-  wasteThreadsGrams: int("wasteThreadsGrams").default(0),
-  wasteDefectiveSocksGrams: int("wasteDefectiveSocksGrams").default(0),
-  secondGradePair: int("secondGradePair").default(0),
-  secondGradeGrams: int("secondGradeGrams").default(0),
+  productionDozen: int("productionDozen").default(0),
+  productionPairs: int("productionPairs").default(0),
+  wasteThreadGrams: int("wasteThreadGrams").default(0),
+  wasteSocksGrams: int("wasteSocksGrams").default(0),
+  secondGradeDozen: int("secondGradeDozen").default(0),
+  secondGradePairs: int("secondGradePairs").default(0),
+  wasteNeedles: int("wasteNeedles").default(0),
+  productionHours: int("productionHours").default(0),
+  productionMinutes: int("productionMinutes").default(0),
+  yarnRubber: int("yarnRubber").default(0),
+  yarnSpandex: int("yarnSpandex").default(0),
+  yarnNylon: int("yarnNylon").default(0),
+  yarnCotton: int("yarnCotton").default(0),
+  yarnBamboo: int("yarnBamboo").default(0),
+  yarnSpan: int("yarnSpan").default(0),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -62,9 +74,10 @@ export const sales = mysqlTable("sales", {
   id: int("id").autoincrement().primaryKey(),
   sellerName: varchar("sellerName", { length: 255 }).notNull(),
   customerName: varchar("customerName", { length: 255 }).notNull(),
+  customerCategory: varchar("customerCategory", { length: 100 }),
   quantityDozen: int("quantityDozen").default(0),
   quantityPair: int("quantityPair").default(0),
-  paymentMethod: mysqlEnum("paymentMethod", ["cash", "credit"]).notNull(),
+  paymentMethod: mysqlEnum("paymentMethod", ["cash", "credit", "deferred"]).notNull(),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -133,8 +146,24 @@ export type InsertIncomingMaterial = typeof incomingMaterials.$inferInsert;
 // جدول الإجراءات الإدارية
 export const administrativeProcedures = mysqlTable("administrativeProcedures", {
   id: int("id").autoincrement().primaryKey(),
-  enteredBy: varchar("enteredBy", { length: 255 }).notNull(),
-  workDetails: text("workDetails").notNull(),
+  referenceNumber: varchar("referenceNumber", { length: 50 }),
+  submissionDate: timestamp("submissionDate"),
+  employeeName: varchar("employeeName", { length: 255 }).notNull(),
+  employeeNumber: varchar("employeeNumber", { length: 50 }),
+  department: varchar("department", { length: 100 }),
+  requestType: varchar("requestType", { length: 100 }).notNull(),
+  requestDetails: text("requestDetails").notNull(),
+  attachments: json("attachments"),
+  boardRepStatus: mysqlEnum("boardRepStatus", ["pending", "approved", "rejected"]).default("pending"),
+  boardRepRejectionReason: text("boardRepRejectionReason"),
+  boardRepActionDate: timestamp("boardRepActionDate"),
+  directManagerStatus: mysqlEnum("directManagerStatus", ["pending", "approved", "rejected"]).default("pending"),
+  directManagerRejectionReason: text("directManagerRejectionReason"),
+  directManagerActionDate: timestamp("directManagerActionDate"),
+  generalManagerStatus: mysqlEnum("generalManagerStatus", ["pending", "approved", "rejected"]).default("pending"),
+  generalManagerRejectionReason: text("generalManagerRejectionReason"),
+  generalManagerActionDate: timestamp("generalManagerActionDate"),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending"),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -189,9 +218,8 @@ export type InsertMaintainedEquipment = typeof maintainedEquipment.$inferInsert;
 export const stoppedEquipment = mysqlTable("stoppedEquipment", {
   id: int("id").autoincrement().primaryKey(),
   equipmentName: varchar("equipmentName", { length: 255 }).notNull(),
-  stoppageDate: timestamp("stoppageDate").notNull(),
-  stoppageReason: text("stoppageReason").notNull(),
-  solutionProcedures: text("solutionProcedures").notNull(),
+  stopDate: timestamp("stopDate").notNull(),
+  stopReason: text("stopReason").notNull(),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -203,7 +231,8 @@ export type InsertStoppedEquipment = typeof stoppedEquipment.$inferInsert;
 // جدول توصيات الصيانة
 export const maintenanceRecommendations = mysqlTable("maintenanceRecommendations", {
   id: int("id").autoincrement().primaryKey(),
-  recommendations: text("recommendations").notNull(),
+  recommendation: text("recommendation").notNull(),
+  priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium"),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -215,10 +244,26 @@ export type InsertMaintenanceRecommendation = typeof maintenanceRecommendations.
 // جدول المهام
 export const tasks = mysqlTable("tasks", {
   id: int("id").autoincrement().primaryKey(),
-  employeeName: varchar("employeeName", { length: 255 }).notNull(),
+  assignmentSource: mysqlEnum("assignmentSource", ["board_representative", "general_manager"]).notNull(),
+  assignedEmployee: varchar("assignedEmployee", { length: 255 }).notNull(),
+  assignedUsername: varchar("assignedUsername", { length: 100 }),
   taskDescription: text("taskDescription").notNull(),
-  dueDate: timestamp("dueDate").notNull(),
-  status: mysqlEnum("status", ["pending", "inProgress", "completed"]).default("pending").notNull(),
+  createdDate: varchar("createdDate", { length: 50 }),
+  startDate: varchar("startDate", { length: 50 }),
+  endDate: varchar("endDate", { length: 50 }),
+  result: mysqlEnum("result", ["completed", "not_completed", "partial", "extended", "recommendations", "pending"]).default("pending").notNull(),
+  resultReason: text("resultReason"),
+  completionPercentage: int("completionPercentage"),
+  extensionDate: varchar("extensionDate", { length: 50 }),
+  recommendations: text("recommendations"),
+  adminEvaluation: text("adminEvaluation"),
+  reward: int("reward"),
+  rewardReason: text("rewardReason"),
+  deduction: int("deduction"),
+  deductionReason: text("deductionReason"),
+  hasWarning: int("hasWarning").default(0),
+  warningText: text("warningText"),
+  attachedDecisions: text("attachedDecisions"),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -226,19 +271,3 @@ export const tasks = mysqlTable("tasks", {
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
-
-// جدول الصلاحيات
-export const permissions = mysqlTable("permissions", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  section: varchar("section", { length: 100 }).notNull(),
-  canView: int("canView").default(1),
-  canAdd: int("canAdd").default(0),
-  canEdit: int("canEdit").default(0),
-  canDelete: int("canDelete").default(0),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type Permission = typeof permissions.$inferSelect;
-export type InsertPermission = typeof permissions.$inferInsert;

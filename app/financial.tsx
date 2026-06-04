@@ -14,13 +14,13 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { financialService } from "@/lib/services/data.service";
+import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 
 
-const STORAGE_KEY = "sultan_expenses";
-const REPORT_STORAGE_KEY = "sultan_financial_reports";
+
 
 interface ExpenseEntry {
   id: string;
@@ -45,6 +45,7 @@ export default function FinancialScreen() {
   const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"expenses" | "report">("expenses");
 
@@ -72,15 +73,15 @@ export default function FinancialScreen() {
   // ===== المصروفات =====
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setEntries(JSON.parse(data));
-    } catch (e) {}
-  };
-
-  const saveEntries = async (newEntries: ExpenseEntry[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-      setEntries(newEntries);
+      const data = await financialService.getAll();
+      if (data) {
+        setEntries(data.map((e: any) => ({
+          id: String(e.id),
+          date: e.date || "",
+          amount: String(e.amount || 0),
+          description: e.description || "",
+        })));
+      }
     } catch (e) {}
   };
 
@@ -92,7 +93,7 @@ export default function FinancialScreen() {
     setShowForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!amount || !description) {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى ملء جميع الحقول" : "Please fill all fields");
       return;
@@ -109,8 +110,25 @@ export default function FinancialScreen() {
     } else {
       newEntries = [entry, ...entries];
     }
-    saveEntries(newEntries);
-    resetForm();
+    try {
+      const expData: any = {
+        date: entry.date,
+        amount: parseInt(entry.amount) || 0,
+        description: entry.description,
+        expenseType: "general",
+        approvedByBoardRep: true,
+        userId: user?.id || 1,
+      };
+      if (editingEntry) {
+        await financialService.update(parseInt(editingEntry.id), expData);
+      } else {
+        await financialService.create(expData);
+      }
+      await loadEntries();
+      resetForm();
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+    }
   };
 
   const handleEdit = (entry: ExpenseEntry) => {
@@ -124,7 +142,9 @@ export default function FinancialScreen() {
   const handleDelete = (id: string) => {
     Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل أنت متأكد من حذف هذا السجل؟" : "Are you sure you want to delete this record?", [
       { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
-      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: () => saveEntries(entries.filter((e) => e.id !== id)) },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: async () => {
+        try { await financialService.delete(parseInt(id)); await loadEntries(); } catch (e) {}
+      } },
     ]);
   };
 
@@ -132,17 +152,19 @@ export default function FinancialScreen() {
     return entries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   };
 
-  // ===== التقرير المالي =====
+  // ===== التقرير المالي (محلي مؤقتاً) =====
   const loadReports = async () => {
     try {
-      const data = await AsyncStorage.getItem(REPORT_STORAGE_KEY);
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      const data = await AsyncStorage.getItem("sultan_financial_reports");
       if (data) setReports(JSON.parse(data));
     } catch (e) {}
   };
 
   const saveReports = async (newReports: FinancialReport[]) => {
     try {
-      await AsyncStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(newReports));
+      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+      await AsyncStorage.setItem("sultan_financial_reports", JSON.stringify(newReports));
       setReports(newReports);
     } catch (e) {}
   };

@@ -14,7 +14,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { salesService, collectionService } from "@/lib/services/data.service";
+import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 
@@ -39,14 +40,14 @@ interface CollectionEntry {
   date: string;
 }
 
-const SALES_KEY = "sultan_sales_data";
-const COLLECTION_KEY = "sultan_collection_data";
+
 
 export default function SalesScreen() {
   const router = useRouter();
   const colors = useColors();
   const { language } = useLanguage();
   const isAr = language === "ar";
+  const { user } = useAuth();
 
   const SELLERS = isAr ? ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"] : ["Shalaby", "Omar", "Al-Maghrabi", "Yasser", "Falcon Store", "Adel", "Special Manufacturing"];
   const CUSTOMER_CATEGORIES = isAr ? ["كلاو", "فالكون", "جملة", "تجزئة", "تصنيع خاص شركات", "تصنيع خاص افراد"] : ["Claw", "Falcon", "Wholesale", "Retail", "Special Manufacturing Companies", "Special Manufacturing Individuals"];
@@ -80,24 +81,35 @@ export default function SalesScreen() {
 
   const loadData = async () => {
     try {
-      const salesData = await AsyncStorage.getItem(SALES_KEY);
-      if (salesData) setSalesEntries(JSON.parse(salesData));
-      const collData = await AsyncStorage.getItem(COLLECTION_KEY);
-      if (collData) setCollectionEntries(JSON.parse(collData));
+      const salesData = await salesService.getAll();
+      if (salesData) {
+        setSalesEntries(salesData.map((s: any) => ({
+          id: String(s.id),
+          sellerName: s.sellerName || "",
+          customerName: s.customerName || "",
+          customerCategory: s.customerCategory || "",
+          quantityDozen: String(s.quantityDozen || 0),
+          quantityPairs: String(s.quantityPair || 0),
+          paymentMethod: s.paymentMethod === "cash" ? (language === "ar" ? "نقداً" : "Cash") : (language === "ar" ? "آجل" : "Credit"),
+          date: s.createdAt ? new Date(s.createdAt).toLocaleDateString("ar-SA") : "",
+        })));
+      }
+      const collData = await collectionService.getAll();
+      if (collData) {
+        setCollectionEntries(collData.map((c: any) => ({
+          id: String(c.id),
+          collectorName: c.collectorName || "",
+          customerName: c.customerName || "",
+          amount: String(c.amount || 0),
+          date: c.createdAt ? new Date(c.createdAt).toLocaleDateString("ar-SA") : "",
+        })));
+      }
     } catch (e) {
       console.log("Error loading data:", e);
     }
   };
 
-  const saveSales = async (entries: SaleEntry[]) => {
-    await AsyncStorage.setItem(SALES_KEY, JSON.stringify(entries));
-    setSalesEntries(entries);
-  };
 
-  const saveCollections = async (entries: CollectionEntry[]) => {
-    await AsyncStorage.setItem(COLLECTION_KEY, JSON.stringify(entries));
-    setCollectionEntries(entries);
-  };
 
   // === المبيعات ===
   const resetSalesForm = () => {
@@ -146,10 +158,29 @@ export default function SalesScreen() {
       newEntries = [entry, ...salesEntries];
     }
 
-    await saveSales(newEntries);
-    resetSalesForm();
-    setShowSalesForm(false);
-    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingSale ? (isAr ? "تم تعديل المبيعة" : "Sale updated") : (isAr ? "تم حفظ المبيعة" : "Sale saved"));
+    try {
+      const paymentMap: Record<string, "cash" | "deferred"> = { "نقداً": "cash", "Cash": "cash", "آجل": "deferred", "Credit": "deferred" };
+      const saleData = {
+        sellerName: entry.sellerName,
+        customerName: entry.customerName,
+        customerCategory: entry.customerCategory,
+        quantityDozen: parseInt(entry.quantityDozen) || 0,
+        quantityPair: parseInt(entry.quantityPairs) || 0,
+        paymentMethod: paymentMap[entry.paymentMethod] || "cash",
+        userId: user?.id || 1,
+      };
+      if (editingSale) {
+        await salesService.update(parseInt(editingSale.id), saleData);
+      } else {
+        await salesService.create(saleData);
+      }
+      await loadData();
+      resetSalesForm();
+      setShowSalesForm(false);
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingSale ? (isAr ? "تم تعديل المبيعة" : "Sale updated") : (isAr ? "تم حفظ المبيعة" : "Sale saved"));
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+    }
   };
 
   const handleEditSale = (entry: SaleEntry) => {
@@ -169,14 +200,17 @@ export default function SalesScreen() {
       {
         text: isAr ? "حذف" : "Delete",
         style: "destructive",
-        onPress: async () => {
-          const newEntries = salesEntries.filter((e) => e.id !== entry.id);
-          await saveSales(newEntries);
-          Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
+                onPress: async () => {
+          try {
+            await salesService.delete(parseInt(entry.id));
+            await loadData();
+            Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
+          } catch (e) { console.log(e); }
         },
       },
     ]);
   };
+
 
   // === التحصيل ===
   const resetCollectionForm = () => {
@@ -215,10 +249,25 @@ export default function SalesScreen() {
       newEntries = [entry, ...collectionEntries];
     }
 
-    await saveCollections(newEntries);
-    resetCollectionForm();
-    setShowCollectionForm(false);
-    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingCollection ? (isAr ? "تم تعديل التحصيل" : "Collection updated") : (isAr ? "تم حفظ التحصيل" : "Collection saved"));
+    try {
+      const collData = {
+        collectorName: entry.collectorName,
+        customerName: entry.customerName,
+        amount: parseInt(entry.amount) || 0,
+        userId: user?.id || 1,
+      };
+      if (editingCollection) {
+        await collectionService.update(parseInt(editingCollection.id), collData);
+      } else {
+        await collectionService.create(collData);
+      }
+      await loadData();
+      resetCollectionForm();
+      setShowCollectionForm(false);
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingCollection ? (isAr ? "تم تعديل التحصيل" : "Collection updated") : (isAr ? "تم حفظ التحصيل" : "Collection saved"));
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+    }
   };
 
   const handleEditCollection = (entry: CollectionEntry) => {
@@ -236,9 +285,11 @@ export default function SalesScreen() {
         text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
-          const newEntries = collectionEntries.filter((e) => e.id !== entry.id);
-          await saveCollections(newEntries);
-          Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
+          try {
+            await collectionService.delete(parseInt(entry.id));
+            await loadData();
+            Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل" : "Record deleted");
+          } catch (e) { console.log(e); }
         },
       },
     ]);

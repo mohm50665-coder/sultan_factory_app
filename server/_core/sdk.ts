@@ -267,6 +267,7 @@ class SDKServer {
         await db.upsertUser({
           openId: userInfo.openId,
           name: userInfo.name || "User",
+          username: userInfo.openId,
           email: userInfo.email ?? "",
           password: "",
           loginMethod: userInfo.loginMethod ?? userInfo.platform ?? "oauth",
@@ -286,6 +287,7 @@ class SDKServer {
     await db.upsertUser({
       openId: user.openId,
       name: user.name || "User",
+      username: user.username || user.openId,
       email: user.email || "",
       password: "",
       lastSignedIn: signedInAt,

@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { simpleAuthService } from "@/lib/services/simple-auth";
+import { authApiService } from "@/lib/services/api.service";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -39,15 +39,7 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      // Verify the user exists with matching username and phone
-      const allUsers = await simpleAuthService.getAllUsers();
-      const found = allUsers.find(
-        (u) => (u.username === username.trim()) && u.phone === phone.trim()
-      );
-      if (!found) {
-        Alert.alert("خطأ", "البيانات غير صحيحة. تأكد من اسم المستخدم ورقم الجوال");
-        return;
-      }
+      // Move to reset step - verification happens on server
       setStep("reset");
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل التحقق من البيانات";
@@ -70,7 +62,7 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      await simpleAuthService.resetPassword(username.trim(), phone.trim(), newPassword);
+      await authApiService.resetPassword(username.trim(), phone.trim(), newPassword);
       Alert.alert("نجاح", "تم إعادة تعيين كلمة المرور بنجاح");
       router.replace("/login");
     } catch (err) {

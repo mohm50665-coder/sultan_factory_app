@@ -12,7 +12,8 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService, salesService, expensesService, taskService } from "@/lib/services/api.service";
+import { maintenanceEntriesService } from "@/lib/services/data.service";
 
 interface MonthlyData {
   month: string;
@@ -41,40 +42,30 @@ export default function MonthlyReportsScreen() {
   const loadRealData = async () => {
     setIsLoading(true);
     try {
-      // Load production data
-      const prodRaw = await AsyncStorage.getItem("sultan_production_data_v2");
-      const prodEntries = prodRaw ? JSON.parse(prodRaw) : [];
+      // Load production data from server
+      const prodEntries = await productionService.getAll() || [];
       let totalProduction = 0;
       let totalWaste = 0;
-      prodEntries.forEach((entry: any) => {
-        if (entry.machines) {
-          Object.values(entry.machines).forEach((m: any) => {
-            totalProduction += parseInt(m.productionDozen || "0");
-            totalWaste += parseInt(m.wasteThreadGrams || "0") + parseInt(m.wasteSocksGrams || "0");
-          });
-        }
+      prodEntries.forEach((item: any) => {
+        totalProduction += parseInt(item.productionDozen || "0");
+        totalWaste += parseInt(item.wasteThreadGrams || "0") + parseInt(item.wasteSocksGrams || "0");
       });
 
-      // Load sales data
-      const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
-      const salesEntries = salesRaw ? JSON.parse(salesRaw) : [];
+      // Load sales data from server
+      const salesEntries = await salesService.getAll() || [];
       const totalSales = salesEntries.length;
 
-      // Load expenses data
-      const expRaw = await AsyncStorage.getItem("sultan_expenses");
-      const expEntries = expRaw ? JSON.parse(expRaw) : [];
+      // Load expenses data from server
+      const expEntries = await expensesService.getAll() || [];
       const totalExpenses = expEntries.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
 
-      // Load maintenance data
-      const maintPeriodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
-      const maintEmergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
-      const periodic = maintPeriodicRaw ? JSON.parse(maintPeriodicRaw) : [];
-      const emergency = maintEmergencyRaw ? JSON.parse(maintEmergencyRaw) : [];
+      // Load maintenance data from server
+      const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
+      const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
       const maintenanceCount = periodic.length + emergency.length;
 
-      // Load tasks data
-      const tasksRaw = await AsyncStorage.getItem("tasks_entries");
-      const tasksEntries = tasksRaw ? JSON.parse(tasksRaw) : [];
+      // Load tasks data from server
+      const tasksEntries = await taskService.getAll() || [];
       const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
       const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
 

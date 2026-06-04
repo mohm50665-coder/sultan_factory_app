@@ -13,7 +13,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { manufacturingStageService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 
 interface WorkerEntry {
@@ -110,7 +110,7 @@ export default function ManufacturingStageScreen() {
   const isViewOnly = user?.department === "warehouse" && user?.role !== "admin";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
-  const STORAGE_KEY = `sultan_manufacturing_${stage}`;
+
 
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -138,20 +138,26 @@ export default function ManufacturingStageScreen() {
 
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setEntries(JSON.parse(data));
-      else setEntries([]);
+      const data = await manufacturingStageService.getAll();
+      if (data) {
+        // فلترة حسب المرحلة الحالية
+        const filtered = data.filter((d: any) => d.stageName === stage);
+        setEntries(filtered.map((d: any) => ({
+          id: String(d.id),
+          workerName: d.workerName || "",
+          productionDozen: String(d.quantityDozen || 0),
+          productionPairs: String(d.quantityPair || 0),
+          durationHours: "0",
+          durationMinutes: "0",
+          date: d.createdAt ? new Date(d.createdAt).toLocaleDateString("ar-SA") : "",
+          notes: d.productType || "",
+        })));
+      } else {
+        setEntries([]);
+      }
     } catch (e) {
       console.log("Error loading entries:", e);
-    }
-  };
-
-  const saveEntries = async (newEntries: WorkerEntry[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-      setEntries(newEntries);
-    } catch (e) {
-      console.log("Error saving entries:", e);
+      setEntries([]);
     }
   };
 
@@ -213,13 +219,27 @@ export default function ManufacturingStageScreen() {
       newEntries = [entry, ...entries];
     }
 
-    await saveEntries(newEntries);
-    resetForm();
-    setShowForm(false);
-    Alert.alert(
-      "تم بنجاح ✓",
-      editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح"
-    );
+    try {
+      const apiData = {
+        stageName: stage,
+        workerName: entry.workerName,
+        quantityDozen: parseInt(entry.productionDozen) || 0,
+        quantityPair: parseInt(entry.productionPairs) || 0,
+        productType: entry.notes || "",
+        userId: user?.id || 1,
+      };
+      if (editingEntry) {
+        await manufacturingStageService.update(parseInt(editingEntry.id), apiData);
+      } else {
+        await manufacturingStageService.create(apiData);
+      }
+      await loadEntries();
+      resetForm();
+      setShowForm(false);
+      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح");
+    } catch (e) {
+      Alert.alert("خطأ", "فشل حفظ البيانات");
+    }
   };
 
   // تعديل سجل
@@ -251,9 +271,11 @@ export default function ManufacturingStageScreen() {
           text: "حذف",
           style: "destructive",
           onPress: async () => {
-            const newEntries = entries.filter((e) => e.id !== entry.id);
-            await saveEntries(newEntries);
-            Alert.alert("تم ✓", "تم حذف السجل بنجاح");
+            try {
+              await manufacturingStageService.delete(parseInt(entry.id));
+              await loadEntries();
+              Alert.alert("تم ✓", "تم حذف السجل بنجاح");
+            } catch (e) { console.log(e); }
           },
         },
       ]

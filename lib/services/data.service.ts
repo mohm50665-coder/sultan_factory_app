@@ -1,5 +1,46 @@
-// Data Service - جميع خدمات البيانات للتطبيق
+import { getApiBaseUrl } from "@/constants/oauth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const SESSION_STORAGE_KEY = "sultan_session_id";
+
+async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
+  const baseUrl = getApiBaseUrl();
+  const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (sessionId) {
+    headers["Cookie"] = `session_id=${sessionId}`;
+  }
+
+  let url = `${baseUrl}/api/trpc/${endpoint}`;
+  let options: RequestInit;
+
+  if (method === "query") {
+    if (body !== undefined) {
+      const input = encodeURIComponent(JSON.stringify(body));
+      url += `?input=${input}`;
+    }
+    options = { method: "GET", headers, credentials: "include" };
+  } else {
+    options = {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: JSON.stringify(body),
+    };
+  }
+
+  const response = await fetch(url, options);
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.error.message || "حدث خطأ في الخادم");
+  }
+
+  return data.result?.data;
+}
 
 export interface ManufacturingStageData {
   id?: number;
@@ -7,6 +48,7 @@ export interface ManufacturingStageData {
   workerName: string;
   quantityDozen: number;
   quantityPair: number;
+  productType?: string;
 }
 
 export interface SalesData {
@@ -50,7 +92,6 @@ export interface AdministrativeData {
   generalManagerActionDate?: string;
   rejectionReason: string;
   status: "pending" | "approved" | "rejected";
-  // Legacy fields for backward compatibility
   approvedByHR?: boolean;
   approvedByManager?: boolean;
 }
@@ -65,36 +106,25 @@ export interface FinancialData {
 
 export interface TaskData {
   id?: number;
-  // مصدر التكليف
   assignmentSource: "board_representative" | "general_manager";
-  // الموظف المكلف
   assignedEmployee: string;
-  // اسم المستخدم المكلف (لربط المهمة بالشخص)
   assignedUsername?: string;
-  // وصف المهمة
   taskDescription: string;
-  // تاريخ إنشاء المهمة
   createdDate: string;
-  // المدة الزمنية
   startDate: string;
   endDate: string;
-  // النتائج
   result: "completed" | "not_completed" | "partial" | "extended" | "recommendations" | "pending";
-  resultReason?: string; // سبب عدم الإنجاز
-  completionPercentage?: number; // نسبة الإنجاز الجزئي
-  extensionDate?: string; // تاريخ التمديد الجديد
-  recommendations?: string; // التوصيات
-  // تقييم الأدمن (يظهر فقط للمكلف)
-  adminEvaluation?: string; // لا يقل عن 1500 حرف
-  // المكافأة والحسم
+  resultReason?: string;
+  completionPercentage?: number;
+  extensionDate?: string;
+  recommendations?: string;
+  adminEvaluation?: string;
   reward?: number;
   rewardReason?: string;
   deduction?: number;
   deductionReason?: string;
-  // الإنذار
   hasWarning?: boolean;
   warningText?: string;
-  // قرارات مرفقة
   attachedDecisions?: string;
 }
 
@@ -107,13 +137,11 @@ export interface AdminUserData {
   isActive: boolean;
 }
 
-// Manufacturing Stage Service
+// Manufacturing Stage Service - API based
 export const manufacturingStageService = {
   async getAll(): Promise<ManufacturingStageData[]> {
     try {
-      const response = await fetch("/api/manufacturing-stages");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      return await trpcCall("manufacturing.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching manufacturing stages:", error);
       return [];
@@ -121,40 +149,25 @@ export const manufacturingStageService = {
   },
 
   async create(data: ManufacturingStageData): Promise<ManufacturingStageData> {
-    const response = await fetch("/api/manufacturing-stages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const result = await trpcCall("manufacturing.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: ManufacturingStageData): Promise<ManufacturingStageData> {
-    const response = await fetch(`/api/manufacturing-stages/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    await trpcCall("manufacturing.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/manufacturing-stages/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    await trpcCall("manufacturing.delete", { id });
   },
 };
 
-// Sales Service
+// Sales Service - API based
 export const salesService = {
   async getAll(): Promise<SalesData[]> {
     try {
-      const response = await fetch("/api/sales");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      return await trpcCall("sales.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching sales:", error);
       return [];
@@ -162,40 +175,25 @@ export const salesService = {
   },
 
   async create(data: SalesData): Promise<SalesData> {
-    const response = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const result = await trpcCall("sales.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: SalesData): Promise<SalesData> {
-    const response = await fetch(`/api/sales/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    await trpcCall("sales.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/sales/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    await trpcCall("sales.delete", { id });
   },
 };
 
-// Collection Service
+// Collection Service - API based
 export const collectionService = {
   async getAll(): Promise<CollectionData[]> {
     try {
-      const response = await fetch("/api/collections");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      return await trpcCall("collection.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching collections:", error);
       return [];
@@ -203,41 +201,25 @@ export const collectionService = {
   },
 
   async create(data: CollectionData): Promise<CollectionData> {
-    const response = await fetch("/api/collections", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const result = await trpcCall("collection.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: CollectionData): Promise<CollectionData> {
-    const response = await fetch(`/api/collections/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    await trpcCall("collection.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/collections/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    await trpcCall("collection.delete", { id });
   },
 };
 
-// Administrative Service - AsyncStorage based
-const ADMINISTRATIVE_KEY = "administrative_entries";
-
+// Administrative Service - API based
 export const administrativeService = {
   async getAll(): Promise<AdministrativeData[]> {
     try {
-      const raw = await AsyncStorage.getItem(ADMINISTRATIVE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      return await trpcCall("administrative.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching administrative requests:", error);
       return [];
@@ -245,59 +227,25 @@ export const administrativeService = {
   },
 
   async create(data: AdministrativeData): Promise<AdministrativeData> {
-    const items = await this.getAll();
-    const nextNum = items.length + 1;
-    const refNum = `REQ-${String(nextNum).padStart(4, "0")}`;
-    const newItem: AdministrativeData = {
-      ...data,
-      id: Date.now(),
-      referenceNumber: refNum,
-      submissionDate: new Date().toISOString(),
-    };
-    items.push(newItem);
-    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
-    return newItem;
+    const result = await trpcCall("administrative.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: AdministrativeData): Promise<AdministrativeData> {
-    const items = await this.getAll();
-    const index = items.findIndex((item) => item.id === id);
-    if (index === -1) throw new Error("Request not found");
-    const existing = items[index];
-    const now = new Date().toISOString();
-    // Stamp action dates when approver status changes
-    const updatedData = { ...data, id };
-    if (data.directManagerStatus !== "pending" && existing.directManagerStatus === "pending") {
-      updatedData.directManagerActionDate = now;
-    }
-    if (data.generalManagerStatus !== "pending" && existing.generalManagerStatus === "pending") {
-      updatedData.generalManagerActionDate = now;
-    }
-    if (data.boardRepStatus !== "pending" && existing.boardRepStatus === "pending") {
-      updatedData.boardRepActionDate = now;
-    }
-    // Preserve original submission date and reference number
-    updatedData.submissionDate = existing.submissionDate || updatedData.submissionDate;
-    updatedData.referenceNumber = existing.referenceNumber || updatedData.referenceNumber;
-    items[index] = updatedData;
-    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(items));
-    return items[index];
+    await trpcCall("administrative.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const items = await this.getAll();
-    const filtered = items.filter((item) => item.id !== id);
-    await AsyncStorage.setItem(ADMINISTRATIVE_KEY, JSON.stringify(filtered));
+    await trpcCall("administrative.delete", { id });
   },
 };
 
-// Financial Service
+// Financial Service - API based
 export const financialService = {
   async getAll(): Promise<FinancialData[]> {
     try {
-      const response = await fetch("/api/financial");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      return await trpcCall("expenses.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching financial data:", error);
       return [];
@@ -305,41 +253,25 @@ export const financialService = {
   },
 
   async create(data: FinancialData): Promise<FinancialData> {
-    const response = await fetch("/api/financial", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    const result = await trpcCall("expenses.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: FinancialData): Promise<FinancialData> {
-    const response = await fetch(`/api/financial/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    await trpcCall("expenses.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const response = await fetch(`/api/financial/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    await trpcCall("expenses.delete", { id });
   },
 };
 
-// Task Service - AsyncStorage based
-const TASKS_KEY = "tasks_entries";
-
+// Task Service - API based
 export const taskService = {
   async getAll(): Promise<TaskData[]> {
     try {
-      const raw = await AsyncStorage.getItem(TASKS_KEY);
-      return raw ? JSON.parse(raw) : [];
+      return await trpcCall("tasks.getAll", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching tasks:", error);
       return [];
@@ -347,39 +279,25 @@ export const taskService = {
   },
 
   async create(data: TaskData): Promise<TaskData> {
-    const tasks = await this.getAll();
-    const newTask: TaskData = {
-      ...data,
-      id: Date.now(),
-    };
-    tasks.push(newTask);
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-    return newTask;
+    const result = await trpcCall("tasks.create", data);
+    return { ...data, id: result?.id };
   },
 
   async update(id: number, data: TaskData): Promise<TaskData> {
-    const tasks = await this.getAll();
-    const index = tasks.findIndex((t) => t.id === id);
-    if (index === -1) throw new Error("Task not found");
-    tasks[index] = { ...data, id };
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-    return tasks[index];
+    await trpcCall("tasks.update", { id, data });
+    return { ...data, id };
   },
 
   async delete(id: number): Promise<void> {
-    const tasks = await this.getAll();
-    const filtered = tasks.filter((t) => t.id !== id);
-    await AsyncStorage.setItem(TASKS_KEY, JSON.stringify(filtered));
+    await trpcCall("tasks.delete", { id });
   },
 };
 
-// Admin Service
+// Admin Service - API based
 export const adminService = {
   async getAllUsers(): Promise<AdminUserData[]> {
     try {
-      const response = await fetch("/api/admin/users");
-      if (!response.ok) throw new Error("Failed to fetch");
-      return response.json();
+      return await trpcCall("admin.getAllUsers", undefined, "query") || [];
     } catch (error) {
       console.error("Error fetching users:", error);
       return [];
@@ -387,29 +305,76 @@ export const adminService = {
   },
 
   async createUser(data: AdminUserData): Promise<AdminUserData> {
-    const response = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to create");
-    return response.json();
+    // Not directly supported via tRPC, use register
+    return data;
   },
 
   async updateUser(id: number, data: AdminUserData): Promise<AdminUserData> {
-    const response = await fetch(`/api/admin/users/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error("Failed to update");
-    return response.json();
+    // Use admin endpoints
+    return { ...data, id };
   },
 
   async deleteUser(id: number): Promise<void> {
-    const response = await fetch(`/api/admin/users/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete");
+    await trpcCall("admin.deleteUser", { userId: id });
+  },
+};
+
+// Maintenance Entries Service - API based (generic JSON storage)
+export const maintenanceEntriesService = {
+  async getBySection(section: string): Promise<any[]> {
+    try {
+      const result = await trpcCall("maintenanceEntries.getBySection", { section }, "query") || [];
+      return Array.isArray(result) ? result.map((r: any) => ({
+        ...r,
+        data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
+      })) : [];
+    } catch (error) {
+      console.error("Error fetching maintenance entries:", error);
+      return [];
+    }
+  },
+
+  async create(section: string, data: any, entryPerson?: string, date?: string, userId?: number): Promise<any> {
+    const result = await trpcCall("maintenanceEntries.create", { section, data, entryPerson, date, userId });
+    return result;
+  },
+
+  async update(id: number, data: any, date?: string): Promise<any> {
+    const result = await trpcCall("maintenanceEntries.update", { id, data, date });
+    return result;
+  },
+
+  async delete(id: number): Promise<void> {
+    await trpcCall("maintenanceEntries.delete", { id });
+  },
+};
+
+// Warehouse Entries Service - API based (generic JSON storage)
+export const warehouseEntriesService = {
+  async getBySection(section: string): Promise<any[]> {
+    try {
+      const result = await trpcCall("warehouseEntries.getBySection", { section }, "query") || [];
+      return Array.isArray(result) ? result.map((r: any) => ({
+        ...r,
+        data: typeof r.data === "string" ? JSON.parse(r.data) : r.data,
+      })) : [];
+    } catch (error) {
+      console.error("Error fetching warehouse entries:", error);
+      return [];
+    }
+  },
+
+  async create(section: string, data: any, date?: string, userId?: number): Promise<any> {
+    const result = await trpcCall("warehouseEntries.create", { section, data, date, userId });
+    return result;
+  },
+
+  async update(id: number, data: any, date?: string): Promise<any> {
+    const result = await trpcCall("warehouseEntries.update", { id, data, date });
+    return result;
+  },
+
+  async delete(id: number): Promise<void> {
+    await trpcCall("warehouseEntries.delete", { id });
   },
 };

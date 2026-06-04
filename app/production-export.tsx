@@ -16,8 +16,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { productionExportService, type ProductionRecord } from "@/lib/services/production-export";
 import { activityLogService } from "@/lib/services/activity-log";
 import { useAuth } from "@/lib/auth-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "@/lib/language-context";
+import { productionService } from "@/lib/services/api.service";
 
 export default function ProductionExportScreen() {
   const router = useRouter();
@@ -38,10 +38,9 @@ export default function ProductionExportScreen() {
 
   const loadData = async () => {
     try {
-      const dataJson = await AsyncStorage.getItem("production_data");
-      let allRecords: ProductionRecord[] = dataJson ? JSON.parse(dataJson) : [];
-      const filtered = allRecords.filter((r) => r.date === date);
-      setRecords(filtered);
+      const allRecords = await productionService.getAll() || [];
+      const filtered = allRecords.filter((r: any) => (r.date || r.entryDate) === date);
+      setRecords(filtered as ProductionRecord[]);
     } catch (error) {
       console.error("Failed to load production data:", error);
     }
@@ -66,7 +65,7 @@ export default function ProductionExportScreen() {
 
       // Log the export activity
       await activityLogService.addEntry({
-        userId: user?.id || "unknown",
+        userId: String(user?.id || "unknown"),
         userName: user?.name || (isAr ? "مجهول" : "Unknown"),
         action: "export",
         module: "production",

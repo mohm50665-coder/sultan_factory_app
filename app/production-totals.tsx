@@ -3,11 +3,11 @@ import { View, Text, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/language-context";
+import { productionService } from "@/lib/services/api.service";
 
-const STORAGE_KEY = "sultan_production_entries";
+
 
 interface MachineData {
   productionDozen: string;
@@ -45,9 +45,38 @@ export default function ProductionTotalsScreen() {
 
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) {
-        setEntries(JSON.parse(data));
+      const data = await productionService.getAll();
+      if (data && data.length > 0) {
+        // Group by date and reconstruct machines structure
+        const grouped: { [date: string]: { [machine: string]: MachineData } } = {};
+        data.forEach((item: any) => {
+          const date = item.date || item.entryDate || "unknown";
+          if (!grouped[date]) grouped[date] = {};
+          const machine = item.machineNumber || "unknown";
+          grouped[date][machine] = {
+            productionDozen: String(item.productionDozen || "0"),
+            productionPairs: String(item.productionPairs || "0"),
+            wasteThreadGrams: String(item.wasteThreadGrams || "0"),
+            wasteSocksGrams: String(item.wasteSocksGrams || "0"),
+            secondGradeDozen: String(item.secondGradeDozen || "0"),
+            secondGradePairs: String(item.secondGradePairs || "0"),
+            wasteNeedles: String(item.wasteNeedles || "0"),
+            productionHours: String(item.productionHours || "0"),
+            productionMinutes: String(item.productionMinutes || "0"),
+            yarnRubber: String(item.yarnRubber || "0"),
+            yarnSpandex: String(item.yarnSpandex || "0"),
+            yarnNylon: String(item.yarnNylon || "0"),
+            yarnCotton: String(item.yarnCotton || "0"),
+            yarnBamboo: String(item.yarnBamboo || "0"),
+            yarnSpan: String(item.yarnSpan || "0"),
+          };
+        });
+        const entriesArray = Object.entries(grouped).map(([date, machines]) => ({
+          id: date,
+          date,
+          machines,
+        }));
+        setEntries(entriesArray);
       }
     } catch (e) {
       console.error("Error loading entries:", e);

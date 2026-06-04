@@ -14,7 +14,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService } from "@/lib/services/api.service";
+import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 
@@ -53,7 +54,7 @@ interface ProductionEntry {
   machines: { [key: string]: MachineData };
 }
 
-const STORAGE_KEY = "sultan_production_data_v2";
+
 
 const emptyMachineData = (): MachineData => ({
   productionDozen: "",
@@ -86,10 +87,12 @@ export default function ProductionScreen() {
   const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
   const [showDailySummary, setShowDailySummary] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
 
   // حقل التاريخ الموحد
@@ -107,19 +110,80 @@ export default function ProductionScreen() {
 
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setEntries(JSON.parse(data));
+      setIsLoading(true);
+      const rows = await productionService.getAll() || [];
+      // تحويل الصفوف المسطحة إلى بنية مجمّعة حسب التاريخ
+      const grouped: { [date: string]: { [machine: string]: MachineData } } = {};
+      for (const row of rows) {
+        const d = row.date || "";
+        if (!grouped[d]) grouped[d] = {};
+        grouped[d][row.machineNumber] = {
+          productionDozen: String(row.productionDozen || 0),
+          productionPairs: String(row.productionPairs || 0),
+          wasteThreadGrams: String(row.wasteThreadGrams || 0),
+          wasteSocksGrams: String(row.wasteSocksGrams || 0),
+          secondGradeDozen: String(row.secondGradeDozen || 0),
+          secondGradePairs: String(row.secondGradePairs || 0),
+          wasteNeedles: String(row.wasteNeedles || 0),
+          productionHours: String(row.productionHours || 0),
+          productionMinutes: String(row.productionMinutes || 0),
+          yarnRubber: String(row.yarnRubber || 0),
+          yarnSpandex: String(row.yarnSpandex || 0),
+          yarnNylon: String(row.yarnNylon || 0),
+          yarnCotton: String(row.yarnCotton || 0),
+          yarnBamboo: String(row.yarnBamboo || 0),
+          yarnSpan: String(row.yarnSpan || 0),
+        };
+      }
+      const loadedEntries: ProductionEntry[] = Object.keys(grouped)
+        .sort((a, b) => b.localeCompare(a))
+        .map((date) => ({
+          id: date,
+          date,
+          machines: grouped[date],
+        }));
+      setEntries(loadedEntries);
     } catch (e) {
-      console.log(e);
+      console.log("Error loading production:", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const saveEntries = async (newEntries: ProductionEntry[]) => {
+  const saveToServer = async (entry: ProductionEntry, isEdit: boolean) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-      setEntries(newEntries);
+      const userId = user?.id || 1;
+      // حذف السجلات القديمة لهذا التاريخ إذا كان تعديل
+      if (isEdit) {
+        await productionService.deleteByDate(entry.date);
+      }
+      // إنشاء سجلات جديدة لكل مكينة
+      const batchEntries = Object.entries(entry.machines).map(([machine, data]) => ({
+        date: entry.date,
+        machineNumber: machine,
+        productionDozen: parseInt(data.productionDozen) || 0,
+        productionPairs: parseInt(data.productionPairs) || 0,
+        wasteThreadGrams: parseInt(data.wasteThreadGrams) || 0,
+        wasteSocksGrams: parseInt(data.wasteSocksGrams) || 0,
+        secondGradeDozen: parseInt(data.secondGradeDozen) || 0,
+        secondGradePairs: parseInt(data.secondGradePairs) || 0,
+        wasteNeedles: parseInt(data.wasteNeedles) || 0,
+        productionHours: parseInt(data.productionHours) || 0,
+        productionMinutes: parseInt(data.productionMinutes) || 0,
+        yarnRubber: parseInt(data.yarnRubber) || 0,
+        yarnSpandex: parseInt(data.yarnSpandex) || 0,
+        yarnNylon: parseInt(data.yarnNylon) || 0,
+        yarnCotton: parseInt(data.yarnCotton) || 0,
+        yarnBamboo: parseInt(data.yarnBamboo) || 0,
+        yarnSpan: parseInt(data.yarnSpan) || 0,
+        userId,
+      }));
+      if (batchEntries.length > 0) {
+        await productionService.createBatch(batchEntries);
+      }
     } catch (e) {
-      console.log(e);
+      console.log("Error saving to server:", e);
+      throw e;
     }
   };
 
@@ -194,10 +258,15 @@ export default function ProductionScreen() {
       newEntries = [entry, ...entries];
     }
 
-    await saveEntries(newEntries);
-    resetForm();
-    setShowForm(false);
-    Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
+    try {
+      await saveToServer(entry, !!editingEntry);
+      await loadEntries();
+      resetForm();
+      setShowForm(false);
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+    }
   };
 
   const handleEdit = (entry: ProductionEntry) => {
@@ -208,12 +277,14 @@ export default function ProductionScreen() {
     setShowForm(true);
   };
 
-  const handleDelete = (entry: ProductionEntry) => {
+  const handleDelete = async (entry: ProductionEntry) => {
     if (Platform.OS === "web") {
       const confirmed = confirm(isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`);
       if (confirmed) {
-        const newEntries = entries.filter((e) => e.id !== entry.id);
-        saveEntries(newEntries);
+        try {
+          await productionService.deleteByDate(entry.date);
+          await loadEntries();
+        } catch (e) { console.log(e); }
       }
     } else {
       Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`, [
@@ -222,8 +293,10 @@ export default function ProductionScreen() {
           text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
-            const newEntries = entries.filter((e) => e.id !== entry.id);
-            await saveEntries(newEntries);
+            try {
+              await productionService.deleteByDate(entry.date);
+              await loadEntries();
+            } catch (e) { console.log(e); }
           },
         },
       ]);

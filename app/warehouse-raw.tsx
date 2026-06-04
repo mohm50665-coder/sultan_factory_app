@@ -14,7 +14,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { warehouseEntriesService } from "@/lib/services/data.service";
+import { useAuth } from "@/lib/auth-context";
 
 const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
 const UNITS = ["طن", "كيلو", "غرام", "كرتون", "حبة"];
@@ -31,7 +32,7 @@ interface RawEntry {
   documentAttached: boolean;
 }
 
-const STORAGE_KEY = "sultan_warehouse_raw";
+const SECTION_KEY = "raw";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
@@ -43,6 +44,7 @@ const formatDate = (d: Date): string => {
 export default function WarehouseRawScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
   const [entries, setEntries] = useState<RawEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<RawEntry | null>(null);
@@ -60,16 +62,16 @@ export default function WarehouseRawScreen() {
 
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setEntries(JSON.parse(data));
-    } catch (e) { console.log(e); }
-  };
-
-  const saveEntries = async (newEntries: RawEntry[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-      setEntries(newEntries);
-    } catch (e) { console.log(e); }
+      const results = await warehouseEntriesService.getBySection(SECTION_KEY);
+      if (results && results.length > 0) {
+        setEntries(results.map((r: any) => ({
+          id: String(r.id),
+          ...(r.data || {}),
+        })));
+      } else {
+        setEntries([]);
+      }
+    } catch (e) { console.log(e); setEntries([]); }
   };
 
   const resetForm = () => {
@@ -106,10 +108,20 @@ export default function WarehouseRawScreen() {
     } else {
       newEntries = [entry, ...entries];
     }
-    await saveEntries(newEntries);
-    resetForm();
-    setShowForm(false);
-    Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+    try {
+      const { id, ...entryData } = entry;
+      if (editingEntry) {
+        await warehouseEntriesService.update(parseInt(editingEntry.id), entryData, entryDate);
+      } else {
+        await warehouseEntriesService.create(SECTION_KEY, entryData, entryDate, user?.id);
+      }
+      await loadEntries();
+      resetForm();
+      setShowForm(false);
+      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+    } catch (e) {
+      Alert.alert("خطأ", "فشل حفظ البيانات");
+    }
   };
 
   const handleEdit = (entry: RawEntry) => {
@@ -126,14 +138,20 @@ export default function WarehouseRawScreen() {
   };
 
   const handleDelete = (entry: RawEntry) => {
+    const doDelete = async () => {
+      try {
+        await warehouseEntriesService.delete(parseInt(entry.id));
+        await loadEntries();
+      } catch (e) { console.log(e); }
+    };
     if (Platform.OS === "web") {
       if (confirm("هل تريد حذف هذا السجل؟")) {
-        saveEntries(entries.filter((e) => e.id !== entry.id));
+        doDelete();
       }
     } else {
       Alert.alert("تأكيد الحذف", "هل تريد حذف هذا السجل؟", [
         { text: "إلغاء", style: "cancel" },
-        { text: "حذف", style: "destructive", onPress: () => saveEntries(entries.filter((e) => e.id !== entry.id)) },
+        { text: "حذف", style: "destructive", onPress: doDelete },
       ]);
     }
   };

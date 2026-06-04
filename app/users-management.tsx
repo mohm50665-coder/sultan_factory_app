@@ -15,7 +15,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { simpleAuthService, type User } from "@/lib/services/simple-auth";
+import { adminService } from "@/lib/services/api.service";
+import type { User } from "@/lib/auth-context";
 
 const ROLES = [
   { value: "admin", label: "مدير النظام" },
@@ -51,7 +52,7 @@ export default function UsersManagementScreen() {
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
 
   const loadUsers = useCallback(async () => {
-    const allUsers = await simpleAuthService.getAllUsers();
+    const allUsers = await adminService.getAllUsers();
     setUsers(allUsers);
   }, []);
 
@@ -59,16 +60,16 @@ export default function UsersManagementScreen() {
     loadUsers();
   }, [loadUsers]);
 
-  const handleToggleActive = async (userId: string) => {
+  const handleToggleActive = async (userId: number) => {
     if (userId === currentUser?.id) {
       Alert.alert("تنبيه", "لا يمكنك تعطيل حسابك الخاص");
       return;
     }
-    await simpleAuthService.toggleUserActive(userId);
+    await adminService.toggleUserActive(userId);
     loadUsers();
   };
 
-  const handleChangeRole = (user: User) => {
+  const handleChangeRole = (user: any) => {
     if (user.id === currentUser?.id) {
       Alert.alert("تنبيه", "لا يمكنك تغيير صلاحيتك الخاصة");
       return;
@@ -80,13 +81,13 @@ export default function UsersManagementScreen() {
 
   const handleSaveRole = async () => {
     if (!editingUser) return;
-    await simpleAuthService.changeUserRole(editingUser.id, editRole);
+    await adminService.changeUserRole(editingUser.id, editRole as "user" | "admin");
     setShowEditModal(false);
     setEditingUser(null);
     loadUsers();
   };
 
-  const handleDeleteUser = (userId: string, userName: string) => {
+  const handleDeleteUser = (userId: number, userName: string) => {
     if (userId === currentUser?.id) {
       Alert.alert("تنبيه", "لا يمكنك حذف حسابك الخاص");
       return;
@@ -100,7 +101,7 @@ export default function UsersManagementScreen() {
           text: "حذف",
           style: "destructive",
           onPress: async () => {
-            await simpleAuthService.deleteUser(userId);
+            await adminService.deleteUser(userId);
             loadUsers();
           },
         },
@@ -108,8 +109,8 @@ export default function UsersManagementScreen() {
     );
   };
 
-  const handleResetPassword = (userId: string) => {
-    setResetUserId(userId);
+  const handleResetPassword = (userId: number) => {
+    setResetUserId(userId.toString());
     setNewPassword("");
     setShowResetModal(true);
   };
@@ -119,7 +120,7 @@ export default function UsersManagementScreen() {
       Alert.alert("خطأ", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
     }
-    await simpleAuthService.resetUserPassword(resetUserId, newPassword);
+    await adminService.resetUserPassword(parseInt(resetUserId), newPassword);
     setShowResetModal(false);
     Alert.alert("نجاح", "تم إعادة تعيين كلمة المرور بنجاح");
   };
@@ -144,7 +145,7 @@ export default function UsersManagementScreen() {
 
   const handleSaveSections = async () => {
     if (!sectionsUser) return;
-    await simpleAuthService.updateUser(sectionsUser.id, { allowedSections: selectedSections });
+    await adminService.updateAllowedSections(sectionsUser.id, selectedSections);
     setShowSectionsModal(false);
     setSectionsUser(null);
     loadUsers();

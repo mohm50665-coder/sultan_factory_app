@@ -13,8 +13,9 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BarChart, PieChart, ProgressBar, StatCard } from "@/components/charts";
+import { productionService, salesService, collectionService, expensesService, manufacturingService, taskService, administrativeService } from "@/lib/services/api.service";
+import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
 
 type ReportSection = "production" | "manufacturing" | "warehouse" | "sales" | "expenses" | "maintenance" | "tasks" | "administrative";
 
@@ -91,19 +92,18 @@ export default function SectionReportsScreen() {
 
   // Load Production Report
   const loadProductionReport = async () => {
-    const raw = await AsyncStorage.getItem("sultan_production_data_v2");
-    const entries = raw ? JSON.parse(raw) : [];
-    const totalProduction = entries.reduce((s: number, e: any) => s + (e.productionDozen || 0), 0);
-    const totalWasteThread = entries.reduce((s: number, e: any) => s + (e.wasteThread || 0), 0);
-    const totalWasteSocks = entries.reduce((s: number, e: any) => s + (e.wasteSocks || 0), 0);
-    const totalSecondGrade = entries.reduce((s: number, e: any) => s + (e.secondGrade || 0), 0);
-    const totalNeedles = entries.reduce((s: number, e: any) => s + (e.wasteNeedles || 0), 0);
+    const entries = await productionService.getAll() || [];
+    const totalProduction = entries.reduce((s: number, e: any) => s + (parseFloat(e.productionDozen) || 0), 0);
+    const totalWasteThread = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteThreadGrams) || 0), 0);
+    const totalWasteSocks = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteSocksGrams) || 0), 0);
+    const totalSecondGrade = entries.reduce((s: number, e: any) => s + (parseFloat(e.secondGradeDozen) || 0), 0);
+    const totalNeedles = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteNeedles) || 0), 0);
     const machineCount = new Set(entries.map((e: any) => e.machineNumber)).size;
 
     const machineData: Record<string, number> = {};
     entries.forEach((e: any) => {
       const key = `M${e.machineNumber || "?"}`;
-      machineData[key] = (machineData[key] || 0) + (e.productionDozen || 0);
+      machineData[key] = (machineData[key] || 0) + (parseFloat(e.productionDozen) || 0);
     });
 
     return {
@@ -120,21 +120,19 @@ export default function SectionReportsScreen() {
 
   // Load Manufacturing Report
   const loadManufacturingReport = async () => {
+    const entries = await manufacturingService.getAll() || [];
     const stages = ["machines", "rosso", "heart", "ironing", "inspection", "packaging", "anti_slip", "storage"];
     const stageData: Record<string, any[]> = {};
-    let totalEntries = 0;
+    let totalEntries = entries.length;
 
-    for (const stage of stages) {
-      const raw = await AsyncStorage.getItem(`sultan_manufacturing_${stage}`);
-      const entries = raw ? JSON.parse(raw) : [];
-      stageData[stage] = entries;
-      totalEntries += entries.length;
-    }
+    stages.forEach((stage) => {
+      stageData[stage] = entries.filter((e: any) => e.stage === stage);
+    });
 
     const stageStats = stages.map((stage) => {
-      const entries = stageData[stage] || [];
-      const totalQty = entries.reduce((s: number, e: any) => s + (e.quantity || e.dozenQty || 0), 0);
-      return { stage, count: entries.length, totalQty };
+      const stageEntries = stageData[stage] || [];
+      const totalQty = stageEntries.reduce((s: number, e: any) => s + (parseFloat(e.quantity) || parseFloat(e.dozenQty) || 0), 0);
+      return { stage, count: stageEntries.length, totalQty };
     });
 
     return { totalEntries, stageStats, stageData };
@@ -142,13 +140,11 @@ export default function SectionReportsScreen() {
 
   // Load Warehouse Report
   const loadWarehouseReport = async () => {
-    const inRaw = await AsyncStorage.getItem("sultan_warehouse_raw");
-    const outRaw = await AsyncStorage.getItem("sultan_warehouse_out");
-    const inEntries = inRaw ? JSON.parse(inRaw) : [];
-    const outEntries = outRaw ? JSON.parse(outRaw) : [];
+    const inEntries = await warehouseEntriesService.getBySection("raw") || [];
+    const outEntries = await warehouseEntriesService.getBySection("out") || [];
 
-    const totalIn = inEntries.reduce((s: number, e: any) => s + (e.quantity || 0), 0);
-    const totalOut = outEntries.reduce((s: number, e: any) => s + (e.quantity || 0), 0);
+    const totalIn = inEntries.reduce((s: number, e: any) => s + (parseFloat(e.data?.quantity) || 0), 0);
+    const totalOut = outEntries.reduce((s: number, e: any) => s + (parseFloat(e.data?.quantity) || 0), 0);
     const balance = totalIn - totalOut;
 
     return {
@@ -162,14 +158,12 @@ export default function SectionReportsScreen() {
 
   // Load Sales Report
   const loadSalesReport = async () => {
-    const salesRaw = await AsyncStorage.getItem("sultan_sales_data");
-    const collectRaw = await AsyncStorage.getItem("sultan_collection_data");
-    const sales = salesRaw ? JSON.parse(salesRaw) : [];
-    const collections = collectRaw ? JSON.parse(collectRaw) : [];
+    const sales = await salesService.getAll() || [];
+    const collections = await collectionService.getAll() || [];
 
-    const totalSalesAmount = sales.reduce((s: number, e: any) => s + (e.amount || e.totalAmount || 0), 0);
-    const totalCollected = collections.reduce((s: number, e: any) => s + (e.amount || 0), 0);
-    const totalSalesQty = sales.reduce((s: number, e: any) => s + (e.quantity || 0), 0);
+    const totalSalesAmount = sales.reduce((s: number, e: any) => s + (parseFloat(e.amount) || parseFloat(e.totalAmount) || 0), 0);
+    const totalCollected = collections.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
+    const totalSalesQty = sales.reduce((s: number, e: any) => s + (parseFloat(e.quantity) || 0), 0);
 
     return {
       salesCount: sales.length,
@@ -183,14 +177,13 @@ export default function SectionReportsScreen() {
 
   // Load Expenses Report
   const loadExpensesReport = async () => {
-    const raw = await AsyncStorage.getItem("sultan_expenses");
-    const entries = raw ? JSON.parse(raw) : [];
-    const totalExpenses = entries.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+    const entries = await expensesService.getAll() || [];
+    const totalExpenses = entries.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
 
     const categoryData: Record<string, number> = {};
     entries.forEach((e: any) => {
       const cat = e.category || e.description || "أخرى";
-      categoryData[cat] = (categoryData[cat] || 0) + (e.amount || 0);
+      categoryData[cat] = (categoryData[cat] || 0) + (parseFloat(e.amount) || 0);
     });
 
     return {
@@ -202,13 +195,9 @@ export default function SectionReportsScreen() {
 
   // Load Maintenance Report
   const loadMaintenanceReport = async () => {
-    const periodicRaw = await AsyncStorage.getItem("sultan_maintenance_periodic");
-    const emergencyRaw = await AsyncStorage.getItem("sultan_maintenance_emergency");
-    const stoppedRaw = await AsyncStorage.getItem("sultan_maintenance_stopped-devices");
-
-    const periodic = periodicRaw ? JSON.parse(periodicRaw) : [];
-    const emergency = emergencyRaw ? JSON.parse(emergencyRaw) : [];
-    const stopped = stoppedRaw ? JSON.parse(stoppedRaw) : [];
+    const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
+    const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
+    const stopped = await maintenanceEntriesService.getBySection("stopped-devices") || [];
 
     return {
       periodicCount: periodic.length,
@@ -220,8 +209,7 @@ export default function SectionReportsScreen() {
 
   // Load Tasks Report
   const loadTasksReport = async () => {
-    const raw = await AsyncStorage.getItem("tasks_entries");
-    const entries = raw ? JSON.parse(raw) : [];
+    const entries = await taskService.getAll() || [];
 
     const completed = entries.filter((e: any) => e.status === "completed" || e.completed).length;
     const pending = entries.filter((e: any) => e.status === "pending" || (!e.completed && !e.overdue)).length;
@@ -237,8 +225,7 @@ export default function SectionReportsScreen() {
 
   // Load Administrative Report
   const loadAdministrativeReport = async () => {
-    const raw = await AsyncStorage.getItem("sultan_administrative_data");
-    const entries = raw ? JSON.parse(raw) : [];
+    const entries = await administrativeService.getAll() || [];
 
     const approved = entries.filter((e: any) => e.status === "approved").length;
     const pendingApproval = entries.filter((e: any) => e.status === "pending").length;

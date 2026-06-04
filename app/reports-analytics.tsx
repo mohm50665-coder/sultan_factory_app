@@ -14,7 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarChart, PieChart, ProgressBar, StatCard } from "@/components/charts";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService } from "@/lib/services/api.service";
 
 type Period = "today" | "week" | "month";
 
@@ -35,11 +35,8 @@ export default function ReportsAnalyticsScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await AsyncStorage.getItem("sultan_production_data_v2");
-      if (data) {
-        const entries = JSON.parse(data);
-        setProductionData(entries);
-      }
+      const entries = await productionService.getAll() || [];
+      setProductionData(entries);
     } catch (error) {
       // ignore
     } finally {

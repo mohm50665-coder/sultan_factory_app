@@ -13,22 +13,22 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionService, salesService, expensesService, taskService } from "@/lib/services/api.service";
+import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
 
 interface ReportOption {
   id: string;
   title: string;
   icon: string;
-  storageKey: string;
 }
 
 const REPORT_OPTIONS: ReportOption[] = [
-  { id: "production", title: "تقرير الإنتاج", icon: "factory", storageKey: "sultan_production_entries" },
-  { id: "sales", title: "تقرير المبيعات", icon: "point-of-sale", storageKey: "sultan_sales_entries" },
-  { id: "warehouse", title: "تقرير المستودعات", icon: "warehouse", storageKey: "sultan_warehouse_raw" },
-  { id: "maintenance", title: "تقرير الصيانة", icon: "build", storageKey: "sultan_maintenance_entries" },
-  { id: "expenses", title: "تقرير المصروفات", icon: "receipt-long", storageKey: "sultan_financial_entries" },
-  { id: "tasks", title: "تقرير المهام", icon: "task-alt", storageKey: "sultan_tasks_entries" },
+  { id: "production", title: "تقرير الإنتاج", icon: "factory" },
+  { id: "sales", title: "تقرير المبيعات", icon: "point-of-sale" },
+  { id: "warehouse", title: "تقرير المستودعات", icon: "warehouse" },
+  { id: "maintenance", title: "تقرير الصيانة", icon: "build" },
+  { id: "expenses", title: "تقرير المصروفات", icon: "receipt-long" },
+  { id: "tasks", title: "تقرير المهام", icon: "task-alt" },
 ];
 
 export default function ShareReportsScreen() {
@@ -36,14 +36,18 @@ export default function ShareReportsScreen() {
   const [selectedReport, setSelectedReport] = useState<string>("");
   const [reportData, setReportData] = useState<any[]>([]);
 
-  const loadReportData = async (storageKey: string) => {
+  const loadReportData = async (reportId: string) => {
     try {
-      const data = await AsyncStorage.getItem(storageKey);
-      if (data) {
-        setReportData(JSON.parse(data));
-      } else {
-        setReportData([]);
+      let data: any[] = [];
+      switch (reportId) {
+        case "production": data = await productionService.getAll() || []; break;
+        case "sales": data = await salesService.getAll() || []; break;
+        case "warehouse": data = await warehouseEntriesService.getBySection("raw") || []; break;
+        case "maintenance": data = await maintenanceEntriesService.getBySection("periodic") || []; break;
+        case "expenses": data = await expensesService.getAll() || []; break;
+        case "tasks": data = await taskService.getAll() || []; break;
       }
+      setReportData(data);
     } catch (e) {
       setReportData([]);
     }
@@ -133,7 +137,7 @@ export default function ShareReportsScreen() {
 
   const handleSelectReport = async (report: ReportOption) => {
     setSelectedReport(report.id);
-    await loadReportData(report.storageKey);
+    await loadReportData(report.id);
   };
 
   return (

@@ -24,7 +24,9 @@ async function syncUser(userInfo: {
   await upsertUser({
     openId: userInfo.openId as string,
     name: (userInfo.name || null) as string,
+    username: userInfo.openId as string,
     email: (userInfo.email ?? null) as string,
+    password: "",
     loginMethod: (userInfo.loginMethod ?? userInfo.platform ?? null) as string,
     lastSignedIn,
   });

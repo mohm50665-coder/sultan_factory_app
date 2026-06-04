@@ -13,7 +13,8 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { maintenanceEntriesService } from "@/lib/services/data.service";
+import { useAuth } from "@/lib/auth-context";
 
 // ===== أنواع البيانات =====
 interface BaseEntry {
@@ -101,7 +102,7 @@ export default function MaintenanceSectionScreen() {
   const entryPerson = decodeURIComponent(params.entryPerson || "");
   const title = SECTION_TITLES[section] || "الصيانة";
 
-  const STORAGE_KEY = `sultan_maintenance_${section}`;
+
 
   const [entries, setEntries] = useState<AnyEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -152,18 +153,25 @@ export default function MaintenanceSectionScreen() {
 
   useEffect(() => { loadEntries(); }, []);
 
+  const { user } = useAuth();
+
   const loadEntries = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) setEntries(JSON.parse(data));
-    } catch (e) {}
-  };
-
-  const saveEntries = async (newEntries: AnyEntry[]) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-      setEntries(newEntries);
-    } catch (e) {}
+      const results = await maintenanceEntriesService.getBySection(section);
+      if (results && results.length > 0) {
+        setEntries(results.map((r: any) => ({
+          id: String(r.id),
+          entryPerson: r.entry_person || r.entryPerson || "",
+          date: r.date || "",
+          ...(r.data || {}),
+        })));
+      } else {
+        setEntries([]);
+      }
+    } catch (e) {
+      console.log("Error loading entries:", e);
+      setEntries([]);
+    }
   };
 
   const resetForm = () => {
@@ -179,7 +187,7 @@ export default function MaintenanceSectionScreen() {
     setShowForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     let newEntry: AnyEntry;
     const base = { id: editingEntry?.id || Date.now().toString(), entryPerson, date };
 
@@ -215,7 +223,17 @@ export default function MaintenanceSectionScreen() {
     } else {
       newEntries = [newEntry, ...entries];
     }
-    saveEntries(newEntries);
+    try {
+      const { id, entryPerson: _ep, date: _d, ...entryData } = newEntry as any;
+      if (editingEntry) {
+        await maintenanceEntriesService.update(parseInt(editingEntry.id), entryData, newEntry.date);
+      } else {
+        await maintenanceEntriesService.create(section, entryData, entryPerson, newEntry.date, user?.id);
+      }
+      await loadEntries();
+    } catch (e) {
+      Alert.alert("خطأ", "فشل حفظ البيانات");
+    }
     resetForm();
   };
 
@@ -269,7 +287,12 @@ export default function MaintenanceSectionScreen() {
   const handleDelete = (id: string) => {
     Alert.alert("تأكيد الحذف", "هل أنت متأكد من حذف هذا السجل؟", [
       { text: "إلغاء", style: "cancel" },
-      { text: "حذف", style: "destructive", onPress: () => saveEntries(entries.filter((e) => e.id !== id)) },
+      { text: "حذف", style: "destructive", onPress: async () => {
+        try {
+          await maintenanceEntriesService.delete(parseInt(id));
+          await loadEntries();
+        } catch (e) { console.log(e); }
+      } },
     ]);
   };
 

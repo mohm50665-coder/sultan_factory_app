@@ -20,7 +20,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { taskService, TaskData } from "@/lib/services/data.service";
-import { simpleAuthService } from "@/lib/services/simple-auth";
+import { useAuth } from "@/lib/auth-context";
 import { notificationsService } from "@/lib/services/notifications.service";
 
 // مصادر التكليف
@@ -92,9 +92,10 @@ export default function TasksScreen() {
     loadUser();
   }, []);
 
+  const { user: authUser } = useAuth();
+
   const loadUser = async () => {
-    const user = await simpleAuthService.getCurrentUser();
-    setCurrentUser(user);
+    setCurrentUser(authUser as any);
   };
 
   const loadTasks = async () => {
