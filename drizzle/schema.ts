@@ -282,3 +282,18 @@ export const tasks = mysqlTable("tasks", {
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+// جدول حساب تكاليف المنتج
+export const productCosts = mysqlTable("productCosts", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 20 }).notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  productColor: varchar("productColor", { length: 100 }),
+  threadData: json("threadData").notNull(), // تخزين بيانات الخيوط كـ JSON
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProductCost = typeof productCosts.$inferSelect;
+export type InsertProductCost = typeof productCosts.$inferInsert;

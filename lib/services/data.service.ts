@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SESSION_STORAGE_KEY = "sultan_session_id";
 
-async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
+export async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
   const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
 

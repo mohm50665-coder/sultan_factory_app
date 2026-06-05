@@ -132,6 +132,7 @@ function NavigationContent() {
       <Stack.Screen name="share-reports" />
       <Stack.Screen name="product-tracking" />
       <Stack.Screen name="performance-comparison" />
+      <Stack.Screen name="product-cost-calculator" />
     </Stack>
   );
 }
