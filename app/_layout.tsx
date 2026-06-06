@@ -130,6 +130,9 @@ function NavigationContent() {
       <Stack.Screen name="backup-restore" />
       <Stack.Screen name="machines-comparison" />
       <Stack.Screen name="share-reports" />
+      <Stack.Screen name="production-costs" />
+      <Stack.Screen name="cost-comparison-report" />
+      <Stack.Screen name="board-representative-dashboard" />
     </Stack>
   );
 }

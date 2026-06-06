@@ -146,6 +146,30 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: [],
     isShared: true,
   },
+  {
+    id: "cost_comparison",
+    labelAr: "تقرير مقارنة التكاليف",
+    labelEn: "Cost Comparison Report",
+    icon: "trending-down",
+    color: "#f97316",
+    route: "/cost-comparison-report",
+    descriptionAr: "مقارنة التكاليف المتوقعة والفعلية",
+    descriptionEn: "Compare expected vs actual costs",
+    section: "reports",
+    departments: ["production", "board_representative"],
+  },
+  {
+    id: "board_dashboard",
+    labelAr: "لوحة تحكم ممثل مجلس الإدارة",
+    labelEn: "Board Representative Dashboard",
+    icon: "dashboard",
+    color: "#8b5cf6",
+    route: "/board-representative-dashboard",
+    descriptionAr: "عرض التقارير ومؤشرات الأداء",
+    descriptionEn: "View reports and performance metrics",
+    section: "reports",
+    departments: ["board_representative"],
+  },
 ];
 
 export default function HomeScreen() {
