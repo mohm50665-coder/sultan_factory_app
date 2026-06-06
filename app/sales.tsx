@@ -18,8 +18,7 @@ import { salesService, collectionService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
-import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
+// المرفقات معطلة مؤقتاً
 
 interface SaleEntry {
   id: string;
@@ -127,50 +126,17 @@ export default function SalesScreen() {
     }
   };
 
-  // === المرفقات ===
+  // === المرفقات (معطلة مؤقتاً) ===
   const pickDocument = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*"],
-      });
-      if (!result.canceled && result.assets?.[0]) {
-        const fileName = result.assets[0].name || "document";
-        setSetter([...attachments, fileName]);
-      }
-    } catch (error) {
-      console.log("Error picking document:", error);
-    }
+    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
   };
 
   const pickImage = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 1,
-      });
-      if (!result.canceled && result.assets?.[0]) {
-        const fileName = result.assets[0].uri.split("/").pop() || "image";
-        setSetter([...attachments, fileName]);
-      }
-    } catch (error) {
-      console.log("Error picking image:", error);
-    }
+    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
   };
 
   const takePhoto = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false,
-        quality: 1,
-      });
-      if (!result.canceled && result.assets?.[0]) {
-        const fileName = result.assets[0].uri.split("/").pop() || "photo";
-        setSetter([...attachments, fileName]);
-      }
-    } catch (error) {
-      console.log("Error taking photo:", error);
-    }
+    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
   };
 
   // === المبيعات ===
