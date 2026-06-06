@@ -33,11 +33,13 @@ const REQUEST_TYPES = [
 
 const DEPARTMENTS = [
   { label: "\u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "production" },
-  { label: "\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629 \u0648\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062a", value: "administrative" },
+  { label: "\u0645\u0631\u0627\u062d\u0644 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "manufacturing" },
   { label: "\u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a \u0648\u0627\u0644\u062a\u062d\u0635\u064a\u0644", value: "sales" },
-  { label: "\u0627\u0644\u0635\u064a\u0627\u0646\u0629", value: "maintenance" },
-  { label: "\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629", value: "board_representative" },
   { label: "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639\u0627\u062a", value: "warehouse" },
+  { label: "\u0627\u0644\u0635\u064a\u0627\u0646\u0629", value: "maintenance" },
+  { label: "\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062a", value: "financial" },
+  { label: "\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629", value: "administrative" },
+  { label: "\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629", value: "board_representative" },
 ];
 
 const emptyFormData = (): AdministrativeData => ({

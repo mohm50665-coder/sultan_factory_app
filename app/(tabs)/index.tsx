@@ -48,6 +48,19 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
 
   {
+    id: "production_costs",
+    labelAr: "حساب التكاليف",
+    labelEn: "Cost Calculation",
+    icon: "calculate",
+    color: "#10b981",
+    route: "/production-costs",
+    descriptionAr: "حساب تكاليف الإنتاج والمواد الخام",
+    descriptionEn: "Calculate production and raw material costs",
+    section: "production",
+    departments: ["production"],
+  },
+
+  {
     id: "manufacturing",
     labelAr: "مراحل تسليم الإنتاج",
     labelEn: "Manufacturing Stages",
