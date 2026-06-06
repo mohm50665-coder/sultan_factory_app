@@ -18,6 +18,7 @@ import { salesService, collectionService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { attachmentService, AttachmentFile } from "@/lib/services/attachment.service";
 // المرفقات معطلة مؤقتاً
 
 interface SaleEntry {
@@ -126,17 +127,35 @@ export default function SalesScreen() {
     }
   };
 
-  // === المرفقات (معطلة مؤقتاً) ===
+  // === المرفقات (مفعّلة) ===
   const pickDocument = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
+    const file = await attachmentService.pickPDF();
+    if (file) {
+      const uploaded = await attachmentService.uploadAttachment(file);
+      if (uploaded) {
+        setSetter([...attachments, `[PDF] ${file.name} - ${uploaded}`]);
+      }
+    }
   };
 
   const pickImage = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
+    const file = await attachmentService.pickImage();
+    if (file) {
+      const uploaded = await attachmentService.uploadAttachment(file);
+      if (uploaded) {
+        setSetter([...attachments, `[صورة] ${file.name} - ${uploaded}`]);
+      }
+    }
   };
 
   const takePhoto = async (setSetter: (items: string[]) => void, attachments: string[]) => {
-    Alert.alert(isAr ? "قريباً" : "Coming Soon", isAr ? "ميزة المرفقات ستتوفر قريباً" : "Attachments feature coming soon");
+    const file = await attachmentService.takePhoto();
+    if (file) {
+      const uploaded = await attachmentService.uploadAttachment(file);
+      if (uploaded) {
+        setSetter([...attachments, `[صورة] ${file.name} - ${uploaded}`]);
+      }
+    }
   };
 
   // === المبيعات ===
