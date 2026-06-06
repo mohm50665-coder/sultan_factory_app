@@ -133,6 +133,10 @@ function NavigationContent() {
       <Stack.Screen name="production-costs" />
       <Stack.Screen name="cost-comparison-report" />
       <Stack.Screen name="board-representative-dashboard" />
+      <Stack.Screen name="admin-control-panel" />
+      <Stack.Screen name="export-reports" />
+      <Stack.Screen name="server-notifications" />
+      <Stack.Screen name="advanced-analytics" />
     </Stack>
   );
 }

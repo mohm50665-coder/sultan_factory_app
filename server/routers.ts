@@ -19,8 +19,13 @@ import {
   maintenanceRecommendations as maintenanceRecommendationsTable,
   tasks as tasksTable,
   bankBalance as bankBalanceTable,
+  productionCosts as productionCostsTable,
+  alerts as alertsTable,
+  backups as backupsTable,
+  activityLog as activityLogTable,
+  reports as reportsTable,
 } from "../drizzle/schema.js";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 
@@ -972,6 +977,420 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
         await db.execute(sql`DELETE FROM warehouse_entries WHERE id = ${input.id}`);
+        return { success: true };
+      }),
+  }),
+
+  // ===== PRODUCTION COSTS ROUTER =====
+  costs: router({
+    getAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(productionCostsTable).orderBy(desc(productionCostsTable.createdAt));
+    }),
+
+    getByDateRange: publicProcedure
+      .input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(productionCostsTable)
+          .where(and(gte(productionCostsTable.date, input.startDate), lte(productionCostsTable.date, input.endDate)))
+          .orderBy(desc(productionCostsTable.date));
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        date: z.string(),
+        threadCost: z.number().optional(),
+        rubberCost: z.number().optional(),
+        spandexCost: z.number().optional(),
+        nylonCost: z.number().optional(),
+        cottonCost: z.number().optional(),
+        bambooCost: z.number().optional(),
+        spanCost: z.number().optional(),
+        laborCost: z.number().optional(),
+        utilitiesCost: z.number().optional(),
+        maintenanceCost: z.number().optional(),
+        otherCost: z.number().optional(),
+        totalCost: z.number().optional(),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const result = await db.insert(productionCostsTable).values(input as any);
+        return { success: true, id: (result[0] as any).insertId };
+      }),
+
+    update: publicProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(productionCostsTable).set(input.data as any).where(eq(productionCostsTable.id, input.id));
+        return { success: true };
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.delete(productionCostsTable).where(eq(productionCostsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ===== ALERTS ROUTER =====
+  alerts: router({
+    getAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(alertsTable).orderBy(desc(alertsTable.createdAt));
+    }),
+
+    getByUser: publicProcedure
+      .input(z.object({ userId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(alertsTable).where(eq(alertsTable.userId, input.userId)).orderBy(desc(alertsTable.createdAt));
+      }),
+
+    getUnread: publicProcedure
+      .input(z.object({ userId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(alertsTable)
+          .where(and(eq(alertsTable.userId, input.userId), eq(alertsTable.read, 0)))
+          .orderBy(desc(alertsTable.createdAt));
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        type: z.enum(["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert"]),
+        title: z.string(),
+        message: z.string(),
+        severity: z.enum(["info", "warning", "critical"]),
+        userId: z.number(),
+        data: z.any().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const result = await db.insert(alertsTable).values(input as any);
+        return { success: true, id: (result[0] as any).insertId };
+      }),
+
+    markAsRead: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(alertsTable).set({ read: 1 }).where(eq(alertsTable.id, input.id));
+        return { success: true };
+      }),
+
+    markAllAsRead: publicProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(alertsTable).set({ read: 1 }).where(eq(alertsTable.userId, input.userId));
+        return { success: true };
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.delete(alertsTable).where(eq(alertsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ===== BACKUPS ROUTER =====
+  backups: router({
+    getAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(backupsTable).orderBy(desc(backupsTable.createdAt));
+    }),
+
+    create: publicProcedure
+      .input(z.object({
+        backupName: z.string(),
+        backupType: z.enum(["manual", "automatic", "scheduled"]),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        // Create backup by collecting all data
+        const allProduction = await db.select().from(productionTable);
+        const allSales = await db.select().from(salesTable);
+        const allExpenses = await db.select().from(expensesTable);
+        const allTasks = await db.select().from(tasksTable);
+        const allCosts = await db.select().from(productionCostsTable);
+        const dataSize = JSON.stringify({ allProduction, allSales, allExpenses, allTasks, allCosts }).length;
+
+        const result = await db.insert(backupsTable).values({
+          backupName: input.backupName,
+          backupType: input.backupType,
+          dataSize,
+          status: "completed",
+          backupPath: `/backups/${Date.now()}_${input.backupName}.json`,
+          userId: input.userId,
+        });
+        return { success: true, id: (result[0] as any).insertId, dataSize };
+      }),
+
+    updateStatus: publicProcedure
+      .input(z.object({ id: z.number(), status: z.string(), errorMessage: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const updateData: any = { status: input.status };
+        if (input.errorMessage) updateData.errorMessage = input.errorMessage;
+        await db.update(backupsTable).set(updateData).where(eq(backupsTable.id, input.id));
+        return { success: true };
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.delete(backupsTable).where(eq(backupsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ===== ACTIVITY LOG ROUTER =====
+  activityLog: router({
+    getAll: publicProcedure
+      .input(z.object({ limit: z.number().optional() }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const limit = input?.limit || 100;
+        return db.select().from(activityLogTable).orderBy(desc(activityLogTable.createdAt)).limit(limit);
+      }),
+
+    getByUser: publicProcedure
+      .input(z.object({ userId: z.number(), limit: z.number().optional() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(activityLogTable)
+          .where(eq(activityLogTable.userId, input.userId))
+          .orderBy(desc(activityLogTable.createdAt))
+          .limit(input.limit || 50);
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        action: z.string(),
+        entityType: z.string(),
+        entityId: z.number().optional(),
+        details: z.any().optional(),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const result = await db.insert(activityLogTable).values(input as any);
+        return { success: true, id: (result[0] as any).insertId };
+      }),
+  }),
+
+  // ===== REPORTS ROUTER =====
+  reports: router({
+    getAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(reportsTable).orderBy(desc(reportsTable.createdAt));
+    }),
+
+    getByType: publicProcedure
+      .input(z.object({ reportType: z.string() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db.select().from(reportsTable)
+          .where(eq(reportsTable.reportType, input.reportType as any))
+          .orderBy(desc(reportsTable.createdAt));
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        reportName: z.string(),
+        reportType: z.enum(["production", "cost", "sales", "performance", "quality", "maintenance"]),
+        startDate: z.string(),
+        endDate: z.string(),
+        data: z.any().optional(),
+        generatedBy: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const result = await db.insert(reportsTable).values(input as any);
+        return { success: true, id: (result[0] as any).insertId };
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.delete(reportsTable).where(eq(reportsTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Generate comprehensive report with all data
+    generateComprehensive: publicProcedure
+      .input(z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+        generatedBy: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+
+        // Collect all data for the period
+        const productionData = await db.select().from(productionTable);
+        const salesData = await db.select().from(salesTable);
+        const expensesData = await db.select().from(expensesTable);
+        const costsData = await db.select().from(productionCostsTable);
+        const tasksData = await db.select().from(tasksTable);
+        const collectionData = await db.select().from(collectionTable);
+
+        const reportData = {
+          production: {
+            totalEntries: productionData.length,
+            totalDozen: productionData.reduce((sum, p) => sum + (p.productionDozen || 0), 0),
+            totalPairs: productionData.reduce((sum, p) => sum + (p.productionPairs || 0), 0),
+            totalWasteThread: productionData.reduce((sum, p) => sum + (p.wasteThreadGrams || 0), 0),
+            totalWasteSocks: productionData.reduce((sum, p) => sum + (p.wasteSocksGrams || 0), 0),
+          },
+          sales: {
+            totalEntries: salesData.length,
+            totalAmount: salesData.reduce((sum, s) => sum + parseInt(s.amount || "0"), 0),
+            totalDozen: salesData.reduce((sum, s) => sum + (s.quantityDozen || 0), 0),
+          },
+          expenses: {
+            totalEntries: expensesData.length,
+            totalAmount: expensesData.reduce((sum, e) => sum + (e.amount || 0), 0),
+          },
+          costs: {
+            totalEntries: costsData.length,
+            totalCost: costsData.reduce((sum, c) => sum + (c.totalCost || 0), 0),
+          },
+          tasks: {
+            total: tasksData.length,
+            completed: tasksData.filter(t => t.result === "completed").length,
+            pending: tasksData.filter(t => t.result === "pending").length,
+          },
+          collection: {
+            totalEntries: collectionData.length,
+            totalAmount: collectionData.reduce((sum, c) => sum + (c.amount || 0), 0),
+          },
+        };
+
+        const result = await db.insert(reportsTable).values({
+          reportName: `\u062a\u0642\u0631\u064a\u0631 \u0634\u0627\u0645\u0644 - ${input.startDate} \u0625\u0644\u0649 ${input.endDate}`,
+          reportType: "performance",
+          startDate: input.startDate,
+          endDate: input.endDate,
+          data: reportData,
+          generatedBy: input.generatedBy,
+        });
+
+        return { success: true, id: (result[0] as any).insertId, data: reportData };
+      }),
+  }),
+
+  // ===== ADMIN DATA MANAGEMENT (Full CRUD for all tables) =====
+  adminData: router({
+    // Get all data summary for admin dashboard
+    getSummary: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return null;
+
+      const [prodCount] = await db.execute(sql`SELECT COUNT(*) as count FROM production`);
+      const [salesCount] = await db.execute(sql`SELECT COUNT(*) as count FROM sales`);
+      const [expCount] = await db.execute(sql`SELECT COUNT(*) as count FROM expenses`);
+      const [taskCount] = await db.execute(sql`SELECT COUNT(*) as count FROM tasks`);
+      const [userCount] = await db.execute(sql`SELECT COUNT(*) as count FROM users`);
+      const [costCount] = await db.execute(sql`SELECT COUNT(*) as count FROM productionCosts`);
+      const [alertCount] = await db.execute(sql`SELECT COUNT(*) as count FROM alerts WHERE \`read\` = 0`);
+      const [collCount] = await db.execute(sql`SELECT COUNT(*) as count FROM collection`);
+      const [mfgCount] = await db.execute(sql`SELECT COUNT(*) as count FROM manufacturingStages`);
+
+      return {
+        production: (prodCount as any)?.[0]?.count || 0,
+        sales: (salesCount as any)?.[0]?.count || 0,
+        expenses: (expCount as any)?.[0]?.count || 0,
+        tasks: (taskCount as any)?.[0]?.count || 0,
+        users: (userCount as any)?.[0]?.count || 0,
+        costs: (costCount as any)?.[0]?.count || 0,
+        unreadAlerts: (alertCount as any)?.[0]?.count || 0,
+        collection: (collCount as any)?.[0]?.count || 0,
+        manufacturing: (mfgCount as any)?.[0]?.count || 0,
+      };
+    }),
+
+    // Admin can edit any production entry
+    updateProduction: publicProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(productionTable).set(input.data as any).where(eq(productionTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Admin can edit any task
+    updateTask: publicProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(tasksTable).set(input.data as any).where(eq(tasksTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Admin can edit any sale
+    updateSale: publicProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(salesTable).set(input.data as any).where(eq(salesTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Admin can edit any expense
+    updateExpense: publicProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.update(expensesTable).set(input.data as any).where(eq(expensesTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Admin can delete any entry from any table
+    deleteEntry: publicProcedure
+      .input(z.object({ table: z.string(), id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        await db.execute(sql`DELETE FROM ${sql.identifier(input.table)} WHERE id = ${input.id}`);
         return { success: true };
       }),
   }),

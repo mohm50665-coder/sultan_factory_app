@@ -170,6 +170,43 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     section: "reports",
     departments: ["board_representative"],
   },
+  {
+    id: "advanced_analytics",
+    labelAr: "التحليلات المتقدمة",
+    labelEn: "Advanced Analytics",
+    icon: "insights",
+    color: "#0891b2",
+    route: "/advanced-analytics",
+    descriptionAr: "رسوم بيانية تفاعلية ومقارنات الأداء",
+    descriptionEn: "Interactive charts and performance comparisons",
+    section: "reports",
+    departments: ["board_representative", "production"],
+  },
+  {
+    id: "export_reports",
+    labelAr: "تصدير التقارير PDF",
+    labelEn: "Export Reports PDF",
+    icon: "picture-as-pdf",
+    color: "#dc2626",
+    route: "/export-reports",
+    descriptionAr: "تصدير التقارير بصيغة PDF للطباعة والأرشفة",
+    descriptionEn: "Export reports as PDF for printing and archiving",
+    section: "reports",
+    departments: ["board_representative"],
+  },
+  {
+    id: "server_notifications",
+    labelAr: "الإشعارات الفورية",
+    labelEn: "Real-time Notifications",
+    icon: "notifications-active",
+    color: "#ea580c",
+    route: "/server-notifications",
+    descriptionAr: "تنبيهات فورية عند تجاوز التكاليف أو انخفاض الإنتاجية",
+    descriptionEn: "Real-time alerts for cost overruns and low productivity",
+    section: "reports",
+    departments: [],
+    isShared: true,
+  },
 ];
 
 export default function HomeScreen() {
@@ -361,6 +398,18 @@ export default function HomeScreen() {
                 {isAr ? "لوحة تحكم ADMIN" : "Admin Dashboard"}
               </Text>
               <MaterialIcons name="admin-panel-settings" size={20} color="#f59e0b" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/admin-control-panel")}
+            style={[styles.adminButton, { borderColor: "#059669", marginTop: 8 }]}
+          >
+            <MaterialIcons name="chevron-left" size={20} color="#059669" />
+            <View style={styles.adminButtonContent}>
+              <Text style={[styles.adminButtonText, { color: "#059669" }]}>
+                {isAr ? "لوحة التحكم الشاملة" : "Full Control Panel"}
+              </Text>
+              <MaterialIcons name="dashboard-customize" size={20} color="#059669" />
             </View>
           </TouchableOpacity>
           <TouchableOpacity

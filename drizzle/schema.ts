@@ -282,3 +282,92 @@ export const tasks = mysqlTable("tasks", {
 
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = typeof tasks.$inferInsert;
+
+
+// جدول حساب التكاليف
+export const productionCosts = mysqlTable("productionCosts", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 20 }).notNull(),
+  threadCost: int("threadCost").default(0),
+  rubberCost: int("rubberCost").default(0),
+  spandexCost: int("spandexCost").default(0),
+  nylonCost: int("nylonCost").default(0),
+  cottonCost: int("cottonCost").default(0),
+  bambooCost: int("bambooCost").default(0),
+  spanCost: int("spanCost").default(0),
+  laborCost: int("laborCost").default(0),
+  utilitiesCost: int("utilitiesCost").default(0),
+  maintenanceCost: int("maintenanceCost").default(0),
+  otherCost: int("otherCost").default(0),
+  totalCost: int("totalCost").default(0),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProductionCost = typeof productionCosts.$inferSelect;
+export type InsertProductionCost = typeof productionCosts.$inferInsert;
+
+// جدول التنبيهات
+export const alerts = mysqlTable("alerts", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  severity: mysqlEnum("severity", ["info", "warning", "critical"]).notNull(),
+  read: int("read").default(0),
+  data: json("data"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Alert = typeof alerts.$inferSelect;
+export type InsertAlert = typeof alerts.$inferInsert;
+
+// جدول النسخ الاحتياطية
+export const backups = mysqlTable("backups", {
+  id: int("id").autoincrement().primaryKey(),
+  backupName: varchar("backupName", { length: 255 }).notNull(),
+  backupType: mysqlEnum("backupType", ["manual", "automatic", "scheduled"]).notNull(),
+  dataSize: int("dataSize").default(0),
+  status: mysqlEnum("status", ["pending", "in_progress", "completed", "failed"]).default("pending"),
+  backupPath: text("backupPath"),
+  errorMessage: text("errorMessage"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Backup = typeof backups.$inferSelect;
+export type InsertBackup = typeof backups.$inferInsert;
+
+// جدول سجل الأنشطة
+export const activityLog = mysqlTable("activityLog", {
+  id: int("id").autoincrement().primaryKey(),
+  action: varchar("action", { length: 255 }).notNull(),
+  entityType: varchar("entityType", { length: 100 }).notNull(),
+  entityId: int("entityId"),
+  details: json("details"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ActivityLog = typeof activityLog.$inferSelect;
+export type InsertActivityLog = typeof activityLog.$inferInsert;
+
+// جدول التقارير
+export const reports = mysqlTable("reports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportName: varchar("reportName", { length: 255 }).notNull(),
+  reportType: mysqlEnum("reportType", ["production", "cost", "sales", "performance", "quality", "maintenance"]).notNull(),
+  startDate: varchar("startDate", { length: 20 }).notNull(),
+  endDate: varchar("endDate", { length: 20 }).notNull(),
+  data: json("data"),
+  generatedBy: int("generatedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = typeof reports.$inferInsert;
