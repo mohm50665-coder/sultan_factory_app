@@ -18,6 +18,8 @@ import { productionService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
 
 
 // أرقام المكائن
@@ -100,6 +102,7 @@ export default function ProductionScreen() {
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [productionAttachments, setProductionAttachments] = useState<AttachmentFile[]>([]);
 
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [machinesData, setMachinesData] = useState<{ [key: string]: MachineShifts }>({});
@@ -758,6 +761,13 @@ export default function ProductionScreen() {
       {/* أزرار الحفظ */}
       {activeMachines.length > 0 && (
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
+          {/* المرفقات */}
+          <AttachmentPicker
+            attachments={productionAttachments}
+            onAttachmentsChange={setProductionAttachments}
+            language={language}
+          />
+
           <TouchableOpacity
             onPress={() => { setShowForm(false); resetForm(); }}
             style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}

@@ -15,6 +15,9 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { manufacturingStageService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
+import { useLanguage } from "@/lib/language-context";
 
 interface ProductItem {
   productName: string;
@@ -136,6 +139,8 @@ export default function ManufacturingStageScreen() {
   const [antislipPairs, setAntislipPairs] = useState("");
   const [notes, setNotes] = useState("");
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [stageAttachments, setStageAttachments] = useState<AttachmentFile[]>([]);
+  const { language } = useLanguage();
 
   useEffect(() => {
     loadEntries();
@@ -669,6 +674,13 @@ export default function ManufacturingStageScreen() {
                 value={notes} onChangeText={setNotes} multiline numberOfLines={3}
               />
             </View>
+
+            {/* المرفقات */}
+            <AttachmentPicker
+              attachments={stageAttachments}
+              onAttachmentsChange={setStageAttachments}
+              language={language}
+            />
 
             {/* أزرار الإجراءات */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>

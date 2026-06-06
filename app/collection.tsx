@@ -19,6 +19,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 import { useLanguage } from "@/lib/language-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
 
 
 export default function CollectionScreen() {
@@ -37,6 +39,9 @@ export default function CollectionScreen() {
     customerName: "",
     amount: 0,
   });
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [receiptDate, setReceiptDate] = useState("");
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
 
   useEffect(() => {
     loadCollections();
@@ -117,6 +122,9 @@ export default function CollectionScreen() {
       amount: 0,
     });
     setEditingId(null);
+    setReceiptNumber("");
+    setReceiptDate("");
+    setAttachments([]);
   };
 
   const getTotalCollected = () => {
@@ -253,6 +261,27 @@ export default function CollectionScreen() {
                 }
                 unit={isAr ? "ريال" : "SAR"}
                 required
+              />
+
+              <FormInput
+                label={isAr ? "رقم السند" : "Receipt Number"}
+                value={receiptNumber}
+                onChangeText={setReceiptNumber}
+                placeholder={isAr ? "أدخل رقم السند" : "Enter receipt number"}
+              />
+
+              <FormInput
+                label={isAr ? "تاريخ السند" : "Receipt Date"}
+                value={receiptDate}
+                onChangeText={setReceiptDate}
+                placeholder={isAr ? "مثال: 2024-01-15" : "e.g. 2024-01-15"}
+              />
+
+              {/* المرفقات */}
+              <AttachmentPicker
+                attachments={attachments}
+                onAttachmentsChange={setAttachments}
+                language={language}
               />
             </ScrollView>
           </View>

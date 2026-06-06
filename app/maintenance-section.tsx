@@ -15,6 +15,9 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
+import { useLanguage } from "@/lib/language-context";
 
 // ===== أنواع البيانات =====
 interface BaseEntry {
@@ -97,12 +100,13 @@ function formatDate(d: Date): string {
 export default function MaintenanceSectionScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { language } = useLanguage();
   const params = useLocalSearchParams<{ section: string; entryPerson: string }>();
   const section = params.section || "periodic";
   const entryPerson = decodeURIComponent(params.entryPerson || "");
   const title = SECTION_TITLES[section] || "الصيانة";
 
-
+  const [sectionAttachments, setSectionAttachments] = useState<AttachmentFile[]>([]);
 
   const [entries, setEntries] = useState<AnyEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -563,6 +567,12 @@ export default function MaintenanceSectionScreen() {
               {editingEntry ? "تعديل السجل" : "إضافة سجل جديد"}
             </Text>
             {renderForm()}
+            {/* المرفقات */}
+            <AttachmentPicker
+              attachments={sectionAttachments}
+              onAttachmentsChange={setSectionAttachments}
+              language={language}
+            />
             <View style={styles.formActions}>
               <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
                 <MaterialIcons name="save" size={18} color="#fff" />

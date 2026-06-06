@@ -16,6 +16,9 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { warehouseEntriesService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
+import { useLanguage } from "@/lib/language-context";
 
 const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
 const UNITS = ["طن", "كيلو", "غرام", "كرتون", "حبة"];
@@ -57,6 +60,8 @@ export default function WarehouseRawScreen() {
   const [unit, setUnit] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [documentAttached, setDocumentAttached] = useState(false);
+  const [warehouseAttachments, setWarehouseAttachments] = useState<AttachmentFile[]>([]);
+  const { language } = useLanguage();
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -252,6 +257,13 @@ export default function WarehouseRawScreen() {
           </Text>
           <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#3b82f6"} />
         </TouchableOpacity>
+
+        {/* المرفقات */}
+        <AttachmentPicker
+          attachments={warehouseAttachments}
+          onAttachmentsChange={setWarehouseAttachments}
+          language={language}
+        />
 
         {/* أزرار */}
         <View style={styles.buttonRow}>

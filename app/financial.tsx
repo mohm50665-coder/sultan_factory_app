@@ -18,6 +18,8 @@ import { financialService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
 
 
 
@@ -56,6 +58,7 @@ export default function FinancialScreen() {
   const [date, setDate] = useState(formatDate(new Date()));
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [expenseAttachments, setExpenseAttachments] = useState<AttachmentFile[]>([]);
 
   // حقول التقرير المالي
   const [reports, setReports] = useState<FinancialReport[]>([]);
@@ -91,6 +94,7 @@ export default function FinancialScreen() {
     setDescription("");
     setEditingEntry(null);
     setShowForm(false);
+    setExpenseAttachments([]);
   };
 
   const handleSave = async () => {
@@ -294,6 +298,13 @@ export default function FinancialScreen() {
                   placeholder={isAr ? "أدخل بيان الصرف" : "Enter description"}
                   placeholderTextColor={colors.muted}
                   multiline
+                />
+
+                {/* المرفقات */}
+                <AttachmentPicker
+                  attachments={expenseAttachments}
+                  onAttachmentsChange={setExpenseAttachments}
+                  language={language}
                 />
 
                 <View style={styles.formActions}>

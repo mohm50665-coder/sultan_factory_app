@@ -16,6 +16,9 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { warehouseEntriesService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
+import { useLanguage } from "@/lib/language-context";
 
 const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
 const PRODUCT_TYPES = ["إنتاج تام", "نخب ثاني"];
@@ -63,6 +66,8 @@ export default function WarehouseFinishedScreen() {
   const [secondGradeQty, setSecondGradeQty] = useState("");
 
   const [documentAttached, setDocumentAttached] = useState(false);
+  const [finishedAttachments, setFinishedAttachments] = useState<AttachmentFile[]>([]);
+  const { language } = useLanguage();
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -293,6 +298,13 @@ export default function WarehouseFinishedScreen() {
           </Text>
           <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#16a34a"} />
         </TouchableOpacity>
+
+        {/* المرفقات */}
+        <AttachmentPicker
+          attachments={finishedAttachments}
+          onAttachmentsChange={setFinishedAttachments}
+          language={language}
+        />
 
         {/* أزرار */}
         <View style={styles.buttonRow}>

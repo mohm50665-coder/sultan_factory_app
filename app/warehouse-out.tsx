@@ -16,6 +16,9 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { warehouseEntriesService } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
+import { AttachmentPicker } from "@/components/attachment-picker";
+import { AttachmentFile } from "@/lib/services/attachment.service";
+import { useLanguage } from "@/lib/language-context";
 
 const WAREHOUSE_TYPES = ["مستودع الإنتاج التام", "مستودع المواد الخام"];
 const FINISHED_ITEMS = ["جوارب إنتاج تام", "جوارب نخب ثاني"];
@@ -70,6 +73,8 @@ export default function WarehouseOutScreen() {
   const [unit, setUnit] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [documentAttached, setDocumentAttached] = useState(false);
+  const [warehouseOutAttachments, setWarehouseOutAttachments] = useState<AttachmentFile[]>([]);
+  const { language } = useLanguage();
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -355,6 +360,13 @@ export default function WarehouseOutScreen() {
             <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#ef4444"} />
           </TouchableOpacity>
         )}
+
+        {/* المرفقات */}
+        <AttachmentPicker
+          attachments={warehouseOutAttachments}
+          onAttachmentsChange={setWarehouseOutAttachments}
+          language={language}
+        />
 
         {/* أزرار */}
         {(isFinishedWarehouse || isRawWarehouse) && (
