@@ -19,7 +19,6 @@ import {
   maintenanceRecommendations as maintenanceRecommendationsTable,
   tasks as tasksTable,
   bankBalance as bankBalanceTable,
-  productCosts as productCostsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -992,58 +991,6 @@ export const appRouter = router({
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(bankBalanceTable).values(input);
         return { success: true, id: result[0].insertId };
-      }),
-  }),
-
-  // ===== PRODUCT COSTS ROUTER =====
-  productCosts: router({
-    create: protectedProcedure
-      .input(z.object({
-        date: z.string(),
-        productName: z.string(),
-        productColor: z.string().optional(),
-        threadData: z.record(z.string(), z.array(z.object({
-          color: z.string(),
-          weight: z.string(),
-          code: z.string(),
-        }))),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const user = ctx.user;
-        if (!user) throw new Error("المستخدم غير مصرح");
-        const result = await db.insert(productCostsTable).values({
-          date: input.date,
-          productName: input.productName,
-          productColor: input.productColor || "",
-          threadData: JSON.stringify(input.threadData),
-          userId: user.id,
-        });
-        return { success: true, id: result[0].insertId };
-      }),
-    getAll: publicProcedure.query(async () => {
-      const db = await getDb();
-      if (!db) return [];
-      return db.select().from(productCostsTable).orderBy(desc(productCostsTable.createdAt));
-    }),
-    getById: publicProcedure
-      .input(z.number())
-      .query(async ({ input }) => {
-        const db = await getDb();
-        if (!db) return null;
-        const result = await db.select().from(productCostsTable).where(eq(productCostsTable.id, input)).limit(1);
-        return result.length > 0 ? result[0] : null;
-      }),
-    delete: protectedProcedure
-      .input(z.number())
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const user = ctx.user;
-        if (!user?.role || user.role !== "admin") throw new Error("غير مصرح");
-        await db.delete(productCostsTable).where(eq(productCostsTable.id, input));
-        return { success: true };
       }),
   }),
 });
