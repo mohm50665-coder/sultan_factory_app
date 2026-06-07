@@ -490,13 +490,13 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleNavigate("/activity-log")}
+            onPress={() => handleNavigate("/activity-log-viewer")}
             style={styles.toolItem}
             activeOpacity={0.7}
           >
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
               <MaterialIcons name="history" size={24} color="#0891b2" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("activity_log")}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "سجل التعديلات" : "Activity Log"}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
