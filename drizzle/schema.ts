@@ -490,3 +490,123 @@ export const kpis = mysqlTable("kpis", {
 });
 export type KPI = typeof kpis.$inferSelect;
 export type InsertKPI = typeof kpis.$inferInsert;
+
+
+// جدول الأقسام والفروع
+export const departments = mysqlTable("departments", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  nameEn: varchar("nameEn", { length: 255 }),
+  description: text("description"),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Department = typeof departments.$inferSelect;
+export type InsertDepartment = typeof departments.$inferInsert;
+
+// جدول المكائن
+export const machines = mysqlTable("machines", {
+  id: int("id").autoincrement().primaryKey(),
+  machineCode: varchar("machineCode", { length: 50 }).notNull().unique(),
+  machineName: varchar("machineName", { length: 255 }).notNull(),
+  machineType: varchar("machineType", { length: 100 }),
+  department: varchar("department", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["active", "inactive", "maintenance", "retired"]).default("active"),
+  capacity: int("capacity").default(0), // الطاقة الإنتاجية
+  installDate: varchar("installDate", { length: 20 }),
+  notes: text("notes"),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Machine = typeof machines.$inferSelect;
+export type InsertMachine = typeof machines.$inferInsert;
+
+// جدول مراحل التسليم (Manufacturing Stages)
+export const productionStages = mysqlTable("productionStages", {
+  id: int("id").autoincrement().primaryKey(),
+  stageName: varchar("stageName", { length: 255 }).notNull().unique(),
+  stageNameEn: varchar("stageNameEn", { length: 255 }),
+  stageOrder: int("stageOrder").notNull(), // ترتيب المرحلة
+  department: varchar("department", { length: 255 }).notNull(),
+  description: text("description"),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProductionStage = typeof productionStages.$inferSelect;
+export type InsertProductionStage = typeof productionStages.$inferInsert;
+
+// جدول تعيين الموظفين للمراحل
+export const employeeStageAssignment = mysqlTable("employeeStageAssignment", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // معرف الموظف
+  stageId: int("stageId").notNull(), // معرف المرحلة
+  department: varchar("department", { length: 255 }).notNull(),
+  role: varchar("role", { length: 100 }), // دور الموظف في المرحلة
+  assignedDate: varchar("assignedDate", { length: 20 }).notNull(),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type EmployeeStageAssignment = typeof employeeStageAssignment.$inferSelect;
+export type InsertEmployeeStageAssignment = typeof employeeStageAssignment.$inferInsert;
+
+// جدول أنواع المنتجات
+export const productTypes = mysqlTable("productTypes", {
+  id: int("id").autoincrement().primaryKey(),
+  productName: varchar("productName", { length: 255 }).notNull().unique(),
+  productNameEn: varchar("productNameEn", { length: 255 }),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProductType = typeof productTypes.$inferSelect;
+export type InsertProductType = typeof productTypes.$inferInsert;
+
+// جدول بيانات ممثل مجلس الإدارة
+export const boardRepresentativeData = mysqlTable("boardRepresentativeData", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // معرف ممثل مجلس الإدارة
+  dataType: varchar("dataType", { length: 100 }).notNull(), // نوع البيانات
+  value: varchar("value", { length: 500 }).notNull(), // القيمة
+  description: text("description"),
+  date: varchar("date", { length: 20 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BoardRepresentativeData = typeof boardRepresentativeData.$inferSelect;
+export type InsertBoardRepresentativeData = typeof boardRepresentativeData.$inferInsert;
+
+// جدول سجل التدقيق (Audit Log)
+export const auditLog = mysqlTable("auditLog", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(), // معرف المستخدم الذي قام بالتعديل
+  action: varchar("action", { length: 100 }).notNull(), // نوع الإجراء (create, update, delete)
+  tableName: varchar("tableName", { length: 100 }).notNull(), // اسم الجدول
+  recordId: int("recordId").notNull(), // معرف السجل المتأثر
+  oldValue: json("oldValue"), // القيمة القديمة
+  newValue: json("newValue"), // القيمة الجديدة
+  description: text("description"),
+  ipAddress: varchar("ipAddress", { length: 50 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AuditLog = typeof auditLog.$inferSelect;
+export type InsertAuditLog = typeof auditLog.$inferInsert;
+
+// جدول الإعدادات العامة
+export const systemSettings = mysqlTable("systemSettings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
+  settingValue: text("settingValue").notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;

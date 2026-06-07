@@ -28,6 +28,14 @@ import {
   monthlyGoals as monthlyGoalsTable,
   goalProgress as goalProgressTable,
   kpis as kpisTable,
+  departments as departmentsTable,
+  machines as machinesTable,
+  productionStages as productionStagesTable,
+  employeeStageAssignment as employeeStageAssignmentTable,
+  productTypes as productTypesTable,
+  boardRepresentativeData as boardRepresentativeDataTable,
+  auditLog as auditLogTable,
+  systemSettings as systemSettingsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -1639,6 +1647,267 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         await db.delete(kpisTable).where(eq(kpisTable.id, input.id));
+        return { success: true };
+      }),
+
+    // ===== Admin Management APIs =====
+    // Departments Management
+    getDepartments: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(departmentsTable);
+    }),
+
+    createDepartment: adminProcedure
+      .input(z.object({ name: z.string(), nameEn: z.string().optional(), description: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(departmentsTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateDepartment: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), description: z.string().optional(), isActive: z.number().optional() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(departmentsTable).set(updates).where(eq(departmentsTable.id, id));
+        return { success: true };
+      }),
+
+    deleteDepartment: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(departmentsTable).where(eq(departmentsTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Machines Management
+    getMachines: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(machinesTable);
+    }),
+
+    createMachine: adminProcedure
+      .input(z.object({
+        machineCode: z.string(),
+        machineName: z.string(),
+        machineType: z.string().optional(),
+        department: z.string(),
+        capacity: z.number().optional(),
+        installDate: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(machinesTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateMachine: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        machineName: z.string().optional(),
+        status: z.enum(["active", "inactive", "maintenance", "retired"]).optional(),
+        capacity: z.number().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(machinesTable).set(updates).where(eq(machinesTable.id, id));
+        return { success: true };
+      }),
+
+    deleteMachine: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(machinesTable).where(eq(machinesTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Production Stages Management
+    getProductionStages: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(productionStagesTable);
+    }),
+
+    createProductionStage: adminProcedure
+      .input(z.object({
+        stageName: z.string(),
+        stageNameEn: z.string().optional(),
+        stageOrder: z.number(),
+        department: z.string(),
+        description: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(productionStagesTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateProductionStage: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        stageName: z.string().optional(),
+        stageOrder: z.number().optional(),
+        description: z.string().optional(),
+        isActive: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(productionStagesTable).set(updates).where(eq(productionStagesTable.id, id));
+        return { success: true };
+      }),
+
+    deleteProductionStage: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(productionStagesTable).where(eq(productionStagesTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Employee Stage Assignment
+    getEmployeeAssignments: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(employeeStageAssignmentTable);
+    }),
+
+    assignEmployeeToStage: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        stageId: z.number(),
+        department: z.string(),
+        role: z.string().optional(),
+        assignedDate: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(employeeStageAssignmentTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateEmployeeAssignment: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        stageId: z.number().optional(),
+        department: z.string().optional(),
+        role: z.string().optional(),
+        isActive: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(employeeStageAssignmentTable).set(updates).where(eq(employeeStageAssignmentTable.id, id));
+        return { success: true };
+      }),
+
+    deleteEmployeeAssignment: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(employeeStageAssignmentTable).where(eq(employeeStageAssignmentTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Board Representative Data Management
+    getBoardRepresentativeData: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(boardRepresentativeDataTable);
+    }),
+
+    createBoardData: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        dataType: z.string(),
+        value: z.string(),
+        description: z.string().optional(),
+        date: z.string(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(boardRepresentativeDataTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateBoardData: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        value: z.string().optional(),
+        description: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(boardRepresentativeDataTable).set(updates).where(eq(boardRepresentativeDataTable.id, id));
+        return { success: true };
+      }),
+
+    deleteBoardData: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(boardRepresentativeDataTable).where(eq(boardRepresentativeDataTable.id, input.id));
+        return { success: true };
+      }),
+
+    clearAllBoardData: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await db.delete(boardRepresentativeDataTable);
+      return { success: true };
+    }),
+
+    // Audit Log
+    getAuditLog: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(auditLogTable).orderBy(desc(auditLogTable.createdAt)).limit(1000);
+    }),
+
+    // System Settings
+    getSystemSettings: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      return await db.select().from(systemSettingsTable);
+    }),
+
+    updateSystemSetting: adminProcedure
+      .input(z.object({ key: z.string(), value: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const existing = await db.select().from(systemSettingsTable).where(eq(systemSettingsTable.settingKey, input.key));
+        if (existing.length > 0) {
+          await db.update(systemSettingsTable).set({ settingValue: input.value }).where(eq(systemSettingsTable.settingKey, input.key));
+        } else {
+          await db.insert(systemSettingsTable).values({ settingKey: input.key, settingValue: input.value });
+        }
         return { success: true };
       }),
   }),

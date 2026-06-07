@@ -467,6 +467,18 @@ export default function HomeScreen() {
               <MaterialIcons name="trending-up" size={20} color="#06b6d4" />
             </View>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/comprehensive-admin-panel")}
+            style={[styles.adminButton, { borderColor: "#8b5cf6", marginTop: 8 }]}
+          >
+            <MaterialIcons name="chevron-left" size={20} color="#8b5cf6" />
+            <View style={styles.adminButtonContent}>
+              <Text style={[styles.adminButtonText, { color: "#8b5cf6" }]}>
+                {isAr ? "لوحة التحكم الشاملة" : "Comprehensive Control"}
+              </Text>
+              <MaterialIcons name="admin-panel-settings" size={20} color="#8b5cf6" />
+            </View>
+          </TouchableOpacity>
         </View>
       )}
 

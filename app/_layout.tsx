@@ -147,6 +147,7 @@ function NavigationContent() {
       <Stack.Screen name="meeting-request" />
       <Stack.Screen name="meeting-outputs" />
       <Stack.Screen name="admin-goals-kpis" />
+      <Stack.Screen name="comprehensive-admin-panel" />
     </Stack>
   );
 }
