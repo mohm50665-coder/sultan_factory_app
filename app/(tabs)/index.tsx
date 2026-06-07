@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -249,10 +250,42 @@ export default function HomeScreen() {
   const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
   // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
   const SHARED_ITEMS = ["administrative", "server_notifications", "tasks"];
+  
+  // Load user tool permissions
+  const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const loadToolPermissions = async () => {
+      try {
+        const permissionsKey = `tool_permissions_${user?.id}`;
+        const permissions = await AsyncStorage.getItem(permissionsKey);
+        if (permissions) {
+          setUserToolPermissions(JSON.parse(permissions));
+        } else {
+          // Default: all tools visible
+          const defaultPermissions: Record<string, boolean> = {};
+          const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
+          toolIds.forEach(id => {
+            defaultPermissions[id] = true;
+          });
+          setUserToolPermissions(defaultPermissions);
+        }
+      } catch (error) {
+        console.error('Error loading tool permissions:', error);
+      }
+    };
+    loadToolPermissions();
+  }, [user?.id]);
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // Admin sees everything
     if (user?.role === "admin") return true;
+    
+    // Check tool permissions for additional tools
+    const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
+    if (toolIds.includes(item.id) && !userToolPermissions[item.id]) {
+      return false;
+    }
+    
     // الأيقونات الثابتة المشتركة تظهر للجميع دائماً
     if (SHARED_ITEMS.includes(item.id)) return true;
     // If admin assigned specific sections to this user, use those

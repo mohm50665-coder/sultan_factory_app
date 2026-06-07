@@ -137,6 +137,7 @@ function NavigationContent() {
       <Stack.Screen name="board-representative" />
       <Stack.Screen name="board-representative-dashboard" />
       <Stack.Screen name="admin-control-panel" />
+      <Stack.Screen name="admin-tools-permissions" />
       <Stack.Screen name="export-reports" />
       <Stack.Screen name="server-notifications" />
       <Stack.Screen name="advanced-analytics" />
