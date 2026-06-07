@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
+  Alert,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -15,27 +17,45 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { trpc } from "@/lib/trpc";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-interface ThreadData {
-  type: string;
-  weight: number;
+interface ColorEntry {
   color: string;
   code: string;
 }
 
+interface ThreadData {
+  type: string;
+  weight: number;
+  colors: ColorEntry[];
+}
+
 interface ProductCostData {
+  id: string;
   date: string;
   productName: string;
   productColor: string;
-  cotton: ThreadData;
-  bamboo: ThreadData;
-  nylon: ThreadData;
-  span: ThreadData;
-  spandex: ThreadData;
-  rubber: ThreadData;
+  threads: {
+    cotton: ThreadData;
+    bamboo: ThreadData;
+    nylon: ThreadData;
+    span: ThreadData;
+    spandex: ThreadData;
+    rubber: ThreadData;
+  };
   notes: string;
+  createdAt: string;
 }
+
+const STORAGE_KEY = "product_cost_calculations";
+
+const createEmptyColors = (): ColorEntry[] => [
+  { color: "", code: "" },
+  { color: "", code: "" },
+  { color: "", code: "" },
+  { color: "", code: "" },
+  { color: "", code: "" },
+];
 
 export default function ProductCostCalculatorScreen() {
   const router = useRouter();
@@ -45,81 +65,106 @@ export default function ProductCostCalculatorScreen() {
   const isAr = language === "ar";
 
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState<ProductCostData>({
+  const [formData, setFormData] = useState<Omit<ProductCostData, "id" | "createdAt">>({
     date: new Date().toISOString().split("T")[0],
     productName: "",
     productColor: "",
-    cotton: { type: "قطن", weight: 0, color: "", code: "" },
-    bamboo: { type: "بامبو", weight: 0, color: "", code: "" },
-    nylon: { type: "نايلون", weight: 0, color: "", code: "" },
-    span: { type: "إسبان", weight: 0, color: "", code: "" },
-    spandex: { type: "إسباندكس", weight: 0, color: "", code: "" },
-    rubber: { type: "مطاط", weight: 0, color: "", code: "" },
+    threads: {
+      cotton: { type: "قطن", weight: 0, colors: createEmptyColors() },
+      bamboo: { type: "بامبو", weight: 0, colors: createEmptyColors() },
+      nylon: { type: "نايلون", weight: 0, colors: createEmptyColors() },
+      span: { type: "إسبان", weight: 0, colors: createEmptyColors() },
+      spandex: { type: "إسباندكس", weight: 0, colors: createEmptyColors() },
+      rubber: { type: "مطاط", weight: 0, colors: createEmptyColors() },
+    },
     notes: "",
   });
 
-  // Mutation to save product cost calculation
-  const saveMutation = trpc.productCostCalculation.create.useMutation();
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   const handleSave = async () => {
     if (!formData.productName.trim()) {
-      alert(isAr ? "الرجاء إدخال اسم المنتج" : "Please enter product name");
+      showAlert(
+        isAr ? "تنبيه" : "Alert",
+        isAr ? "الرجاء إدخال اسم المنتج" : "Please enter product name"
+      );
       return;
     }
 
     setIsLoading(true);
     try {
-      const totalWeight =
-        formData.cotton.weight +
-        formData.bamboo.weight +
-        formData.nylon.weight +
-        formData.span.weight +
-        formData.spandex.weight +
-        formData.rubber.weight;
+      // Get existing data
+      const existingData = await AsyncStorage.getItem(STORAGE_KEY);
+      const calculations: ProductCostData[] = existingData ? JSON.parse(existingData) : [];
 
-      await saveMutation.mutateAsync({
-        date: formData.date,
-        productName: formData.productName,
-        productColor: formData.productColor,
-        cottonWeight: formData.cotton.weight,
-        cottonColor: formData.cotton.color,
-        cottonCode: formData.cotton.code,
-        bambooWeight: formData.bamboo.weight,
-        bambooColor: formData.bamboo.color,
-        bambooCode: formData.bamboo.code,
-        nylonWeight: formData.nylon.weight,
-        nylonColor: formData.nylon.color,
-        nylonCode: formData.nylon.code,
-        spanWeight: formData.span.weight,
-        spanColor: formData.span.color,
-        spanCode: formData.span.code,
-        spandexWeight: formData.spandex.weight,
-        spandexColor: formData.spandex.color,
-        spandexCode: formData.spandex.code,
-        rubberWeight: formData.rubber.weight,
-        rubberColor: formData.rubber.color,
-        rubberCode: formData.rubber.code,
-        totalThreadWeight: totalWeight,
-        notes: formData.notes,
-        userId: user?.id || 0,
-      });
+      // Create new entry
+      const newEntry: ProductCostData = {
+        id: Date.now().toString(),
+        ...formData,
+        createdAt: new Date().toISOString(),
+      };
 
-      alert(isAr ? "تم حفظ البيانات بنجاح" : "Data saved successfully");
+      calculations.push(newEntry);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(calculations));
+
+      showAlert(
+        isAr ? "نجاح" : "Success",
+        isAr ? "تم حفظ بيانات تكاليف المنتج بنجاح" : "Product cost data saved successfully"
+      );
       router.back();
     } catch (error) {
       console.error("Error saving:", error);
-      alert(isAr ? "حدث خطأ في الحفظ" : "Error saving data");
+      showAlert(
+        isAr ? "خطأ" : "Error",
+        isAr ? "حدث خطأ في حفظ البيانات" : "Error saving data"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderThreadSection = (
-    threadKey: keyof Omit<ProductCostData, "date" | "productName" | "productColor" | "notes">,
-    threadLabel: string,
-    threadArabic: string
+  const updateThreadWeight = (threadKey: keyof typeof formData.threads, weight: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      threads: {
+        ...prev.threads,
+        [threadKey]: { ...prev.threads[threadKey], weight },
+      },
+    }));
+  };
+
+  const updateThreadColor = (
+    threadKey: keyof typeof formData.threads,
+    colorIndex: number,
+    field: "color" | "code",
+    value: string
   ) => {
-    const thread = formData[threadKey] as ThreadData;
+    setFormData((prev) => {
+      const newColors = [...prev.threads[threadKey].colors];
+      newColors[colorIndex] = { ...newColors[colorIndex], [field]: value };
+      return {
+        ...prev,
+        threads: {
+          ...prev.threads,
+          [threadKey]: { ...prev.threads[threadKey], colors: newColors },
+        },
+      };
+    });
+  };
+
+  const renderThreadSection = (
+    threadKey: keyof typeof formData.threads,
+    threadLabel: string,
+    threadArabic: string,
+    iconColor: string
+  ) => {
+    const thread = formData.threads[threadKey];
 
     return (
       <View
@@ -129,72 +174,74 @@ export default function ProductCostCalculatorScreen() {
           { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
       >
-        <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 14, marginBottom: 12 }}>
-          {isAr ? threadArabic : threadLabel}
-        </Text>
-
-        <View style={{ gap: 8 }}>
-          {/* Weight */}
-          <View>
-            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>
-              {isAr ? "الوزن (جرام)" : "Weight (grams)"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
-              ]}
-              placeholder="0"
-              keyboardType="numeric"
-              value={thread.weight.toString()}
-              onChangeText={(text) => {
-                const newData = { ...formData };
-                (newData[threadKey] as ThreadData).weight = parseInt(text) || 0;
-                setFormData(newData);
-              }}
-            />
+        {/* Thread Header */}
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+          <View style={[styles.threadIcon, { backgroundColor: iconColor + "20" }]}>
+            <MaterialIcons name="texture" size={18} color={iconColor} />
           </View>
-
-          {/* Color */}
-          <View>
-            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>
-              {isAr ? "اللون" : "Color"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
-              ]}
-              placeholder={isAr ? "أدخل اللون" : "Enter color"}
-              value={thread.color}
-              onChangeText={(text) => {
-                const newData = { ...formData };
-                (newData[threadKey] as ThreadData).color = text;
-                setFormData(newData);
-              }}
-            />
-          </View>
-
-          {/* Code */}
-          <View>
-            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>
-              {isAr ? "كود الخيط" : "Thread Code"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
-              ]}
-              placeholder={isAr ? "أدخل كود الخيط" : "Enter thread code"}
-              value={thread.code}
-              onChangeText={(text) => {
-                const newData = { ...formData };
-                (newData[threadKey] as ThreadData).code = text;
-                setFormData(newData);
-              }}
-            />
-          </View>
+          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 15, marginLeft: 8 }}>
+            {isAr ? threadArabic : threadLabel}
+          </Text>
         </View>
+
+        {/* Weight */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
+            {isAr ? "الوزن (جرام)" : "Weight (grams)"}
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+            ]}
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            keyboardType="numeric"
+            value={thread.weight === 0 ? "" : thread.weight.toString()}
+            onChangeText={(text) => updateThreadWeight(threadKey, parseInt(text) || 0)}
+          />
+        </View>
+
+        {/* Colors Table Header */}
+        <View style={[styles.colorTableHeader, { backgroundColor: colors.primary + "10", borderColor: colors.border }]}>
+          <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 0.5 }]}>#</Text>
+          <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 2 }]}>
+            {isAr ? "اللون" : "Color"}
+          </Text>
+          <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 2 }]}>
+            {isAr ? "كود الخيط" : "Thread Code"}
+          </Text>
+        </View>
+
+        {/* 5 Color Rows */}
+        {thread.colors.map((colorEntry, index) => (
+          <View
+            key={index}
+            style={[styles.colorRow, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.colorRowNum, { color: colors.muted }]}>{index + 1}</Text>
+            <TextInput
+              style={[
+                styles.colorInput,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder={isAr ? `لون ${index + 1}` : `Color ${index + 1}`}
+              placeholderTextColor={colors.muted + "80"}
+              value={colorEntry.color}
+              onChangeText={(text) => updateThreadColor(threadKey, index, "color", text)}
+            />
+            <TextInput
+              style={[
+                styles.colorInput,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder={isAr ? `كود ${index + 1}` : `Code ${index + 1}`}
+              placeholderTextColor={colors.muted + "80"}
+              value={colorEntry.code}
+              onChangeText={(text) => updateThreadColor(threadKey, index, "code", text)}
+            />
+          </View>
+        ))}
       </View>
     );
   };
@@ -203,101 +250,124 @@ export default function ProductCostCalculatorScreen() {
     <ScreenContainer>
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 16 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-          <Pressable onPress={() => router.back()} style={{ marginRight: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pressable onPress={() => router.back()} style={({ pressed }) => [{ marginRight: 12, opacity: pressed ? 0.7 : 1 }]}>
             <MaterialIcons
               name={isRtl ? "chevron-right" : "chevron-left"}
-              size={24}
+              size={28}
               color="white"
             />
           </Pressable>
-          <Text style={{ color: "white", fontSize: 20, fontWeight: "bold", flex: 1 }}>
-            {isAr ? "حساب تكاليف منتج جديد" : "Calculate Product Cost"}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
+              {isAr ? "حساب تكاليف منتج جديد" : "New Product Cost"}
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
+              {isAr ? "أدخل بيانات الخيوط والألوان" : "Enter thread and color data"}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Form */}
-      <ScrollView style={styles.form} contentContainerStyle={{ padding: 16, gap: 16 }}>
-        {/* Date */}
-        <View>
-          <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-            {isAr ? "التاريخ" : "Date"}
+      <ScrollView style={styles.form} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        {/* Basic Info Section */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16, marginBottom: 16 }}>
+            {isAr ? "البيانات الأساسية" : "Basic Information"}
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
-            ]}
-            value={formData.date}
-            onChangeText={(text) => setFormData({ ...formData, date: text })}
-            placeholder="YYYY-MM-DD"
-          />
+
+          {/* Date */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
+              {isAr ? "التاريخ" : "Date"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              value={formData.date}
+              onChangeText={(text) => setFormData({ ...formData, date: text })}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.muted}
+            />
+          </View>
+
+          {/* Product Name */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
+              {isAr ? "اسم المنتج *" : "Product Name *"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder={isAr ? "أدخل اسم المنتج" : "Enter product name"}
+              placeholderTextColor={colors.muted}
+              value={formData.productName}
+              onChangeText={(text) => setFormData({ ...formData, productName: text })}
+            />
+          </View>
+
+          {/* Product Color */}
+          <View>
+            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
+              {isAr ? "لون المنتج" : "Product Color"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder={isAr ? "أدخل لون المنتج" : "Enter product color"}
+              placeholderTextColor={colors.muted}
+              value={formData.productColor}
+              onChangeText={(text) => setFormData({ ...formData, productColor: text })}
+            />
+          </View>
         </View>
 
-        {/* Product Name */}
-        <View>
-          <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-            {isAr ? "اسم المنتج" : "Product Name"}
+        {/* Thread Sections Title */}
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 20, marginBottom: 12 }}>
+          <MaterialIcons name="format-list-bulleted" size={20} color={colors.primary} />
+          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16, marginLeft: 8 }}>
+            {isAr ? "تفاصيل أوزان الخيوط المستخدمة وبياناتها" : "Thread Weights & Details"}
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
-            ]}
-            placeholder={isAr ? "أدخل اسم المنتج" : "Enter product name"}
-            value={formData.productName}
-            onChangeText={(text) => setFormData({ ...formData, productName: text })}
-          />
         </View>
 
-        {/* Product Color */}
-        <View>
-          <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-            {isAr ? "لون المنتج" : "Product Color"}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
-            ]}
-            placeholder={isAr ? "أدخل لون المنتج" : "Enter product color"}
-            value={formData.productColor}
-            onChangeText={(text) => setFormData({ ...formData, productColor: text })}
-          />
-        </View>
+        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>
+          {isAr ? "لكل نوع خيط يمكن إضافة حتى 5 ألوان مختلفة مع أكوادها" : "Each thread type supports up to 5 different colors with codes"}
+        </Text>
 
         {/* Thread Sections */}
-        <View>
-          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16, marginBottom: 12 }}>
-            {isAr ? "تفاصيل الخيوط" : "Thread Details"}
-          </Text>
-
-          {renderThreadSection("cotton", "Cotton", "قطن")}
-          {renderThreadSection("bamboo", "Bamboo", "بامبو")}
-          {renderThreadSection("nylon", "Nylon", "نايلون")}
-          {renderThreadSection("span", "Span", "إسبان")}
-          {renderThreadSection("spandex", "Spandex", "إسباندكس")}
-          {renderThreadSection("rubber", "Rubber", "مطاط")}
-        </View>
+        {renderThreadSection("cotton", "Cotton", "قطن", "#4CAF50")}
+        {renderThreadSection("bamboo", "Bamboo", "بامبو", "#8BC34A")}
+        {renderThreadSection("nylon", "Nylon", "نايلون", "#2196F3")}
+        {renderThreadSection("span", "Span", "إسبان", "#FF9800")}
+        {renderThreadSection("spandex", "Spandex", "إسباندكس", "#9C27B0")}
+        {renderThreadSection("rubber", "Rubber", "مطاط", "#795548")}
 
         {/* Notes */}
-        <View>
+        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 16 }]}>
           <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-            {isAr ? "ملاحظات" : "Notes"}
+            {isAr ? "ملاحظات إضافية" : "Additional Notes"}
           </Text>
           <TextInput
             style={[
               styles.input,
               {
-                backgroundColor: colors.surface,
+                backgroundColor: colors.background,
                 borderColor: colors.border,
                 color: colors.foreground,
-                minHeight: 100,
+                minHeight: 80,
                 textAlignVertical: "top",
+                textAlign: isRtl ? "right" : "left",
               },
             ]}
-            placeholder={isAr ? "أضف ملاحظات إضافية" : "Add additional notes"}
+            placeholder={isAr ? "أضف ملاحظات إضافية..." : "Add additional notes..."}
+            placeholderTextColor={colors.muted}
             value={formData.notes}
             onChangeText={(text) => setFormData({ ...formData, notes: text })}
             multiline
@@ -309,14 +379,15 @@ export default function ProductCostCalculatorScreen() {
           style={[styles.saveButton, { backgroundColor: colors.primary }]}
           onPress={handleSave}
           disabled={isLoading}
+          activeOpacity={0.8}
         >
           {isLoading ? (
             <ActivityIndicator color="white" />
           ) : (
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <MaterialIcons name="save" size={20} color="white" />
-              <Text style={{ color: "white", fontWeight: "600", fontSize: 16 }}>
-                {isAr ? "حفظ" : "Save"}
+              <MaterialIcons name="save" size={22} color="white" />
+              <Text style={{ color: "white", fontWeight: "700", fontSize: 16 }}>
+                {isAr ? "حفظ البيانات" : "Save Data"}
               </Text>
             </View>
           )}
@@ -330,6 +401,11 @@ const styles = StyleSheet.create({
   form: {
     flex: 1,
   },
+  sectionCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+  },
   input: {
     borderWidth: 1,
     borderRadius: 8,
@@ -339,15 +415,57 @@ const styles = StyleSheet.create({
   },
   threadSection: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
   },
-  saveButton: {
-    borderRadius: 8,
-    paddingVertical: 14,
+  threadIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 16,
+  },
+  colorTableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  colorHeaderText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  colorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  colorRowNum: {
+    width: 20,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  colorInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+  },
+  saveButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+    marginBottom: 32,
   },
 });
