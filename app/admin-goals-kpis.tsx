@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +9,7 @@ import {
   Pressable,
   Alert,
   Platform,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -18,6 +18,8 @@ import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { trpc } from "@/lib/trpc";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 type GoalType = "production" | "sales" | "quality" | "efficiency" | "safety" | "custom";
 type KpiType = "production" | "quality" | "efficiency" | "safety" | "financial" | "custom";
@@ -65,6 +67,14 @@ const DEPARTMENTS = [
   "ممثل مجلس الإدارة",
 ];
 
+const GOAL_TYPES = [
+  { value: "production", labelAr: "الإنتاج", labelEn: "Production" },
+  { value: "sales", labelAr: "المبيعات", labelEn: "Sales" },
+  { value: "quality", labelAr: "الجودة", labelEn: "Quality" },
+  { value: "efficiency", labelAr: "الكفاءة", labelEn: "Efficiency" },
+  { value: "safety", labelAr: "السلامة", labelEn: "Safety" },
+];
+
 export default function AdminGoalsKpisScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -73,13 +83,11 @@ export default function AdminGoalsKpisScreen() {
   const isAr = language === "ar";
 
   const [activeTab, setActiveTab] = useState<"goals" | "kpis">("goals");
-  const [isLoading, setIsLoading] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().split("T")[0].slice(0, 7));
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
-
-  // Goals state
-  const [goals, setGoals] = useState<MonthlyGoal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
+  const [showKpiForm, setShowKpiForm] = useState(false);
+
   const [goalForm, setGoalForm] = useState({
     department: "",
     goalType: "production" as GoalType,
@@ -89,9 +97,6 @@ export default function AdminGoalsKpisScreen() {
     description: "",
   });
 
-  // KPIs state
-  const [kpis, setKpis] = useState<KPI[]>([]);
-  const [showKpiForm, setShowKpiForm] = useState(false);
   const [kpiForm, setKpiForm] = useState({
     department: "",
     kpiType: "production" as KpiType,
@@ -102,41 +107,59 @@ export default function AdminGoalsKpisScreen() {
     notes: "",
   });
 
-  const showAlert = (title: string, message: string) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}\n${message}`);
-    } else {
-      Alert.alert(title, message);
-    }
-  };
+  // Fetch goals using TRPC
+  const { data: goalsData, isLoading: goalsLoading, refetch: refetchGoals } = useQuery({
+    queryKey: ["goals", currentMonth, selectedDepartment],
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/goals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: currentMonth, department: selectedDepartment }),
+        });
+        return response.json();
+      } catch (error) {
+        console.error("Error fetching goals:", error);
+        return [];
+      }
+    },
+  });
 
-  const handleAddGoal = async () => {
-    if (!goalForm.department || !goalForm.goalName || !goalForm.unit) {
-      showAlert(isAr ? "تنبيه" : "Alert", isAr ? "الرجاء ملء جميع الحقول المطلوبة" : "Please fill all required fields");
-      return;
-    }
+  // Fetch KPIs using TRPC
+  const { data: kpisData, isLoading: kpisLoading, refetch: refetchKpis } = useQuery({
+    queryKey: ["kpis", currentMonth, selectedDepartment],
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/kpis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: currentMonth, department: selectedDepartment }),
+        });
+        return response.json();
+      } catch (error) {
+        console.error("Error fetching KPIs:", error);
+        return [];
+      }
+    },
+  });
 
-    setIsLoading(true);
-    try {
-      // Here you would call the API to create the goal
-      // For now, we'll just add it to the local state
-      const newGoal: MonthlyGoal = {
-        id: Date.now(),
-        month: currentMonth,
-        department: goalForm.department,
-        goalType: goalForm.goalType,
-        goalName: goalForm.goalName,
-        targetValue: goalForm.targetValue,
-        unit: goalForm.unit,
-        weight: 100,
-        description: goalForm.description,
-        status: "active",
-        createdBy: user?.id || 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setGoals([...goals, newGoal]);
+  // Create goal mutation
+  const createGoalMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("/api/goals/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          month: currentMonth,
+          createdBy: user?.id,
+        }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchGoals();
+      setShowGoalForm(false);
       setGoalForm({
         department: "",
         goalType: "production",
@@ -145,42 +168,29 @@ export default function AdminGoalsKpisScreen() {
         unit: "",
         description: "",
       });
-      setShowGoalForm(false);
-      showAlert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة الهدف بنجاح" : "Goal added successfully");
-    } catch (error) {
-      console.error("Error adding goal:", error);
-      showAlert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ في إضافة الهدف" : "Error adding goal");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة الهدف بنجاح" : "Goal added successfully");
+    },
+    onError: (error) => {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل إضافة الهدف" : "Failed to add goal");
+    },
+  });
 
-  const handleAddKpi = async () => {
-    if (!kpiForm.department || !kpiForm.kpiName || !kpiForm.unit) {
-      showAlert(isAr ? "تنبيه" : "Alert", isAr ? "الرجاء ملء جميع الحقول المطلوبة" : "Please fill all required fields");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const newKpi: KPI = {
-        id: Date.now(),
-        month: currentMonth,
-        department: kpiForm.department,
-        kpiType: kpiForm.kpiType,
-        kpiName: kpiForm.kpiName,
-        currentValue: kpiForm.currentValue,
-        targetValue: kpiForm.targetValue,
-        previousValue: 0,
-        unit: kpiForm.unit,
-        status: "on_track",
-        trend: "stable",
-        notes: kpiForm.notes,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setKpis([...kpis, newKpi]);
+  // Create KPI mutation
+  const createKpiMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await fetch("/api/kpis/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          month: currentMonth,
+        }),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchKpis();
+      setShowKpiForm(false);
       setKpiForm({
         department: "",
         kpiType: "production",
@@ -190,594 +200,733 @@ export default function AdminGoalsKpisScreen() {
         unit: "",
         notes: "",
       });
-      setShowKpiForm(false);
-      showAlert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة المؤشر بنجاح" : "KPI added successfully");
-    } catch (error) {
-      console.error("Error adding KPI:", error);
-      showAlert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ في إضافة المؤشر" : "Error adding KPI");
-    } finally {
-      setIsLoading(false);
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة مؤشر الأداء بنجاح" : "KPI added successfully");
+    },
+    onError: (error) => {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل إضافة مؤشر الأداء" : "Failed to add KPI");
+    },
+  });
+
+  // Delete goal mutation
+  const deleteGoalMutation = useMutation({
+    mutationFn: async (goalId: number) => {
+      const response = await fetch(`/api/goals/${goalId}`, {
+        method: "DELETE",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchGoals();
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف الهدف بنجاح" : "Goal deleted successfully");
+    },
+  });
+
+  // Delete KPI mutation
+  const deleteKpiMutation = useMutation({
+    mutationFn: async (kpiId: number) => {
+      const response = await fetch(`/api/kpis/${kpiId}`, {
+        method: "DELETE",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchKpis();
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف مؤشر الأداء بنجاح" : "KPI deleted successfully");
+    },
+  });
+
+  // Check for alerts
+  useEffect(() => {
+    if (kpisData && Array.isArray(kpisData)) {
+      kpisData.forEach((kpi: KPI) => {
+        if (kpi.status === "off_track") {
+          // Send notification for off-track KPIs
+          console.log(`Alert: KPI "${kpi.kpiName}" is off track`);
+        } else if (kpi.status === "at_risk") {
+          console.log(`Warning: KPI "${kpi.kpiName}" is at risk`);
+        }
+      });
     }
+  }, [kpisData]);
+
+  const handleAddGoal = () => {
+    if (!goalForm.department || !goalForm.goalName || !goalForm.targetValue) {
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+    createGoalMutation.mutate(goalForm);
   };
 
-  const deleteGoal = (id: number) => {
-    setGoals(goals.filter((g) => g.id !== id));
+  const handleAddKpi = () => {
+    if (!kpiForm.department || !kpiForm.kpiName || !kpiForm.targetValue) {
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+      return;
+    }
+    createKpiMutation.mutate(kpiForm);
   };
 
-  const deleteKpi = (id: number) => {
-    setKpis(kpis.filter((k) => k.id !== id));
-  };
-
-  const getProgressPercentage = (current: number, target: number) => {
+  const calculateProgress = (current: number, target: number) => {
     if (target === 0) return 0;
-    return Math.min(Math.round((current / target) * 100), 100);
+    return Math.min((current / target) * 100, 100);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "on_track":
-      case "active":
-        return colors.success;
-      case "at_risk":
       case "completed":
-        return colors.warning;
+        return "#10b981";
+      case "at_risk":
+        return "#f59e0b";
       case "off_track":
       case "cancelled":
-        return colors.error;
-      case "exceeded":
-        return colors.primary;
+        return "#ef4444";
       default:
-        return colors.muted;
+        return "#6b7280";
     }
   };
 
-  const filteredGoals = selectedDepartment
-    ? goals.filter((g) => g.department === selectedDepartment)
-    : goals;
+  const getStatusLabel = (status: string) => {
+    const statusMap: Record<string, { ar: string; en: string }> = {
+      on_track: { ar: "على المسار", en: "On Track" },
+      at_risk: { ar: "معرض للخطر", en: "At Risk" },
+      off_track: { ar: "خارج المسار", en: "Off Track" },
+      exceeded: { ar: "متجاوز", en: "Exceeded" },
+      active: { ar: "نشط", en: "Active" },
+      completed: { ar: "مكتمل", en: "Completed" },
+      cancelled: { ar: "ملغى", en: "Cancelled" },
+    };
+    return statusMap[status]?.[isAr ? "ar" : "en"] || status;
+  };
 
-  const filteredKpis = selectedDepartment
-    ? kpis.filter((k) => k.department === selectedDepartment)
-    : kpis;
+  const renderGoalsTab = () => (
+    <View style={{ flex: 1 }}>
+      {/* Add Goal Button */}
+      <TouchableOpacity
+        onPress={() => setShowGoalForm(!showGoalForm)}
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
+      >
+        <MaterialIcons name={showGoalForm ? "close" : "add"} size={24} color="#fff" />
+        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
+          {isAr ? (showGoalForm ? "إلغاء" : "إضافة هدف جديد") : (showGoalForm ? "Cancel" : "Add New Goal")}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Goal Form */}
+      {showGoalForm && (
+        <View style={[styles.form, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "القسم" : "Department"}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {DEPARTMENTS.map((dept) => (
+              <TouchableOpacity
+                key={dept}
+                onPress={() => setGoalForm({ ...goalForm, department: dept })}
+                style={[
+                  styles.departmentTag,
+                  {
+                    backgroundColor: goalForm.department === dept ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text style={{ color: goalForm.department === dept ? "#fff" : colors.foreground }}>
+                  {dept}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "نوع الهدف" : "Goal Type"}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {GOAL_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                onPress={() => setGoalForm({ ...goalForm, goalType: type.value as GoalType })}
+                style={[
+                  styles.departmentTag,
+                  {
+                    backgroundColor: goalForm.goalType === type.value ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text style={{ color: goalForm.goalType === type.value ? "#fff" : colors.foreground }}>
+                  {isAr ? type.labelAr : type.labelEn}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "اسم الهدف" : "Goal Name"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "أدخل اسم الهدف" : "Enter goal name"}
+            placeholderTextColor={colors.muted}
+            value={goalForm.goalName}
+            onChangeText={(text) => setGoalForm({ ...goalForm, goalName: text })}
+          />
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "القيمة المستهدفة" : "Target Value"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "أدخل القيمة المستهدفة" : "Enter target value"}
+            placeholderTextColor={colors.muted}
+            keyboardType="decimal-pad"
+            value={goalForm.targetValue.toString()}
+            onChangeText={(text) => setGoalForm({ ...goalForm, targetValue: parseFloat(text) || 0 })}
+          />
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "الوحدة" : "Unit"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "مثال: درزن، زوج، جرام" : "e.g., dozen, pair, gram"}
+            placeholderTextColor={colors.muted}
+            value={goalForm.unit}
+            onChangeText={(text) => setGoalForm({ ...goalForm, unit: text })}
+          />
+
+          <TouchableOpacity
+            onPress={handleAddGoal}
+            disabled={createGoalMutation.isPending}
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
+          >
+            {createGoalMutation.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                {isAr ? "حفظ الهدف" : "Save Goal"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Goals List */}
+      {goalsLoading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+      ) : (
+        <ScrollView style={{ marginTop: 12 }}>
+          {goalsData && Array.isArray(goalsData) && goalsData.length > 0 ? (
+            goalsData.map((goal: MonthlyGoal) => (
+              <View
+                key={goal.id}
+                style={[
+                  styles.goalCard,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.goalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.goalTitle, { color: colors.foreground }]}>
+                      {goal.goalName}
+                    </Text>
+                    <Text style={[styles.goalDept, { color: colors.muted }]}>
+                      {goal.department}
+                    </Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(goal.status) }]}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
+                      {getStatusLabel(goal.status)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.goalDetails}>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>
+                    {isAr ? "الهدف: " : "Target: "}{goal.targetValue} {goal.unit}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+                    {isAr ? "النوع: " : "Type: "}{goal.goalType}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => deleteGoalMutation.mutate(goal.id)}
+                  style={styles.deleteButton}
+                >
+                  <MaterialIcons name="delete" size={20} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              {isAr ? "لا توجد أهداف" : "No goals found"}
+            </Text>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  const renderKpisTab = () => (
+    <View style={{ flex: 1 }}>
+      {/* Add KPI Button */}
+      <TouchableOpacity
+        onPress={() => setShowKpiForm(!showKpiForm)}
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
+      >
+        <MaterialIcons name={showKpiForm ? "close" : "add"} size={24} color="#fff" />
+        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
+          {isAr ? (showKpiForm ? "إلغاء" : "إضافة مؤشر أداء جديد") : (showKpiForm ? "Cancel" : "Add New KPI")}
+        </Text>
+      </TouchableOpacity>
+
+      {/* KPI Form */}
+      {showKpiForm && (
+        <View style={[styles.form, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "القسم" : "Department"}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {DEPARTMENTS.map((dept) => (
+              <TouchableOpacity
+                key={dept}
+                onPress={() => setKpiForm({ ...kpiForm, department: dept })}
+                style={[
+                  styles.departmentTag,
+                  {
+                    backgroundColor: kpiForm.department === dept ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <Text style={{ color: kpiForm.department === dept ? "#fff" : colors.foreground }}>
+                  {dept}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "اسم المؤشر" : "KPI Name"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "أدخل اسم المؤشر" : "Enter KPI name"}
+            placeholderTextColor={colors.muted}
+            value={kpiForm.kpiName}
+            onChangeText={(text) => setKpiForm({ ...kpiForm, kpiName: text })}
+          />
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "القيمة الحالية" : "Current Value"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "أدخل القيمة الحالية" : "Enter current value"}
+            placeholderTextColor={colors.muted}
+            keyboardType="decimal-pad"
+            value={kpiForm.currentValue.toString()}
+            onChangeText={(text) => setKpiForm({ ...kpiForm, currentValue: parseFloat(text) || 0 })}
+          />
+
+          <Text style={[styles.formLabel, { color: colors.foreground }]}>
+            {isAr ? "القيمة المستهدفة" : "Target Value"}
+          </Text>
+          <TextInput
+            style={[styles.input, { color: colors.foreground, borderColor: colors.border }]}
+            placeholder={isAr ? "أدخل القيمة المستهدفة" : "Enter target value"}
+            placeholderTextColor={colors.muted}
+            keyboardType="decimal-pad"
+            value={kpiForm.targetValue.toString()}
+            onChangeText={(text) => setKpiForm({ ...kpiForm, targetValue: parseFloat(text) || 0 })}
+          />
+
+          <TouchableOpacity
+            onPress={handleAddKpi}
+            disabled={createKpiMutation.isPending}
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
+          >
+            {createKpiMutation.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                {isAr ? "حفظ المؤشر" : "Save KPI"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* KPIs List with Progress Bars */}
+      {kpisLoading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+      ) : (
+        <ScrollView style={{ marginTop: 12 }}>
+          {kpisData && Array.isArray(kpisData) && kpisData.length > 0 ? (
+            kpisData.map((kpi: KPI) => {
+              const progress = calculateProgress(kpi.currentValue, kpi.targetValue);
+              const statusColor = getStatusColor(kpi.status);
+
+              return (
+                <View
+                  key={kpi.id}
+                  style={[
+                    styles.kpiCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                  ]}
+                >
+                  <View style={styles.kpiHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.kpiTitle, { color: colors.foreground }]}>
+                        {kpi.kpiName}
+                      </Text>
+                      <Text style={[styles.kpiDept, { color: colors.muted }]}>
+                        {kpi.department}
+                      </Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
+                        {getStatusLabel(kpi.status)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={styles.progressContainer}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        {
+                          width: `${progress}%`,
+                          backgroundColor: statusColor,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.kpiStats}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.muted, fontSize: 12 }}>
+                        {isAr ? "الحالي" : "Current"}
+                      </Text>
+                      <Text style={[styles.statValue, { color: colors.foreground }]}>
+                        {kpi.currentValue}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.muted, fontSize: 12 }}>
+                        {isAr ? "الهدف" : "Target"}
+                      </Text>
+                      <Text style={[styles.statValue, { color: colors.foreground }]}>
+                        {kpi.targetValue}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.muted, fontSize: 12 }}>
+                        {isAr ? "النسبة" : "Progress"}
+                      </Text>
+                      <Text style={[styles.statValue, { color: statusColor }]}>
+                        {progress.toFixed(0)}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Trend Indicator */}
+                  <View style={styles.trendContainer}>
+                    <MaterialIcons
+                      name={
+                        kpi.trend === "up"
+                          ? "trending-up"
+                          : kpi.trend === "down"
+                          ? "trending-down"
+                          : "trending-flat"
+                      }
+                      size={16}
+                      color={kpi.trend === "up" ? "#10b981" : kpi.trend === "down" ? "#ef4444" : "#6b7280"}
+                    />
+                    <Text
+                      style={{
+                        marginLeft: 4,
+                        fontSize: 12,
+                        color:
+                          kpi.trend === "up"
+                            ? "#10b981"
+                            : kpi.trend === "down"
+                            ? "#ef4444"
+                            : "#6b7280",
+                      }}
+                    >
+                      {isAr
+                        ? kpi.trend === "up"
+                          ? "صاعد"
+                          : kpi.trend === "down"
+                          ? "هابط"
+                          : "مستقر"
+                        : kpi.trend === "up"
+                        ? "Up"
+                        : kpi.trend === "down"
+                        ? "Down"
+                        : "Stable"}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => deleteKpiMutation.mutate(kpi.id)}
+                    style={styles.deleteButton}
+                  >
+                    <MaterialIcons name="delete" size={20} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              {isAr ? "لا توجد مؤشرات أداء" : "No KPIs found"}
+            </Text>
+          )}
+        </ScrollView>
+      )}
+    </View>
+  );
 
   return (
-    <ScreenContainer>
-      {/* Header */}
-      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 16 }}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Pressable onPress={() => router.back()} style={({ pressed }) => [{ marginRight: 12, opacity: pressed ? 0.7 : 1 }]}>
-            <MaterialIcons
-              name={isRtl ? "chevron-right" : "chevron-left"}
-              size={28}
-              color="white"
-            />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
-              {isAr ? "الأهداف ومؤشرات الأداء" : "Goals & KPIs"}
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
-              {isAr ? "إدارة أهداف الأقسام ومؤشرات الأداء" : "Manage department goals and KPIs"}
-            </Text>
-          </View>
-        </View>
+    <ScreenContainer className="p-0">
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <MaterialIcons name={isRtl ? "chevron-right" : "chevron-left"} size={28} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {isAr ? "الأهداف ومؤشرات الأداء" : "Goals & KPIs"}
+        </Text>
+        <View style={{ width: 28 }} />
+      </View>
+
+      {/* Month Selector */}
+      <View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <TouchableOpacity onPress={() => {
+          const date = new Date(currentMonth + "-01");
+          date.setMonth(date.getMonth() - 1);
+          setCurrentMonth(date.toISOString().split("T")[0].slice(0, 7));
+        }}>
+          <MaterialIcons name={isRtl ? "chevron-right" : "chevron-left"} size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.monthText, { color: colors.foreground }]}>
+          {currentMonth}
+        </Text>
+        <TouchableOpacity onPress={() => {
+          const date = new Date(currentMonth + "-01");
+          date.setMonth(date.getMonth() + 1);
+          setCurrentMonth(date.toISOString().split("T")[0].slice(0, 7));
+        }}>
+          <MaterialIcons name={isRtl ? "chevron-left" : "chevron-right"} size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
-      <View style={{ flexDirection: "row", backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      <View style={[styles.tabsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <TouchableOpacity
+          onPress={() => setActiveTab("goals")}
           style={[
             styles.tab,
-            {
-              backgroundColor: activeTab === "goals" ? colors.primary : "transparent",
-              flex: 1,
-            },
+            activeTab === "goals" && [styles.activeTab, { borderBottomColor: colors.primary }],
           ]}
-          onPress={() => setActiveTab("goals")}
         >
-          <Text style={{ color: activeTab === "goals" ? "white" : colors.foreground, fontWeight: "600", textAlign: "center" }}>
-            {isAr ? "الأهداف الشهرية" : "Monthly Goals"}
+          <Text style={[
+            styles.tabText,
+            { color: activeTab === "goals" ? colors.primary : colors.muted },
+          ]}>
+            {isAr ? "الأهداف" : "Goals"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          onPress={() => setActiveTab("kpis")}
           style={[
             styles.tab,
-            {
-              backgroundColor: activeTab === "kpis" ? colors.primary : "transparent",
-              flex: 1,
-            },
+            activeTab === "kpis" && [styles.activeTab, { borderBottomColor: colors.primary }],
           ]}
-          onPress={() => setActiveTab("kpis")}
         >
-          <Text style={{ color: activeTab === "kpis" ? "white" : colors.foreground, fontWeight: "600", textAlign: "center" }}>
+          <Text style={[
+            styles.tabText,
+            { color: activeTab === "kpis" ? colors.primary : colors.muted },
+          ]}>
             {isAr ? "مؤشرات الأداء" : "KPIs"}
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {/* Month & Department Filters */}
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-              {isAr ? "الشهر" : "Month"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-              ]}
-              placeholder="YYYY-MM"
-              value={currentMonth}
-              onChangeText={setCurrentMonth}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-              {isAr ? "القسم" : "Department"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-              ]}
-              placeholder={isAr ? "اختر القسم" : "Select department"}
-              value={selectedDepartment}
-              onChangeText={setSelectedDepartment}
-            />
-          </View>
-        </View>
-
-        {/* Goals Tab */}
-        {activeTab === "goals" && (
-          <View>
-            {/* Add Goal Button */}
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowGoalForm(!showGoalForm)}
-            >
-              <MaterialIcons name={showGoalForm ? "expand-less" : "add-circle"} size={20} color="white" />
-              <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>
-                {isAr ? "إضافة هدف جديد" : "Add New Goal"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Goal Form */}
-            {showGoalForm && (
-              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {/* Department */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "القسم *" : "Department *"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                    ]}
-                    placeholder={isAr ? "اختر القسم" : "Select department"}
-                    value={goalForm.department}
-                    onChangeText={(text) => setGoalForm({ ...goalForm, department: text })}
-                  />
-                </View>
-
-                {/* Goal Name */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "اسم الهدف *" : "Goal Name *"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                    ]}
-                    placeholder={isAr ? "أدخل اسم الهدف" : "Enter goal name"}
-                    value={goalForm.goalName}
-                    onChangeText={(text) => setGoalForm({ ...goalForm, goalName: text })}
-                  />
-                </View>
-
-                {/* Target Value & Unit */}
-                <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                      {isAr ? "القيمة المستهدفة *" : "Target Value *"}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                      ]}
-                      placeholder="0"
-                      keyboardType="numeric"
-                      value={goalForm.targetValue === 0 ? "" : goalForm.targetValue.toString()}
-                      onChangeText={(text) => setGoalForm({ ...goalForm, targetValue: parseInt(text) || 0 })}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                      {isAr ? "الوحدة *" : "Unit *"}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                      ]}
-                      placeholder={isAr ? "درزن، ريال، إلخ" : "dozen, SAR, etc"}
-                      value={goalForm.unit}
-                      onChangeText={(text) => setGoalForm({ ...goalForm, unit: text })}
-                    />
-                  </View>
-                </View>
-
-                {/* Description */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "الوصف" : "Description"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.border,
-                        color: colors.foreground,
-                        minHeight: 60,
-                        textAlignVertical: "top",
-                        textAlign: isRtl ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={isAr ? "أضف وصفاً للهدف" : "Add goal description"}
-                    value={goalForm.description}
-                    onChangeText={(text) => setGoalForm({ ...goalForm, description: text })}
-                    multiline
-                  />
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                  onPress={handleAddGoal}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
-                      {isAr ? "حفظ الهدف" : "Save Goal"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Goals List */}
-            <View style={{ marginTop: 16 }}>
-              {filteredGoals.length === 0 ? (
-                <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                  <MaterialIcons name="flag" size={48} color={colors.muted + "40"} />
-                  <Text style={{ color: colors.muted, marginTop: 8, textAlign: "center" }}>
-                    {isAr ? "لا توجد أهداف محددة" : "No goals defined"}
-                  </Text>
-                </View>
-              ) : (
-                filteredGoals.map((goal) => (
-                  <View
-                    key={goal.id}
-                    style={[
-                      styles.goalCard,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                    ]}
-                  >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 14 }}>
-                          {goal.goalName}
-                        </Text>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                          {goal.department}
-                        </Text>
-                      </View>
-                      <Pressable onPress={() => deleteGoal(goal.id)}>
-                        <MaterialIcons name="delete" size={20} color={colors.error} />
-                      </Pressable>
-                    </View>
-
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12 }}>
-                        {isAr ? "الهدف" : "Target"}: {goal.targetValue} {goal.unit}
-                      </Text>
-                      <Text style={[{ fontSize: 12, fontWeight: "600" }, { color: getStatusColor(goal.status) }]}>
-                        {goal.status === "active" ? (isAr ? "نشط" : "Active") : goal.status === "completed" ? (isAr ? "مكتمل" : "Completed") : (isAr ? "ملغى" : "Cancelled")}
-                      </Text>
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* KPIs Tab */}
-        {activeTab === "kpis" && (
-          <View>
-            {/* Add KPI Button */}
-            <TouchableOpacity
-              style={[styles.addButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowKpiForm(!showKpiForm)}
-            >
-              <MaterialIcons name={showKpiForm ? "expand-less" : "add-circle"} size={20} color="white" />
-              <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>
-                {isAr ? "إضافة مؤشر أداء جديد" : "Add New KPI"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* KPI Form */}
-            {showKpiForm && (
-              <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                {/* Department */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "القسم *" : "Department *"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                    ]}
-                    placeholder={isAr ? "اختر القسم" : "Select department"}
-                    value={kpiForm.department}
-                    onChangeText={(text) => setKpiForm({ ...kpiForm, department: text })}
-                  />
-                </View>
-
-                {/* KPI Name */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "اسم المؤشر *" : "KPI Name *"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                    ]}
-                    placeholder={isAr ? "أدخل اسم المؤشر" : "Enter KPI name"}
-                    value={kpiForm.kpiName}
-                    onChangeText={(text) => setKpiForm({ ...kpiForm, kpiName: text })}
-                  />
-                </View>
-
-                {/* Current & Target Values */}
-                <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                      {isAr ? "القيمة الحالية" : "Current Value"}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                      ]}
-                      placeholder="0"
-                      keyboardType="numeric"
-                      value={kpiForm.currentValue === 0 ? "" : kpiForm.currentValue.toString()}
-                      onChangeText={(text) => setKpiForm({ ...kpiForm, currentValue: parseInt(text) || 0 })}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                      {isAr ? "القيمة المستهدفة *" : "Target Value *"}
-                    </Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                      ]}
-                      placeholder="0"
-                      keyboardType="numeric"
-                      value={kpiForm.targetValue === 0 ? "" : kpiForm.targetValue.toString()}
-                      onChangeText={(text) => setKpiForm({ ...kpiForm, targetValue: parseInt(text) || 0 })}
-                    />
-                  </View>
-                </View>
-
-                {/* Unit */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "الوحدة *" : "Unit *"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-                    ]}
-                    placeholder={isAr ? "درزن، ريال، إلخ" : "dozen, SAR, etc"}
-                    value={kpiForm.unit}
-                    onChangeText={(text) => setKpiForm({ ...kpiForm, unit: text })}
-                  />
-                </View>
-
-                {/* Notes */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
-                    {isAr ? "ملاحظات" : "Notes"}
-                  </Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.border,
-                        color: colors.foreground,
-                        minHeight: 60,
-                        textAlignVertical: "top",
-                        textAlign: isRtl ? "right" : "left",
-                      },
-                    ]}
-                    placeholder={isAr ? "أضف ملاحظات" : "Add notes"}
-                    value={kpiForm.notes}
-                    onChangeText={(text) => setKpiForm({ ...kpiForm, notes: text })}
-                    multiline
-                  />
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity
-                  style={[styles.saveButton, { backgroundColor: colors.primary }]}
-                  onPress={handleAddKpi}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={{ color: "white", fontWeight: "700", textAlign: "center" }}>
-                      {isAr ? "حفظ المؤشر" : "Save KPI"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* KPIs List */}
-            <View style={{ marginTop: 16 }}>
-              {filteredKpis.length === 0 ? (
-                <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                  <MaterialIcons name="trending-up" size={48} color={colors.muted + "40"} />
-                  <Text style={{ color: colors.muted, marginTop: 8, textAlign: "center" }}>
-                    {isAr ? "لا توجد مؤشرات أداء محددة" : "No KPIs defined"}
-                  </Text>
-                </View>
-              ) : (
-                filteredKpis.map((kpi) => {
-                  const progress = getProgressPercentage(kpi.currentValue, kpi.targetValue);
-                  return (
-                    <View
-                      key={kpi.id}
-                      style={[
-                        styles.kpiCard,
-                        { backgroundColor: colors.surface, borderColor: colors.border },
-                      ]}
-                    >
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 14 }}>
-                            {kpi.kpiName}
-                          </Text>
-                          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
-                            {kpi.department}
-                          </Text>
-                        </View>
-                        <Pressable onPress={() => deleteKpi(kpi.id)}>
-                          <MaterialIcons name="delete" size={20} color={colors.error} />
-                        </Pressable>
-                      </View>
-
-                      {/* Progress Bar */}
-                      <View style={{ marginBottom: 8 }}>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                          <Text style={{ color: colors.muted, fontSize: 11 }}>
-                            {kpi.currentValue} / {kpi.targetValue} {kpi.unit}
-                          </Text>
-                          <Text style={[{ fontSize: 11, fontWeight: "600" }, { color: getStatusColor(kpi.status) }]}>
-                            {progress}%
-                          </Text>
-                        </View>
-                        <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-                          <View
-                            style={[
-                              styles.progressFill,
-                              {
-                                width: `${progress}%`,
-                                backgroundColor: getStatusColor(kpi.status),
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-
-                      {/* Status */}
-                      <Text style={[{ fontSize: 12, fontWeight: "600" }, { color: getStatusColor(kpi.status) }]}>
-                        {kpi.status === "on_track"
-                          ? isAr
-                            ? "على المسار"
-                            : "On Track"
-                          : kpi.status === "at_risk"
-                          ? isAr
-                            ? "معرض للخطر"
-                            : "At Risk"
-                          : kpi.status === "off_track"
-                          ? isAr
-                            ? "خارج المسار"
-                            : "Off Track"
-                          : isAr
-                          ? "متجاوز"
-                          : "Exceeded"}
-                      </Text>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-          </View>
-        )}
-      </ScrollView>
+      {/* Content */}
+      <View style={{ flex: 1, padding: 12 }}>
+        {activeTab === "goals" ? renderGoalsTab() : renderKpisTab()}
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    flex: 1,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === "ios" ? 16 : 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  monthSelector: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 12,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  monthText: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  tabsContainer: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    paddingHorizontal: 12,
   },
   tab: {
+    flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  activeTab: {
+    borderBottomWidth: 3,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  formCard: {
+  form: {
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  departmentTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    marginBottom: 12,
   },
   input: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
     fontSize: 14,
   },
-  saveButton: {
-    borderRadius: 8,
+  submitButton: {
     paddingVertical: 12,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   goalCard: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  goalTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  goalDept: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  goalDetails: {
     marginBottom: 8,
   },
   kpiCard: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 12,
-    marginBottom: 8,
+    marginBottom: 12,
+    borderWidth: 1,
   },
-  progressBar: {
+  kpiHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  kpiTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  kpiDept: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  progressContainer: {
     height: 8,
+    backgroundColor: "#e5e7eb",
     borderRadius: 4,
     overflow: "hidden",
+    marginBottom: 12,
   },
-  progressFill: {
+  progressBar: {
     height: "100%",
     borderRadius: 4,
+  },
+  kpiStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginTop: 2,
+  },
+  trendContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  deleteButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 14,
   },
 });
