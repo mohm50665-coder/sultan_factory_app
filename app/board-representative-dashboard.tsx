@@ -61,156 +61,41 @@ export default function BoardRepresentativeDashboardScreen() {
     try {
       setIsLoading(true);
 
-      // Load KPIs
-      const mockKPIs: KPI[] = [
-        {
-          label: isAr ? "إجمالي الإنتاج" : "Total Production",
-          value: "45,230",
-          target: "50,000",
-          status: "warning",
-          icon: "factory",
-        },
-        {
-          label: isAr ? "نسبة الجودة" : "Quality Rate",
-          value: "96.5%",
-          target: "98%",
-          status: "good",
-          icon: "verified",
-        },
-        {
-          label: isAr ? "كفاءة الإنتاج" : "Production Efficiency",
-          value: "94.2%",
-          target: "95%",
-          status: "good",
+      // Load real KPIs from AsyncStorage
+      const savedKpis = await AsyncStorage.getItem("board_representative_kpis");
+      if (savedKpis) {
+        const parsedKpis = JSON.parse(savedKpis);
+        const mappedKpis: KPI[] = parsedKpis.map((k: any) => ({
+          label: k.name || k.label || "",
+          value: String(k.currentValue || k.value || "0"),
+          target: String(k.targetValue || k.target || "0"),
+          status: k.status === "on-track" ? "good" : k.status === "at-risk" ? "warning" : "critical",
           icon: "trending-up",
-        },
-        {
-          label: isAr ? "تكلفة الإنتاج" : "Production Cost",
-          value: "52,300 ريال",
-          target: "50,000 ريال",
-          status: "critical",
-          icon: "payments",
-        },
-        {
-          label: isAr ? "معدل الأمان" : "Safety Rate",
-          value: "99.2%",
-          target: "100%",
-          status: "good",
-          icon: "security",
-        },
-        {
-          label: isAr ? "رضا الموظفين" : "Employee Satisfaction",
-          value: "87%",
-          target: "90%",
-          status: "warning",
-          icon: "sentiment-satisfied",
-        },
-      ];
-
-      setKpis(mockKPIs);
-
-      // Load Admin Procedures
-      const mockProcedures: AdminProcedure[] = [
-        {
-          id: "1",
-          type: isAr ? "طلب إجازة" : "Leave Request",
-          employee: "أحمد محمد",
-          status: "pending",
-          date: "2026-06-06",
-        },
-        {
-          id: "2",
-          type: isAr ? "طلب سلفة" : "Advance Request",
-          employee: "فاطمة علي",
-          status: "approved",
-          date: "2026-06-05",
-        },
-        {
-          id: "3",
-          type: isAr ? "طلب نقل" : "Transfer Request",
-          employee: "محمد عمر",
-          status: "pending",
-          date: "2026-06-04",
-        },
-        {
-          id: "4",
-          type: isAr ? "طلب تدريب" : "Training Request",
-          employee: "سارة حسن",
-          status: "rejected",
-          date: "2026-06-03",
-        },
-      ];
-
-      setProcedures(mockProcedures);
-
-      // Load Performance Metrics
-      const mockMetrics: PerformanceMetric[] = [
-        {
-          department: isAr ? "الإنتاج" : "Production",
-          efficiency: 94,
-          quality: 96,
-          safety: 99,
-          overall: 96,
-        },
-        {
-          department: isAr ? "المستودع" : "Warehouse",
-          efficiency: 92,
-          quality: 94,
-          safety: 98,
-          overall: 95,
-        },
-        {
-          department: isAr ? "المبيعات" : "Sales",
-          efficiency: 88,
-          quality: 90,
-          safety: 95,
-          overall: 91,
-        },
-        {
-          department: isAr ? "الصيانة" : "Maintenance",
-          efficiency: 91,
-          quality: 93,
-          safety: 97,
-          overall: 94,
-        },
-      ];
-
-      setMetrics(mockMetrics);
-
-      // Prepare chart data
-      const labels = mockMetrics.map((m) =>
-        m.department.substring(0, 3)
-      );
-      const efficiencyData = mockMetrics.map((m) => m.efficiency);
-
-      setChartData({
-        labels,
-        datasets: [
-          {
-            data: efficiencyData,
-            color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-          },
-        ],
-      });
-
-      // Generate alerts
-      const alertsList: string[] = [];
-      if (mockKPIs[3].status === "critical") {
-        alertsList.push(
-          isAr
-            ? "تكلفة الإنتاج تجاوزت الحد المسموح"
-            : "Production cost exceeded limit"
-        );
-      }
-      if (mockProcedures.filter((p) => p.status === "pending").length > 0) {
-        alertsList.push(
-          isAr
-            ? `${mockProcedures.filter((p) => p.status === "pending").length} إجراءات إدارية معلقة`
-            : `${mockProcedures.filter((p) => p.status === "pending").length} pending procedures`
-        );
+        }));
+        setKpis(mappedKpis);
+      } else {
+        setKpis([]);
       }
 
-      setAlerts(alertsList);
+      // Load real board data from AsyncStorage
+      const savedData = await AsyncStorage.getItem("board_representative_data");
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        const mappedProcs: AdminProcedure[] = parsedData.slice(0, 10).map((d: any) => ({
+          id: String(d.id),
+          type: d.title || d.category || "",
+          employee: d.content || "",
+          status: "approved" as const,
+          date: d.date || "",
+        }));
+        setProcedures(mappedProcs);
+      } else {
+        setProcedures([]);
+      }
+
+      setMetrics([]);
+      setChartData(null);
+      setAlerts([]);
     } catch (error) {
       console.error("Error loading dashboard:", error);
     } finally {

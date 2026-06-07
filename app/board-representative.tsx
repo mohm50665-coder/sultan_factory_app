@@ -18,6 +18,10 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const BOARD_STORAGE_KEY = "board_representative_data";
+const BOARD_KPI_KEY = "board_representative_kpis";
 
 interface BoardData {
   id: number;
@@ -54,37 +58,37 @@ export default function BoardRepresentativeScreen() {
   const isAr = language === "ar";
 
   const [activeTab, setActiveTab] = useState<"data" | "kpis" | "reports">("data");
-  const [boardData, setBoardData] = useState<BoardData[]>([
-    {
-      id: 1,
-      date: new Date().toISOString().split("T")[0],
-      title: "إجمالي الإنتاج اليومي",
-      category: "primary",
-      content: "1,250 درزن",
-      status: "active",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ]);
+  const [boardData, setBoardData] = useState<BoardData[]>([]);
+  const [kpis, setKpis] = useState<KPIData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [kpis, setKpis] = useState<KPIData[]>([
-    {
-      id: 1,
-      name: "إجمالي الإنتاج",
-      targetValue: 1000,
-      currentValue: 850,
-      unit: "درزن",
-      status: "at-risk",
-    },
-    {
-      id: 2,
-      name: "نسبة الجودة",
-      targetValue: 98,
-      currentValue: 96.5,
-      unit: "%",
-      status: "on-track",
-    },
-  ]);
+  // Load saved data from AsyncStorage
+  useEffect(() => {
+    const loadSavedData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem(BOARD_STORAGE_KEY);
+        if (savedData) setBoardData(JSON.parse(savedData));
+        const savedKpis = await AsyncStorage.getItem(BOARD_KPI_KEY);
+        if (savedKpis) setKpis(JSON.parse(savedKpis));
+      } catch (e) {
+        console.error("Error loading board data:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSavedData();
+  }, []);
+
+  // Save data whenever it changes
+  const saveBoardData = async (data: BoardData[]) => {
+    setBoardData(data);
+    await AsyncStorage.setItem(BOARD_STORAGE_KEY, JSON.stringify(data));
+  };
+
+  const saveKpis = async (data: KPIData[]) => {
+    setKpis(data);
+    await AsyncStorage.setItem(BOARD_KPI_KEY, JSON.stringify(data));
+  };
 
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState<BoardData | null>(null);
@@ -115,20 +119,19 @@ export default function BoardRepresentativeScreen() {
     setShowModal(true);
   };
 
-  const handleSaveData = () => {
+  const handleSaveData = async () => {
     if (!formData.title || !formData.content) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء ملء البيانات المطلوبة" : "Please fill required fields");
       return;
     }
 
     if (editingData) {
-      setBoardData(
-        boardData.map(d =>
-          d.id === editingData.id
-            ? { ...editingData, ...formData, updatedAt: new Date().toISOString() }
-            : d
-        ) as BoardData[]
-      );
+      const updated = boardData.map(d =>
+        d.id === editingData.id
+          ? { ...editingData, ...formData, updatedAt: new Date().toISOString() }
+          : d
+      ) as BoardData[];
+      await saveBoardData(updated);
     } else {
       const newData: BoardData = {
         id: Math.max(...boardData.map(d => d.id), 0) + 1,
@@ -140,7 +143,7 @@ export default function BoardRepresentativeScreen() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      setBoardData([...boardData, newData]);
+      await saveBoardData([...boardData, newData]);
     }
     setShowModal(false);
     Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم حفظ البيانات" : "Data saved successfully");
@@ -155,8 +158,9 @@ export default function BoardRepresentativeScreen() {
         {
           text: isAr ? "حذف" : "Delete",
           style: "destructive",
-          onPress: () => {
-            setBoardData(boardData.filter(d => d.id !== id));
+          onPress: async () => {
+            const updated = boardData.filter(d => d.id !== id);
+            await saveBoardData(updated);
             Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف البيانات" : "Data deleted");
           },
         },

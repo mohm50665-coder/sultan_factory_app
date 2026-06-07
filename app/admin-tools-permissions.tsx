@@ -126,11 +126,20 @@ export default function AdminToolsPermissionsScreen() {
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
+      {/* Header with Back Button */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 12 }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 12, flex: 1 }}>
+          صلاحيات الأدوات
+        </Text>
+      </View>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={{ padding: 16, gap: 16 }}>
           {/* Header */}
           <View style={{ marginBottom: 8 }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.foreground, marginBottom: 4 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.foreground, marginBottom: 4 }}>
               صلاحيات الأدوات الإضافية
             </Text>
             <Text style={{ fontSize: 14, color: colors.muted }}>

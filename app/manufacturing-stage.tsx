@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface ProductItem {
   productName: string;
@@ -116,6 +117,31 @@ export default function ManufacturingStageScreen() {
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const isStorageStage = stage === "storage";
+
+  // Load workers from admin panel (AsyncStorage) if available
+  const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
+  useEffect(() => {
+    const loadAdminWorkers = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("admin_stages_data");
+        if (saved) {
+          const adminStages = JSON.parse(saved);
+          const found = adminStages.find((s: any) => s.id === stage);
+          if (found && found.workers && found.workers.length > 0) {
+            const names = found.workers.map((w: any) => w.name);
+            // Add "الجميع" for stages that had it
+            if (config.workers.includes("الجميع")) {
+              names.push("الجميع");
+            }
+            setStageWorkers(names);
+          }
+        }
+      } catch (e) {
+        console.log("Error loading admin workers:", e);
+      }
+    };
+    loadAdminWorkers();
+  }, [stage]);
 
   const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
   const isStageWorker = user?.department && MANUFACTURING_STAGE_IDS.includes(user.department) && user.department === stage;
@@ -457,7 +483,7 @@ export default function ManufacturingStageScreen() {
                 اسم العامل
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                {config.workers.map((worker) => (
+                {stageWorkers.map((worker) => (
                   <TouchableOpacity
                     key={worker}
                     onPress={() => setSelectedWorker(worker)}
@@ -724,7 +750,7 @@ export default function ManufacturingStageScreen() {
                   العمال في هذه المرحلة:
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                  {config.workers.map((worker) => (
+                  {stageWorkers.map((worker) => (
                     <View key={worker} style={{ backgroundColor: `${config.color}15`, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 }}>
                       <Text style={{ color: config.color, fontWeight: "600", fontSize: 13 }}>{worker}</Text>
                     </View>

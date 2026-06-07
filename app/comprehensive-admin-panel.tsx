@@ -4,503 +4,715 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
   TextInput,
   Alert,
-  Platform,
-  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Modal,
+  Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
-import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type AdminTab = "employees" | "departments" | "machines" | "stages" | "boardData" | "settings" | "auditLog";
+// ===== STORAGE KEYS =====
+const STORAGE_KEYS = {
+  STAGES: "admin_stages_data",
+  BOARD_DATA: "board_representative_data",
+  BOARD_KPIS: "board_representative_kpis",
+};
 
-interface Employee {
-  id: number;
+// ===== TYPES =====
+interface StageWorker {
+  id: string;
   name: string;
-  username: string;
-  department: string;
-  position: string;
-  role: string;
+  nameEn: string;
 }
 
-interface Department {
-  id: number;
-  name: string;
-  nameEn?: string;
-  description?: string;
-  isActive: number;
+interface Stage {
+  id: string;
+  label: string;
+  labelEn: string;
+  icon: string;
+  color: string;
+  workers: StageWorker[];
 }
 
-interface Machine {
-  id: number;
-  machineCode: string;
-  machineName: string;
-  department: string;
-  status: string;
-}
+type ActiveSection = "stages" | "permissions" | "board" | "settings";
 
-interface BoardData {
-  id: number;
-  userId: number;
-  dataType: string;
-  value: string;
-  date: string;
-}
+// ===== AVAILABLE TOOLS (for permissions) =====
+const AVAILABLE_TOOLS = [
+  { id: "advanced_analytics", labelAr: "التحليلات المتقدمة", labelEn: "Advanced Analytics", icon: "insights", color: "#0891b2" },
+  { id: "export_reports", labelAr: "تصدير التقارير PDF", labelEn: "Export Reports PDF", icon: "picture-as-pdf", color: "#dc2626" },
+  { id: "cost_comparison", labelAr: "تقرير مقارنة التكاليف", labelEn: "Cost Comparison Report", icon: "trending-down", color: "#f97316" },
+  { id: "product_cost_calculator", labelAr: "حساب تكاليف منتج جديد", labelEn: "Product Cost Calculator", icon: "calculate", color: "#8b5cf6" },
+  { id: "activity_log", labelAr: "سجل التعديلات", labelEn: "Activity Log", icon: "history", color: "#6366f1" },
+  { id: "global_search", labelAr: "البحث الشامل", labelEn: "Global Search", icon: "search", color: "#06b6d4" },
+  { id: "data_backup", labelAr: "النسخ الاحتياطي", labelEn: "Data Backup", icon: "backup", color: "#14b8a6" },
+  { id: "user_management", labelAr: "إدارة المستخدمين", labelEn: "User Management", icon: "people", color: "#f59e0b" },
+];
+
+// ===== DEFAULT STAGES =====
+const DEFAULT_STAGES: Stage[] = [
+  {
+    id: "machines",
+    label: "إنتاج المكائن",
+    labelEn: "Machine Production",
+    icon: "precision-manufacturing",
+    color: "#0a7ea4",
+    workers: [
+      { id: "w1", name: "رنا", nameEn: "Rana" },
+      { id: "w2", name: "محمد احمد", nameEn: "Mohammed Ahmed" },
+      { id: "w3", name: "أفضل", nameEn: "Afzal" },
+      { id: "w4", name: "عطالله", nameEn: "Atallah" },
+      { id: "w5", name: "شفيق", nameEn: "Shafiq" },
+    ],
+  },
+  {
+    id: "rosso",
+    label: "الروسو",
+    labelEn: "Rosso",
+    icon: "loop",
+    color: "#7c3aed",
+    workers: [
+      { id: "w6", name: "فريدو", nameEn: "Fredo" },
+      { id: "w7", name: "قيوم", nameEn: "Qayyum" },
+    ],
+  },
+  {
+    id: "qalb",
+    label: "القلب",
+    labelEn: "Turning",
+    icon: "flip",
+    color: "#059669",
+    workers: [{ id: "w8", name: "حسين السوري", nameEn: "Hussein Al-Suri" }],
+  },
+  {
+    id: "kawiya",
+    label: "الكاوية",
+    labelEn: "Ironing",
+    icon: "local-fire-department",
+    color: "#dc2626",
+    workers: [{ id: "w9", name: "جنيد", nameEn: "Junaid" }],
+  },
+  {
+    id: "inspection",
+    label: "الفحص",
+    labelEn: "Inspection",
+    icon: "search",
+    color: "#d97706",
+    workers: [
+      { id: "w10", name: "عارف", nameEn: "Aref" },
+      { id: "w11", name: "انام الدين", nameEn: "Anamuddin" },
+    ],
+  },
+  {
+    id: "packing",
+    label: "التغليف",
+    labelEn: "Packing",
+    icon: "inventory-2",
+    color: "#2563eb",
+    workers: [
+      { id: "w12", name: "محمد عمر", nameEn: "Mohammed Omar" },
+      { id: "w13", name: "غلام", nameEn: "Ghulam" },
+      { id: "w14", name: "بشير", nameEn: "Bashir" },
+    ],
+  },
+  {
+    id: "antislip",
+    label: "مانع الانزلاق",
+    labelEn: "Anti-slip",
+    icon: "layers",
+    color: "#0891b2",
+    workers: [
+      { id: "w15", name: "محمد عمر", nameEn: "Mohammed Omar" },
+      { id: "w16", name: "مرتضى", nameEn: "Murtadha" },
+      { id: "w17", name: "أوجيل", nameEn: "Ogil" },
+    ],
+  },
+  {
+    id: "storage",
+    label: "التخزين",
+    labelEn: "Storage",
+    icon: "warehouse",
+    color: "#4f46e5",
+    workers: [{ id: "w18", name: "شميم", nameEn: "Shamim" }],
+  },
+];
 
 export default function ComprehensiveAdminPanel() {
   const router = useRouter();
   const colors = useColors();
-  const { language, isRtl } = useLanguage();
-  const { user } = useAuth();
+  const { language } = useLanguage();
   const isAr = language === "ar";
 
-  const [activeTab, setActiveTab] = useState<AdminTab>("employees");
-  const [searchText, setSearchText] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [activeSection, setActiveSection] = useState<ActiveSection>("stages");
+  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch employees
-  const { data: employees, isLoading: employeesLoading, refetch: refetchEmployees } = useQuery({
-    queryKey: ["employees"],
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/users");
-        return response.json();
-      } catch (error) {
-        console.error("Error fetching employees:", error);
-        return [];
+  // Worker modal
+  const [showWorkerModal, setShowWorkerModal] = useState(false);
+  const [editingWorker, setEditingWorker] = useState<StageWorker | null>(null);
+  const [selectedStage, setSelectedStage] = useState<Stage | null>(null);
+  const [workerName, setWorkerName] = useState("");
+  const [workerNameEn, setWorkerNameEn] = useState("");
+
+  // Permissions
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      // Load stages
+      const saved = await AsyncStorage.getItem(STORAGE_KEYS.STAGES);
+      if (saved) setStages(JSON.parse(saved));
+      // Load users
+      const usersData = await AsyncStorage.getItem("users");
+      if (usersData) setUsers(JSON.parse(usersData));
+    } catch (e) {
+      console.error("Error loading data:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveStages = async (newStages: Stage[]) => {
+    setStages(newStages);
+    await AsyncStorage.setItem(STORAGE_KEYS.STAGES, JSON.stringify(newStages));
+  };
+
+  // ===== WORKER MANAGEMENT =====
+  const handleAddWorker = (stage: Stage) => {
+    setSelectedStage(stage);
+    setEditingWorker(null);
+    setWorkerName("");
+    setWorkerNameEn("");
+    setShowWorkerModal(true);
+  };
+
+  const handleEditWorker = (stage: Stage, worker: StageWorker) => {
+    setSelectedStage(stage);
+    setEditingWorker(worker);
+    setWorkerName(worker.name);
+    setWorkerNameEn(worker.nameEn);
+    setShowWorkerModal(true);
+  };
+
+  const handleSaveWorker = async () => {
+    if (!workerName.trim()) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى إدخال اسم الموظف" : "Please enter worker name");
+      return;
+    }
+    if (!selectedStage) return;
+
+    const updatedStages = stages.map((s) => {
+      if (s.id !== selectedStage.id) return s;
+      if (editingWorker) {
+        return {
+          ...s,
+          workers: s.workers.map((w) =>
+            w.id === editingWorker.id ? { ...w, name: workerName.trim(), nameEn: workerNameEn.trim() || workerName.trim() } : w
+          ),
+        };
+      } else {
+        const newWorker: StageWorker = {
+          id: `w_${Date.now()}`,
+          name: workerName.trim(),
+          nameEn: workerNameEn.trim() || workerName.trim(),
+        };
+        return { ...s, workers: [...s.workers, newWorker] };
       }
-    },
-  });
+    });
 
-  // Fetch departments
-  const { data: departments, isLoading: departmentsLoading, refetch: refetchDepartments } = useQuery({
-    queryKey: ["departments"],
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/admin/departments");
-        return response.json();
-      } catch (error) {
-        console.error("Error fetching departments:", error);
-        return [];
-      }
-    },
-  });
+    await saveStages(updatedStages);
+    setShowWorkerModal(false);
+    Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ التعديلات" : "Changes saved");
+  };
 
-  // Fetch machines
-  const { data: machines, isLoading: machinesLoading, refetch: refetchMachines } = useQuery({
-    queryKey: ["machines"],
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/admin/machines");
-        return response.json();
-      } catch (error) {
-        console.error("Error fetching machines:", error);
-        return [];
-      }
-    },
-  });
-
-  // Fetch board data
-  const { data: boardData, isLoading: boardDataLoading, refetch: refetchBoardData } = useQuery({
-    queryKey: ["boardData"],
-    queryFn: async () => {
-      try {
-        const response = await fetch("/api/admin/board-data");
-        return response.json();
-      } catch (error) {
-        console.error("Error fetching board data:", error);
-        return [];
-      }
-    },
-  });
-
-  // Delete employee mutation
-  const deleteEmployeeMutation = useMutation({
-    mutationFn: async (userId: number) => {
-      const response = await fetch(`/api/users/${userId}`, { method: "DELETE" });
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchEmployees();
-      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف الموظف بنجاح" : "Employee deleted successfully");
-    },
-  });
-
-  // Delete board data mutation
-  const deleteBoardDataMutation = useMutation({
-    mutationFn: async (dataId: number) => {
-      const response = await fetch(`/api/admin/board-data/${dataId}`, { method: "DELETE" });
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchBoardData();
-      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف البيانات بنجاح" : "Data deleted successfully");
-    },
-  });
-
-  // Clear all board data mutation
-  const clearAllBoardDataMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch("/api/admin/board-data/clear-all", { method: "POST" });
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchBoardData();
-      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تصفير جميع البيانات بنجاح" : "All data cleared successfully");
-    },
-  });
-
-  const handleDeleteEmployee = (employeeId: number, employeeName: string) => {
+  const handleDeleteWorker = (stage: Stage, worker: StageWorker) => {
     Alert.alert(
       isAr ? "تأكيد الحذف" : "Confirm Delete",
-      isAr ? `هل تريد حذف الموظف ${employeeName}؟` : `Are you sure you want to delete ${employeeName}?`,
+      isAr ? `حذف "${worker.name}" من ${stage.label}؟` : `Delete "${worker.nameEn}" from ${stage.labelEn}?`,
       [
-        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
           text: isAr ? "حذف" : "Delete",
-          onPress: () => deleteEmployeeMutation.mutate(employeeId),
           style: "destructive",
+          onPress: async () => {
+            const updatedStages = stages.map((s) => {
+              if (s.id !== stage.id) return s;
+              return { ...s, workers: s.workers.filter((w) => w.id !== worker.id) };
+            });
+            await saveStages(updatedStages);
+          },
         },
       ]
     );
   };
 
-  const handleClearAllBoardData = () => {
+  const handleMoveWorker = (stage: Stage, worker: StageWorker) => {
+    const otherStages = stages.filter((s) => s.id !== stage.id);
+    Alert.alert(
+      isAr ? "نقل الموظف" : "Move Worker",
+      isAr ? `نقل "${worker.name}" إلى:` : `Move "${worker.nameEn}" to:`,
+      [
+        ...otherStages.map((t) => ({
+          text: isAr ? t.label : t.labelEn,
+          onPress: async () => {
+            const updatedStages = stages.map((s) => {
+              if (s.id === stage.id) return { ...s, workers: s.workers.filter((w) => w.id !== worker.id) };
+              if (s.id === t.id) return { ...s, workers: [...s.workers, worker] };
+              return s;
+            });
+            await saveStages(updatedStages);
+            Alert.alert(isAr ? "تم" : "Done", isAr ? `تم نقل ${worker.name}` : `Moved ${worker.nameEn}`);
+          },
+        })),
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  // ===== PERMISSIONS =====
+  const selectUser = async (u: any) => {
+    setSelectedUser(u);
+    try {
+      const perms = await AsyncStorage.getItem(`tool_permissions_${u.id}`);
+      if (perms) {
+        setUserPermissions(JSON.parse(perms));
+      } else {
+        const defaults: Record<string, boolean> = {};
+        AVAILABLE_TOOLS.forEach((t) => { defaults[t.id] = true; });
+        setUserPermissions(defaults);
+      }
+    } catch (e) {
+      console.error("Error loading permissions:", e);
+    }
+  };
+
+  const togglePermission = (toolId: string) => {
+    setUserPermissions((prev) => ({ ...prev, [toolId]: !prev[toolId] }));
+  };
+
+  const savePermissions = async () => {
+    if (!selectedUser) return;
+    await AsyncStorage.setItem(`tool_permissions_${selectedUser.id}`, JSON.stringify(userPermissions));
+    Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
+  };
+
+  // ===== BOARD/RESET =====
+  const handleClearBoardData = () => {
     Alert.alert(
       isAr ? "تأكيد التصفير" : "Confirm Clear",
-      isAr ? "هل تريد تصفير جميع بيانات ممثل مجلس الإدارة؟ هذا الإجراء لا يمكن التراجع عنه" : "Are you sure you want to clear all board representative data? This action cannot be undone.",
+      isAr ? "سيتم حذف جميع بيانات ممثل مجلس الإدارة نهائياً" : "All board data will be permanently deleted",
       [
-        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
           text: isAr ? "تصفير" : "Clear",
-          onPress: () => clearAllBoardDataMutation.mutate(),
           style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem(STORAGE_KEYS.BOARD_DATA);
+            await AsyncStorage.removeItem(STORAGE_KEYS.BOARD_KPIS);
+            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصفير جميع البيانات" : "All data cleared");
+          },
         },
       ]
     );
   };
 
-  const renderEmployeesTab = () => (
-    <View style={{ flex: 1 }}>
-      <TouchableOpacity
-        onPress={() => router.push("/users-management")}
-        style={[styles.actionButton, { backgroundColor: colors.primary }]}
-      >
-        <MaterialIcons name="person-add" size={20} color="#fff" />
-        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
-          {isAr ? "إضافة موظف جديد" : "Add New Employee"}
-        </Text>
-      </TouchableOpacity>
+  const handleResetStages = () => {
+    Alert.alert(
+      isAr ? "إعادة تعيين" : "Reset",
+      isAr ? "إرجاع المراحل والموظفين للوضع الافتراضي؟" : "Reset stages and workers to defaults?",
+      [
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+        {
+          text: isAr ? "إعادة تعيين" : "Reset",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem(STORAGE_KEYS.STAGES);
+            setStages(DEFAULT_STAGES);
+            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم إعادة التعيين" : "Reset complete");
+          },
+        },
+      ]
+    );
+  };
 
-      <TextInput
-        style={[styles.searchInput, { color: colors.foreground, borderColor: colors.border }]}
-        placeholder={isAr ? "ابحث عن موظف..." : "Search employee..."}
-        placeholderTextColor={colors.muted}
-        value={searchText}
-        onChangeText={setSearchText}
-      />
+  // ===== RENDER: STAGES =====
+  const renderStagesSection = () => (
+    <View style={{ gap: 12 }}>
+      <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+        {isAr ? "إدارة الموظفين في مراحل تسليم الإنتاج (إضافة، حذف، تعديل، نقل)" : "Manage workers in production stages (add, delete, edit, move)"}
+      </Text>
+      {stages.map((stage) => (
+        <View key={stage.id} style={[styles.stageCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.stageHeader}>
+            <View style={[styles.stageIcon, { backgroundColor: `${stage.color}15` }]}>
+              <MaterialIcons name={stage.icon as any} size={22} color={stage.color} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.stageTitle, { color: colors.foreground }]}>
+                {isAr ? stage.label : stage.labelEn}
+              </Text>
+              <Text style={{ fontSize: 11, color: colors.muted }}>
+                {stage.workers.length} {isAr ? "موظف" : "workers"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => handleAddWorker(stage)}
+              style={[styles.addWorkerBtn, { backgroundColor: stage.color }]}
+            >
+              <MaterialIcons name="person-add" size={14} color="#fff" />
+              <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600", marginLeft: 4 }}>
+                {isAr ? "إضافة" : "Add"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      {employeesLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={employees?.filter((emp: Employee) =>
-            emp.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            emp.username.toLowerCase().includes(searchText.toLowerCase())
-          )}
-          keyExtractor={(item: Employee) => item.id.toString()}
-          renderItem={({ item }: { item: Employee }) => (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.name}</Text>
-                <Text style={[styles.cardSubtitle, { color: colors.muted }]}>@{item.username}</Text>
-                <Text style={[styles.cardDetail, { color: colors.muted }]}>
-                  {isAr ? "القسم: " : "Department: "}{item.department}
-                </Text>
-                <Text style={[styles.cardDetail, { color: colors.muted }]}>
-                  {isAr ? "الدور: " : "Role: "}{item.role}
-                </Text>
-              </View>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  onPress={() => router.push("/users-management")}
-                  style={styles.actionIcon}
-                >
-                  <MaterialIcons name="edit" size={20} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDeleteEmployee(item.id, item.name)}
-                  style={styles.actionIcon}
-                >
-                  <MaterialIcons name="delete" size={20} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
+          {stage.workers.length > 0 && (
+            <View style={{ gap: 6, marginTop: 10 }}>
+              {stage.workers.map((worker) => (
+                <View key={worker.id} style={[styles.workerRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.workerName, { color: colors.foreground }]}>{worker.name}</Text>
+                  </View>
+                  <View style={styles.workerActions}>
+                    <TouchableOpacity onPress={() => handleEditWorker(stage, worker)} style={styles.workerActionBtn}>
+                      <MaterialIcons name="edit" size={15} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleMoveWorker(stage, worker)} style={styles.workerActionBtn}>
+                      <MaterialIcons name="swap-horiz" size={15} color="#f59e0b" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteWorker(stage, worker)} style={styles.workerActionBtn}>
+                      <MaterialIcons name="close" size={15} color="#ef4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
             </View>
           )}
-          scrollEnabled={false}
-        />
-      )}
+        </View>
+      ))}
     </View>
   );
 
-  const renderBoardDataTab = () => (
-    <View style={{ flex: 1 }}>
-      <TouchableOpacity
-        onPress={handleClearAllBoardData}
-        style={[styles.actionButton, { backgroundColor: "#ef4444" }]}
-      >
-        <MaterialIcons name="delete-sweep" size={20} color="#fff" />
-        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
-          {isAr ? "تصفير جميع البيانات" : "Clear All Data"}
-        </Text>
-      </TouchableOpacity>
+  // ===== RENDER: PERMISSIONS =====
+  const renderPermissionsSection = () => (
+    <View style={{ gap: 12 }}>
+      <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+        {isAr ? "تحديد الأدوات الإضافية المتاحة لكل مستخدم" : "Set which extra tools each user can access"}
+      </Text>
 
-      {boardDataLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+      {/* User Selection */}
+      {users.length === 0 ? (
+        <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <MaterialIcons name="info-outline" size={20} color={colors.muted} />
+          <Text style={{ flex: 1, marginLeft: 10, fontSize: 13, color: colors.muted }}>
+            {isAr ? "لا يوجد مستخدمين مسجلين بعد" : "No registered users yet"}
+          </Text>
+        </View>
       ) : (
-        <FlatList
-          data={boardData}
-          keyExtractor={(item: BoardData) => item.id.toString()}
-          renderItem={({ item }: { item: BoardData }) => (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.dataType}</Text>
-                <Text style={[styles.cardSubtitle, { color: colors.muted }]}>{item.value}</Text>
-                <Text style={[styles.cardDetail, { color: colors.muted }]}>
-                  {isAr ? "التاريخ: " : "Date: "}{item.date}
-                </Text>
-              </View>
+        <>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+            {isAr ? "اختر المستخدم:" : "Select user:"}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {users.map((u) => (
               <TouchableOpacity
-                onPress={() => deleteBoardDataMutation.mutate(item.id)}
-                style={styles.actionIcon}
+                key={u.id}
+                onPress={() => selectUser(u)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: selectedUser?.id === u.id ? colors.primary : colors.surface,
+                  borderWidth: 1,
+                  borderColor: selectedUser?.id === u.id ? colors.primary : colors.border,
+                }}
               >
-                <MaterialIcons name="delete" size={20} color="#ef4444" />
+                <Text style={{ color: selectedUser?.id === u.id ? "#fff" : colors.foreground, fontWeight: "600", fontSize: 13 }}>
+                  {u.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {selectedUser && (
+            <View style={{ gap: 8, marginTop: 8 }}>
+              <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <MaterialIcons name="person" size={18} color={colors.primary} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>{selectedUser.name}</Text>
+                  <Text style={{ fontSize: 12, color: colors.muted }}>
+                    {selectedUser.department || (isAr ? "بدون قسم" : "No department")} • {selectedUser.role || "user"}
+                  </Text>
+                </View>
+              </View>
+
+              {AVAILABLE_TOOLS.map((tool) => (
+                <View
+                  key={tool.id}
+                  style={[styles.permissionRow, { backgroundColor: colors.surface, borderColor: userPermissions[tool.id] ? tool.color + "40" : colors.border }]}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 10 }}>
+                    <View style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: tool.color + "15", justifyContent: "center", alignItems: "center" }}>
+                      <MaterialIcons name={tool.icon as any} size={18} color={tool.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+                        {isAr ? tool.labelAr : tool.labelEn}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={userPermissions[tool.id] || false}
+                    onValueChange={() => togglePermission(tool.id)}
+                    trackColor={{ false: colors.border, true: colors.primary + "60" }}
+                    thumbColor={userPermissions[tool.id] ? colors.primary : colors.muted}
+                  />
+                </View>
+              ))}
+
+              <TouchableOpacity
+                onPress={savePermissions}
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              >
+                <MaterialIcons name="save" size={18} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "600", marginLeft: 8 }}>
+                  {isAr ? "حفظ الصلاحيات" : "Save Permissions"}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
-          scrollEnabled={false}
-        />
+        </>
       )}
     </View>
   );
 
-  const renderMachinesTab = () => (
-    <View style={{ flex: 1 }}>
+  // ===== RENDER: BOARD =====
+  const renderBoardSection = () => (
+    <View style={{ gap: 12 }}>
+      <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+        {isAr ? "تصفير بيانات ممثل مجلس الإدارة (الأرقام والمؤشرات)" : "Clear board representative data (numbers and KPIs)"}
+      </Text>
+
       <TouchableOpacity
-        onPress={() => setShowAddForm(!showAddForm)}
-        style={[styles.actionButton, { backgroundColor: colors.primary }]}
+        onPress={handleClearBoardData}
+        style={[styles.dangerBtn, { borderColor: "#ef4444" }]}
       >
-        <MaterialIcons name={showAddForm ? "close" : "add"} size={20} color="#fff" />
-        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
-          {isAr ? (showAddForm ? "إلغاء" : "إضافة مكينة جديدة") : (showAddForm ? "Cancel" : "Add New Machine")}
-        </Text>
+        <MaterialIcons name="delete-sweep" size={22} color="#ef4444" />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={[styles.dangerBtnTitle, { color: "#ef4444" }]}>
+            {isAr ? "تصفير جميع بيانات ممثل المجلس" : "Clear All Board Data"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+            {isAr ? "حذف جميع البيانات والمؤشرات نهائياً" : "Permanently delete all data and KPIs"}
+          </Text>
+        </View>
       </TouchableOpacity>
 
-      {machinesLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={machines}
-          keyExtractor={(item: Machine) => item.id.toString()}
-          renderItem={({ item }: { item: Machine }) => (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  {item.machineCode} - {item.machineName}
-                </Text>
-                <Text style={[styles.cardDetail, { color: colors.muted }]}>
-                  {isAr ? "القسم: " : "Department: "}{item.department}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor:
-                        item.status === "active"
-                          ? "#10b981"
-                          : item.status === "maintenance"
-                          ? "#f59e0b"
-                          : "#ef4444",
-                    },
-                  ]}
-                >
-                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
-                    {item.status}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-          scrollEnabled={false}
-        />
-      )}
+      <View style={{ height: 16 }} />
+
+      <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+        {isAr ? "إعادة تعيين مراحل الإنتاج" : "Reset production stages"}
+      </Text>
+
+      <TouchableOpacity
+        onPress={handleResetStages}
+        style={[styles.dangerBtn, { borderColor: "#f59e0b" }]}
+      >
+        <MaterialIcons name="restart-alt" size={22} color="#f59e0b" />
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={[styles.dangerBtnTitle, { color: "#f59e0b" }]}>
+            {isAr ? "إعادة تعيين المراحل والموظفين" : "Reset Stages & Workers"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+            {isAr ? "إرجاع الأسماء للوضع الافتراضي" : "Restore default worker names"}
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   );
 
-  const renderDepartmentsTab = () => (
-    <View style={{ flex: 1 }}>
+  // ===== RENDER: SETTINGS =====
+  const renderSettingsSection = () => (
+    <View style={{ gap: 12 }}>
+      <Text style={[styles.sectionDesc, { color: colors.muted }]}>
+        {isAr ? "إعدادات التطبيق والنظام" : "App and system settings"}
+      </Text>
+
       <TouchableOpacity
-        onPress={() => setShowAddForm(!showAddForm)}
-        style={[styles.actionButton, { backgroundColor: colors.primary }]}
+        onPress={() => router.push("/users-management" as any)}
+        style={[styles.settingsItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
       >
-        <MaterialIcons name={showAddForm ? "close" : "add"} size={20} color="#fff" />
-        <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>
-          {isAr ? (showAddForm ? "إلغاء" : "إضافة قسم جديد") : (showAddForm ? "Cancel" : "Add New Department")}
-        </Text>
+        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#f59e0b15", justifyContent: "center", alignItems: "center" }}>
+          <MaterialIcons name="people" size={20} color="#f59e0b" />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+            {isAr ? "إدارة المستخدمين" : "User Management"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            {isAr ? "إضافة، تعديل، حذف المستخدمين والأدوار" : "Add, edit, delete users and roles"}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
       </TouchableOpacity>
 
-      {departmentsLoading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-      ) : (
-        <FlatList
-          data={departments}
-          keyExtractor={(item: Department) => item.id.toString()}
-          renderItem={({ item }: { item: Department }) => (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.name}</Text>
-                {item.description && (
-                  <Text style={[styles.cardDetail, { color: colors.muted }]}>{item.description}</Text>
-                )}
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: item.isActive ? "#10b981" : "#ef4444" },
-                  ]}
-                >
-                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>
-                    {item.isActive ? (isAr ? "نشط" : "Active") : (isAr ? "غير نشط" : "Inactive")}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-          scrollEnabled={false}
-        />
-      )}
+      <TouchableOpacity
+        onPress={() => router.push("/admin-goals-kpis" as any)}
+        style={[styles.settingsItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
+        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#06b6d415", justifyContent: "center", alignItems: "center" }}>
+          <MaterialIcons name="trending-up" size={20} color="#06b6d4" />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+            {isAr ? "الأهداف ومؤشرات الأداء" : "Goals & KPIs"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            {isAr ? "تحديد أهداف شهرية ومتابعة الإنجاز" : "Set monthly goals and track progress"}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => router.push("/backup-restore" as any)}
+        style={[styles.settingsItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
+        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#14b8a615", justifyContent: "center", alignItems: "center" }}>
+          <MaterialIcons name="backup" size={20} color="#14b8a6" />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+            {isAr ? "النسخ الاحتياطي" : "Backup & Restore"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            {isAr ? "نسخ واستعادة بيانات التطبيق" : "Backup and restore app data"}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
+      </TouchableOpacity>
     </View>
   );
 
-  const renderSettingsTab = () => (
-    <View style={{ flex: 1 }}>
-      <View style={[styles.settingsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          {isAr ? "إدارة النظام" : "System Management"}
-        </Text>
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
-        <TouchableOpacity
-          onPress={() => router.push("/role-management")}
-          style={[styles.settingItem, { borderColor: colors.border }]}
-        >
-          <MaterialIcons name="security" size={24} color={colors.primary} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.settingTitle, { color: colors.foreground }]}>
-              {isAr ? "إدارة الأدوار والصلاحيات" : "Manage Roles & Permissions"}
-            </Text>
-            <Text style={[styles.settingSubtitle, { color: colors.muted }]}>
-              {isAr ? "تعديل صلاحيات المستخدمين" : "Edit user permissions"}
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => router.push("/backup-restore")}
-          style={[styles.settingItem, { borderColor: colors.border }]}
-        >
-          <MaterialIcons name="backup" size={24} color={colors.primary} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.settingTitle, { color: colors.foreground }]}>
-              {isAr ? "النسخ الاحتياطية" : "Backups"}
-            </Text>
-            <Text style={[styles.settingSubtitle, { color: colors.muted }]}>
-              {isAr ? "إنشاء واستعادة النسخ الاحتياطية" : "Create and restore backups"}
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => router.push("/activity-log")}
-          style={[styles.settingItem, { borderColor: colors.border }]}
-        >
-          <MaterialIcons name="history" size={24} color={colors.primary} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.settingTitle, { color: colors.foreground }]}>
-              {isAr ? "سجل النشاطات" : "Activity Log"}
-            </Text>
-            <Text style={[styles.settingSubtitle, { color: colors.muted }]}>
-              {isAr ? "عرض جميع التعديلات والأنشطة" : "View all modifications and activities"}
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const TABS = [
+    { id: "stages" as const, labelAr: "الموظفين", labelEn: "Workers", icon: "people" },
+    { id: "permissions" as const, labelAr: "الصلاحيات", labelEn: "Permissions", icon: "security" },
+    { id: "board" as const, labelAr: "تصفير", labelEn: "Reset", icon: "restart-alt" },
+    { id: "settings" as const, labelAr: "الإعدادات", labelEn: "Settings", icon: "settings" },
+  ];
 
   return (
-    <ScreenContainer className="p-0">
+    <ScreenContainer>
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name={isRtl ? "chevron-right" : "chevron-left"} size={28} color="#fff" />
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isAr ? "لوحة التحكم الشاملة" : "Comprehensive Admin Panel"}
+          {isAr ? "لوحة التحكم الشاملة" : "Admin Control Panel"}
         </Text>
-        <View style={{ width: 28 }} />
+        <View style={{ width: 32 }} />
       </View>
 
       {/* Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer}>
-        {[
-          { id: "employees", labelAr: "الموظفين", labelEn: "Employees", icon: "people" },
-          { id: "departments", labelAr: "الأقسام", labelEn: "Departments", icon: "domain" },
-          { id: "machines", labelAr: "المكائن", labelEn: "Machines", icon: "settings-input-composite" },
-          { id: "stages", labelAr: "المراحل", labelEn: "Stages", icon: "timeline" },
-          { id: "boardData", labelAr: "ممثل المجلس", labelEn: "Board Rep", icon: "person-outline" },
-          { id: "settings", labelAr: "الإعدادات", labelEn: "Settings", icon: "settings" },
-        ].map((tab) => (
+      <View style={[styles.tabsRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        {TABS.map((tab) => (
           <TouchableOpacity
             key={tab.id}
-            onPress={() => setActiveTab(tab.id as AdminTab)}
+            onPress={() => setActiveSection(tab.id)}
             style={[
-              styles.tab,
-              activeTab === tab.id && [styles.activeTab, { borderBottomColor: colors.primary }],
+              styles.tabItem,
+              activeSection === tab.id && { borderBottomColor: colors.primary, borderBottomWidth: 3 },
             ]}
           >
             <MaterialIcons
               name={tab.icon as any}
-              size={20}
-              color={activeTab === tab.id ? colors.primary : colors.muted}
+              size={16}
+              color={activeSection === tab.id ? colors.primary : colors.muted}
             />
-            <Text
-              style={[
-                styles.tabText,
-                { color: activeTab === tab.id ? colors.primary : colors.muted },
-              ]}
-            >
+            <Text style={[styles.tabLabel, { color: activeSection === tab.id ? colors.primary : colors.muted }]}>
               {isAr ? tab.labelAr : tab.labelEn}
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       {/* Content */}
-      <ScrollView style={{ flex: 1, padding: 12 }}>
-        {activeTab === "employees" && renderEmployeesTab()}
-        {activeTab === "departments" && renderDepartmentsTab()}
-        {activeTab === "machines" && renderMachinesTab()}
-        {activeTab === "boardData" && renderBoardDataTab()}
-        {activeTab === "settings" && renderSettingsTab()}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        {activeSection === "stages" && renderStagesSection()}
+        {activeSection === "permissions" && renderPermissionsSection()}
+        {activeSection === "board" && renderBoardSection()}
+        {activeSection === "settings" && renderSettingsSection()}
       </ScrollView>
+
+      {/* Worker Modal */}
+      <Modal visible={showWorkerModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              {editingWorker ? (isAr ? "تعديل موظف" : "Edit Worker") : (isAr ? "إضافة موظف" : "Add Worker")}
+            </Text>
+            {selectedStage && (
+              <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>
+                {isAr ? selectedStage.label : selectedStage.labelEn}
+              </Text>
+            )}
+
+            <Text style={[styles.inputLabel, { color: colors.foreground }]}>
+              {isAr ? "الاسم *" : "Name *"}
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              value={workerName}
+              onChangeText={setWorkerName}
+              placeholder={isAr ? "أدخل الاسم" : "Enter name"}
+              placeholderTextColor={colors.muted}
+            />
+
+            <Text style={[styles.inputLabel, { color: colors.foreground, marginTop: 12 }]}>
+              {isAr ? "الاسم بالإنجليزي (اختياري)" : "English name (optional)"}
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+              value={workerNameEn}
+              onChangeText={setWorkerNameEn}
+              placeholder={isAr ? "اختياري" : "Optional"}
+              placeholderTextColor={colors.muted}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity onPress={handleSaveWorker} style={[styles.modalBtn, { backgroundColor: colors.primary }]}>
+                <Text style={{ color: "#fff", fontWeight: "600" }}>{isAr ? "حفظ" : "Save"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowWorkerModal(false)} style={[styles.modalBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
+                <Text style={{ color: colors.foreground, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -508,117 +720,45 @@ export default function ComprehensiveAdminPanel() {
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === "ios" ? 16 : 12,
+    paddingVertical: 14,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  tabsContainer: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  tab: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderBottomWidth: 3,
-    borderBottomColor: "transparent",
-  },
-  activeTab: {
-    borderBottomWidth: 3,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4,
-  },
-  actionButton: {
+  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  tabsRow: { flexDirection: "row", borderBottomWidth: 1 },
+  tabItem: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    paddingVertical: 11,
+    gap: 4,
+    borderBottomWidth: 3,
+    borderBottomColor: "transparent",
   },
-  searchInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 12,
-    fontSize: 14,
-  },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  cardSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  cardDetail: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  cardActions: {
-    flexDirection: "row",
-    marginLeft: 8,
-  },
-  actionIcon: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginTop: 4,
-    alignSelf: "flex-start",
-  },
-  settingsSection: {
-    borderRadius: 8,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  settingTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  settingSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
+  tabLabel: { fontSize: 11, fontWeight: "600" },
+  sectionDesc: { fontSize: 13, marginBottom: 6 },
+  stageCard: { borderRadius: 12, padding: 14, borderWidth: 1 },
+  stageHeader: { flexDirection: "row", alignItems: "center" },
+  stageIcon: { width: 36, height: 36, borderRadius: 9, justifyContent: "center", alignItems: "center" },
+  stageTitle: { fontSize: 15, fontWeight: "bold" },
+  addWorkerBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+  workerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  workerName: { fontSize: 14, fontWeight: "500" },
+  workerActions: { flexDirection: "row", gap: 4 },
+  workerActionBtn: { padding: 5, borderRadius: 6 },
+  permissionRow: { flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 10, borderWidth: 1 },
+  saveBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 10, marginTop: 8 },
+  dangerBtn: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1.5 },
+  dangerBtnTitle: { fontSize: 14, fontWeight: "bold" },
+  infoCard: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1 },
+  settingsItem: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24 },
+  modalContent: { borderRadius: 16, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 4 },
+  inputLabel: { fontSize: 13, fontWeight: "600", marginBottom: 6 },
+  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
+  modalButtons: { flexDirection: "row", gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: "center" },
 });
