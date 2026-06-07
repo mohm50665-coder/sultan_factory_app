@@ -25,6 +25,9 @@ import {
   activityLog as activityLogTable,
   reports as reportsTable,
   productCostCalculation,
+  monthlyGoals as monthlyGoalsTable,
+  goalProgress as goalProgressTable,
+  kpis as kpisTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -1472,6 +1475,171 @@ export const appRouter = router({
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(bankBalanceTable).values(input);
         return { success: true, id: result[0].insertId };
+      }),
+  }),
+
+  // ===== GOALS & KPIs ROUTER =====
+  goalsAndKpis: router({
+    // Monthly Goals
+    getMonthlyGoals: protectedProcedure
+      .input(z.object({ month: z.string(), department: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const conditions = [eq(monthlyGoalsTable.month, input.month)];
+        if (input.department) {
+          conditions.push(eq(monthlyGoalsTable.department, input.department));
+        }
+        return db
+          .select()
+          .from(monthlyGoalsTable)
+          .where(and(...conditions))
+          .orderBy(desc(monthlyGoalsTable.createdAt));
+      }),
+
+    createMonthlyGoal: adminProcedure
+      .input(
+        z.object({
+          month: z.string(),
+          department: z.string(),
+          goalType: z.enum(["production", "sales", "quality", "efficiency", "safety", "custom"]),
+          goalName: z.string(),
+          targetValue: z.number(),
+          unit: z.string(),
+          weight: z.number().optional(),
+          description: z.string().optional(),
+          createdBy: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(monthlyGoalsTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateMonthlyGoal: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          targetValue: z.number().optional(),
+          status: z.enum(["active", "completed", "cancelled"]).optional(),
+          description: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(monthlyGoalsTable).set(updates).where(eq(monthlyGoalsTable.id, id));
+        return { success: true };
+      }),
+
+    deleteMonthlyGoal: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(monthlyGoalsTable).where(eq(monthlyGoalsTable.id, input.id));
+        return { success: true };
+      }),
+
+    // Goal Progress
+    getGoalProgress: protectedProcedure
+      .input(z.object({ goalId: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return db
+          .select()
+          .from(goalProgressTable)
+          .where(eq(goalProgressTable.goalId, input.goalId))
+          .orderBy(desc(goalProgressTable.date));
+      }),
+
+    recordGoalProgress: protectedProcedure
+      .input(
+        z.object({
+          goalId: z.number(),
+          date: z.string(),
+          achievedValue: z.number(),
+          percentage: z.number(),
+          notes: z.string().optional(),
+          recordedBy: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(goalProgressTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    // KPIs
+    getKpis: protectedProcedure
+      .input(z.object({ month: z.string(), department: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const conditions = [eq(kpisTable.month, input.month)];
+        if (input.department) {
+          conditions.push(eq(kpisTable.department, input.department));
+        }
+        return db
+          .select()
+          .from(kpisTable)
+          .where(and(...conditions))
+          .orderBy(desc(kpisTable.createdAt));
+      }),
+
+    createKpi: adminProcedure
+      .input(
+        z.object({
+          month: z.string(),
+          department: z.string(),
+          kpiName: z.string(),
+          kpiType: z.enum(["production", "quality", "efficiency", "safety", "financial", "custom"]),
+          currentValue: z.number(),
+          targetValue: z.number(),
+          previousValue: z.number().optional(),
+          unit: z.string(),
+          status: z.enum(["on_track", "at_risk", "off_track", "exceeded"]).optional(),
+          trend: z.enum(["up", "down", "stable"]).optional(),
+          notes: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(kpisTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateKpi: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          currentValue: z.number().optional(),
+          status: z.enum(["on_track", "at_risk", "off_track", "exceeded"]).optional(),
+          trend: z.enum(["up", "down", "stable"]).optional(),
+          notes: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const { id, ...updates } = input;
+        await db.update(kpisTable).set(updates).where(eq(kpisTable.id, id));
+        return { success: true };
+      }),
+
+    deleteKpi: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(kpisTable).where(eq(kpisTable.id, input.id));
+        return { success: true };
       }),
   }),
 });

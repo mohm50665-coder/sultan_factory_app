@@ -455,6 +455,18 @@ export default function HomeScreen() {
               <MaterialIcons name="settings" size={20} color="#7c3aed" />
             </View>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleNavigate("/admin-goals-kpis")}
+            style={[styles.adminButton, { borderColor: "#06b6d4", marginTop: 8 }]}
+          >
+            <MaterialIcons name="chevron-left" size={20} color="#06b6d4" />
+            <View style={styles.adminButtonContent}>
+              <Text style={[styles.adminButtonText, { color: "#06b6d4" }]}>
+                {isAr ? "الأهداف ومؤشرات الأداء" : "Goals & KPIs"}
+              </Text>
+              <MaterialIcons name="trending-up" size={20} color="#06b6d4" />
+            </View>
+          </TouchableOpacity>
         </View>
       )}
 

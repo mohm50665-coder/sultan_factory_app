@@ -146,6 +146,7 @@ function NavigationContent() {
       <Stack.Screen name="government-tenders" />
       <Stack.Screen name="meeting-request" />
       <Stack.Screen name="meeting-outputs" />
+      <Stack.Screen name="admin-goals-kpis" />
     </Stack>
   );
 }

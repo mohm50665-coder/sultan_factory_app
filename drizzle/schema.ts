@@ -436,3 +436,57 @@ export const productCostCalculation = mysqlTable("productCostCalculation", {
 });
 export type ProductCostCalculation = typeof productCostCalculation.$inferSelect;
 export type InsertProductCostCalculation = typeof productCostCalculation.$inferInsert;
+
+// جدول الأهداف الشهرية
+export const monthlyGoals = mysqlTable("monthlyGoals", {
+  id: int("id").autoincrement().primaryKey(),
+  month: varchar("month", { length: 20 }).notNull(), // YYYY-MM
+  department: varchar("department", { length: 255 }).notNull(), // اسم القسم
+  goalType: mysqlEnum("goalType", ["production", "sales", "quality", "efficiency", "safety", "custom"]).notNull(),
+  goalName: varchar("goalName", { length: 255 }).notNull(), // اسم الهدف (مثلاً: إنتاج 10000 درزن)
+  targetValue: int("targetValue").notNull(), // القيمة المستهدفة
+  unit: varchar("unit", { length: 50 }).notNull(), // الوحدة (درزن، ريال، ساعة، إلخ)
+  weight: int("weight").default(100), // وزن الهدف في حساب الأداء الكلي
+  description: text("description"), // وصف تفصيلي للهدف
+  status: mysqlEnum("status", ["active", "completed", "cancelled"]).default("active"),
+  createdBy: int("createdBy").notNull(), // معرف الأدمن الذي أنشأ الهدف
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type MonthlyGoal = typeof monthlyGoals.$inferSelect;
+export type InsertMonthlyGoal = typeof monthlyGoals.$inferInsert;
+
+// جدول تتبع إنجاز الأهداف
+export const goalProgress = mysqlTable("goalProgress", {
+  id: int("id").autoincrement().primaryKey(),
+  goalId: int("goalId").notNull(), // معرف الهدف
+  date: varchar("date", { length: 20 }).notNull(), // التاريخ
+  achievedValue: int("achievedValue").notNull(), // القيمة المحققة
+  percentage: int("percentage").default(0), // نسبة الإنجاز
+  notes: text("notes"), // ملاحظات
+  recordedBy: int("recordedBy").notNull(), // معرف المستخدم الذي سجل البيانات
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type GoalProgress = typeof goalProgress.$inferSelect;
+export type InsertGoalProgress = typeof goalProgress.$inferInsert;
+
+// جدول مؤشرات الأداء (KPIs)
+export const kpis = mysqlTable("kpis", {
+  id: int("id").autoincrement().primaryKey(),
+  month: varchar("month", { length: 20 }).notNull(), // YYYY-MM
+  department: varchar("department", { length: 255 }).notNull(), // اسم القسم
+  kpiName: varchar("kpiName", { length: 255 }).notNull(), // اسم المؤشر (مثلاً: معدل الإنتاجية)
+  kpiType: mysqlEnum("kpiType", ["production", "quality", "efficiency", "safety", "financial", "custom"]).notNull(),
+  currentValue: int("currentValue").notNull(), // القيمة الحالية
+  targetValue: int("targetValue").notNull(), // القيمة المستهدفة
+  previousValue: int("previousValue").default(0), // القيمة السابقة (للمقارنة)
+  unit: varchar("unit", { length: 50 }).notNull(), // الوحدة
+  status: mysqlEnum("status", ["on_track", "at_risk", "off_track", "exceeded"]).default("on_track"),
+  trend: mysqlEnum("trend", ["up", "down", "stable"]).default("stable"), // الاتجاه
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type KPI = typeof kpis.$inferSelect;
+export type InsertKPI = typeof kpis.$inferInsert;
