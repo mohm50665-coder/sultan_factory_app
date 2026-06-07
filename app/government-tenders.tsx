@@ -14,10 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const MEETINGS_KEY = "sultan_gov_meetings";
-const MEETING_OUTPUTS_KEY = "sultan_gov_meeting_outputs";
+import { meetingsService } from "@/lib/services/api.service";
 
 interface Meeting {
   id: string;
@@ -57,10 +54,23 @@ export default function GovernmentTendersScreen() {
 
   const loadRecentMeetings = async () => {
     try {
-      const stored = await AsyncStorage.getItem(MEETINGS_KEY);
-      if (stored) {
-        const meetings: Meeting[] = JSON.parse(stored);
-        setRecentMeetings(meetings.slice(0, 3));
+      const data = await meetingsService.list();
+      if (data && Array.isArray(data)) {
+        const mapped: Meeting[] = data.slice(0, 3).map((m: any) => ({
+          id: String(m.id),
+          meetingNumber: m.meetingNumber || 0,
+          title: m.title || "",
+          date: m.date || "",
+          time: m.time || "",
+          location: m.location || "",
+          method: m.type || "in_person",
+          meetingLink: m.notes || "",
+          attendees: Array.isArray(m.attendees) ? m.attendees : [],
+          attachments: [],
+          status: m.status || "scheduled",
+          createdAt: m.createdAt || "",
+        }));
+        setRecentMeetings(mapped);
       }
     } catch (error) {
       console.error("Error loading meetings:", error);

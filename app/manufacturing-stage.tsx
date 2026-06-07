@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { manufacturingWorkersService } from "@/lib/services/api.service";
 
 interface ProductItem {
   productName: string;
@@ -118,29 +118,26 @@ export default function ManufacturingStageScreen() {
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const isStorageStage = stage === "storage";
 
-  // Load workers from admin panel (AsyncStorage) if available
+  // Load workers from server
   const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
   useEffect(() => {
-    const loadAdminWorkers = async () => {
+    const loadServerWorkers = async () => {
       try {
-        const saved = await AsyncStorage.getItem("admin_stages_data");
-        if (saved) {
-          const adminStages = JSON.parse(saved);
-          const found = adminStages.find((s: any) => s.id === stage);
-          if (found && found.workers && found.workers.length > 0) {
-            const names = found.workers.map((w: any) => w.name);
-            // Add "الجميع" for stages that had it
-            if (config.workers.includes("الجميع")) {
-              names.push("الجميع");
-            }
-            setStageWorkers(names);
+        const workers = await manufacturingWorkersService.list(stage);
+        if (workers && Array.isArray(workers) && workers.length > 0) {
+          const names = workers.map((w: any) => w.workerName);
+          // Add "الجميع" for stages that had it
+          if (config.workers.includes("الجميع") && !names.includes("الجميع")) {
+            names.push("الجميع");
           }
+          setStageWorkers(names);
         }
       } catch (e) {
-        console.log("Error loading admin workers:", e);
+        console.log("Error loading workers from server:", e);
+        // fallback to config workers
       }
     };
-    loadAdminWorkers();
+    loadServerWorkers();
   }, [stage]);
 
   const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];

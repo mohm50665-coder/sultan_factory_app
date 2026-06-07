@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BackButton } from "@/components/back-button";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { productionCostsLocalService } from "@/lib/services/api.service";
 
 interface CostData {
   id: string;
@@ -85,9 +85,21 @@ export default function ProductionCostsScreen() {
   const loadCosts = async () => {
     try {
       setIsLoading(true);
-      const data = await AsyncStorage.getItem("production_costs");
-      if (data) {
-        const parsed = JSON.parse(data);
+      const data = await productionCostsLocalService.list();
+      if (data && Array.isArray(data)) {
+        const parsed = data.map((item: any) => {
+          const details = item.details ? (typeof item.details === "string" ? JSON.parse(item.details) : item.details) : {};
+          return {
+            id: String(item.id),
+            date: details.date || item.month || "",
+            rawMaterials: details.rawMaterials || { yarn: 0, rubber: 0, spandex: 0, nylon: 0, cotton: 0, bamboo: 0, span: 0 },
+            labor: details.labor || 0,
+            utilities: details.utilities || 0,
+            maintenance: details.maintenance || 0,
+            other: details.other || 0,
+            notes: details.notes || "",
+          };
+        });
         setCosts(parsed);
         calculateSummary(parsed);
       }
@@ -141,22 +153,19 @@ export default function ProductionCostsScreen() {
 
     try {
       setIsLoading(true);
-      let updatedCosts = [...costs];
-
+      const entryData = editingId ? formData : { ...formData, id: Date.now().toString() };
+      const serverPayload = {
+        month: formData.date,
+        year: new Date().getFullYear(),
+        category: "production",
+        details: JSON.stringify(entryData),
+      };
       if (editingId) {
-        updatedCosts = updatedCosts.map((c) =>
-          c.id === editingId ? { ...formData, id: editingId } : c
-        );
+        await productionCostsLocalService.update(Number(editingId), serverPayload);
       } else {
-        updatedCosts.push({
-          ...formData,
-          id: Date.now().toString(),
-        });
+        await productionCostsLocalService.create(serverPayload);
       }
-
-      await AsyncStorage.setItem("production_costs", JSON.stringify(updatedCosts));
-      setCosts(updatedCosts);
-      calculateSummary(updatedCosts);
+      await loadCosts();
       resetForm();
       setShowForm(false);
     } catch (error) {
@@ -168,8 +177,8 @@ export default function ProductionCostsScreen() {
 
   const handleDelete = async (id: string) => {
     try {
+      await productionCostsLocalService.delete(Number(id));
       const updatedCosts = costs.filter((c) => c.id !== id);
-      await AsyncStorage.setItem("production_costs", JSON.stringify(updatedCosts));
       setCosts(updatedCosts);
       calculateSummary(updatedCosts);
     } catch (error) {

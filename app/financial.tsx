@@ -156,21 +156,27 @@ export default function FinancialScreen() {
     return entries.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   };
 
-  // ===== التقرير المالي (محلي مؤقتاً) =====
+  // ===== التقرير المالي (من السيرفر) =====
   const loadReports = async () => {
     try {
-      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-      const data = await AsyncStorage.getItem("sultan_financial_reports");
-      if (data) setReports(JSON.parse(data));
-    } catch (e) {}
+      const { financialReportsService } = await import("@/lib/services/api.service");
+      const data = await financialReportsService.list();
+      if (data && Array.isArray(data)) {
+        const mapped = data.map((r: any) => ({
+          id: String(r.id),
+          date: r.month || "",
+          title: r.category || "",
+          content: r.details ? (typeof r.details === "string" ? r.details : JSON.stringify(r.details)) : "",
+        }));
+        setReports(mapped);
+      }
+    } catch (e) {
+      console.log("Error loading reports:", e);
+    }
   };
 
   const saveReports = async (newReports: FinancialReport[]) => {
-    try {
-      const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-      await AsyncStorage.setItem("sultan_financial_reports", JSON.stringify(newReports));
-      setReports(newReports);
-    } catch (e) {}
+    setReports(newReports);
   };
 
   const resetReportForm = () => {
@@ -181,25 +187,24 @@ export default function FinancialScreen() {
     setShowReportForm(false);
   };
 
-  const handleSaveReport = () => {
+  const handleSaveReport = async () => {
     if (!reportTitle || !reportContent) {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى ملء جميع الحقول" : "Please fill all fields");
       return;
     }
-    const report: FinancialReport = {
-      id: editingReport?.id || Date.now().toString(),
-      date: reportDate,
-      title: reportTitle,
-      content: reportContent,
-    };
-    let newReports: FinancialReport[];
-    if (editingReport) {
-      newReports = reports.map((r) => (r.id === editingReport.id ? report : r));
-    } else {
-      newReports = [report, ...reports];
+    try {
+      const { financialReportsService } = await import("@/lib/services/api.service");
+      await financialReportsService.create({
+        month: reportDate,
+        year: new Date().getFullYear(),
+        category: reportTitle,
+        details: reportContent,
+      });
+      await loadReports();
+      resetReportForm();
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في حفظ التقرير" : "Failed to save report");
     }
-    saveReports(newReports);
-    resetReportForm();
   };
 
   const handleEditReport = (report: FinancialReport) => {
@@ -213,7 +218,15 @@ export default function FinancialScreen() {
   const handleDeleteReport = (id: string) => {
     Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل أنت متأكد من حذف هذا التقرير؟" : "Are you sure you want to delete this report?", [
       { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
-      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: () => saveReports(reports.filter((r) => r.id !== id)) },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: async () => {
+        try {
+          const { financialReportsService } = await import("@/lib/services/api.service");
+          await financialReportsService.delete(Number(id));
+          setReports(reports.filter((r) => r.id !== id));
+        } catch (e) {
+          Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في الحذف" : "Failed to delete");
+        }
+      }},
     ]);
   };
 

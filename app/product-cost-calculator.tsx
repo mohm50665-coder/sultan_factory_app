@@ -18,7 +18,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { savedProductCostsService } from "@/lib/services/api.service";
 
 interface ColorEntry {
   color: string;
@@ -51,7 +51,7 @@ interface ProductCostData {
   createdAt: string;
 }
 
-const STORAGE_KEY = "product_cost_calculations";
+
 
 const createEmptyColors = (): ColorEntry[] => [
   { color: "", code: "" },
@@ -117,9 +117,6 @@ export default function ProductCostCalculatorScreen() {
 
     setIsLoading(true);
     try {
-      const existingData = await AsyncStorage.getItem(STORAGE_KEY);
-      const calculations: ProductCostData[] = existingData ? JSON.parse(existingData) : [];
-
       const newEntry: ProductCostData = {
         id: Date.now().toString(),
         ...formData,
@@ -128,8 +125,11 @@ export default function ProductCostCalculatorScreen() {
         createdAt: new Date().toISOString(),
       };
 
-      calculations.push(newEntry);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(calculations));
+      await savedProductCostsService.create({
+        productName: newEntry.productName,
+        totalCost: newEntry.totalCost,
+        details: JSON.stringify(newEntry),
+      });
 
       showAlert(
         isAr ? "نجاح" : "Success",

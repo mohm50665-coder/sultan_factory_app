@@ -16,10 +16,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const MEETINGS_KEY = "sultan_gov_meetings";
-const MEETING_OUTPUTS_KEY = "sultan_gov_meeting_outputs";
+import { meetingsService, meetingOutputsService } from "@/lib/services/api.service";
 
 interface Meeting {
   id: string;
@@ -67,14 +64,31 @@ export default function MeetingOutputsScreen() {
 
   const loadData = async () => {
     try {
-      const [meetingsStr, outputsStr] = await Promise.all([
-        AsyncStorage.getItem(MEETINGS_KEY),
-        AsyncStorage.getItem(MEETING_OUTPUTS_KEY),
+      const [meetingsData, outputsData] = await Promise.all([
+        meetingsService.list(),
+        meetingOutputsService.list(),
       ]);
-      const meetingsData = meetingsStr ? JSON.parse(meetingsStr) : [];
-      const outputsData = outputsStr ? JSON.parse(outputsStr) : [];
-      setMeetings(meetingsData);
-      setOutputs(outputsData);
+      const mappedMeetings = (meetingsData || []).map((m: any) => ({
+        id: String(m.id),
+        meetingNumber: m.meetingNumber || 0,
+        title: m.title || "",
+        date: m.date || "",
+        status: m.status || "scheduled",
+      }));
+      const mappedOutputs = (outputsData || []).map((o: any) => ({
+        id: String(o.id),
+        meetingId: String(o.meetingId),
+        meetingNumber: 0,
+        meetingTitle: o.description || "",
+        recommendations: [],
+        decisions: [],
+        actionItems: [],
+        attachments: [],
+        notes: o.assignedTo || "",
+        createdAt: o.createdAt || "",
+      }));
+      setMeetings(mappedMeetings);
+      setOutputs(mappedOutputs);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -125,39 +139,27 @@ export default function MeetingOutputsScreen() {
     }
 
     try {
-      const stored = await AsyncStorage.getItem(MEETING_OUTPUTS_KEY);
-      let allOutputs: MeetingOutput[] = stored ? JSON.parse(stored) : [];
+      const description = [
+        ...cleanRecommendations.map(r => `[توصية] ${r}`),
+        ...cleanDecisions.map(d => `[قرار] ${d}`),
+        ...cleanActionItems.map(a => `[مهمة] ${a.task} - ${a.assignee} - ${a.deadline}`),
+      ].join(" | ");
 
       if (editingOutput) {
-        const idx = allOutputs.findIndex(o => o.id === editingOutput.id);
-        if (idx !== -1) {
-          allOutputs[idx] = {
-            ...allOutputs[idx],
-            recommendations: cleanRecommendations,
-            decisions: cleanDecisions,
-            actionItems: cleanActionItems,
-            attachments: form.attachments,
-            notes: form.notes,
-          };
-        }
+        await meetingOutputsService.update(Number(editingOutput.id), {
+          description,
+          assignedTo: form.notes,
+        });
       } else {
-        const newOutput: MeetingOutput = {
-          id: Date.now().toString(),
-          meetingId: selectedMeeting.id,
-          meetingNumber: selectedMeeting.meetingNumber,
-          meetingTitle: selectedMeeting.title,
-          recommendations: cleanRecommendations,
-          decisions: cleanDecisions,
-          actionItems: cleanActionItems,
-          attachments: form.attachments,
-          notes: form.notes,
-          createdAt: new Date().toISOString(),
-        };
-        allOutputs.unshift(newOutput);
+        await meetingOutputsService.create({
+          meetingId: Number(selectedMeeting.id),
+          description,
+          assignedTo: form.notes,
+          status: "pending",
+        });
       }
 
-      await AsyncStorage.setItem(MEETING_OUTPUTS_KEY, JSON.stringify(allOutputs));
-      setOutputs(allOutputs);
+      await loadData();
       setShowForm(false);
       Alert.alert("نجح", editingOutput ? "تم تحديث المخرجات" : "تم حفظ مخرجات الاجتماع");
     } catch (error) {
@@ -172,9 +174,12 @@ export default function MeetingOutputsScreen() {
         text: "حذف",
         style: "destructive",
         onPress: async () => {
-          const updated = outputs.filter(o => o.id !== output.id);
-          await AsyncStorage.setItem(MEETING_OUTPUTS_KEY, JSON.stringify(updated));
-          setOutputs(updated);
+          try {
+            await meetingOutputsService.delete(Number(output.id));
+            setOutputs(outputs.filter(o => o.id !== output.id));
+          } catch (e) {
+            Alert.alert("خطأ", "فشل في الحذف");
+          }
         },
       },
     ]);

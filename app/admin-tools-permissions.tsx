@@ -6,7 +6,7 @@ import { useColors } from '@/hooks/use-colors';
 import { useLanguage } from '@/lib/language-context';
 import { useAuth } from '@/hooks/use-auth';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 interface Tool {
   id: string;
@@ -56,40 +56,20 @@ export default function AdminToolsPermissionsScreen() {
       }
     } catch (error) {
       console.error('Error loading users:', error);
-      // Fallback to local
-      try {
-        const usersData = await AsyncStorage.getItem('users');
-        if (usersData) {
-          const parsedUsers = JSON.parse(usersData);
-          setUsers(parsedUsers);
-          if (parsedUsers.length > 0) selectUser(parsedUsers[0]);
-        }
-      } catch (e) {}
     }
   };
 
-  const selectUser = async (userData: any) => {
+  const selectUser = (userData: any) => {
     setSelectedUser(userData);
-    try {
-      // Load from server toolPermissions field first
-      if (userData.toolPermissions && Object.keys(userData.toolPermissions).length > 0) {
-        setUserPermissions(userData.toolPermissions);
-        return;
-      }
-      // Fallback to local
-      const permissionsKey = `tool_permissions_${userData.id}`;
-      const permissions = await AsyncStorage.getItem(permissionsKey);
-      if (permissions) {
-        setUserPermissions(JSON.parse(permissions));
-      } else {
-        const defaultPermissions: Record<string, boolean> = {};
-        AVAILABLE_TOOLS.forEach(tool => {
-          defaultPermissions[tool.id] = true;
-        });
-        setUserPermissions(defaultPermissions);
-      }
-    } catch (error) {
-      console.error('Error loading permissions:', error);
+    // Load from server toolPermissions field
+    if (userData.toolPermissions && Object.keys(userData.toolPermissions).length > 0) {
+      setUserPermissions(userData.toolPermissions);
+    } else {
+      const defaultPermissions: Record<string, boolean> = {};
+      AVAILABLE_TOOLS.forEach(tool => {
+        defaultPermissions[tool.id] = true;
+      });
+      setUserPermissions(defaultPermissions);
     }
   };
 
@@ -107,20 +87,10 @@ export default function AdminToolsPermissionsScreen() {
       // Save to server
       const { adminService } = await import('@/lib/services/api.service');
       await adminService.updateToolPermissions(selectedUser.id, userPermissions);
-      // Also save locally as backup
-      const permissionsKey = `tool_permissions_${selectedUser.id}`;
-      await AsyncStorage.setItem(permissionsKey, JSON.stringify(userPermissions));
       Alert.alert('نجح', 'تم حفظ الصلاحيات بنجاح');
     } catch (error) {
       console.error('Error saving permissions:', error);
-      // Fallback: save locally only
-      try {
-        const permissionsKey = `tool_permissions_${selectedUser.id}`;
-        await AsyncStorage.setItem(permissionsKey, JSON.stringify(userPermissions));
-        Alert.alert('نجح', 'تم حفظ الصلاحيات محلياً');
-      } catch (e) {
-        Alert.alert('خطأ', 'حدث خطأ أثناء حفظ الصلاحيات');
-      }
+      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ الصلاحيات');
     } finally {
       setIsLoading(false);
     }

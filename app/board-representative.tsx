@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   FlatList,
   StyleSheet,
-  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -18,37 +17,25 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const BOARD_STORAGE_KEY = "board_representative_data";
-const BOARD_KPI_KEY = "board_representative_kpis";
+import { boardDataService } from "@/lib/services/api.service";
 
 interface BoardData {
   id: number;
+  userId: number;
+  dataType: string;
+  value: string;
+  description: string | null;
   date: string;
-  title: string;
-  category: "primary" | "secondary" | "kpi" | "report";
-  content: string;
-  attachments?: string[];
-  status: "active" | "archived";
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-interface KPIData {
-  id: number;
-  name: string;
-  targetValue: number;
-  currentValue: number;
-  unit: string;
-  status: "on-track" | "at-risk" | "off-track";
-}
-
 const CATEGORIES = [
-  { id: "primary", label: "بيانات أساسية", icon: "folder", color: "#3B82F6" },
-  { id: "secondary", label: "بيانات فرعية", icon: "folder-open", color: "#10B981" },
-  { id: "kpi", label: "مؤشرات الأداء", icon: "trending-up", color: "#F59E0B" },
-  { id: "report", label: "التقارير", icon: "assessment", color: "#8B5CF6" },
+  { id: "primary", label: "بيانات أساسية", labelEn: "Primary Data", icon: "folder", color: "#3B82F6" },
+  { id: "secondary", label: "بيانات فرعية", labelEn: "Secondary Data", icon: "folder-open", color: "#10B981" },
+  { id: "kpi", label: "مؤشرات الأداء", labelEn: "KPIs", icon: "trending-up", color: "#F59E0B" },
+  { id: "report", label: "التقارير", labelEn: "Reports", icon: "assessment", color: "#8B5CF6" },
 ];
 
 export default function BoardRepresentativeScreen() {
@@ -59,94 +46,99 @@ export default function BoardRepresentativeScreen() {
 
   const [activeTab, setActiveTab] = useState<"data" | "kpis" | "reports">("data");
   const [boardData, setBoardData] = useState<BoardData[]>([]);
-  const [kpis, setKpis] = useState<KPIData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Load saved data from AsyncStorage
-  useEffect(() => {
-    const loadSavedData = async () => {
-      try {
-        const savedData = await AsyncStorage.getItem(BOARD_STORAGE_KEY);
-        if (savedData) setBoardData(JSON.parse(savedData));
-        const savedKpis = await AsyncStorage.getItem(BOARD_KPI_KEY);
-        if (savedKpis) setKpis(JSON.parse(savedKpis));
-      } catch (e) {
-        console.error("Error loading board data:", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadSavedData();
-  }, []);
-
-  // Save data whenever it changes
-  const saveBoardData = async (data: BoardData[]) => {
-    setBoardData(data);
-    await AsyncStorage.setItem(BOARD_STORAGE_KEY, JSON.stringify(data));
-  };
-
-  const saveKpis = async (data: KPIData[]) => {
-    setKpis(data);
-    await AsyncStorage.setItem(BOARD_KPI_KEY, JSON.stringify(data));
-  };
+  const [isSaving, setIsSaving] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState<BoardData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
 
-  const [formData, setFormData] = useState<Partial<BoardData>>({
-    title: "",
-    category: "primary",
-    content: "",
-    status: "active",
+  const [formData, setFormData] = useState({
+    dataType: "primary",
+    value: "",
+    description: "",
+    date: new Date().toISOString().split("T")[0],
+    notes: "",
   });
+
+  // Load data from server
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const result = await boardDataService.getAll();
+      if (result && Array.isArray(result)) {
+        setBoardData(result);
+      }
+    } catch (e) {
+      console.error("Error loading board data from server:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAddData = () => {
     setEditingData(null);
     setFormData({
-      title: "",
-      category: "primary",
-      content: "",
-      status: "active",
+      dataType: "primary",
+      value: "",
+      description: "",
+      date: new Date().toISOString().split("T")[0],
+      notes: "",
     });
     setShowModal(true);
   };
 
   const handleEditData = (data: BoardData) => {
     setEditingData(data);
-    setFormData(data);
+    setFormData({
+      dataType: data.dataType,
+      value: data.value,
+      description: data.description || "",
+      date: data.date,
+      notes: data.notes || "",
+    });
     setShowModal(true);
   };
 
   const handleSaveData = async () => {
-    if (!formData.title || !formData.content) {
+    if (!formData.value) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء ملء البيانات المطلوبة" : "Please fill required fields");
       return;
     }
 
-    if (editingData) {
-      const updated = boardData.map(d =>
-        d.id === editingData.id
-          ? { ...editingData, ...formData, updatedAt: new Date().toISOString() }
-          : d
-      ) as BoardData[];
-      await saveBoardData(updated);
-    } else {
-      const newData: BoardData = {
-        id: Math.max(...boardData.map(d => d.id), 0) + 1,
-        date: new Date().toISOString().split("T")[0],
-        title: formData.title || "",
-        category: (formData.category || "primary") as any,
-        content: formData.content || "",
-        status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await saveBoardData([...boardData, newData]);
+    setIsSaving(true);
+    try {
+      if (editingData) {
+        await boardDataService.update({
+          id: editingData.id,
+          value: formData.value,
+          description: formData.description || undefined,
+          notes: formData.notes || undefined,
+        });
+      } else {
+        await boardDataService.save({
+          userId: 1,
+          dataType: formData.dataType,
+          value: formData.value,
+          description: formData.description || undefined,
+          date: formData.date,
+          notes: formData.notes || undefined,
+        });
+      }
+      setShowModal(false);
+      await loadData();
+      Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم حفظ البيانات" : "Data saved successfully");
+    } catch (e) {
+      console.error("Error saving board data:", e);
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+    } finally {
+      setIsSaving(false);
     }
-    setShowModal(false);
-    Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم حفظ البيانات" : "Data saved successfully");
   };
 
   const handleDeleteData = (id: number) => {
@@ -159,9 +151,13 @@ export default function BoardRepresentativeScreen() {
           text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
-            const updated = boardData.filter(d => d.id !== id);
-            await saveBoardData(updated);
-            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف البيانات" : "Data deleted");
+            try {
+              await boardDataService.delete(id);
+              await loadData();
+              Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف البيانات" : "Data deleted");
+            } catch (e) {
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل الحذف" : "Failed to delete");
+            }
           },
         },
       ]
@@ -169,35 +165,30 @@ export default function BoardRepresentativeScreen() {
   };
 
   const filteredData = boardData.filter(d => {
-    const matchesCategory = !selectedCategory || d.category === selectedCategory;
-    const matchesSearch = d.title.includes(searchText) || d.content.includes(searchText);
+    const matchesCategory = !selectedCategory || d.dataType === selectedCategory;
+    const matchesSearch = d.value.includes(searchText) || (d.description || "").includes(searchText);
     return matchesCategory && matchesSearch;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "on-track":
-        return "#10B981";
-      case "at-risk":
-        return "#F59E0B";
-      case "off-track":
-        return "#EF4444";
-      default:
-        return colors.muted;
-    }
-  };
-
   const renderDataCard = ({ item }: { item: BoardData }) => {
-    const category = CATEGORIES.find(c => c.id === item.category);
+    const category = CATEGORIES.find(c => c.id === item.dataType);
     return (
       <View style={[styles.dataCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
             {category && <MaterialIcons name={category.icon as any} size={20} color={category.color} />}
-            <Text style={[styles.dataTitle, { color: colors.foreground }]}>{item.title}</Text>
+            <Text style={[styles.dataTitle, { color: colors.foreground }]}>
+              {isAr ? category?.label : category?.labelEn}
+            </Text>
           </View>
-          <Text style={[styles.dataContent, { color: colors.muted }]}>{item.content}</Text>
+          <Text style={[styles.dataContent, { color: colors.foreground }]}>{item.value}</Text>
+          {item.description && (
+            <Text style={[styles.dataDesc, { color: colors.muted }]}>{item.description}</Text>
+          )}
           <Text style={[styles.dataDate, { color: colors.muted, marginTop: 8 }]}>{item.date}</Text>
+          {item.notes && (
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4, fontStyle: "italic" }}>{item.notes}</Text>
+          )}
         </View>
         <View style={{ gap: 8, marginLeft: 12 }}>
           <TouchableOpacity
@@ -217,36 +208,21 @@ export default function BoardRepresentativeScreen() {
     );
   };
 
-  const renderKPICard = ({ item }: { item: KPIData }) => {
-    const progress = (item.currentValue / item.targetValue) * 100;
+  if (isLoading) {
     return (
-      <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.kpiName, { color: colors.foreground }]}>{item.name}</Text>
-          <View style={{ marginTop: 8, gap: 4 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={{ color: colors.muted, fontSize: 12 }}>
-                {item.currentValue} / {item.targetValue} {item.unit}
-              </Text>
-              <Text style={{ color: getStatusColor(item.status), fontWeight: "600", fontSize: 12 }}>
-                {progress.toFixed(0)}%
-              </Text>
-            </View>
-            <View style={[styles.progressBar, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <View
-                style={{
-                  height: "100%",
-                  width: `${Math.min(progress, 100)}%`,
-                  backgroundColor: getStatusColor(item.status),
-                  borderRadius: 4,
-                }}
-              />
-            </View>
-          </View>
+      <ScreenContainer>
+        <View style={[styles.header, { backgroundColor: colors.primary }]}>
+          <BackButton />
+          <Text style={styles.headerTitle}>{isAr ? "ممثل مجلس الإدارة" : "Board Representative"}</Text>
+          <View style={{ width: 40 }} />
         </View>
-      </View>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري التحميل..." : "Loading..."}</Text>
+        </View>
+      </ScreenContainer>
     );
-  };
+  }
 
   return (
     <ScreenContainer>
@@ -290,7 +266,6 @@ export default function BoardRepresentativeScreen() {
       {/* Data Tab */}
       {activeTab === "data" && (
         <>
-          {/* Search and Add Button */}
           <View style={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
             <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <MaterialIcons name="search" size={20} color={colors.muted} />
@@ -303,16 +278,9 @@ export default function BoardRepresentativeScreen() {
               />
             </View>
 
-            {/* Category Filter */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ gap: 8 }} contentContainerStyle={{ gap: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               <TouchableOpacity
-                style={[
-                  styles.categoryBtn,
-                  {
-                    backgroundColor: !selectedCategory ? colors.primary : colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
+                style={[styles.categoryBtn, { backgroundColor: !selectedCategory ? colors.primary : colors.surface, borderColor: colors.border }]}
                 onPress={() => setSelectedCategory(null)}
               >
                 <Text style={{ color: !selectedCategory ? "white" : colors.foreground, fontWeight: "600", fontSize: 12 }}>
@@ -322,26 +290,17 @@ export default function BoardRepresentativeScreen() {
               {CATEGORIES.map(cat => (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[
-                    styles.categoryBtn,
-                    {
-                      backgroundColor: selectedCategory === cat.id ? cat.color : colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
+                  style={[styles.categoryBtn, { backgroundColor: selectedCategory === cat.id ? cat.color : colors.surface, borderColor: colors.border }]}
                   onPress={() => setSelectedCategory(cat.id)}
                 >
                   <Text style={{ color: selectedCategory === cat.id ? "white" : colors.foreground, fontWeight: "600", fontSize: 12 }}>
-                    {cat.label}
+                    {isAr ? cat.label : cat.labelEn}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.primary }]}
-              onPress={handleAddData}
-            >
+            <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={handleAddData}>
               <MaterialIcons name="add" size={20} color="white" />
               <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>
                 {isAr ? "إضافة بيانات" : "Add Data"}
@@ -349,7 +308,6 @@ export default function BoardRepresentativeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Data List */}
           <FlatList
             data={filteredData}
             renderItem={renderDataCard}
@@ -359,7 +317,7 @@ export default function BoardRepresentativeScreen() {
               <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
                 <MaterialIcons name="folder-open" size={48} color={colors.muted} />
                 <Text style={{ color: colors.muted, marginTop: 12 }}>
-                  {isAr ? "لا توجد بيانات" : "No data found"}
+                  {isAr ? "لا توجد بيانات - أضف بيانات جديدة" : "No data - add new data"}
                 </Text>
               </View>
             }
@@ -369,97 +327,135 @@ export default function BoardRepresentativeScreen() {
 
       {/* KPIs Tab */}
       {activeTab === "kpis" && (
-        <FlatList
-          data={kpis}
-          renderItem={renderKPICard}
-          keyExtractor={item => item.id.toString()}
-          contentContainerStyle={{ padding: 16, gap: 12 }}
-          ListEmptyComponent={
-            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
-              <MaterialIcons name="trending-up" size={48} color={colors.muted} />
-              <Text style={{ color: colors.muted, marginTop: 12 }}>
-                {isAr ? "لا توجد مؤشرات" : "No KPIs found"}
-              </Text>
-            </View>
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={boardData.filter(d => d.dataType === "kpi")}
+            renderItem={renderDataCard}
+            keyExtractor={item => item.id.toString()}
+            contentContainerStyle={{ padding: 16, gap: 12 }}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
+                <MaterialIcons name="trending-up" size={48} color={colors.muted} />
+                <Text style={{ color: colors.muted, marginTop: 12 }}>
+                  {isAr ? "لا توجد مؤشرات - أضف من تبويب البيانات" : "No KPIs - add from Data tab"}
+                </Text>
+              </View>
+            }
+          />
+        </View>
       )}
 
       {/* Reports Tab */}
       {activeTab === "reports" && (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <MaterialIcons name="assessment" size={48} color={colors.muted} />
-          <Text style={{ color: colors.foreground, marginTop: 12, fontWeight: "600" }}>
-            {isAr ? "التقارير" : "Reports"}
-          </Text>
-          <Text style={{ color: colors.muted, marginTop: 8 }}>
-            {isAr ? "سيتم إضافة التقارير قريباً" : "Reports coming soon"}
-          </Text>
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={boardData.filter(d => d.dataType === "report")}
+            renderItem={renderDataCard}
+            keyExtractor={item => item.id.toString()}
+            contentContainerStyle={{ padding: 16, gap: 12 }}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
+                <MaterialIcons name="assessment" size={48} color={colors.muted} />
+                <Text style={{ color: colors.muted, marginTop: 12 }}>
+                  {isAr ? "لا توجد تقارير - أضف من تبويب البيانات" : "No reports - add from Data tab"}
+                </Text>
+              </View>
+            }
+          />
         </View>
       )}
 
       {/* Add/Edit Modal */}
       <Modal visible={showModal} animationType="slide" transparent>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-            {/* Title */}
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold" }}>
+              {editingData ? (isAr ? "تعديل البيانات" : "Edit Data") : (isAr ? "إضافة بيانات جديدة" : "Add New Data")}
+            </Text>
+            <TouchableOpacity onPress={() => setShowModal(false)}>
+              <MaterialIcons name="close" size={24} color={colors.muted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+            {/* Category */}
+            {!editingData && (
+              <View>
+                <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
+                  {isAr ? "الفئة" : "Category"}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {CATEGORIES.map(cat => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.categorySelectBtn, { backgroundColor: formData.dataType === cat.id ? cat.color : colors.surface, borderColor: colors.border }]}
+                      onPress={() => setFormData({ ...formData, dataType: cat.id })}
+                    >
+                      <Text style={{ color: formData.dataType === cat.id ? "white" : colors.foreground, fontSize: 12 }}>
+                        {isAr ? cat.label : cat.labelEn}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Value */}
             <View>
               <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                {isAr ? "العنوان" : "Title"} *
+                {isAr ? "القيمة / المحتوى" : "Value / Content"} *
               </Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
-                placeholder={isAr ? "أدخل العنوان" : "Enter title"}
-                value={formData.title}
-                onChangeText={(text) => setFormData({ ...formData, title: text })}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 80, textAlignVertical: "top" }]}
+                placeholder={isAr ? "أدخل القيمة أو المحتوى" : "Enter value or content"}
+                value={formData.value}
+                onChangeText={(text) => setFormData({ ...formData, value: text })}
+                placeholderTextColor={colors.muted}
+                multiline
               />
             </View>
 
-            {/* Category */}
+            {/* Description */}
             <View>
               <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                {isAr ? "الفئة" : "Category"}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ gap: 8 }} contentContainerStyle={{ gap: 8 }}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                      styles.categorySelectBtn,
-                      {
-                        backgroundColor: formData.category === cat.id ? cat.color : colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    onPress={() => setFormData({ ...formData, category: cat.id as any })}
-                  >
-                    <Text style={{ color: formData.category === cat.id ? "white" : colors.foreground, fontSize: 12 }}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Content */}
-            <View>
-              <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                {isAr ? "المحتوى" : "Content"} *
+                {isAr ? "الوصف" : "Description"}
               </Text>
               <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                    minHeight: 120,
-                    textAlignVertical: "top",
-                  },
-                ]}
-                placeholder={isAr ? "أدخل المحتوى" : "Enter content"}
-                value={formData.content}
-                onChangeText={(text) => setFormData({ ...formData, content: text })}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                placeholder={isAr ? "وصف مختصر (اختياري)" : "Brief description (optional)"}
+                value={formData.description}
+                onChangeText={(text) => setFormData({ ...formData, description: text })}
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+
+            {/* Date */}
+            {!editingData && (
+              <View>
+                <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
+                  {isAr ? "التاريخ" : "Date"}
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  placeholder="YYYY-MM-DD"
+                  value={formData.date}
+                  onChangeText={(text) => setFormData({ ...formData, date: text })}
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+            )}
+
+            {/* Notes */}
+            <View>
+              <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
+                {isAr ? "ملاحظات" : "Notes"}
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 60, textAlignVertical: "top" }]}
+                placeholder={isAr ? "ملاحظات إضافية (اختياري)" : "Additional notes (optional)"}
+                value={formData.notes}
+                onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                placeholderTextColor={colors.muted}
                 multiline
               />
             </View>
@@ -467,12 +463,17 @@ export default function BoardRepresentativeScreen() {
             {/* Buttons */}
             <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
               <TouchableOpacity
-                style={[styles.btn, { backgroundColor: colors.primary, flex: 1 }]}
+                style={[styles.btn, { backgroundColor: colors.primary, flex: 1, opacity: isSaving ? 0.6 : 1 }]}
                 onPress={handleSaveData}
+                disabled={isSaving}
               >
-                <Text style={{ color: "white", fontWeight: "600", textAlign: "center" }}>
-                  {isAr ? "حفظ" : "Save"}
-                </Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={{ color: "white", fontWeight: "600", textAlign: "center" }}>
+                    {isAr ? "حفظ" : "Save"}
+                  </Text>
+                )}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btn, { backgroundColor: colors.border, flex: 1 }]}
@@ -546,12 +547,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   dataTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
     flex: 1,
   },
   dataContent: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  dataDesc: {
+    fontSize: 13,
+    marginTop: 4,
   },
   dataDate: {
     fontSize: 12,
@@ -563,26 +569,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  kpiCard: {
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    marginHorizontal: 16,
-    marginVertical: 6,
-  },
-  kpiName: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
   modalContainer: {
     flex: 1,
     paddingTop: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   input: {
     borderWidth: 1,

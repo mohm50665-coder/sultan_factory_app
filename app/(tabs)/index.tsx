@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -282,18 +281,11 @@ export default function HomeScreen() {
   // Load user tool permissions (server first, then local fallback)
   const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    const loadToolPermissions = async () => {
+    const loadToolPermissions = () => {
       try {
-        // Try server-stored permissions first
+        // Use server-stored permissions from user object
         if (user?.toolPermissions && Object.keys(user.toolPermissions).length > 0) {
           setUserToolPermissions(user.toolPermissions);
-          return;
-        }
-        // Fallback to local
-        const permissionsKey = `tool_permissions_${user?.id}`;
-        const permissions = await AsyncStorage.getItem(permissionsKey);
-        if (permissions) {
-          setUserToolPermissions(JSON.parse(permissions));
         } else {
           // Default: all tools visible
           const defaultPermissions: Record<string, boolean> = {};

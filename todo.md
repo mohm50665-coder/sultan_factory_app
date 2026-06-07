@@ -634,3 +634,27 @@
 - [x] تمكين تحديد الأدوات لكل مستخدم من صلاحيات المستخدمين (حفظ عبر API)
 - [x] إصلاح تحميل الصور من الجوال (إضافة طلب إذن المعرض + endpoint /api/upload)
 - [x] إضافة إشعارات عند وجود مستخدمين جدد بحاجة لتفعيل (badge في الصفحة الرئيسية)
+
+## نظام التحقق من التحديثات
+- [ ] إنشاء خدمة التحقق من التحديثات (update-checker)
+- [ ] إضافة مودال تنبيه المستخدم بوجود تحديث جديد
+- [ ] إنشاء endpoint في السيرفر لتخزين معلومات الإصدار
+- [ ] إعداد دليل مفصل لرفع APK على رابط ثابت
+
+## نقل جميع البيانات من AsyncStorage إلى السيرفر
+- [x] إنشاء جداول قاعدة بيانات جديدة (board_data, meetings, meeting_outputs, manufacturing_workers, financial_reports, production_costs_local, waste_thresholds, government_tenders)
+- [x] إنشاء API endpoints لجميع البيانات المحلية
+- [x] تحويل board-representative.tsx للسيرفر
+- [x] تحويل board-representative-dashboard.tsx للسيرفر
+- [x] تحويل manufacturing-stage.tsx (العمال) للسيرفر
+- [x] تحويل meeting-request.tsx للسيرفر
+- [x] تحويل meeting-outputs.tsx للسيرفر
+- [x] تحويل financial.tsx (التقارير المالية) للسيرفر
+- [x] تحويل production-costs.tsx للسيرفر
+- [x] تحويل product-cost-calculator.tsx للسيرفر
+- [x] تحويل government-tenders.tsx للسيرفر
+- [x] تحويل comprehensive-admin-panel.tsx للسيرفر
+- [x] تحويل manufacturing.tsx للسيرفر
+- [x] إزالة AsyncStorage fallback من index.tsx (الصلاحيات)
+- [x] تحويل admin-tools-permissions.tsx للسيرفر
+- [x] ربط صلاحيات الظهور من اللوحة الشاملة بجميع الصفحات (عبر user.toolPermissions من السيرفر)

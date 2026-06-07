@@ -36,6 +36,16 @@ import {
   boardRepresentativeData as boardRepresentativeDataTable,
   auditLog as auditLogTable,
   systemSettings as systemSettingsTable,
+  meetings as meetingsTable,
+  meetingOutputs as meetingOutputsTable,
+  manufacturingWorkers as manufacturingWorkersTable,
+  financialReports as financialReportsTable,
+  localProductionCosts as localProductionCostsTable,
+  savedProductCosts as savedProductCostsTable,
+  governmentTenders as governmentTendersTable,
+  wasteThresholds as wasteThresholdsTable,
+  wasteAlerts as wasteAlertsTable,
+  appSettings as appSettingsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -1936,6 +1946,505 @@ export const appRouter = router({
         }
         return { success: true };
       }),
+  }),
+
+  // App Version Check
+  appVersion: router({
+    getLatest: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return { version: "1.0.0", buildNumber: 1, downloadUrl: "", releaseNotes: "", forceUpdate: false };
+      try {
+        const result = await db.execute(`SELECT value FROM app_settings WHERE \`key\` = 'app_version' LIMIT 1`);
+        const rows = result as any[];
+        if (rows && rows.length > 0) {
+          return JSON.parse(rows[0].value);
+        }
+      } catch (e) {
+        // Table might not exist yet
+      }
+      return {
+        version: "1.0.0",
+        buildNumber: 1,
+        downloadUrl: "",
+        releaseNotes: "",
+        forceUpdate: false,
+      };
+    }),
+    setLatest: adminProcedure
+      .input(z.object({
+        version: z.string(),
+        buildNumber: z.number(),
+        downloadUrl: z.string(),
+        releaseNotes: z.string().optional(),
+        forceUpdate: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        const value = JSON.stringify(input);
+        await db.execute(`INSERT INTO app_settings (\`key\`, value) VALUES ('app_version', '${value}') ON CONFLICT (\`key\`) DO UPDATE SET value = '${value}'`);
+        return { success: true };
+      }),
+  }),
+
+  // ========== Meetings ==========
+  meetings: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(meetingsTable).orderBy(desc(meetingsTable.createdAt));
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        meetingNumber: z.number(),
+        title: z.string(),
+        date: z.string(),
+        time: z.string().optional(),
+        location: z.string().optional(),
+        type: z.string().optional(),
+        status: z.string().optional(),
+        requestedBy: z.string().optional(),
+        attendees: z.any().optional(),
+        agenda: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(meetingsTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.any() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(meetingsTable).set(input.data).where(eq(meetingsTable.id, input.id));
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(meetingsTable).where(eq(meetingsTable.id, input.id));
+        return { success: true };
+      }),
+    getNextNumber: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return 1;
+      const result = await db.select({ max: sql`MAX(meetingNumber)` }).from(meetingsTable);
+      return ((result[0]?.max as number) || 0) + 1;
+    }),
+  }),
+
+  // ========== Meeting Outputs ==========
+  meetingOutputs: router({
+    list: protectedProcedure
+      .input(z.object({ meetingId: z.number().optional() }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        if (input?.meetingId) {
+          return db.select().from(meetingOutputsTable).where(eq(meetingOutputsTable.meetingId, input.meetingId));
+        }
+        return db.select().from(meetingOutputsTable).orderBy(desc(meetingOutputsTable.createdAt));
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        meetingId: z.number(),
+        description: z.string(),
+        assignedTo: z.string().optional(),
+        deadline: z.string().optional(),
+        status: z.string().optional(),
+        priority: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(meetingOutputsTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.any() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(meetingOutputsTable).set(input.data).where(eq(meetingOutputsTable.id, input.id));
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(meetingOutputsTable).where(eq(meetingOutputsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ========== Manufacturing Workers ==========
+  manufacturingWorkers: router({
+    list: protectedProcedure
+      .input(z.object({ stageId: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        if (input?.stageId) {
+          return db.select().from(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.stageId, input.stageId)).orderBy(manufacturingWorkersTable.sortOrder);
+        }
+        return db.select().from(manufacturingWorkersTable).orderBy(manufacturingWorkersTable.stageId, manufacturingWorkersTable.sortOrder);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        stageId: z.string(),
+        workerName: z.string(),
+        role: z.string().optional(),
+        sortOrder: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(manufacturingWorkersTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.any() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(manufacturingWorkersTable).set(input.data).where(eq(manufacturingWorkersTable.id, input.id));
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.id, input.id));
+        return { success: true };
+      }),
+    bulkSet: adminProcedure
+      .input(z.object({
+        stageId: z.string(),
+        workers: z.array(z.object({ workerName: z.string(), role: z.string().optional() })),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.stageId, input.stageId));
+        if (input.workers.length > 0) {
+          const values = input.workers.map((w, i) => ({ stageId: input.stageId, workerName: w.workerName, role: w.role || null, sortOrder: i }));
+          await db.insert(manufacturingWorkersTable).values(values as any);
+        }
+        return { success: true };
+      }),
+  }),
+
+  // ========== Financial Reports ==========
+  financialReports: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(financialReportsTable).orderBy(desc(financialReportsTable.createdAt));
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        month: z.string(),
+        year: z.number(),
+        revenue: z.number().optional(),
+        expenses: z.number().optional(),
+        netProfit: z.number().optional(),
+        category: z.string().optional(),
+        details: z.any().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(financialReportsTable).values(input as any);
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(financialReportsTable).where(eq(financialReportsTable.id, input.id));
+        return { success: true };
+      }),
+    clearAll: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) return { success: false };
+      await db.delete(financialReportsTable);
+      return { success: true };
+    }),
+  }),
+
+  // ========== Production Costs ==========
+  productionCostsLocal: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(localProductionCostsTable).orderBy(desc(localProductionCostsTable.createdAt));
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        date: z.string(),
+        category: z.string(),
+        description: z.string().optional(),
+        amount: z.number().optional(),
+        quantity: z.number().optional(),
+        unitPrice: z.number().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(localProductionCostsTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.any() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(localProductionCostsTable).set(input.data).where(eq(localProductionCostsTable.id, input.id));
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(localProductionCostsTable).where(eq(localProductionCostsTable.id, input.id));
+        return { success: true };
+      }),
+    clearAll: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) return { success: false };
+      await db.delete(localProductionCostsTable);
+      return { success: true };
+    }),
+  }),
+
+  // ========== Saved Product Costs ==========
+  savedProductCosts: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(savedProductCostsTable).orderBy(desc(savedProductCostsTable.createdAt));
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        productName: z.string(),
+        date: z.string(),
+        threadData: z.any(),
+        totalCost: z.number().optional(),
+        notes: z.string().optional(),
+        createdBy: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(savedProductCostsTable).values(input as any);
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(savedProductCostsTable).where(eq(savedProductCostsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ========== Government Tenders ==========
+  governmentTenders: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(governmentTendersTable).orderBy(desc(governmentTendersTable.createdAt));
+    }),
+    create: protectedProcedure
+      .input(z.object({
+        title: z.string(),
+        organization: z.string().optional(),
+        deadline: z.string().optional(),
+        value: z.number().optional(),
+        status: z.string().optional(),
+        description: z.string().optional(),
+        requirements: z.string().optional(),
+        attachments: z.any().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(governmentTendersTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.any() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(governmentTendersTable).set(input.data).where(eq(governmentTendersTable.id, input.id));
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(governmentTendersTable).where(eq(governmentTendersTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
+  // ========== Waste Thresholds & Alerts ==========
+  wasteManagement: router({
+    getThresholds: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(wasteThresholdsTable);
+    }),
+    setThreshold: adminProcedure
+      .input(z.object({
+        metricKey: z.string(),
+        metricName: z.string(),
+        threshold: z.number(),
+        unit: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        const existing = await db.select().from(wasteThresholdsTable).where(eq(wasteThresholdsTable.metricKey, input.metricKey)).limit(1);
+        if (existing.length > 0) {
+          await db.update(wasteThresholdsTable).set({ threshold: input.threshold, metricName: input.metricName, unit: input.unit }).where(eq(wasteThresholdsTable.metricKey, input.metricKey));
+        } else {
+          await db.insert(wasteThresholdsTable).values(input as any);
+        }
+        return { success: true };
+      }),
+    getAlerts: protectedProcedure
+      .input(z.object({ unreadOnly: z.boolean().optional() }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        if (input?.unreadOnly) {
+          return db.select().from(wasteAlertsTable).where(eq(wasteAlertsTable.isRead, 0)).orderBy(desc(wasteAlertsTable.createdAt));
+        }
+        return db.select().from(wasteAlertsTable).orderBy(desc(wasteAlertsTable.createdAt));
+      }),
+    createAlert: protectedProcedure
+      .input(z.object({
+        metricKey: z.string(),
+        message: z.string(),
+        severity: z.string().optional(),
+        machineNumber: z.string().optional(),
+        value: z.number().optional(),
+        threshold: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(wasteAlertsTable).values(input as any);
+        return { success: true };
+      }),
+    markRead: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.update(wasteAlertsTable).set({ isRead: 1 }).where(eq(wasteAlertsTable.id, input.id));
+        return { success: true };
+      }),
+    clearAlerts: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) return { success: false };
+      await db.delete(wasteAlertsTable);
+      return { success: true };
+    }),
+  }),
+
+  // ========== Board Representative Data (Server) ==========
+  boardData: router({
+    getAll: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(boardRepresentativeDataTable).orderBy(desc(boardRepresentativeDataTable.createdAt));
+    }),
+    save: protectedProcedure
+      .input(z.object({
+        userId: z.number(),
+        dataType: z.string(),
+        value: z.string(),
+        description: z.string().optional(),
+        date: z.string(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(boardRepresentativeDataTable).values(input as any);
+        return { success: true };
+      }),
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), value: z.string().optional(), description: z.string().optional(), notes: z.string().optional() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        const { id, ...updateData } = input;
+        const filtered = Object.fromEntries(Object.entries(updateData).filter(([_, v]) => v !== undefined));
+        if (Object.keys(filtered).length > 0) {
+          await db.update(boardRepresentativeDataTable).set(filtered).where(eq(boardRepresentativeDataTable.id, id));
+        }
+        return { success: true };
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(boardRepresentativeDataTable).where(eq(boardRepresentativeDataTable.id, input.id));
+        return { success: true };
+      }),
+    clear: adminProcedure.mutation(async () => {
+      const db = await getDb();
+      if (!db) return { success: false };
+      await db.delete(boardRepresentativeDataTable);
+      return { success: true };
+    }),
+  }),
+
+  // ========== App Settings (Key-Value) ==========
+  appSettings: router({
+    get: protectedProcedure
+      .input(z.object({ key: z.string() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const result = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, input.key)).limit(1);
+        return result.length > 0 ? result[0].value : null;
+      }),
+    set: protectedProcedure
+      .input(z.object({ key: z.string(), value: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        const existing = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, input.key)).limit(1);
+        if (existing.length > 0) {
+          await db.update(appSettingsTable).set({ value: input.value }).where(eq(appSettingsTable.key, input.key));
+        } else {
+          await db.insert(appSettingsTable).values({ key: input.key, value: input.value });
+        }
+        return { success: true };
+      }),
+    getAll: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(appSettingsTable);
+    }),
   }),
 });
 

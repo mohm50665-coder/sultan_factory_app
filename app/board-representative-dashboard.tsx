@@ -13,7 +13,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BackButton } from "@/components/back-button";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { boardDataService, trpcCall } from "@/lib/services/api.service";
 import { BarChart } from "react-native-chart-kit";
 
 interface KPI {
@@ -61,35 +61,41 @@ export default function BoardRepresentativeDashboardScreen() {
     try {
       setIsLoading(true);
 
-      // Load real KPIs from AsyncStorage
-      const savedKpis = await AsyncStorage.getItem("board_representative_kpis");
-      if (savedKpis) {
-        const parsedKpis = JSON.parse(savedKpis);
-        const mappedKpis: KPI[] = parsedKpis.map((k: any) => ({
-          label: k.name || k.label || "",
-          value: String(k.currentValue || k.value || "0"),
-          target: String(k.targetValue || k.target || "0"),
-          status: k.status === "on-track" ? "good" : k.status === "at-risk" ? "warning" : "critical",
-          icon: "trending-up",
-        }));
-        setKpis(mappedKpis);
-      } else {
+      // Load KPIs from server
+      try {
+        const kpisData = await trpcCall("kpis.getAll", undefined, "query");
+        if (kpisData && Array.isArray(kpisData)) {
+          const mappedKpis: KPI[] = kpisData.map((k: any) => ({
+            label: k.name || k.label || "",
+            value: String(k.currentValue || k.value || "0"),
+            target: String(k.targetValue || k.target || "0"),
+            status: k.status === "on_track" || k.status === "on-track" ? "good" : k.status === "at_risk" || k.status === "at-risk" ? "warning" : "critical",
+            icon: "trending-up",
+          }));
+          setKpis(mappedKpis);
+        } else {
+          setKpis([]);
+        }
+      } catch {
         setKpis([]);
       }
 
-      // Load real board data from AsyncStorage
-      const savedData = await AsyncStorage.getItem("board_representative_data");
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        const mappedProcs: AdminProcedure[] = parsedData.slice(0, 10).map((d: any) => ({
-          id: String(d.id),
-          type: d.title || d.category || "",
-          employee: d.content || "",
-          status: "approved" as const,
-          date: d.date || "",
-        }));
-        setProcedures(mappedProcs);
-      } else {
+      // Load board data from server
+      try {
+        const boardData = await boardDataService.getAll();
+        if (boardData && Array.isArray(boardData)) {
+          const mappedProcs: AdminProcedure[] = boardData.slice(0, 10).map((d: any) => ({
+            id: String(d.id),
+            type: d.dataType || d.description || "",
+            employee: d.value || "",
+            status: "approved" as const,
+            date: d.date || "",
+          }));
+          setProcedures(mappedProcs);
+        } else {
+          setProcedures([]);
+        }
+      } catch {
         setProcedures([]);
       }
 

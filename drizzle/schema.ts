@@ -611,3 +611,148 @@ export const systemSettings = mysqlTable("systemSettings", {
 });
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+
+
+// ========== جداول نقل البيانات المحلية إلى السيرفر ==========
+
+// جدول الاجتماعات
+export const meetings = mysqlTable("meetings", {
+  id: int("id").autoincrement().primaryKey(),
+  meetingNumber: int("meetingNumber").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  time: varchar("time", { length: 10 }),
+  location: varchar("location", { length: 255 }),
+  type: varchar("type", { length: 50 }),
+  status: varchar("status", { length: 50 }).default("pending"),
+  requestedBy: varchar("requestedBy", { length: 255 }),
+  attendees: json("attendees"),
+  agenda: text("agenda"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Meeting = typeof meetings.$inferSelect;
+
+// جدول مخرجات الاجتماعات
+export const meetingOutputs = mysqlTable("meetingOutputs", {
+  id: int("id").autoincrement().primaryKey(),
+  meetingId: int("meetingId").notNull(),
+  description: text("description").notNull(),
+  assignedTo: varchar("assignedTo", { length: 255 }),
+  deadline: varchar("deadline", { length: 20 }),
+  status: varchar("status", { length: 50 }).default("pending"),
+  priority: varchar("priority", { length: 20 }).default("medium"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type MeetingOutput = typeof meetingOutputs.$inferSelect;
+
+// جدول عمال مراحل التصنيع
+export const manufacturingWorkers = mysqlTable("manufacturingWorkers", {
+  id: int("id").autoincrement().primaryKey(),
+  stageId: varchar("stageId", { length: 100 }).notNull(),
+  workerName: varchar("workerName", { length: 255 }).notNull(),
+  role: varchar("role", { length: 100 }),
+  isActive: int("isActive").default(1),
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ManufacturingWorker = typeof manufacturingWorkers.$inferSelect;
+
+// جدول التقارير المالية
+export const financialReports = mysqlTable("financialReports", {
+  id: int("id").autoincrement().primaryKey(),
+  month: varchar("month", { length: 20 }).notNull(),
+  year: int("year").notNull(),
+  revenue: int("revenue").default(0),
+  expenses: int("expenses").default(0),
+  netProfit: int("netProfit").default(0),
+  category: varchar("category", { length: 100 }),
+  details: json("details"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type FinancialReport = typeof financialReports.$inferSelect;
+
+// جدول تكاليف الإنتاج المحلية
+export const localProductionCosts = mysqlTable("localProductionCosts", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 20 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
+  description: varchar("description", { length: 255 }),
+  amount: int("amount").default(0),
+  quantity: int("quantity").default(0),
+  unitPrice: int("unitPrice").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type LocalProductionCost = typeof localProductionCosts.$inferSelect;
+
+// جدول حسابات تكلفة المنتجات
+export const savedProductCosts = mysqlTable("savedProductCosts", {
+  id: int("id").autoincrement().primaryKey(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  threadData: json("threadData").notNull(),
+  totalCost: int("totalCost").default(0),
+  notes: text("notes"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SavedProductCost = typeof savedProductCosts.$inferSelect;
+
+// جدول المناقصات الحكومية
+export const governmentTenders = mysqlTable("governmentTenders", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  organization: varchar("organization", { length: 255 }),
+  deadline: varchar("deadline", { length: 20 }),
+  value: int("value").default(0),
+  status: varchar("status", { length: 50 }).default("open"),
+  description: text("description"),
+  requirements: text("requirements"),
+  attachments: json("attachments"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type GovernmentTender = typeof governmentTenders.$inferSelect;
+
+// جدول حدود الهدر والتنبيهات
+export const wasteThresholds = mysqlTable("wasteThresholds", {
+  id: int("id").autoincrement().primaryKey(),
+  metricKey: varchar("metricKey", { length: 100 }).notNull().unique(),
+  metricName: varchar("metricName", { length: 255 }).notNull(),
+  threshold: int("threshold").default(0),
+  unit: varchar("unit", { length: 50 }),
+  isActive: int("isActive").default(1),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type WasteThreshold = typeof wasteThresholds.$inferSelect;
+
+// جدول تنبيهات الهدر
+export const wasteAlerts = mysqlTable("wasteAlerts", {
+  id: int("id").autoincrement().primaryKey(),
+  metricKey: varchar("metricKey", { length: 100 }).notNull(),
+  message: text("message").notNull(),
+  severity: varchar("severity", { length: 20 }).default("warning"),
+  isRead: int("isRead").default(0),
+  machineNumber: varchar("machineNumber", { length: 50 }),
+  value: int("value").default(0),
+  threshold: int("threshold").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type WasteAlert = typeof wasteAlerts.$inferSelect;
+
+// جدول إعدادات التطبيق (key-value)
+export const appSettings = mysqlTable("appSettings", {
+  id: int("id").autoincrement().primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AppSetting = typeof appSettings.$inferSelect;

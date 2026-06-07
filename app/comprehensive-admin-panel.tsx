@@ -16,15 +16,9 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { adminService } from "@/lib/services/api.service";
+import { adminService, manufacturingWorkersService, boardDataService } from "@/lib/services/api.service";
 
-// ===== STORAGE KEYS =====
-const STORAGE_KEYS = {
-  STAGES: "admin_stages_data",
-  BOARD_DATA: "board_representative_data",
-  BOARD_KPIS: "board_representative_kpis",
-};
+// Storage keys removed - all data now on server
 
 // ===== TYPES =====
 interface StageWorker {
@@ -172,23 +166,34 @@ export default function ComprehensiveAdminPanel() {
 
   const loadData = async () => {
     try {
-      // Load stages
-      const saved = await AsyncStorage.getItem(STORAGE_KEYS.STAGES);
-      if (saved) setStages(JSON.parse(saved));
+      // Load stages workers from server
+      try {
+        const allWorkers = await manufacturingWorkersService.list();
+        if (allWorkers && Array.isArray(allWorkers) && allWorkers.length > 0) {
+          // Group workers by stageId and build stages
+          const workersByStage: Record<string, StageWorker[]> = {};
+          allWorkers.forEach((w: any) => {
+            if (!workersByStage[w.stageId]) workersByStage[w.stageId] = [];
+            workersByStage[w.stageId].push({ id: String(w.id), name: w.workerName, nameEn: w.role || w.workerName });
+          });
+          // Merge with default stages
+          const merged = DEFAULT_STAGES.map((s) => ({
+            ...s,
+            workers: workersByStage[s.id] || s.workers,
+          }));
+          setStages(merged);
+        }
+      } catch (e) {
+        console.log("Using default stages", e);
+      }
       // Load users from server API
       try {
         const serverUsers = await adminService.getAllUsers();
         if (serverUsers && serverUsers.length > 0) {
           setUsers(serverUsers);
-        } else {
-          // Fallback to local
-          const usersData = await AsyncStorage.getItem("users");
-          if (usersData) setUsers(JSON.parse(usersData));
         }
-      } catch {
-        // Fallback to local if server unavailable
-        const usersData = await AsyncStorage.getItem("users");
-        if (usersData) setUsers(JSON.parse(usersData));
+      } catch (e) {
+        console.log("Error loading users", e);
       }
     } catch (e) {
       console.error("Error loading data:", e);
@@ -199,7 +204,17 @@ export default function ComprehensiveAdminPanel() {
 
   const saveStages = async (newStages: Stage[]) => {
     setStages(newStages);
-    await AsyncStorage.setItem(STORAGE_KEYS.STAGES, JSON.stringify(newStages));
+    // Sync each stage's workers to server
+    for (const stage of newStages) {
+      try {
+        await manufacturingWorkersService.bulkSet(
+          stage.id,
+          stage.workers.map((w) => ({ workerName: w.name, role: w.nameEn }))
+        );
+      } catch (e) {
+        console.log("Error saving stage workers to server:", e);
+      }
+    }
   };
 
   // ===== WORKER MANAGEMENT =====
@@ -298,15 +313,9 @@ export default function ComprehensiveAdminPanel() {
   const selectUser = async (u: any) => {
     setSelectedUser(u);
     try {
-      // Try server-stored permissions first
+      // Use server-stored permissions
       if (u.toolPermissions && Object.keys(u.toolPermissions).length > 0) {
         setUserPermissions(u.toolPermissions);
-        return;
-      }
-      // Fallback to local
-      const perms = await AsyncStorage.getItem(`tool_permissions_${u.id}`);
-      if (perms) {
-        setUserPermissions(JSON.parse(perms));
       } else {
         const defaults: Record<string, boolean> = {};
         AVAILABLE_TOOLS.forEach((t) => { defaults[t.id] = true; });
@@ -326,14 +335,13 @@ export default function ComprehensiveAdminPanel() {
 
   const savePermissions = async () => {
     if (!selectedUser) return;
-    // Save to both server and local
     try {
       await adminService.updateToolPermissions(selectedUser.id, userPermissions);
+      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
     } catch (e) {
-      console.log("Server save failed, saving locally", e);
+      console.log("Error saving permissions:", e);
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
     }
-    await AsyncStorage.setItem(`tool_permissions_${selectedUser.id}`, JSON.stringify(userPermissions));
-    Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
   };
 
   // ===== BOARD/RESET =====
@@ -347,9 +355,12 @@ export default function ComprehensiveAdminPanel() {
           text: isAr ? "تصفير" : "Clear",
           style: "destructive",
           onPress: async () => {
-            await AsyncStorage.removeItem(STORAGE_KEYS.BOARD_DATA);
-            await AsyncStorage.removeItem(STORAGE_KEYS.BOARD_KPIS);
-            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصفير جميع البيانات" : "All data cleared");
+            try {
+              await boardDataService.clear();
+              Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصفير جميع البيانات" : "All data cleared");
+            } catch (e) {
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل التصفير" : "Failed to clear data");
+            }
           },
         },
       ]
@@ -366,8 +377,8 @@ export default function ComprehensiveAdminPanel() {
           text: isAr ? "إعادة تعيين" : "Reset",
           style: "destructive",
           onPress: async () => {
-            await AsyncStorage.removeItem(STORAGE_KEYS.STAGES);
-            setStages(DEFAULT_STAGES);
+            // Reset to defaults on server
+            await saveStages(DEFAULT_STAGES);
             Alert.alert(isAr ? "تم" : "Done", isAr ? "تم إعادة التعيين" : "Reset complete");
           },
         },

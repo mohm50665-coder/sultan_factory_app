@@ -17,14 +17,11 @@ import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { simpleAuthService, User } from "@/lib/services/simple-auth";
-
-const MEETINGS_KEY = "sultan_gov_meetings";
-const MEETING_COUNTER_KEY = "sultan_meeting_counter";
+import { meetingsService, adminService } from "@/lib/services/api.service";
+import { useAuth } from "@/lib/auth-context";
 
 interface Meeting {
-  id: string;
+  id: number | string;
   meetingNumber: number;
   title: string;
   date: string;
@@ -39,9 +36,17 @@ interface Meeting {
   createdBy: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  position?: string;
+  department?: string;
+}
+
 export default function MeetingRequestScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,35 +73,30 @@ export default function MeetingRequestScreen() {
     setLoading(true);
     try {
       const [meetingsData, usersData] = await Promise.all([
-        loadMeetings(),
-        simpleAuthService.getAllUsers(),
+        meetingsService.list(),
+        adminService.getAllUsers(),
       ]);
-      setMeetings(meetingsData);
-      setAllUsers(usersData);
+      const mapped = (meetingsData || []).map((m: any) => ({
+        id: m.id,
+        meetingNumber: m.meetingNumber || 0,
+        title: m.title || "",
+        date: m.date || "",
+        time: m.time || "",
+        location: m.location || "",
+        method: m.type || "in_person",
+        meetingLink: m.notes || "",
+        attendees: Array.isArray(m.attendees) ? m.attendees : [],
+        attachments: [],
+        status: m.status || "scheduled",
+        createdAt: m.createdAt || "",
+        createdBy: m.requestedBy || "",
+      }));
+      setMeetings(mapped);
+      setAllUsers(usersData || []);
     } catch (error) {
       console.error("Error:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadMeetings = async (): Promise<Meeting[]> => {
-    try {
-      const stored = await AsyncStorage.getItem(MEETINGS_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const getNextMeetingNumber = async (): Promise<number> => {
-    try {
-      const counter = await AsyncStorage.getItem(MEETING_COUNTER_KEY);
-      const next = counter ? parseInt(counter) + 1 : 1;
-      await AsyncStorage.setItem(MEETING_COUNTER_KEY, next.toString());
-      return next;
-    } catch {
-      return 1;
     }
   };
 
@@ -141,50 +141,35 @@ export default function MeetingRequestScreen() {
     }
 
     try {
-      const allMeetings = await loadMeetings();
-
       if (editingMeeting) {
         // تعديل اجتماع موجود
-        const idx = allMeetings.findIndex(m => m.id === editingMeeting.id);
-        if (idx !== -1) {
-          allMeetings[idx] = {
-            ...allMeetings[idx],
-            title: form.title,
-            date: form.date,
-            time: form.time,
-            location: form.location,
-            method: form.method,
-            meetingLink: form.meetingLink,
-            attendees: form.attendees,
-            attachments: form.attachmentNames,
-          };
-        }
-      } else {
-        // إنشاء اجتماع جديد
-        const meetingNumber = await getNextMeetingNumber();
-        const currentUser = await AsyncStorage.getItem("currentUser");
-        const userName = currentUser ? JSON.parse(currentUser).name : "الأدمن";
-
-        const newMeeting: Meeting = {
-          id: Date.now().toString(),
-          meetingNumber,
+        await meetingsService.update(Number(editingMeeting.id), {
           title: form.title,
           date: form.date,
           time: form.time,
           location: form.location,
-          method: form.method,
-          meetingLink: form.meetingLink,
+          type: form.method,
+          notes: form.meetingLink,
           attendees: form.attendees,
-          attachments: form.attachmentNames,
+        });
+      } else {
+        // إنشاء اجتماع جديد
+        const nextNumber = await meetingsService.getNextNumber();
+        await meetingsService.create({
+          meetingNumber: nextNumber || 1,
+          title: form.title,
+          date: form.date,
+          time: form.time,
+          location: form.location,
+          type: form.method,
+          notes: form.meetingLink,
+          attendees: form.attendees,
           status: "scheduled",
-          createdAt: new Date().toISOString(),
-          createdBy: userName,
-        };
-        allMeetings.unshift(newMeeting);
+          requestedBy: user?.name || "الأدمن",
+        });
       }
 
-      await AsyncStorage.setItem(MEETINGS_KEY, JSON.stringify(allMeetings));
-      setMeetings(allMeetings);
+      await loadData();
       setShowForm(false);
       Alert.alert("نجح", editingMeeting ? "تم تحديث الاجتماع" : "تم جدولة الاجتماع بنجاح");
     } catch (error) {
@@ -199,18 +184,24 @@ export default function MeetingRequestScreen() {
         text: "حذف",
         style: "destructive",
         onPress: async () => {
-          const updated = meetings.filter(m => m.id !== meeting.id);
-          await AsyncStorage.setItem(MEETINGS_KEY, JSON.stringify(updated));
-          setMeetings(updated);
+          try {
+            await meetingsService.delete(Number(meeting.id));
+            setMeetings(meetings.filter(m => m.id !== meeting.id));
+          } catch (e) {
+            Alert.alert("خطأ", "فشل في حذف الاجتماع");
+          }
         },
       },
     ]);
   };
 
   const handleStatusChange = async (meeting: Meeting, newStatus: "scheduled" | "completed" | "cancelled") => {
-    const updated = meetings.map(m => m.id === meeting.id ? { ...m, status: newStatus } : m);
-    await AsyncStorage.setItem(MEETINGS_KEY, JSON.stringify(updated));
-    setMeetings(updated);
+    try {
+      await meetingsService.update(Number(meeting.id), { status: newStatus });
+      setMeetings(meetings.map(m => m.id === meeting.id ? { ...m, status: newStatus } : m));
+    } catch (e) {
+      console.log("Error updating status:", e);
+    }
   };
 
   const handleOpenLink = (link: string) => {
@@ -294,7 +285,7 @@ export default function MeetingRequestScreen() {
       {/* Meetings List */}
       <FlatList
         data={meetings}
-        keyExtractor={item => item.id}
+        keyExtractor={item => String(item.id)}
         contentContainerStyle={{ padding: 16, gap: 12 }}
         renderItem={({ item }) => (
           <View style={[styles.meetingCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -552,7 +543,7 @@ export default function MeetingRequestScreen() {
           </View>
           <FlatList
             data={allUsers}
-            keyExtractor={item => item.id}
+            keyExtractor={item => String(item.id)}
             contentContainerStyle={{ padding: 16, gap: 6 }}
             renderItem={({ item }) => {
               const isSelected = form.attendees.includes(item.id);

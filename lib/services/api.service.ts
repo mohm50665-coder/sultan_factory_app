@@ -3,7 +3,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 
 const SESSION_STORAGE_KEY = "sultan_session_id";
 
-async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
+export async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
   const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
 
@@ -153,4 +153,83 @@ export const financialService = {
 export const authApiService = {
   resetPassword: (username: string, phone: string, newPassword: string) =>
     trpcCall("auth.resetPassword", { username, phone, newPassword }),
+};
+
+// ===== Board Representative Data (Server) =====
+export const boardDataService = {
+  getAll: () => trpcCall("boardData.getAll", undefined, "query"),
+  save: (data: { userId: number; dataType: string; value: string; description?: string; date: string; notes?: string }) =>
+    trpcCall("boardData.save", data),
+  update: (data: { id: number; value?: string; description?: string; notes?: string }) =>
+    trpcCall("boardData.update", data),
+  delete: (id: number) => trpcCall("boardData.delete", { id }),
+  clear: () => trpcCall("boardData.clear", undefined),
+};
+
+// ===== Manufacturing Workers (Server) =====
+export const manufacturingWorkersService = {
+  list: (stageId?: string) => trpcCall("manufacturingWorkers.list", stageId ? { stageId } : undefined, "query"),
+  create: (data: { stageId: string; workerName: string; role?: string; sortOrder?: number }) =>
+    trpcCall("manufacturingWorkers.create", data),
+  update: (id: number, data: any) =>
+    trpcCall("manufacturingWorkers.update", { id, data }),
+  delete: (id: number) => trpcCall("manufacturingWorkers.delete", { id }),
+  bulkSet: (stageId: string, workers: { workerName: string; role?: string }[]) =>
+    trpcCall("manufacturingWorkers.bulkSet", { stageId, workers }),
+};
+
+// ===== App Settings (Server) =====
+export const appSettingsService = {
+  get: (key: string) => trpcCall("appSettings.get", { key }, "query"),
+  set: (key: string, value: string) => trpcCall("appSettings.set", { key, value }),
+  getAll: () => trpcCall("appSettings.getAll", undefined, "query"),
+};
+
+// ===== Meetings (Server) =====
+export const meetingsService = {
+  list: () => trpcCall("meetings.list", undefined, "query"),
+  create: (data: any) => trpcCall("meetings.create", data),
+  update: (id: number, data: any) => trpcCall("meetings.update", { id, data }),
+  delete: (id: number) => trpcCall("meetings.delete", { id }),
+  getNextNumber: () => trpcCall("meetings.getNextNumber", undefined, "query"),
+};
+
+// ===== Meeting Outputs (Server) =====
+export const meetingOutputsService = {
+  list: (meetingId?: number) => trpcCall("meetingOutputs.list", meetingId ? { meetingId } : undefined, "query"),
+  create: (data: any) => trpcCall("meetingOutputs.create", data),
+  update: (id: number, data: any) => trpcCall("meetingOutputs.update", { id, data }),
+  delete: (id: number) => trpcCall("meetingOutputs.delete", { id }),
+};
+
+// ===== Financial Reports (Server) =====
+export const financialReportsService = {
+  list: () => trpcCall("financialReports.list", undefined, "query"),
+  create: (data: any) => trpcCall("financialReports.create", data),
+  delete: (id: number) => trpcCall("financialReports.delete", { id }),
+  clearAll: () => trpcCall("financialReports.clearAll", undefined),
+};
+
+// ===== Production Costs (Server) =====
+export const productionCostsLocalService = {
+  list: () => trpcCall("productionCostsLocal.list", undefined, "query"),
+  create: (data: any) => trpcCall("productionCostsLocal.create", data),
+  update: (id: number, data: any) => trpcCall("productionCostsLocal.update", { id, data }),
+  delete: (id: number) => trpcCall("productionCostsLocal.delete", { id }),
+  clearAll: () => trpcCall("productionCostsLocal.clearAll", undefined),
+};
+
+// ===== Saved Product Costs (Server) =====
+export const savedProductCostsService = {
+  list: () => trpcCall("savedProductCosts.list", undefined, "query"),
+  create: (data: any) => trpcCall("savedProductCosts.create", data),
+  delete: (id: number) => trpcCall("savedProductCosts.delete", { id }),
+};
+
+// ===== Government Tenders (Server) =====
+export const governmentTendersService = {
+  list: () => trpcCall("governmentTenders.list", undefined, "query"),
+  create: (data: any) => trpcCall("governmentTenders.create", data),
+  update: (id: number, data: any) => trpcCall("governmentTenders.update", { id, data }),
+  delete: (id: number) => trpcCall("governmentTenders.delete", { id }),
 };
