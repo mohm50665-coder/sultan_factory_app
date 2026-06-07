@@ -2,6 +2,8 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, View, Text } from "react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { trpc, createTRPCClient } from "@/lib/trpc";
 
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { LanguageProvider } from "@/lib/language-context";
@@ -185,14 +187,28 @@ function RootLayoutContent() {
     };
   }, [initialInsets, initialFrame]);
 
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: 1,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
+  const [trpcClient] = useState(() => createTRPCClient());
+
   const content = (
     <View style={{ flex: 1 }}>
-      <LanguageProvider>
-        <AuthProvider>
-          <NavigationContent />
-          <StatusBar style="auto" />
-        </AuthProvider>
-      </LanguageProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <LanguageProvider>
+            <AuthProvider>
+              <NavigationContent />
+              <StatusBar style="auto" />
+            </AuthProvider>
+          </LanguageProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
     </View>
   );
 
