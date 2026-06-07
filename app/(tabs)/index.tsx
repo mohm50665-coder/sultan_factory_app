@@ -203,9 +203,21 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/server-notifications",
     descriptionAr: "تنبيهات فورية عند تجاوز التكاليف أو انخفاض الإنتاجية",
     descriptionEn: "Real-time alerts for cost overruns and low productivity",
-    section: "reports",
+    section: "notifications",
     departments: [],
     isShared: true,
+  },
+  {
+    id: "government_tenders",
+    labelAr: "المناقصات الحكومية والعسكرية",
+    labelEn: "Government & Military Tenders",
+    icon: "gavel",
+    color: "#1E3A5F",
+    route: "/government-tenders",
+    descriptionAr: "إدارة المناقصات والاجتماعات ومخرجاتها",
+    descriptionEn: "Manage tenders, meetings and their outputs",
+    section: "tenders",
+    departments: ["government_tenders"],
   },
 ];
 
@@ -214,7 +226,6 @@ export default function HomeScreen() {
   const colors = useColors();
   const { user, logout } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
-  const [isLoading, setIsLoading] = useState(false);
 
   const isAr = language === "ar";
   const userRole = (user?.role || "user") as UserRole;
@@ -236,51 +247,50 @@ export default function HomeScreen() {
   // Filter dashboard items based on user department + admin sees all
   const userDepartment = user?.department || "";
   const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
+  // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
+  const SHARED_ITEMS = ["administrative", "server_notifications", "tasks"];
+
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // Admin sees everything
     if (user?.role === "admin") return true;
+    // الأيقونات الثابتة المشتركة تظهر للجميع دائماً
+    if (SHARED_ITEMS.includes(item.id)) return true;
     // If admin assigned specific sections to this user, use those
     if (user?.allowedSections && user.allowedSections.length > 0) {
       return user.allowedSections.includes(item.id);
     }
-    // Manufacturing stage workers: see manufacturing section + administrative + shared
+    // Manufacturing stage workers: see manufacturing section + shared
     if (isManufacturingWorker) {
-      return item.id === "manufacturing" || item.id === "administrative" || item.isShared;
+      return item.id === "manufacturing" || item.isShared;
     }
-    // Employees department: only administrative procedures
+    // Employees department: only shared items
     if (userDepartment === "employees") {
-      return item.id === "administrative";
+      return item.isShared;
     }
-    // Board representative sees tasks + shared items + administrative
+    // Board representative sees shared items + reports
     if (userDepartment === "board_representative") {
-      return item.isShared || item.id === "tasks" || item.id === "administrative";
+      return item.isShared || item.section === "reports";
     }
-    // Shared items (tasks) visible to all
+    // Government tenders department
+    if (userDepartment === "government_tenders") {
+      return item.id === "government_tenders" || item.isShared;
+    }
+    // Shared items visible to all
     if (item.isShared) return true;
     // Department-specific items
     if (item.departments.length === 0) return true;
     return item.departments.includes(userDepartment);
   });
 
-  const handleLogout = async () => {
+    const handleLogout = async () => {
     const confirmMessage = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
-    
     if (Platform.OS === "web") {
-      // على الويب Alert.alert لا يعمل - نستخدم window.confirm
       const confirmed = window.confirm(confirmMessage);
       if (confirmed) {
-        setIsLoading(true);
-        try {
-          await logout();
-          router.replace("/login");
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setIsLoading(false);
-        }
+        await logout();
+        router.replace("/login");
       }
     } else {
-      // على الموبايل نستخدم Alert.alert
       Alert.alert(
         t("logout"),
         confirmMessage,
@@ -290,15 +300,8 @@ export default function HomeScreen() {
             text: t("logout"),
             style: "destructive",
             onPress: async () => {
-              setIsLoading(true);
-              try {
-                await logout();
-                router.replace("/login");
-              } catch (e) {
-                console.error(e);
-              } finally {
-                setIsLoading(false);
-              }
+              await logout();
+              router.replace("/login");
             },
           },
         ]
@@ -318,17 +321,12 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable
               onPress={handleLogout}
-              disabled={isLoading}
               style={({ pressed }) => [
                 styles.headerButton,
                 pressed && { opacity: 0.7 },
               ]}
             >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <MaterialIcons name="logout" size={20} color="white" />
-              )}
+              <MaterialIcons name="logout" size={20} color="white" />
             </Pressable>
             <TouchableOpacity
               onPress={() => handleNavigate("/profile")}

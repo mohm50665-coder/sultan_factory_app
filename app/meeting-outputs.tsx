@@ -1,0 +1,632 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Alert,
+  FlatList,
+  Modal,
+  ActivityIndicator,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ScreenContainer } from "@/components/screen-container";
+import { BackButton } from "@/components/back-button";
+import { useColors } from "@/hooks/use-colors";
+import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const MEETINGS_KEY = "sultan_gov_meetings";
+const MEETING_OUTPUTS_KEY = "sultan_gov_meeting_outputs";
+
+interface Meeting {
+  id: string;
+  meetingNumber: number;
+  title: string;
+  date: string;
+  status: string;
+}
+
+interface MeetingOutput {
+  id: string;
+  meetingId: string;
+  meetingNumber: number;
+  meetingTitle: string;
+  recommendations: string[];
+  decisions: string[];
+  actionItems: { task: string; assignee: string; deadline: string }[];
+  attachments: string[];
+  notes: string;
+  createdAt: string;
+}
+
+export default function MeetingOutputsScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const [outputs, setOutputs] = useState<MeetingOutput[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingOutput, setEditingOutput] = useState<MeetingOutput | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [showMeetingPicker, setShowMeetingPicker] = useState(false);
+
+  const [form, setForm] = useState({
+    recommendations: [""],
+    decisions: [""],
+    actionItems: [{ task: "", assignee: "", deadline: "" }],
+    attachments: [] as string[],
+    notes: "",
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [meetingsStr, outputsStr] = await Promise.all([
+        AsyncStorage.getItem(MEETINGS_KEY),
+        AsyncStorage.getItem(MEETING_OUTPUTS_KEY),
+      ]);
+      const meetingsData = meetingsStr ? JSON.parse(meetingsStr) : [];
+      const outputsData = outputsStr ? JSON.parse(outputsStr) : [];
+      setMeetings(meetingsData);
+      setOutputs(outputsData);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewOutput = () => {
+    setEditingOutput(null);
+    setSelectedMeeting(null);
+    setForm({
+      recommendations: [""],
+      decisions: [""],
+      actionItems: [{ task: "", assignee: "", deadline: "" }],
+      attachments: [],
+      notes: "",
+    });
+    setShowForm(true);
+  };
+
+  const handleEditOutput = (output: MeetingOutput) => {
+    setEditingOutput(output);
+    const meeting = meetings.find(m => m.id === output.meetingId);
+    setSelectedMeeting(meeting || null);
+    setForm({
+      recommendations: output.recommendations.length > 0 ? output.recommendations : [""],
+      decisions: output.decisions.length > 0 ? output.decisions : [""],
+      actionItems: output.actionItems.length > 0 ? output.actionItems : [{ task: "", assignee: "", deadline: "" }],
+      attachments: output.attachments,
+      notes: output.notes,
+    });
+    setShowForm(true);
+  };
+
+  const handleSaveOutput = async () => {
+    if (!selectedMeeting) {
+      Alert.alert("خطأ", "الرجاء اختيار الاجتماع");
+      return;
+    }
+
+    const cleanRecommendations = form.recommendations.filter(r => r.trim());
+    const cleanDecisions = form.decisions.filter(d => d.trim());
+    const cleanActionItems = form.actionItems.filter(a => a.task.trim());
+
+    if (cleanRecommendations.length === 0 && cleanDecisions.length === 0) {
+      Alert.alert("خطأ", "الرجاء إدخال توصية أو قرار واحد على الأقل");
+      return;
+    }
+
+    try {
+      const stored = await AsyncStorage.getItem(MEETING_OUTPUTS_KEY);
+      let allOutputs: MeetingOutput[] = stored ? JSON.parse(stored) : [];
+
+      if (editingOutput) {
+        const idx = allOutputs.findIndex(o => o.id === editingOutput.id);
+        if (idx !== -1) {
+          allOutputs[idx] = {
+            ...allOutputs[idx],
+            recommendations: cleanRecommendations,
+            decisions: cleanDecisions,
+            actionItems: cleanActionItems,
+            attachments: form.attachments,
+            notes: form.notes,
+          };
+        }
+      } else {
+        const newOutput: MeetingOutput = {
+          id: Date.now().toString(),
+          meetingId: selectedMeeting.id,
+          meetingNumber: selectedMeeting.meetingNumber,
+          meetingTitle: selectedMeeting.title,
+          recommendations: cleanRecommendations,
+          decisions: cleanDecisions,
+          actionItems: cleanActionItems,
+          attachments: form.attachments,
+          notes: form.notes,
+          createdAt: new Date().toISOString(),
+        };
+        allOutputs.unshift(newOutput);
+      }
+
+      await AsyncStorage.setItem(MEETING_OUTPUTS_KEY, JSON.stringify(allOutputs));
+      setOutputs(allOutputs);
+      setShowForm(false);
+      Alert.alert("نجح", editingOutput ? "تم تحديث المخرجات" : "تم حفظ مخرجات الاجتماع");
+    } catch (error) {
+      Alert.alert("خطأ", "فشل في الحفظ");
+    }
+  };
+
+  const handleDeleteOutput = (output: MeetingOutput) => {
+    Alert.alert("تأكيد", "هل تريد حذف مخرجات هذا الاجتماع؟", [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const updated = outputs.filter(o => o.id !== output.id);
+          await AsyncStorage.setItem(MEETING_OUTPUTS_KEY, JSON.stringify(updated));
+          setOutputs(updated);
+        },
+      },
+    ]);
+  };
+
+  const addRecommendation = () => setForm(prev => ({ ...prev, recommendations: [...prev.recommendations, ""] }));
+  const addDecision = () => setForm(prev => ({ ...prev, decisions: [...prev.decisions, ""] }));
+  const addActionItem = () => setForm(prev => ({ ...prev, actionItems: [...prev.actionItems, { task: "", assignee: "", deadline: "" }] }));
+
+  const addAttachment = () => {
+    const name = "مرفق " + (form.attachments.length + 1);
+    setForm(prev => ({ ...prev, attachments: [...prev.attachments, name] }));
+  };
+
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: "#1E3A5F" }]}>
+        <BackButton />
+        <Text style={styles.headerTitle}>مخرجات الاجتماع</Text>
+        <TouchableOpacity onPress={handleNewOutput}>
+          <MaterialIcons name="add-circle" size={28} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Outputs List */}
+      <FlatList
+        data={outputs}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ padding: 16, gap: 12 }}
+        renderItem={({ item }) => (
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <View style={[styles.numBadge, { backgroundColor: "#F59E0B" }]}>
+                <Text style={{ color: "white", fontSize: 11, fontWeight: "bold" }}>#{item.meetingNumber}</Text>
+              </View>
+              <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 14, flex: 1 }}>{item.meetingTitle}</Text>
+            </View>
+
+            {/* Recommendations */}
+            {item.recommendations.length > 0 && (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: colors.primary, fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>التوصيات:</Text>
+                {item.recommendations.map((rec, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
+                    <Text style={{ color: "#10B981", fontSize: 12 }}>•</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 12, flex: 1 }}>{rec}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Decisions */}
+            {item.decisions.length > 0 && (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#8B5CF6", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>القرارات:</Text>
+                {item.decisions.map((dec, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
+                    <Text style={{ color: "#8B5CF6", fontSize: 12 }}>•</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 12, flex: 1 }}>{dec}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Action Items */}
+            {item.actionItems.length > 0 && (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>بنود العمل:</Text>
+                {item.actionItems.map((ai, idx) => (
+                  <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
+                    <MaterialIcons name="assignment-turned-in" size={14} color="#F59E0B" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, flex: 1 }}>
+                      {ai.task} {ai.assignee ? `(${ai.assignee})` : ""} {ai.deadline ? `- ${ai.deadline}` : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Attachments */}
+            {item.attachments.length > 0 && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <MaterialIcons name="attach-file" size={14} color={colors.muted} />
+                <Text style={{ color: colors.muted, fontSize: 11 }}>{item.attachments.length} مرفق</Text>
+              </View>
+            )}
+
+            {/* Actions */}
+            <View style={{ flexDirection: "row", gap: 6, borderTopWidth: 0.5, borderColor: colors.border, paddingTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.actionChip, { backgroundColor: colors.primary + "20" }]}
+                onPress={() => handleEditOutput(item)}
+              >
+                <MaterialIcons name="edit" size={14} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 11 }}>تعديل</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionChip, { backgroundColor: "#EF444420" }]}
+                onPress={() => handleDeleteOutput(item)}
+              >
+                <MaterialIcons name="delete" size={14} color="#EF4444" />
+                <Text style={{ color: "#EF4444", fontSize: 11 }}>حذف</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={
+          <View style={{ alignItems: "center", paddingVertical: 60 }}>
+            <MaterialIcons name="summarize" size={56} color={colors.muted} />
+            <Text style={{ color: colors.muted, marginTop: 12, fontSize: 15 }}>لا توجد مخرجات مسجلة</Text>
+            <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={handleNewOutput}>
+              <Text style={{ color: "white", fontWeight: "600" }}>إضافة مخرجات اجتماع</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
+      {/* ===== NEW/EDIT OUTPUT FORM ===== */}
+      <Modal visible={showForm} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowForm(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
+              {editingOutput ? "تعديل المخرجات" : "إضافة مخرجات اجتماع"}
+            </Text>
+            <TouchableOpacity onPress={handleSaveOutput}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+            {/* Select Meeting */}
+            <View>
+              <Text style={[styles.label, { color: colors.foreground }]}>اختر الاجتماع *</Text>
+              <TouchableOpacity
+                style={[styles.selectBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => setShowMeetingPicker(true)}
+              >
+                <MaterialIcons name="event" size={18} color={colors.primary} />
+                <Text style={{ color: selectedMeeting ? colors.foreground : colors.muted, fontSize: 13, flex: 1 }}>
+                  {selectedMeeting ? `#${selectedMeeting.meetingNumber} - ${selectedMeeting.title}` : "اختر الاجتماع"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Recommendations */}
+            <View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={[styles.label, { color: colors.foreground }]}>التوصيات</Text>
+                <TouchableOpacity onPress={addRecommendation}>
+                  <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              {form.recommendations.map((rec, idx) => (
+                <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 6 }}>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, flex: 1 }]}
+                    value={rec}
+                    onChangeText={t => {
+                      const updated = [...form.recommendations];
+                      updated[idx] = t;
+                      setForm({ ...form, recommendations: updated });
+                    }}
+                    placeholder={`توصية ${idx + 1}`}
+                    placeholderTextColor={colors.muted}
+                  />
+                  {form.recommendations.length > 1 && (
+                    <TouchableOpacity
+                      style={{ justifyContent: "center" }}
+                      onPress={() => setForm(prev => ({ ...prev, recommendations: prev.recommendations.filter((_, i) => i !== idx) }))}
+                    >
+                      <MaterialIcons name="remove-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* Decisions */}
+            <View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={[styles.label, { color: colors.foreground }]}>القرارات</Text>
+                <TouchableOpacity onPress={addDecision}>
+                  <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              {form.decisions.map((dec, idx) => (
+                <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 6 }}>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, flex: 1 }]}
+                    value={dec}
+                    onChangeText={t => {
+                      const updated = [...form.decisions];
+                      updated[idx] = t;
+                      setForm({ ...form, decisions: updated });
+                    }}
+                    placeholder={`قرار ${idx + 1}`}
+                    placeholderTextColor={colors.muted}
+                  />
+                  {form.decisions.length > 1 && (
+                    <TouchableOpacity
+                      style={{ justifyContent: "center" }}
+                      onPress={() => setForm(prev => ({ ...prev, decisions: prev.decisions.filter((_, i) => i !== idx) }))}
+                    >
+                      <MaterialIcons name="remove-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* Action Items */}
+            <View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={[styles.label, { color: colors.foreground }]}>بنود العمل</Text>
+                <TouchableOpacity onPress={addActionItem}>
+                  <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+              {form.actionItems.map((item, idx) => (
+                <View key={idx} style={[styles.actionItemRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
+                    value={item.task}
+                    onChangeText={t => {
+                      const updated = [...form.actionItems];
+                      updated[idx] = { ...updated[idx], task: t };
+                      setForm({ ...form, actionItems: updated });
+                    }}
+                    placeholder="المهمة"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    <TextInput
+                      style={[styles.input, { borderColor: colors.border, color: colors.foreground, flex: 1 }]}
+                      value={item.assignee}
+                      onChangeText={t => {
+                        const updated = [...form.actionItems];
+                        updated[idx] = { ...updated[idx], assignee: t };
+                        setForm({ ...form, actionItems: updated });
+                      }}
+                      placeholder="المسؤول"
+                      placeholderTextColor={colors.muted}
+                    />
+                    <TextInput
+                      style={[styles.input, { borderColor: colors.border, color: colors.foreground, flex: 1 }]}
+                      value={item.deadline}
+                      onChangeText={t => {
+                        const updated = [...form.actionItems];
+                        updated[idx] = { ...updated[idx], deadline: t };
+                        setForm({ ...form, actionItems: updated });
+                      }}
+                      placeholder="الموعد"
+                      placeholderTextColor={colors.muted}
+                    />
+                  </View>
+                  {form.actionItems.length > 1 && (
+                    <TouchableOpacity
+                      style={{ alignSelf: "flex-end" }}
+                      onPress={() => setForm(prev => ({ ...prev, actionItems: prev.actionItems.filter((_, i) => i !== idx) }))}
+                    >
+                      <MaterialIcons name="remove-circle" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* Attachments */}
+            <View>
+              <Text style={[styles.label, { color: colors.foreground }]}>المرفقات</Text>
+              <TouchableOpacity
+                style={[styles.selectBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={addAttachment}
+              >
+                <MaterialIcons name="attach-file" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>إضافة مرفق</Text>
+              </TouchableOpacity>
+              {form.attachments.length > 0 && (
+                <View style={{ gap: 4, marginTop: 8 }}>
+                  {form.attachments.map((name, idx) => (
+                    <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <MaterialIcons name="description" size={16} color={colors.muted} />
+                      <Text style={{ color: colors.foreground, fontSize: 12, flex: 1 }}>{name}</Text>
+                      <TouchableOpacity onPress={() => setForm(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== idx) }))}>
+                        <MaterialIcons name="close" size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Notes */}
+            <View>
+              <Text style={[styles.label, { color: colors.foreground }]}>ملاحظات إضافية</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, height: 80, textAlignVertical: "top" }]}
+                value={form.notes}
+                onChangeText={t => setForm({ ...form, notes: t })}
+                placeholder="ملاحظات..."
+                placeholderTextColor={colors.muted}
+                multiline
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ===== MEETING PICKER ===== */}
+      <Modal visible={showMeetingPicker} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowMeetingPicker(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>اختر الاجتماع</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <FlatList
+            data={meetings}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ padding: 16, gap: 8 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.meetingPickerItem, {
+                  backgroundColor: selectedMeeting?.id === item.id ? colors.primary + "10" : colors.surface,
+                  borderColor: selectedMeeting?.id === item.id ? colors.primary : colors.border,
+                }]}
+                onPress={() => {
+                  setSelectedMeeting(item);
+                  setShowMeetingPicker(false);
+                }}
+              >
+                <View style={[styles.numBadge, { backgroundColor: "#1E3A5F" }]}>
+                  <Text style={{ color: "white", fontSize: 10, fontWeight: "bold" }}>#{item.meetingNumber}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 13 }}>{item.title}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 11 }}>{item.date}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <Text style={{ color: colors.muted }}>لا توجد اجتماعات. أنشئ اجتماعاً أولاً.</Text>
+              </View>
+            }
+          />
+        </View>
+      </Modal>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  headerTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  card: {
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+  },
+  numBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  actionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  emptyBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  label: {
+    fontWeight: "600",
+    marginBottom: 6,
+    fontSize: 13,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  selectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  actionItemRow: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 8,
+  },
+  meetingPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+});

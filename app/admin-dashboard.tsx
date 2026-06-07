@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -9,14 +9,59 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  TextInput,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
-import { FormInput, FormSelect, FormCheckbox } from "@/components/form-input";
-import { adminService, AdminUserData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { simpleAuthService, User } from "@/lib/services/simple-auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const DEPARTMENTS_STORAGE_KEY = "sultan_departments";
+const PROCEDURES_TYPES_KEY = "sultan_procedure_types";
+
+interface Department {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  icon: string;
+  isActive: boolean;
+  parentId?: string; // للأقسام الفرعية
+}
+
+interface ProcedureType {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  fields: string[];
+  isActive: boolean;
+}
+
+const DEFAULT_DEPARTMENTS: Department[] = [
+  { id: "production", labelAr: "قسم الإنتاج", labelEn: "Production", icon: "precision-manufacturing", isActive: true },
+  { id: "machines", labelAr: "مرحلة المكائن", labelEn: "Machines Stage", icon: "precision-manufacturing", isActive: true, parentId: "production" },
+  { id: "rosso", labelAr: "مرحلة الروسو", labelEn: "Rosso Stage", icon: "loop", isActive: true, parentId: "production" },
+  { id: "qalb", labelAr: "مرحلة القلب", labelEn: "Turning Stage", icon: "flip", isActive: true, parentId: "production" },
+  { id: "kawiya", labelAr: "مرحلة الكاوية", labelEn: "Ironing Stage", icon: "local-fire-department", isActive: true, parentId: "production" },
+  { id: "inspection", labelAr: "مرحلة الفحص", labelEn: "Inspection Stage", icon: "search", isActive: true, parentId: "production" },
+  { id: "packing", labelAr: "مرحلة التغليف", labelEn: "Packing Stage", icon: "inventory-2", isActive: true, parentId: "production" },
+  { id: "antislip", labelAr: "مرحلة مانع الانزلاق", labelEn: "Anti-slip Stage", icon: "layers", isActive: true, parentId: "production" },
+  { id: "storage", labelAr: "مرحلة التخزين", labelEn: "Storage Stage", icon: "warehouse", isActive: true, parentId: "production" },
+  { id: "administrative", labelAr: "الإجراءات الإدارية والمصروفات", labelEn: "Administrative & Expenses", icon: "admin-panel-settings", isActive: true },
+  { id: "sales", labelAr: "المبيعات والتحصيل", labelEn: "Sales & Collection", icon: "point-of-sale", isActive: true },
+  { id: "maintenance", labelAr: "الصيانة", labelEn: "Maintenance", icon: "build", isActive: true },
+  { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", icon: "groups", isActive: true },
+  { id: "warehouse", labelAr: "المستودعات", labelEn: "Warehouse", icon: "warehouse", isActive: true },
+];
+
+const ROLES = [
+  { label: "مدير عام (Admin)", value: "admin" },
+  { label: "مشرف", value: "supervisor" },
+  { label: "موظف", value: "user" },
+];
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -24,307 +69,896 @@ export default function AdminDashboardScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  const ROLES = [
-    { label: isAr ? "مدير عام" : "General Manager", value: "general_manager" },
-    { label: isAr ? "مدير إنتاج" : "Production Manager", value: "production_manager" },
-    { label: isAr ? "مدير مبيعات" : "Sales Manager", value: "sales_manager" },
-    { label: isAr ? "محاسب" : "Accountant", value: "accountant" },
-    { label: isAr ? "موظف" : "Employee", value: "employee" },
-  ];
-
-  const PERMISSIONS = [
-    { id: "view_data", label: isAr ? "عرض البيانات" : "View Data" },
-    { id: "add_data", label: isAr ? "إضافة بيانات" : "Add Data" },
-    { id: "edit_data", label: isAr ? "تعديل البيانات" : "Edit Data" },
-    { id: "delete_data", label: isAr ? "حذف البيانات" : "Delete Data" },
-    { id: "view_reports", label: isAr ? "عرض التقارير" : "View Reports" },
-    { id: "manage_users", label: isAr ? "إدارة المستخدمين" : "Manage Users" },
-    { id: "reset_password", label: isAr ? "إعادة تعيين كلمات المرور" : "Reset Passwords" },
-  ];
-
-  const [users, setUsers] = useState<AdminUserData[]>([]);
+  const [activeTab, setActiveTab] = useState<"employees" | "departments" | "procedures">("employees");
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [procedureTypes, setProcedureTypes] = useState<ProcedureType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [filterDept, setFilterDept] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
 
-  const [formData, setFormData] = useState<AdminUserData>({
+  // Employee Form
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [employeeForm, setEmployeeForm] = useState({
     name: "",
-    email: "",
-    role: "employee",
-    permissions: [],
-    isActive: true,
+    username: "",
+    phone: "",
+    position: "",
+    department: "",
+    role: "user",
+    password: "123456",
+  });
+
+  // Department Form
+  const [showDeptForm, setShowDeptForm] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [deptForm, setDeptForm] = useState({
+    labelAr: "",
+    labelEn: "",
+    icon: "folder",
+    parentId: "",
+  });
+
+  // Procedure Form
+  const [showProcForm, setShowProcForm] = useState(false);
+  const [editingProc, setEditingProc] = useState<ProcedureType | null>(null);
+  const [procForm, setProcForm] = useState({
+    labelAr: "",
+    labelEn: "",
+    fields: "",
   });
 
   useEffect(() => {
-    loadUsers();
+    loadAllData();
   }, []);
 
-  const loadUsers = async () => {
+  const loadAllData = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const data = await adminService.getAllUsers();
-      setUsers(data);
+      const [usersData, deptsData, procsData] = await Promise.all([
+        simpleAuthService.getAllUsers(),
+        loadDepartments(),
+        loadProcedureTypes(),
+      ]);
+      setUsers(usersData);
+      setDepartments(deptsData);
+      setProcedureTypes(procsData);
     } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل تحميل بيانات المستخدمين" : "Failed to load users data");
+      console.error("Error loading data:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.name || !formData.email) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
+  const loadDepartments = async (): Promise<Department[]> => {
+    try {
+      const stored = await AsyncStorage.getItem(DEPARTMENTS_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+      await AsyncStorage.setItem(DEPARTMENTS_STORAGE_KEY, JSON.stringify(DEFAULT_DEPARTMENTS));
+      return DEFAULT_DEPARTMENTS;
+    } catch {
+      return DEFAULT_DEPARTMENTS;
+    }
+  };
+
+  const saveDepartments = async (depts: Department[]) => {
+    await AsyncStorage.setItem(DEPARTMENTS_STORAGE_KEY, JSON.stringify(depts));
+    setDepartments(depts);
+  };
+
+  const loadProcedureTypes = async (): Promise<ProcedureType[]> => {
+    try {
+      const stored = await AsyncStorage.getItem(PROCEDURES_TYPES_KEY);
+      if (stored) return JSON.parse(stored);
+      const defaults: ProcedureType[] = [
+        { id: "leave", labelAr: "إجازة", labelEn: "Leave", fields: ["نوع الإجازة", "من تاريخ", "إلى تاريخ", "السبب"], isActive: true },
+        { id: "advance", labelAr: "سلفة", labelEn: "Advance", fields: ["المبلغ", "السبب", "طريقة السداد"], isActive: true },
+        { id: "transfer", labelAr: "نقل", labelEn: "Transfer", fields: ["القسم الحالي", "القسم المطلوب", "السبب"], isActive: true },
+        { id: "complaint", labelAr: "شكوى", labelEn: "Complaint", fields: ["نوع الشكوى", "التفاصيل"], isActive: true },
+        { id: "resignation", labelAr: "استقالة", labelEn: "Resignation", fields: ["تاريخ آخر يوم", "السبب"], isActive: true },
+      ];
+      await AsyncStorage.setItem(PROCEDURES_TYPES_KEY, JSON.stringify(defaults));
+      return defaults;
+    } catch {
+      return [];
+    }
+  };
+
+  const saveProcedureTypes = async (procs: ProcedureType[]) => {
+    await AsyncStorage.setItem(PROCEDURES_TYPES_KEY, JSON.stringify(procs));
+    setProcedureTypes(procs);
+  };
+
+  // ===== EMPLOYEES =====
+  const handleAddEmployee = () => {
+    setEditingUser(null);
+    setEmployeeForm({ name: "", username: "", phone: "", position: "", department: "", role: "user", password: "123456" });
+    setShowEmployeeForm(true);
+  };
+
+  const handleEditEmployee = (user: User) => {
+    setEditingUser(user);
+    setEmployeeForm({
+      name: user.name,
+      username: user.username,
+      phone: user.phone,
+      position: user.position,
+      department: user.department,
+      role: user.role,
+      password: "",
+    });
+    setShowEmployeeForm(true);
+  };
+
+  const handleSaveEmployee = async () => {
+    if (!employeeForm.name || !employeeForm.username || !employeeForm.department) {
+      Alert.alert("خطأ", "الرجاء ملء الحقول المطلوبة (الاسم، اسم المستخدم، القسم)");
       return;
     }
 
     try {
-      setIsLoading(true);
-      if (editingId) {
-        await adminService.updateUser(editingId, formData);
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث بيانات المستخدم بنجاح" : "User data updated successfully");
+      if (editingUser) {
+        // تعديل موظف موجود
+        await simpleAuthService.updateUser(editingUser.id, {
+          name: employeeForm.name,
+          username: employeeForm.username,
+          phone: employeeForm.phone,
+          position: employeeForm.position,
+          department: employeeForm.department,
+          role: employeeForm.role,
+        });
+        if (employeeForm.password) {
+          await simpleAuthService.resetUserPassword(editingUser.id, employeeForm.password);
+        }
+        Alert.alert("نجح", "تم تحديث بيانات الموظف");
       } else {
-        await adminService.createUser(formData);
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة المستخدم بنجاح" : "User added successfully");
+        // إضافة موظف جديد
+        await simpleAuthService.register({
+          name: employeeForm.name,
+          username: employeeForm.username,
+          phone: employeeForm.phone,
+          position: employeeForm.position,
+          department: employeeForm.department,
+          password: employeeForm.password || "123456",
+        });
+        // تفعيل الموظف مباشرة لأن الأدمن هو من أضافه
+        const allUsers = await simpleAuthService.getAllUsers();
+        const newUser = allUsers.find(u => u.username === employeeForm.username);
+        if (newUser) {
+          await simpleAuthService.toggleUserActive(newUser.id);
+        }
+        Alert.alert("نجح", "تم إضافة الموظف وتفعيله");
       }
-      setShowForm(false);
-      resetForm();
-      loadUsers();
-    } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
-    } finally {
-      setIsLoading(false);
+      setShowEmployeeForm(false);
+      loadAllData();
+    } catch (error: any) {
+      Alert.alert("خطأ", error.message || "فشل في حفظ البيانات");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    Alert.alert(
-      isAr ? "تأكيد الحذف" : "Confirm Deletion",
-      isAr ? "هل أنت متأكد من حذف هذا المستخدم؟" : "Are you sure you want to delete this user?",
-      [
-        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
-        {
-          text: isAr ? "حذف" : "Delete",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await adminService.deleteUser(id);
-              Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف المستخدم بنجاح" : "User deleted successfully");
-              loadUsers();
-            } catch (error) {
-              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حذف البيانات" : "Failed to delete data");
-            } finally {
-              setIsLoading(false);
-            }
-          },
+  const handleDeleteEmployee = (user: User) => {
+    if (user.role === "admin") {
+      Alert.alert("تنبيه", "لا يمكن حذف حساب المدير العام");
+      return;
+    }
+    Alert.alert("تأكيد الحذف", `هل تريد حذف الموظف "${user.name}"؟ (ترك العمل)`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          await simpleAuthService.deleteUser(user.id);
+          Alert.alert("تم", "تم حذف الموظف");
+          loadAllData();
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleEdit = (user: AdminUserData) => {
-    setFormData(user);
-    setEditingId(user.id || null);
-    setShowForm(true);
+  const handleToggleActive = async (user: User) => {
+    await simpleAuthService.toggleUserActive(user.id);
+    loadAllData();
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      email: "",
-      role: "employee",
-      permissions: [],
-      isActive: true,
+  const handleTransferEmployee = (user: User) => {
+    setEditingUser(user);
+    setEmployeeForm({
+      name: user.name,
+      username: user.username,
+      phone: user.phone,
+      position: user.position,
+      department: user.department,
+      role: user.role,
+      password: "",
     });
-    setEditingId(null);
+    setShowEmployeeForm(true);
   };
 
-  const getRoleLabel = (role: string) => {
-    return ROLES.find((r) => r.value === role)?.label || role;
+  // ===== DEPARTMENTS =====
+  const handleAddDept = () => {
+    setEditingDept(null);
+    setDeptForm({ labelAr: "", labelEn: "", icon: "folder", parentId: "" });
+    setShowDeptForm(true);
   };
 
-  const togglePermission = (permissionId: string) => {
-    const permissions = formData.permissions || [];
-    if (permissions.includes(permissionId)) {
-      setFormData({
-        ...formData,
-        permissions: permissions.filter((p) => p !== permissionId),
-      });
+  const handleEditDept = (dept: Department) => {
+    setEditingDept(dept);
+    setDeptForm({ labelAr: dept.labelAr, labelEn: dept.labelEn, icon: dept.icon, parentId: dept.parentId || "" });
+    setShowDeptForm(true);
+  };
+
+  const handleSaveDept = async () => {
+    if (!deptForm.labelAr) {
+      Alert.alert("خطأ", "الرجاء إدخال اسم القسم بالعربي");
+      return;
+    }
+    const updatedDepts = [...departments];
+    if (editingDept) {
+      const idx = updatedDepts.findIndex(d => d.id === editingDept.id);
+      if (idx !== -1) {
+        updatedDepts[idx] = { ...updatedDepts[idx], labelAr: deptForm.labelAr, labelEn: deptForm.labelEn, icon: deptForm.icon, parentId: deptForm.parentId || undefined };
+      }
     } else {
-      setFormData({
-        ...formData,
-        permissions: [...permissions, permissionId],
+      const newId = deptForm.labelAr.replace(/\s/g, "_").toLowerCase() + "_" + Date.now();
+      updatedDepts.push({
+        id: newId,
+        labelAr: deptForm.labelAr,
+        labelEn: deptForm.labelEn || deptForm.labelAr,
+        icon: deptForm.icon || "folder",
+        isActive: true,
+        parentId: deptForm.parentId || undefined,
       });
     }
+    await saveDepartments(updatedDepts);
+    setShowDeptForm(false);
+    Alert.alert("نجح", editingDept ? "تم تعديل القسم" : "تم إضافة القسم");
   };
 
-  const renderUserItem = ({ item }: { item: AdminUserData }) => (
-    <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.name}</Text>
-          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 4 }}>{item.email}</Text>
-          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
-            {isAr ? "الدور:" : "Role:"} {getRoleLabel(item.role)}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => handleEdit(item)}
-            style={{ backgroundColor: colors.primary + '19', borderRadius: 8, padding: 8 }}
-          >
-            <MaterialIcons name="edit" size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => item.id && handleDelete(item.id)}
-            style={{ backgroundColor: colors.error + '19', borderRadius: 8, padding: 8 }}
-          >
-            <MaterialIcons name="delete" size={18} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
+  const handleDeleteDept = (dept: Department) => {
+    Alert.alert("تأكيد الحذف", `هل تريد حذف القسم "${dept.labelAr}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const updated = departments.filter(d => d.id !== dept.id && d.parentId !== dept.id);
+          await saveDepartments(updated);
+          Alert.alert("تم", "تم حذف القسم");
+        },
+      },
+    ]);
+  };
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {item.isActive ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.success + '19', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-            <MaterialIcons name="check-circle" size={14} color={colors.success} />
-            <Text style={{ color: colors.success, fontSize: 12, fontWeight: '600' }}>{isAr ? "نشط" : "Active"}</Text>
-          </View>
-        ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.error + '19', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-            <MaterialIcons name="cancel" size={14} color={colors.error} />
-            <Text style={{ color: colors.error, fontSize: 12, fontWeight: '600' }}>{isAr ? "معطل" : "Inactive"}</Text>
-          </View>
-        )}
-        <Text style={{ color: colors.muted, fontSize: 12 }}>
-          {(item.permissions || []).length} {isAr ? "صلاحية" : "Permissions"}
-        </Text>
-      </View>
-    </View>
-  );
+  const handleToggleDept = async (dept: Department) => {
+    const updated = departments.map(d => d.id === dept.id ? { ...d, isActive: !d.isActive } : d);
+    await saveDepartments(updated);
+  };
+
+  // ===== PROCEDURES =====
+  const handleAddProc = () => {
+    setEditingProc(null);
+    setProcForm({ labelAr: "", labelEn: "", fields: "" });
+    setShowProcForm(true);
+  };
+
+  const handleEditProc = (proc: ProcedureType) => {
+    setEditingProc(proc);
+    setProcForm({ labelAr: proc.labelAr, labelEn: proc.labelEn, fields: proc.fields.join("، ") });
+    setShowProcForm(true);
+  };
+
+  const handleSaveProc = async () => {
+    if (!procForm.labelAr) {
+      Alert.alert("خطأ", "الرجاء إدخال اسم الإجراء");
+      return;
+    }
+    const updatedProcs = [...procedureTypes];
+    const fields = procForm.fields.split(/[،,]/).map(f => f.trim()).filter(Boolean);
+    if (editingProc) {
+      const idx = updatedProcs.findIndex(p => p.id === editingProc.id);
+      if (idx !== -1) {
+        updatedProcs[idx] = { ...updatedProcs[idx], labelAr: procForm.labelAr, labelEn: procForm.labelEn, fields };
+      }
+    } else {
+      updatedProcs.push({
+        id: "proc_" + Date.now(),
+        labelAr: procForm.labelAr,
+        labelEn: procForm.labelEn || procForm.labelAr,
+        fields,
+        isActive: true,
+      });
+    }
+    await saveProcedureTypes(updatedProcs);
+    setShowProcForm(false);
+    Alert.alert("نجح", editingProc ? "تم تعديل الإجراء" : "تم إضافة الإجراء");
+  };
+
+  const handleDeleteProc = (proc: ProcedureType) => {
+    Alert.alert("تأكيد الحذف", `هل تريد حذف الإجراء "${proc.labelAr}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      {
+        text: "حذف",
+        style: "destructive",
+        onPress: async () => {
+          const updated = procedureTypes.filter(p => p.id !== proc.id);
+          await saveProcedureTypes(updated);
+          Alert.alert("تم", "تم حذف الإجراء");
+        },
+      },
+    ]);
+  };
+
+  // ===== FILTERS =====
+  const filteredUsers = users.filter(u => {
+    const matchesDept = !filterDept || u.department === filterDept;
+    const matchesSearch = !searchText || u.name.includes(searchText) || u.username.includes(searchText) || u.position.includes(searchText);
+    return matchesDept && matchesSearch;
+  });
+
+  const getDeptLabel = (deptId: string) => {
+    const dept = departments.find(d => d.id === deptId);
+    return dept ? dept.labelAr : deptId;
+  };
+
+  // ===== RENDER =====
+  if (isLoading) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.muted, marginTop: 12 }}>جاري التحميل...</Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScreenContainer style={{ backgroundColor: colors.background }}>
+    <ScreenContainer>
       {/* Header */}
-      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View>
-          <BackButton />
-        </View>
-        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{isAr ? "لوحة تحكم ADMIN" : "ADMIN Dashboard"}</Text>
-        <TouchableOpacity
-          onPress={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          style={{ borderRadius: 8, padding: 8 }}
-        >
-          <MaterialIcons name="add" size={24} color="white" />
-        </TouchableOpacity>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <BackButton />
+        <Text style={styles.headerTitle}>لوحة تحكم الأدمن الشاملة</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Users Summary */}
-      <View style={{ backgroundColor: colors.primary + '19', borderBottomWidth: 1, borderColor: colors.border, padding: 16 }}>
-        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>{isAr ? "إجمالي المستخدمين" : "Total Users"}</Text>
-        <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 24 }}>{users.length}</Text>
+      {/* Tabs */}
+      <View style={[styles.tabsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {[
+          { id: "employees", label: "الموظفين", icon: "people" },
+          { id: "departments", label: "الأقسام", icon: "business" },
+          { id: "procedures", label: "الإجراءات", icon: "assignment" },
+        ].map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[styles.tabBtn, activeTab === tab.id && { borderBottomColor: colors.primary, borderBottomWidth: 3 }]}
+            onPress={() => setActiveTab(tab.id as any)}
+          >
+            <MaterialIcons name={tab.icon as any} size={18} color={activeTab === tab.id ? colors.primary : colors.muted} />
+            <Text style={{ color: activeTab === tab.id ? colors.primary : colors.muted, fontWeight: "600", fontSize: 12, marginTop: 2 }}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Users List */}
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={users}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-          ListEmptyComponent={
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 16 }}>{isAr ? "لا توجد مستخدمين" : "No users found"}</Text>
+      {/* ===== EMPLOYEES TAB ===== */}
+      {activeTab === "employees" && (
+        <>
+          {/* Search & Filter */}
+          <View style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+            <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <MaterialIcons name="search" size={20} color={colors.muted} />
+              <TextInput
+                style={{ flex: 1, paddingVertical: 8, color: colors.foreground, fontSize: 14 }}
+                placeholder="ابحث بالاسم أو المسمى..."
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholderTextColor={colors.muted}
+              />
             </View>
-          }
-        />
-      )}
-
-      {/* Add/Edit Form */}
-      <Modal
-        visible={showForm}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowForm(false)}
-      >
-        <View style={{ flex: 1 }}>
-          <View style={{ flex: 1, backgroundColor: colors.background, marginTop: 48 }}>
-            {/* Form Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderColor: colors.border }}>
-              <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              <TouchableOpacity
+                style={[styles.filterChip, { backgroundColor: !filterDept ? colors.primary : colors.surface, borderColor: colors.border }]}
+                onPress={() => setFilterDept(null)}
+              >
+                <Text style={{ color: !filterDept ? "white" : colors.foreground, fontSize: 11, fontWeight: "600" }}>الكل ({users.length})</Text>
               </TouchableOpacity>
-              <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>
-                {editingId ? (isAr ? "تعديل المستخدم" : "Edit User") : (isAr ? "إضافة مستخدم جديد" : "Add New User")}
-              </Text>
-              <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text style={{ fontWeight: '600' }}>
-                  {isLoading ? (isAr ? "جاري..." : "Saving...") : (isAr ? "حفظ" : "Save")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Form Content */}
-            <ScrollView style={{ flex: 1, padding: 24 }}>
-              <FormInput
-                label={isAr ? "اسم المستخدم" : "Username"}
-                value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder={isAr ? "أدخل اسم المستخدم" : "Enter username"}
-                required
-              />
-
-              <FormInput
-                label={isAr ? "البريد الإلكتروني" : "Email"}
-                value={formData.email}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                placeholder={isAr ? "أدخل البريد الإلكتروني" : "Enter email"}
-                keyboardType="email-address"
-                required
-              />
-
-              <FormSelect
-                label={isAr ? "الدور الوظيفي" : "Role"}
-                value={formData.role}
-                options={ROLES}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, role: value })
-                }
-                required
-              />
-
-              <View style={{ marginTop: 24, borderTopWidth: 1, borderColor: colors.border, paddingTop: 24 }}>
-                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 16 }}>{isAr ? "الصلاحيات" : "Permissions"}</Text>
-                {PERMISSIONS.map((permission) => (
-                  <FormCheckbox
-                    key={permission.id}
-                    label={permission.label}
-                    value={(formData.permissions || []).includes(permission.id)}
-                    onValueChange={() => togglePermission(permission.id)}
-                  />
-                ))}
-              </View>
-
-              <View style={{ marginTop: 24, borderTopWidth: 1, borderColor: colors.border, paddingTop: 24 }}>
-                <FormCheckbox
-                  label={isAr ? "حساب نشط" : "Active Account"}
-                  value={formData.isActive}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, isActive: value })
-                  }
-                />
-              </View>
+              {departments.filter(d => !d.parentId && d.isActive).map(dept => {
+                const count = users.filter(u => u.department === dept.id).length;
+                return (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[styles.filterChip, { backgroundColor: filterDept === dept.id ? colors.primary : colors.surface, borderColor: colors.border }]}
+                    onPress={() => setFilterDept(dept.id)}
+                  >
+                    <Text style={{ color: filterDept === dept.id ? "white" : colors.foreground, fontSize: 11, fontWeight: "600" }}>
+                      {dept.labelAr} ({count})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
+
+          {/* Add Button */}
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddEmployee}>
+            <MaterialIcons name="person-add" size={20} color="white" />
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة موظف جديد</Text>
+          </TouchableOpacity>
+
+          {/* Employees List */}
+          <FlatList
+            data={filteredUsers}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ padding: 16, gap: 8 }}
+            renderItem={({ item }) => (
+              <View style={[styles.employeeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={[styles.empName, { color: colors.foreground }]}>{item.name}</Text>
+                    {!item.isActive && (
+                      <View style={{ backgroundColor: "#EF444420", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: "#EF4444", fontSize: 10, fontWeight: "600" }}>معطل</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>@{item.username}</Text>
+                  <View style={{ flexDirection: "row", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>القسم: {getDeptLabel(item.department)}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>المسمى: {item.position || "—"}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>الدور: {ROLES.find(r => r.value === item.role)?.label || item.role}</Text>
+                  </View>
+                </View>
+                {/* Actions */}
+                <View style={{ gap: 4 }}>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: colors.primary + "20" }]} onPress={() => handleEditEmployee(item)}>
+                    <MaterialIcons name="edit" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#F59E0B20" }]} onPress={() => handleToggleActive(item)}>
+                    <MaterialIcons name={item.isActive ? "block" : "check-circle"} size={16} color="#F59E0B" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#EF444420" }]} onPress={() => handleDeleteEmployee(item)}>
+                    <MaterialIcons name="delete" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <MaterialIcons name="people-outline" size={48} color={colors.muted} />
+                <Text style={{ color: colors.muted, marginTop: 12 }}>لا يوجد موظفين في هذا القسم</Text>
+              </View>
+            }
+          />
+        </>
+      )}
+
+      {/* ===== DEPARTMENTS TAB ===== */}
+      {activeTab === "departments" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddDept}>
+            <MaterialIcons name="add-business" size={20} color="white" />
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة قسم جديد</Text>
+          </TouchableOpacity>
+
+          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>الأقسام الرئيسية</Text>
+          {departments.filter(d => !d.parentId).map(dept => (
+            <View key={dept.id}>
+              <View style={[styles.deptCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: dept.isActive ? 1 : 0.5 }]}>
+                <MaterialIcons name={dept.icon as any} size={24} color={colors.primary} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{dept.labelAr}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 11 }}>{dept.labelEn}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 11 }}>
+                    {users.filter(u => u.department === dept.id).length} موظف
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 4 }}>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: colors.primary + "20" }]} onPress={() => handleEditDept(dept)}>
+                    <MaterialIcons name="edit" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#F59E0B20" }]} onPress={() => handleToggleDept(dept)}>
+                    <MaterialIcons name={dept.isActive ? "visibility-off" : "visibility"} size={16} color="#F59E0B" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#EF444420" }]} onPress={() => handleDeleteDept(dept)}>
+                    <MaterialIcons name="delete" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {/* Sub-departments */}
+              {departments.filter(sd => sd.parentId === dept.id).map(sub => (
+                <View key={sub.id} style={[styles.subDeptCard, { backgroundColor: colors.surface, borderColor: colors.border, marginLeft: 24, opacity: sub.isActive ? 1 : 0.5 }]}>
+                  <MaterialIcons name={sub.icon as any} size={18} color={colors.muted} />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={{ color: colors.foreground, fontSize: 13 }}>{sub.labelAr}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 4 }}>
+                    <TouchableOpacity style={[styles.miniBtn, { backgroundColor: colors.primary + "20" }]} onPress={() => handleEditDept(sub)}>
+                      <MaterialIcons name="edit" size={14} color={colors.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#EF444420" }]} onPress={() => handleDeleteDept(sub)}>
+                      <MaterialIcons name="delete" size={14} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ===== PROCEDURES TAB ===== */}
+      {activeTab === "procedures" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddProc}>
+            <MaterialIcons name="note-add" size={20} color="white" />
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة إجراء إداري جديد</Text>
+          </TouchableOpacity>
+
+          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>أنواع الإجراءات الإدارية</Text>
+          {procedureTypes.map(proc => (
+            <View key={proc.id} style={[styles.procCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{proc.labelAr}</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>
+                  المتطلبات: {proc.fields.join(" • ")}
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 4 }}>
+                <TouchableOpacity style={[styles.miniBtn, { backgroundColor: colors.primary + "20" }]} onPress={() => handleEditProc(proc)}>
+                  <MaterialIcons name="edit" size={16} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.miniBtn, { backgroundColor: "#EF444420" }]} onPress={() => handleDeleteProc(proc)}>
+                  <MaterialIcons name="delete" size={16} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ===== EMPLOYEE FORM MODAL ===== */}
+      <Modal visible={showEmployeeForm} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowEmployeeForm(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
+              {editingUser ? "تعديل موظف" : "إضافة موظف جديد"}
+            </Text>
+            <TouchableOpacity onPress={handleSaveEmployee}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الاسم الكامل *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={employeeForm.name}
+                onChangeText={t => setEmployeeForm({ ...employeeForm, name: t })}
+                placeholder="أدخل اسم الموظف"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم المستخدم *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={employeeForm.username}
+                onChangeText={t => setEmployeeForm({ ...employeeForm, username: t })}
+                placeholder="اسم المستخدم لتسجيل الدخول"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم الجوال</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={employeeForm.phone}
+                onChangeText={t => setEmployeeForm({ ...employeeForm, phone: t })}
+                placeholder="05xxxxxxxx"
+                keyboardType="phone-pad"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المسمى الوظيفي</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={employeeForm.position}
+                onChangeText={t => setEmployeeForm({ ...employeeForm, position: t })}
+                placeholder="مثال: مشغل مكينة، محاسب..."
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>القسم *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+                {departments.filter(d => d.isActive).map(dept => (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[styles.deptChip, { backgroundColor: employeeForm.department === dept.id ? colors.primary : colors.surface, borderColor: colors.border }]}
+                    onPress={() => setEmployeeForm({ ...employeeForm, department: dept.id })}
+                  >
+                    <Text style={{ color: employeeForm.department === dept.id ? "white" : colors.foreground, fontSize: 11 }}>
+                      {dept.labelAr}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الدور</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {ROLES.map(role => (
+                  <TouchableOpacity
+                    key={role.value}
+                    style={[styles.roleChip, { backgroundColor: employeeForm.role === role.value ? colors.primary : colors.surface, borderColor: colors.border, flex: 1 }]}
+                    onPress={() => setEmployeeForm({ ...employeeForm, role: role.value })}
+                  >
+                    <Text style={{ color: employeeForm.role === role.value ? "white" : colors.foreground, fontSize: 11, textAlign: "center" }}>
+                      {role.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                {editingUser ? "كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)" : "كلمة المرور"}
+              </Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={employeeForm.password}
+                onChangeText={t => setEmployeeForm({ ...employeeForm, password: t })}
+                placeholder={editingUser ? "اتركها فارغة لعدم التغيير" : "كلمة المرور الافتراضية: 123456"}
+                secureTextEntry
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ===== DEPARTMENT FORM MODAL ===== */}
+      <Modal visible={showDeptForm} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowDeptForm(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
+              {editingDept ? "تعديل القسم" : "إضافة قسم جديد"}
+            </Text>
+            <TouchableOpacity onPress={handleSaveDept}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم القسم بالعربي *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={deptForm.labelAr}
+                onChangeText={t => setDeptForm({ ...deptForm, labelAr: t })}
+                placeholder="مثال: قسم التصميم"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم القسم بالإنجليزي</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={deptForm.labelEn}
+                onChangeText={t => setDeptForm({ ...deptForm, labelEn: t })}
+                placeholder="e.g., Design Department"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>قسم رئيسي (فرعي من)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+                <TouchableOpacity
+                  style={[styles.deptChip, { backgroundColor: !deptForm.parentId ? colors.primary : colors.surface, borderColor: colors.border }]}
+                  onPress={() => setDeptForm({ ...deptForm, parentId: "" })}
+                >
+                  <Text style={{ color: !deptForm.parentId ? "white" : colors.foreground, fontSize: 11 }}>قسم رئيسي</Text>
+                </TouchableOpacity>
+                {departments.filter(d => !d.parentId).map(dept => (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[styles.deptChip, { backgroundColor: deptForm.parentId === dept.id ? colors.primary : colors.surface, borderColor: colors.border }]}
+                    onPress={() => setDeptForm({ ...deptForm, parentId: dept.id })}
+                  >
+                    <Text style={{ color: deptForm.parentId === dept.id ? "white" : colors.foreground, fontSize: 11 }}>
+                      فرعي من: {dept.labelAr}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* ===== PROCEDURE FORM MODAL ===== */}
+      <Modal visible={showProcForm} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowProcForm(false)}>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+            </TouchableOpacity>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
+              {editingProc ? "تعديل الإجراء" : "إضافة إجراء جديد"}
+            </Text>
+            <TouchableOpacity onPress={handleSaveProc}>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الإجراء بالعربي *</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={procForm.labelAr}
+                onChangeText={t => setProcForm({ ...procForm, labelAr: t })}
+                placeholder="مثال: طلب ترقية"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الإجراء بالإنجليزي</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={procForm.labelEn}
+                onChangeText={t => setProcForm({ ...procForm, labelEn: t })}
+                placeholder="e.g., Promotion Request"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المتطلبات والحقول (افصل بفاصلة)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 80, textAlignVertical: "top" }]}
+                value={procForm.fields}
+                onChangeText={t => setProcForm({ ...procForm, fields: t })}
+                placeholder="مثال: السبب، التاريخ، المبلغ، ملاحظات"
+                multiline
+                placeholderTextColor={colors.muted}
+              />
+              <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>
+                افصل بين كل متطلب بفاصلة (،) أو (,)
+              </Text>
+            </View>
+          </ScrollView>
         </View>
       </Modal>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  tabsRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
+  employeeCard: {
+    flexDirection: "row",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: "flex-start",
+  },
+  empName: {
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  miniBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+  },
+  subDeptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  procCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 40,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  fieldLabel: {
+    fontWeight: "600",
+    marginBottom: 6,
+    fontSize: 13,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  deptChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  roleChip: {
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+});

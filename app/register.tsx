@@ -35,6 +35,7 @@ const DEPARTMENTS = [
   { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", icon: "groups" },
   { id: "warehouse", labelAr: "قسم المستودعات", labelEn: "Warehouse Department", icon: "warehouse" },
   { id: "employees", labelAr: "الموظفين", labelEn: "Employees", icon: "people" },
+  { id: "government_tenders", labelAr: "المناقصات الحكومية والعسكرية", labelEn: "Government & Military Tenders", icon: "gavel" },
 ];
 
 export default function RegisterScreen() {
