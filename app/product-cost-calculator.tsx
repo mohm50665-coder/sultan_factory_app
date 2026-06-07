@@ -10,6 +10,7 @@ import {
   Pressable,
   Alert,
   Platform,
+  Share,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -27,6 +28,7 @@ interface ColorEntry {
 interface ThreadData {
   type: string;
   weight: number;
+  pricePerKg: number;
   colors: ColorEntry[];
 }
 
@@ -44,6 +46,8 @@ interface ProductCostData {
     rubber: ThreadData;
   };
   notes: string;
+  totalCost: number;
+  totalWeight: number;
   createdAt: string;
 }
 
@@ -65,20 +69,34 @@ export default function ProductCostCalculatorScreen() {
   const isAr = language === "ar";
 
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState<Omit<ProductCostData, "id" | "createdAt">>({
+  const [formData, setFormData] = useState<Omit<ProductCostData, "id" | "createdAt" | "totalCost" | "totalWeight">>({
     date: new Date().toISOString().split("T")[0],
     productName: "",
     productColor: "",
     threads: {
-      cotton: { type: "قطن", weight: 0, colors: createEmptyColors() },
-      bamboo: { type: "بامبو", weight: 0, colors: createEmptyColors() },
-      nylon: { type: "نايلون", weight: 0, colors: createEmptyColors() },
-      span: { type: "إسبان", weight: 0, colors: createEmptyColors() },
-      spandex: { type: "إسباندكس", weight: 0, colors: createEmptyColors() },
-      rubber: { type: "مطاط", weight: 0, colors: createEmptyColors() },
+      cotton: { type: "قطن", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      bamboo: { type: "بامبو", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      nylon: { type: "نايلون", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      span: { type: "إسبان", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      spandex: { type: "إسباندكس", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      rubber: { type: "مطاط", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
     },
     notes: "",
   });
+
+  // Calculate totals
+  const calculateTotalWeight = (): number => {
+    return Object.values(formData.threads).reduce((sum, t) => sum + t.weight, 0);
+  };
+
+  const calculateThreadCost = (thread: ThreadData): number => {
+    // Cost = (weight in grams / 1000) * price per kg
+    return (thread.weight / 1000) * thread.pricePerKg;
+  };
+
+  const calculateTotalCost = (): number => {
+    return Object.values(formData.threads).reduce((sum, t) => sum + calculateThreadCost(t), 0);
+  };
 
   const showAlert = (title: string, message: string) => {
     if (Platform.OS === "web") {
@@ -99,14 +117,14 @@ export default function ProductCostCalculatorScreen() {
 
     setIsLoading(true);
     try {
-      // Get existing data
       const existingData = await AsyncStorage.getItem(STORAGE_KEY);
       const calculations: ProductCostData[] = existingData ? JSON.parse(existingData) : [];
 
-      // Create new entry
       const newEntry: ProductCostData = {
         id: Date.now().toString(),
         ...formData,
+        totalCost: calculateTotalCost(),
+        totalWeight: calculateTotalWeight(),
         createdAt: new Date().toISOString(),
       };
 
@@ -129,12 +147,90 @@ export default function ProductCostCalculatorScreen() {
     }
   };
 
+  const handleExport = async () => {
+    const totalWeight = calculateTotalWeight();
+    const totalCost = calculateTotalCost();
+
+    const threadLines = Object.entries(formData.threads).map(([key, thread]) => {
+      const cost = calculateThreadCost(thread);
+      const colorsText = thread.colors
+        .filter((c) => c.color.trim())
+        .map((c, i) => `    ${i + 1}. ${c.color} (${isAr ? "كود" : "Code"}: ${c.code})`)
+        .join("\n");
+
+      return `${thread.type}:
+  ${isAr ? "الوزن" : "Weight"}: ${thread.weight} ${isAr ? "جرام" : "g"}
+  ${isAr ? "سعر الكيلو" : "Price/Kg"}: ${thread.pricePerKg} ${isAr ? "ريال" : "SAR"}
+  ${isAr ? "التكلفة" : "Cost"}: ${cost.toFixed(2)} ${isAr ? "ريال" : "SAR"}
+  ${isAr ? "الألوان" : "Colors"}:
+${colorsText || "    -"}`;
+    });
+
+    const reportText = `
+═══════════════════════════════════════
+${isAr ? "تقرير تكاليف المنتج" : "Product Cost Report"}
+═══════════════════════════════════════
+
+${isAr ? "التاريخ" : "Date"}: ${formData.date}
+${isAr ? "اسم المنتج" : "Product"}: ${formData.productName}
+${isAr ? "لون المنتج" : "Color"}: ${formData.productColor}
+
+───────────────────────────────────────
+${isAr ? "تفاصيل الخيوط" : "Thread Details"}
+───────────────────────────────────────
+
+${threadLines.join("\n\n")}
+
+───────────────────────────────────────
+${isAr ? "الملخص" : "Summary"}
+───────────────────────────────────────
+${isAr ? "إجمالي الوزن" : "Total Weight"}: ${totalWeight} ${isAr ? "جرام" : "g"}
+${isAr ? "إجمالي التكلفة" : "Total Cost"}: ${totalCost.toFixed(2)} ${isAr ? "ريال" : "SAR"}
+
+${formData.notes ? `${isAr ? "ملاحظات" : "Notes"}: ${formData.notes}` : ""}
+═══════════════════════════════════════
+`;
+
+    try {
+      if (Platform.OS === "web") {
+        // Web: copy to clipboard
+        await navigator.clipboard.writeText(reportText);
+        showAlert(
+          isAr ? "تم النسخ" : "Copied",
+          isAr ? "تم نسخ التقرير إلى الحافظة" : "Report copied to clipboard"
+        );
+      } else {
+        // Mobile: share
+        await Share.share({
+          message: reportText,
+          title: isAr ? "تقرير تكاليف المنتج" : "Product Cost Report",
+        });
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      showAlert(
+        isAr ? "خطأ" : "Error",
+        isAr ? "حدث خطأ في التصدير" : "Error exporting data"
+      );
+    }
+  };
+
   const updateThreadWeight = (threadKey: keyof typeof formData.threads, weight: number) => {
     setFormData((prev) => ({
       ...prev,
       threads: {
         ...prev.threads,
         [threadKey]: { ...prev.threads[threadKey], weight },
+      },
+    }));
+  };
+
+  const updateThreadPrice = (threadKey: keyof typeof formData.threads, pricePerKg: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      threads: {
+        ...prev.threads,
+        [threadKey]: { ...prev.threads[threadKey], pricePerKg },
       },
     }));
   };
@@ -165,6 +261,7 @@ export default function ProductCostCalculatorScreen() {
     iconColor: string
   ) => {
     const thread = formData.threads[threadKey];
+    const threadCost = calculateThreadCost(thread);
 
     return (
       <View
@@ -175,41 +272,71 @@ export default function ProductCostCalculatorScreen() {
         ]}
       >
         {/* Thread Header */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
-          <View style={[styles.threadIcon, { backgroundColor: iconColor + "20" }]}>
-            <MaterialIcons name="texture" size={18} color={iconColor} />
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={[styles.threadIcon, { backgroundColor: iconColor + "20" }]}>
+              <MaterialIcons name="texture" size={18} color={iconColor} />
+            </View>
+            <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 15, marginLeft: 8 }}>
+              {isAr ? threadArabic : threadLabel}
+            </Text>
           </View>
-          <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 15, marginLeft: 8 }}>
-            {isAr ? threadArabic : threadLabel}
-          </Text>
+          {threadCost > 0 && (
+            <View style={[styles.costBadge, { backgroundColor: colors.primary + "15" }]}>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
+                {threadCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Weight */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
-            {isAr ? "الوزن (جرام)" : "Weight (grams)"}
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-            ]}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            keyboardType="numeric"
-            value={thread.weight === 0 ? "" : thread.weight.toString()}
-            onChangeText={(text) => updateThreadWeight(threadKey, parseInt(text) || 0)}
-          />
+        {/* Weight & Price Row */}
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+          {/* Weight */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
+              {isAr ? "الوزن (جرام)" : "Weight (g)"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder="0"
+              placeholderTextColor={colors.muted}
+              keyboardType="numeric"
+              value={thread.weight === 0 ? "" : thread.weight.toString()}
+              onChangeText={(text) => updateThreadWeight(threadKey, parseInt(text) || 0)}
+            />
+          </View>
+
+          {/* Price per Kg */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, fontWeight: "600" }}>
+              {isAr ? "سعر الكيلو (ر.س)" : "Price/Kg (SAR)"}
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
+              ]}
+              placeholder="0"
+              placeholderTextColor={colors.muted}
+              keyboardType="numeric"
+              value={thread.pricePerKg === 0 ? "" : thread.pricePerKg.toString()}
+              onChangeText={(text) => updateThreadPrice(threadKey, parseFloat(text) || 0)}
+            />
+          </View>
         </View>
 
         {/* Colors Table Header */}
         <View style={[styles.colorTableHeader, { backgroundColor: colors.primary + "10", borderColor: colors.border }]}>
-          <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 0.5 }]}>#</Text>
+          <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 0.4 }]}>#</Text>
           <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 2 }]}>
             {isAr ? "اللون" : "Color"}
           </Text>
           <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 2 }]}>
-            {isAr ? "كود الخيط" : "Thread Code"}
+            {isAr ? "كود الخيط" : "Code"}
           </Text>
         </View>
 
@@ -246,6 +373,9 @@ export default function ProductCostCalculatorScreen() {
     );
   };
 
+  const totalWeight = calculateTotalWeight();
+  const totalCost = calculateTotalCost();
+
   return (
     <ScreenContainer>
       {/* Header */}
@@ -263,11 +393,40 @@ export default function ProductCostCalculatorScreen() {
               {isAr ? "حساب تكاليف منتج جديد" : "New Product Cost"}
             </Text>
             <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
-              {isAr ? "أدخل بيانات الخيوط والألوان" : "Enter thread and color data"}
+              {isAr ? "أدخل بيانات الخيوط والألوان والأسعار" : "Enter thread, color & price data"}
             </Text>
           </View>
+          {/* Export Button */}
+          <Pressable onPress={handleExport} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, padding: 8 }]}>
+            <MaterialIcons name="share" size={24} color="white" />
+          </Pressable>
         </View>
       </View>
+
+      {/* Cost Summary Bar */}
+      {(totalWeight > 0 || totalCost > 0) && (
+        <View style={[styles.summaryBar, { backgroundColor: colors.success + "15", borderBottomColor: colors.border }]}>
+          <View style={{ flexDirection: "row", justifyContent: "space-around", alignItems: "center" }}>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ color: colors.muted, fontSize: 11 }}>
+                {isAr ? "إجمالي الوزن" : "Total Weight"}
+              </Text>
+              <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>
+                {totalWeight} {isAr ? "جرام" : "g"}
+              </Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ color: colors.muted, fontSize: 11 }}>
+                {isAr ? "إجمالي التكلفة" : "Total Cost"}
+              </Text>
+              <Text style={{ color: colors.success, fontSize: 16, fontWeight: "700" }}>
+                {totalCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Form */}
       <ScrollView style={styles.form} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -338,7 +497,7 @@ export default function ProductCostCalculatorScreen() {
         </View>
 
         <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>
-          {isAr ? "لكل نوع خيط يمكن إضافة حتى 5 ألوان مختلفة مع أكوادها" : "Each thread type supports up to 5 different colors with codes"}
+          {isAr ? "لكل نوع خيط: الوزن بالجرام + سعر الكيلو + حتى 5 ألوان بأكوادها" : "Per thread: weight (g) + price/kg + up to 5 colors with codes"}
         </Text>
 
         {/* Thread Sections */}
@@ -348,6 +507,41 @@ export default function ProductCostCalculatorScreen() {
         {renderThreadSection("span", "Span", "إسبان", "#FF9800")}
         {renderThreadSection("spandex", "Spandex", "إسباندكس", "#9C27B0")}
         {renderThreadSection("rubber", "Rubber", "مطاط", "#795548")}
+
+        {/* Cost Summary Card */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.primary + "08", borderColor: colors.primary + "30", marginTop: 16 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+            <MaterialIcons name="calculate" size={20} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16, marginLeft: 8 }}>
+              {isAr ? "ملخص التكاليف" : "Cost Summary"}
+            </Text>
+          </View>
+
+          {/* Per-thread costs */}
+          {Object.entries(formData.threads).map(([key, thread]) => {
+            const cost = calculateThreadCost(thread);
+            if (thread.weight === 0 && thread.pricePerKg === 0) return null;
+            return (
+              <View key={key} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.foreground, fontSize: 13 }}>{thread.type}</Text>
+                <View style={{ flexDirection: "row", gap: 16 }}>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{thread.weight}g × {thread.pricePerKg}{isAr ? " ر.س/كجم" : " SAR/kg"}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", minWidth: 70, textAlign: "right" }}>{cost.toFixed(2)} {isAr ? "ر.س" : "SAR"}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {/* Total */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", paddingTop: 12, marginTop: 8, borderTopWidth: 1.5, borderTopColor: colors.primary + "40" }}>
+            <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "700" }}>
+              {isAr ? "الإجمالي" : "Total"}
+            </Text>
+            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "800" }}>
+              {totalCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
+            </Text>
+          </View>
+        </View>
 
         {/* Notes */}
         <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: 16 }]}>
@@ -374,24 +568,41 @@ export default function ProductCostCalculatorScreen() {
           />
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
-          onPress={handleSave}
-          disabled={isLoading}
-          activeOpacity={0.8}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <MaterialIcons name="save" size={22} color="white" />
-              <Text style={{ color: "white", fontWeight: "700", fontSize: 16 }}>
-                {isAr ? "حفظ البيانات" : "Save Data"}
+        {/* Action Buttons */}
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 24, marginBottom: 32 }}>
+          {/* Export Button */}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, flex: 1 }]}
+            onPress={handleExport}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <MaterialIcons name="ios-share" size={20} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 14 }}>
+                {isAr ? "تصدير" : "Export"}
               </Text>
             </View>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary, flex: 2 }]}
+            onPress={handleSave}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <MaterialIcons name="save" size={22} color="white" />
+                <Text style={{ color: "white", fontWeight: "700", fontSize: 16 }}>
+                  {isAr ? "حفظ البيانات" : "Save Data"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -400,6 +611,15 @@ export default function ProductCostCalculatorScreen() {
 const styles = StyleSheet.create({
   form: {
     flex: 1,
+  },
+  summaryBar: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 30,
   },
   sectionCard: {
     borderWidth: 1,
@@ -426,6 +646,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  costBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
   colorTableHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -447,7 +672,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   colorRowNum: {
-    width: 20,
+    width: 18,
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
@@ -460,12 +685,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 13,
   },
-  saveButton: {
+  actionButton: {
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
-    marginBottom: 32,
   },
 });
