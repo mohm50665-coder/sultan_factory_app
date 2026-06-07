@@ -10,9 +10,10 @@ export interface User {
   phone?: string | null;
   position?: string | null;
   department?: string | null;
-  role: "user" | "admin";
+  role: "user" | "admin" | "manager" | "supervisor";
   isActive: number;
   allowedSections?: string[] | null;
+  toolPermissions?: Record<string, boolean> | null;
   createdAt?: string | null;
 }
 

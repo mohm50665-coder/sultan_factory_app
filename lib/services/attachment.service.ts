@@ -60,6 +60,18 @@ class AttachmentService {
    */
   async pickImage(): Promise<AttachmentFile | null> {
     try {
+      // طلب إذن الوصول للمعرض
+      if (Platform.OS !== "web") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "إذن مطلوب",
+            "يرجى السماح بالوصول إلى معرض الصور لاختيار الصور"
+          );
+          return null;
+        }
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,

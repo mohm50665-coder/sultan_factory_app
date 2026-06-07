@@ -243,6 +243,7 @@ export default function HomeScreen() {
   const isAr = language === "ar";
   const userRole = (user?.role || "user") as UserRole;
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingUsersCount, setPendingUsersCount] = useState(0);
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -254,6 +255,21 @@ export default function HomeScreen() {
     return unsubscribe;
   }, []);
 
+  // Load pending users count for admin
+  useEffect(() => {
+    const loadPendingUsers = async () => {
+      if (user?.role !== "admin") return;
+      try {
+        const { adminService } = await import("@/lib/services/api.service");
+        const pending = await adminService.getPendingUsers();
+        setPendingUsersCount(Array.isArray(pending) ? pending.length : 0);
+      } catch (e) {
+        console.log("Error loading pending users:", e);
+      }
+    };
+    loadPendingUsers();
+  }, [user?.role]);
+
   // Manufacturing stage departments that map to production
   const MANUFACTURING_STAGES = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
 
@@ -263,11 +279,17 @@ export default function HomeScreen() {
   // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
   const SHARED_ITEMS = ["administrative", "server_notifications", "tasks"];
   
-  // Load user tool permissions
+  // Load user tool permissions (server first, then local fallback)
   const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const loadToolPermissions = async () => {
       try {
+        // Try server-stored permissions first
+        if (user?.toolPermissions && Object.keys(user.toolPermissions).length > 0) {
+          setUserToolPermissions(user.toolPermissions);
+          return;
+        }
+        // Fallback to local
         const permissionsKey = `tool_permissions_${user?.id}`;
         const permissions = await AsyncStorage.getItem(permissionsKey);
         if (permissions) {
@@ -286,7 +308,7 @@ export default function HomeScreen() {
       }
     };
     loadToolPermissions();
-  }, [user?.id]);
+  }, [user?.id, user?.toolPermissions]);
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // Admin sees everything
@@ -437,9 +459,16 @@ export default function HomeScreen() {
           >
             <MaterialIcons name="chevron-left" size={20} color="#059669" />
             <View style={styles.adminButtonContent}>
-              <Text style={[styles.adminButtonText, { color: "#059669" }]}>
-                {isAr ? "لوحة التحكم الشاملة" : "Admin Control Panel"}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[styles.adminButtonText, { color: "#059669" }]}>
+                  {isAr ? "لوحة التحكم الشاملة" : "Admin Control Panel"}
+                </Text>
+                {pendingUsersCount > 0 && (
+                  <View style={{ backgroundColor: '#ef4444', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, minWidth: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{pendingUsersCount}</Text>
+                  </View>
+                )}
+              </View>
               <MaterialIcons name="admin-panel-settings" size={20} color="#059669" />
             </View>
           </TouchableOpacity>

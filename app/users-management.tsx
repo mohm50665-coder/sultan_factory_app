@@ -50,6 +50,7 @@ export default function UsersManagementScreen() {
   const [showSectionsModal, setShowSectionsModal] = useState(false);
   const [sectionsUser, setSectionsUser] = useState<User | null>(null);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  const [editPosition, setEditPosition] = useState("");
 
   const loadUsers = useCallback(async () => {
     const allUsers = await adminService.getAllUsers();
@@ -76,15 +77,25 @@ export default function UsersManagementScreen() {
     }
     setEditingUser(user);
     setEditRole(user.role);
+    setEditPosition(user.position || "");
     setShowEditModal(true);
   };
 
   const handleSaveRole = async () => {
     if (!editingUser) return;
-    await adminService.changeUserRole(editingUser.id, editRole as "user" | "admin");
-    setShowEditModal(false);
-    setEditingUser(null);
-    loadUsers();
+    try {
+      await adminService.changeUserRole(editingUser.id, editRole as any);
+      // Also save position if changed
+      if (editPosition !== (editingUser.position || "")) {
+        await adminService.updatePosition(editingUser.id, editPosition);
+      }
+      setShowEditModal(false);
+      setEditingUser(null);
+      loadUsers();
+      Alert.alert("نجاح", "تم حفظ التغييرات بنجاح");
+    } catch (e) {
+      Alert.alert("خطأ", "حدث خطأ أثناء الحفظ");
+    }
   };
 
   const handleDeleteUser = (userId: number, userName: string) => {
@@ -248,7 +259,14 @@ export default function UsersManagementScreen() {
       <Modal visible={showEditModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>تغيير صلاحية: {editingUser?.name}</Text>
+            <Text style={styles.modalTitle}>تغيير صلاحية ومنصب: {editingUser?.name}</Text>
+            <TextInput
+              style={[styles.modalInput, { marginBottom: 12 }]}
+              placeholder="المنصب (مثل: مشرف إنتاج)"
+              value={editPosition}
+              onChangeText={setEditPosition}
+            />
+            <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 8, color: '#374151' }}>الصلاحية:</Text>
             <View style={styles.rolesContainer}>
               {ROLES.map((role) => (
                 <TouchableOpacity

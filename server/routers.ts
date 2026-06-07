@@ -80,6 +80,7 @@ export const appRouter = router({
         role: user.role,
         isActive: user.isActive,
         allowedSections: user.allowedSections,
+        toolPermissions: user.toolPermissions,
       };
     }),
 
@@ -180,6 +181,7 @@ export const appRouter = router({
             role: user.role,
             isActive: user.isActive,
             allowedSections: user.allowedSections,
+            toolPermissions: user.toolPermissions,
           },
         };
       }),
@@ -250,13 +252,37 @@ export const appRouter = router({
       }),
 
     changeUserRole: publicProcedure
-      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) }))
+      .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "manager", "supervisor"]) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         await db.update(usersTable).set({ role: input.role }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
+
+    updatePosition: publicProcedure
+      .input(z.object({ userId: z.number(), position: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(usersTable).set({ position: input.position }).where(eq(usersTable.id, input.userId));
+        return { success: true };
+      }),
+
+    updateToolPermissions: publicProcedure
+      .input(z.object({ userId: z.number(), toolPermissions: z.record(z.string(), z.boolean()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(usersTable).set({ toolPermissions: input.toolPermissions }).where(eq(usersTable.id, input.userId));
+        return { success: true };
+      }),
+
+    getPendingUsers: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(usersTable).where(eq(usersTable.isActive, 0));
+    }),
 
     deleteUser: publicProcedure
       .input(z.object({ userId: z.number() }))

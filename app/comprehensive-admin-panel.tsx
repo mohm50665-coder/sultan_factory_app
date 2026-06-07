@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { adminService } from "@/lib/services/api.service";
 
 // ===== STORAGE KEYS =====
 const STORAGE_KEYS = {
@@ -174,9 +175,21 @@ export default function ComprehensiveAdminPanel() {
       // Load stages
       const saved = await AsyncStorage.getItem(STORAGE_KEYS.STAGES);
       if (saved) setStages(JSON.parse(saved));
-      // Load users
-      const usersData = await AsyncStorage.getItem("users");
-      if (usersData) setUsers(JSON.parse(usersData));
+      // Load users from server API
+      try {
+        const serverUsers = await adminService.getAllUsers();
+        if (serverUsers && serverUsers.length > 0) {
+          setUsers(serverUsers);
+        } else {
+          // Fallback to local
+          const usersData = await AsyncStorage.getItem("users");
+          if (usersData) setUsers(JSON.parse(usersData));
+        }
+      } catch {
+        // Fallback to local if server unavailable
+        const usersData = await AsyncStorage.getItem("users");
+        if (usersData) setUsers(JSON.parse(usersData));
+      }
     } catch (e) {
       console.error("Error loading data:", e);
     } finally {
@@ -285,6 +298,12 @@ export default function ComprehensiveAdminPanel() {
   const selectUser = async (u: any) => {
     setSelectedUser(u);
     try {
+      // Try server-stored permissions first
+      if (u.toolPermissions && Object.keys(u.toolPermissions).length > 0) {
+        setUserPermissions(u.toolPermissions);
+        return;
+      }
+      // Fallback to local
       const perms = await AsyncStorage.getItem(`tool_permissions_${u.id}`);
       if (perms) {
         setUserPermissions(JSON.parse(perms));
@@ -295,6 +314,9 @@ export default function ComprehensiveAdminPanel() {
       }
     } catch (e) {
       console.error("Error loading permissions:", e);
+      const defaults: Record<string, boolean> = {};
+      AVAILABLE_TOOLS.forEach((t) => { defaults[t.id] = true; });
+      setUserPermissions(defaults);
     }
   };
 
@@ -304,6 +326,12 @@ export default function ComprehensiveAdminPanel() {
 
   const savePermissions = async () => {
     if (!selectedUser) return;
+    // Save to both server and local
+    try {
+      await adminService.updateToolPermissions(selectedUser.id, userPermissions);
+    } catch (e) {
+      console.log("Server save failed, saving locally", e);
+    }
     await AsyncStorage.setItem(`tool_permissions_${selectedUser.id}`, JSON.stringify(userPermissions));
     Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
   };

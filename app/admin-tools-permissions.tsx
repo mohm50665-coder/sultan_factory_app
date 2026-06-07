@@ -48,28 +48,40 @@ export default function AdminToolsPermissionsScreen() {
 
   const loadUsers = async () => {
     try {
-      const usersData = await AsyncStorage.getItem('users');
-      if (usersData) {
-        const parsedUsers = JSON.parse(usersData);
-        setUsers(parsedUsers);
-        if (parsedUsers.length > 0) {
-          selectUser(parsedUsers[0]);
-        }
+      const { adminService } = await import('@/lib/services/api.service');
+      const allUsers = await adminService.getAllUsers();
+      if (allUsers && allUsers.length > 0) {
+        setUsers(allUsers);
+        selectUser(allUsers[0]);
       }
     } catch (error) {
       console.error('Error loading users:', error);
+      // Fallback to local
+      try {
+        const usersData = await AsyncStorage.getItem('users');
+        if (usersData) {
+          const parsedUsers = JSON.parse(usersData);
+          setUsers(parsedUsers);
+          if (parsedUsers.length > 0) selectUser(parsedUsers[0]);
+        }
+      } catch (e) {}
     }
   };
 
   const selectUser = async (userData: any) => {
     setSelectedUser(userData);
     try {
+      // Load from server toolPermissions field first
+      if (userData.toolPermissions && Object.keys(userData.toolPermissions).length > 0) {
+        setUserPermissions(userData.toolPermissions);
+        return;
+      }
+      // Fallback to local
       const permissionsKey = `tool_permissions_${userData.id}`;
       const permissions = await AsyncStorage.getItem(permissionsKey);
       if (permissions) {
         setUserPermissions(JSON.parse(permissions));
       } else {
-        // Default: all tools visible
         const defaultPermissions: Record<string, boolean> = {};
         AVAILABLE_TOOLS.forEach(tool => {
           defaultPermissions[tool.id] = true;
@@ -92,12 +104,23 @@ export default function AdminToolsPermissionsScreen() {
     if (!selectedUser) return;
     setIsLoading(true);
     try {
+      // Save to server
+      const { adminService } = await import('@/lib/services/api.service');
+      await adminService.updateToolPermissions(selectedUser.id, userPermissions);
+      // Also save locally as backup
       const permissionsKey = `tool_permissions_${selectedUser.id}`;
       await AsyncStorage.setItem(permissionsKey, JSON.stringify(userPermissions));
       Alert.alert('نجح', 'تم حفظ الصلاحيات بنجاح');
     } catch (error) {
       console.error('Error saving permissions:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ الصلاحيات');
+      // Fallback: save locally only
+      try {
+        const permissionsKey = `tool_permissions_${selectedUser.id}`;
+        await AsyncStorage.setItem(permissionsKey, JSON.stringify(userPermissions));
+        Alert.alert('نجح', 'تم حفظ الصلاحيات محلياً');
+      } catch (e) {
+        Alert.alert('خطأ', 'حدث خطأ أثناء حفظ الصلاحيات');
+      }
     } finally {
       setIsLoading(false);
     }
