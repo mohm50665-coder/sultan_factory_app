@@ -371,3 +371,68 @@ export const reports = mysqlTable("reports", {
 
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = typeof reports.$inferInsert;
+
+// جدول أنواع الخيوط
+export const threadTypes = mysqlTable("threadTypes", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(), // قطن، بامبو، نايلون، إسبان، إسباندكس، مطاط
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ThreadType = typeof threadTypes.$inferSelect;
+export type InsertThreadType = typeof threadTypes.$inferInsert;
+
+// جدول ألوان الخيوط
+export const threadColors = mysqlTable("threadColors", {
+  id: int("id").autoincrement().primaryKey(),
+  threadTypeId: int("threadTypeId").notNull(),
+  colorName: varchar("colorName", { length: 100 }).notNull(),
+  colorCode: varchar("colorCode", { length: 20 }).notNull(), // كود اللون
+  hexColor: varchar("hexColor", { length: 7 }), // رمز اللون السادس عشري
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ThreadColor = typeof threadColors.$inferSelect;
+export type InsertThreadColor = typeof threadColors.$inferInsert;
+
+// جدول حساب تكاليف المنتج الجديد
+export const productCostCalculation = mysqlTable("productCostCalculation", {
+  id: int("id").autoincrement().primaryKey(),
+  date: varchar("date", { length: 20 }).notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  productColor: varchar("productColor", { length: 100 }).notNull(),
+  
+  // بيانات الخيوط
+  cottonWeight: int("cottonWeight").default(0), // بالجرام
+  cottonColor: varchar("cottonColor", { length: 100 }),
+  cottonCode: varchar("cottonCode", { length: 50 }),
+  
+  bambooWeight: int("bambooWeight").default(0),
+  bambooColor: varchar("bambooColor", { length: 100 }),
+  bambooCode: varchar("bambooCode", { length: 50 }),
+  
+  nylonWeight: int("nylonWeight").default(0),
+  nylonColor: varchar("nylonColor", { length: 100 }),
+  nylonCode: varchar("nylonCode", { length: 50 }),
+  
+  spanWeight: int("spanWeight").default(0),
+  spanColor: varchar("spanColor", { length: 100 }),
+  spanCode: varchar("spanCode", { length: 50 }),
+  
+  spandexWeight: int("spandexWeight").default(0),
+  spandexColor: varchar("spandexColor", { length: 100 }),
+  spandexCode: varchar("spandexCode", { length: 50 }),
+  
+  rubberWeight: int("rubberWeight").default(0),
+  rubberColor: varchar("rubberColor", { length: 100 }),
+  rubberCode: varchar("rubberCode", { length: 50 }),
+  
+  // تفاصيل إضافية
+  totalThreadWeight: int("totalThreadWeight").default(0),
+  notes: text("notes"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProductCostCalculation = typeof productCostCalculation.$inferSelect;
+export type InsertProductCostCalculation = typeof productCostCalculation.$inferInsert;

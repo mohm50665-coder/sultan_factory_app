@@ -884,6 +884,20 @@ export default function ProductionScreen() {
           </View>
         </TouchableOpacity>
       )}
+
+          <TouchableOpacity
+            onPress={() => router.push("/product-cost-calculator" as any)}
+            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 4, backgroundColor: "#fef3c7", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#f59e0b", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <MaterialIcons name="chevron-left" size={24} color="#f59e0b" />
+            <View style={{ flex: 1, alignItems: "flex-end" }}>
+              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#f59e0b" }}>{isAr ? "حساب تكاليف منتج جديد" : "Calculate Product Cost"}</Text>
+              <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{isAr ? "إضافة تفاصيل الخيوط والألوان" : "Add Thread and Color Details"}</Text>
+            </View>
+            <View style={{ backgroundColor: "#f59e0b", borderRadius: 12, padding: 10, marginLeft: 12 }}>
+              <MaterialIcons name="calculate" size={28} color="white" />
+            </View>
+          </TouchableOpacity>
       {!showForm && <AdminCard />}
 
       {/* المحتوى */}

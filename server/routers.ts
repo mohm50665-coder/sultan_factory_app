@@ -24,6 +24,7 @@ import {
   backups as backupsTable,
   activityLog as activityLogTable,
   reports as reportsTable,
+  productCostCalculation,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -1391,6 +1392,67 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
         await db.execute(sql`DELETE FROM ${sql.identifier(input.table)} WHERE id = ${input.id}`);
+        return { success: true };
+      }),
+  }),
+
+  // ===== PRODUCT COST CALCULATION ROUTER =====
+  productCostCalculation: router({
+    create: protectedProcedure
+      .input(z.object({
+        date: z.string(),
+        productName: z.string(),
+        productColor: z.string(),
+        cottonWeight: z.number().default(0),
+        cottonColor: z.string().optional(),
+        cottonCode: z.string().optional(),
+        bambooWeight: z.number().default(0),
+        bambooColor: z.string().optional(),
+        bambooCode: z.string().optional(),
+        nylonWeight: z.number().default(0),
+        nylonColor: z.string().optional(),
+        nylonCode: z.string().optional(),
+        spanWeight: z.number().default(0),
+        spanColor: z.string().optional(),
+        spanCode: z.string().optional(),
+        spandexWeight: z.number().default(0),
+        spandexColor: z.string().optional(),
+        spandexCode: z.string().optional(),
+        rubberWeight: z.number().default(0),
+        rubberColor: z.string().optional(),
+        rubberCode: z.string().optional(),
+        totalThreadWeight: z.number().default(0),
+        notes: z.string().optional(),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(productCostCalculation).values(input as any);
+        return { success: true, id: (result[0] as any).insertId };
+      }),
+
+    getAll: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(productCostCalculation).orderBy(desc(productCostCalculation.createdAt));
+    }),
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const result = await db.select().from(productCostCalculation).where(eq(productCostCalculation.id, input.id)).limit(1);
+        return result.length > 0 ? result[0] : null;
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(productCostCalculation).where(eq(productCostCalculation.id, input.id));
         return { success: true };
       }),
   }),
