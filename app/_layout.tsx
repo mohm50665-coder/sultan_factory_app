@@ -134,6 +134,7 @@ function NavigationContent() {
       <Stack.Screen name="share-reports" />
       <Stack.Screen name="production-costs" />
       <Stack.Screen name="cost-comparison-report" />
+      <Stack.Screen name="board-representative" />
       <Stack.Screen name="board-representative-dashboard" />
       <Stack.Screen name="admin-control-panel" />
       <Stack.Screen name="export-reports" />
