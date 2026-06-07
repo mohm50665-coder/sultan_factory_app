@@ -196,6 +196,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["board_representative"],
   },
   {
+    id: "board_monthly_report",
+    labelAr: "التقرير الشهري لمجلس الإدارة",
+    labelEn: "Monthly Board Report",
+    icon: "summarize",
+    color: "#7C3AED",
+    route: "/board-monthly-report",
+    descriptionAr: "تقرير شهري شامل قابل للطباعة لمجلس الإدارة",
+    descriptionEn: "Comprehensive printable monthly report for the board",
+    section: "reports",
+    departments: ["board_representative"],
+  },
+  {
     id: "server_notifications",
     labelAr: "الإشعارات الفورية",
     labelEn: "Real-time Notifications",

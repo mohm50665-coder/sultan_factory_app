@@ -148,6 +148,7 @@ function NavigationContent() {
       <Stack.Screen name="meeting-outputs" />
       <Stack.Screen name="admin-goals-kpis" />
       <Stack.Screen name="comprehensive-admin-panel" />
+      <Stack.Screen name="board-monthly-report" />
     </Stack>
   );
 }
