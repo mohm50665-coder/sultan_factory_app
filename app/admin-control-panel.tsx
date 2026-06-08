@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -31,6 +32,8 @@ interface AdminSection {
 export default function AdminControlPanel() {
   const router = useRouter();
   const colors = useColors();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const [summary, setSummary] = useState<DataSummary | null>(null);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [alerts, setAlerts] = useState<AlertEntry[]>([]);
@@ -81,43 +84,43 @@ export default function AdminControlPanel() {
   };
 
   const sections: AdminSection[] = [
-    { id: "production", title: "الإنتاج", icon: "precision-manufacturing", color: "#3B82F6", count: summary?.production || 0 },
-    { id: "sales", title: "المبيعات", icon: "point-of-sale", color: "#10B981", count: summary?.sales || 0 },
-    { id: "expenses", title: "المصروفات", icon: "account-balance-wallet", color: "#F59E0B", count: summary?.expenses || 0 },
-    { id: "tasks", title: "المهام", icon: "assignment", color: "#8B5CF6", count: summary?.tasks || 0 },
-    { id: "users", title: "المستخدمين", icon: "people", color: "#EC4899", count: summary?.users || 0 },
-    { id: "costs", title: "التكاليف", icon: "calculate", color: "#06B6D4", count: summary?.costs || 0 },
-    { id: "collection", title: "التحصيل", icon: "payments", color: "#14B8A6", count: summary?.collection || 0 },
-    { id: "manufacturing", title: "مراحل التصنيع", icon: "factory", color: "#F97316", count: summary?.manufacturing || 0 },
-    { id: "alerts", title: "التنبيهات غير المقروءة", icon: "notifications-active", color: "#EF4444", count: summary?.unreadAlerts || 0 },
+    { id: "production", title: t("production"), icon: "precision-manufacturing", color: "#3B82F6", count: summary?.production || 0 },
+    { id: "sales", title: t("sales"), icon: "point-of-sale", color: "#10B981", count: summary?.sales || 0 },
+    { id: "expenses", title: t("expenses"), icon: "account-balance-wallet", color: "#F59E0B", count: summary?.expenses || 0 },
+    { id: "tasks", title: t("tasks"), icon: "assignment", color: "#8B5CF6", count: summary?.tasks || 0 },
+    { id: "users", title: isAr ? "المستخدمين" : "Users", icon: "people", color: "#EC4899", count: summary?.users || 0 },
+    { id: "costs", title: isAr ? "التكاليف" : "Costs", icon: "calculate", color: "#06B6D4", count: summary?.costs || 0 },
+    { id: "collection", title: t("collection"), icon: "payments", color: "#14B8A6", count: summary?.collection || 0 },
+    { id: "manufacturing", title: t("manufacturing_stages"), icon: "factory", color: "#F97316", count: summary?.manufacturing || 0 },
+    { id: "alerts", title: isAr ? "التنبيهات غير المقروءة" : "Unread Alerts", icon: "notifications-active", color: "#EF4444", count: summary?.unreadAlerts || 0 },
   ];
 
   const getActionLabel = (action: string) => {
     const labels: Record<string, string> = {
-      create: "إنشاء",
-      update: "تعديل",
-      delete: "حذف",
-      login: "تسجيل دخول",
-      logout: "تسجيل خروج",
-      export: "تصدير",
-      backup: "نسخ احتياطي",
+      create: isAr ? "إنشاء" : "Create",
+      update: isAr ? "تعديل" : "Edit",
+      delete: isAr ? "حذف" : "Delete",
+      login: isAr ? "تسجيل دخول" : "Login",
+      logout: isAr ? "تسجيل خروج" : "Logout",
+      export: t("export"),
+      backup: isAr ? "نسخ احتياطي" : "Backup",
     };
     return labels[action] || action;
   };
 
   const getEntityLabel = (entityType: string) => {
     const labels: Record<string, string> = {
-      production: "إنتاج",
-      sales: "مبيعات",
-      expenses: "مصروفات",
-      tasks: "مهام",
-      costs: "تكاليف",
-      collection: "تحصيل",
-      manufacturing: "تصنيع",
-      users: "مستخدمين",
-      alerts: "تنبيهات",
-      backups: "نسخ احتياطية",
-      reports: "تقارير",
+      production: t("production"),
+      sales: t("sales"),
+      expenses: t("expenses"),
+      tasks: t("tasks"),
+      costs: isAr ? "تكاليف" : "Costs",
+      collection: t("collection"),
+      manufacturing: isAr ? "تصنيع" : "Manufacturing",
+      users: isAr ? "مستخدمين" : "Users",
+      alerts: isAr ? "تنبيهات" : "Alerts",
+      backups: isAr ? "نسخ احتياطية" : "Backups",
+      reports: t("reports"),
     };
     return labels[entityType] || entityType;
   };
@@ -135,7 +138,7 @@ export default function AdminControlPanel() {
       await alertsService.markAsRead(alertId);
       setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, read: 1 } : a));
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيه");
+      Alert.alert(t("error"), isAr ? "فشل في تحديث التنبيه" : "Failed to update alert");
     }
   };
 
@@ -143,9 +146,9 @@ export default function AdminControlPanel() {
     try {
       await alertsService.markAllAsRead(userId);
       setAlerts(prev => prev.map(a => ({ ...a, read: 1 })));
-      Alert.alert("تم", "تم تحديد جميع التنبيهات كمقروءة");
+      Alert.alert(t("done"), isAr ? "تم تحديد جميع التنبيهات كمقروءة" : "All alerts marked as read");
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيهات");
+      Alert.alert(t("error"), isAr ? "فشل في تحديث التنبيهات" : "Failed to update alerts");
     }
   };
 
@@ -166,7 +169,7 @@ export default function AdminControlPanel() {
   const renderOverview = () => (
     <View style={styles.tabContent}>
       {/* Summary Cards */}
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>ملخص البيانات</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isAr ? "ملخص البيانات" : "Data Summary"}</Text>
       <View style={styles.grid}>
         {sections.map((section) => (
           <TouchableOpacity
@@ -184,35 +187,35 @@ export default function AdminControlPanel() {
       </View>
 
       {/* Quick Actions */}
-      <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>إجراءات سريعة</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>{isAr ? "إجراءات سريعة" : "Quick Actions"}</Text>
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#3B82F6" }]}
           onPress={() => router.push("/board-representative-dashboard" as any)}
         >
           <MaterialIcons name="dashboard" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>لوحة مجلس الإدارة</Text>
+          <Text style={styles.actionBtnText}>{t("board_dashboard")}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#10B981" }]}
           onPress={() => router.push("/cost-comparison-report" as any)}
         >
           <MaterialIcons name="compare-arrows" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>تقارير المقارنة</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "تقارير المقارنة" : "Comparison Reports"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#8B5CF6" }]}
           onPress={() => router.push("/backup-restore" as any)}
         >
           <MaterialIcons name="backup" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>النسخ الاحتياطية</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "النسخ الاحتياطية" : "Backups"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#F59E0B" }]}
           onPress={() => router.push("/share-reports" as any)}
         >
           <MaterialIcons name="picture-as-pdf" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>تصدير التقارير</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "تصدير التقارير" : "Export Reports"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -220,12 +223,12 @@ export default function AdminControlPanel() {
 
   const renderActivity = () => (
     <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>سجل الأنشطة</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("activity_log")}</Text>
       {activityLog.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
           <MaterialIcons name="history" size={48} color={colors.muted} />
-          <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد أنشطة مسجلة بعد</Text>
-          <Text style={[styles.emptySubtext, { color: colors.muted }]}>ستظهر هنا جميع العمليات التي يقوم بها المستخدمون</Text>
+          <Text style={[styles.emptyText, { color: colors.muted }]}>{isAr ? "لا توجد أنشطة مسجلة بعد" : "No activities recorded yet"}</Text>
+          <Text style={[styles.emptySubtext, { color: colors.muted }]}>{isAr ? "ستظهر هنا جميع العمليات التي يقوم بها المستخدمون" : "All user operations will appear here"}</Text>
         </View>
       ) : (
         activityLog.map((log, index) => (
@@ -255,17 +258,17 @@ export default function AdminControlPanel() {
   const renderAlerts = () => (
     <View style={styles.tabContent}>
       <View style={styles.alertsHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>التنبيهات</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("notifications")}</Text>
         {alerts.filter(a => !a.read).length > 0 && (
           <TouchableOpacity onPress={handleMarkAllRead} style={[styles.markAllBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.markAllBtnText}>تحديد الكل كمقروء</Text>
+            <Text style={styles.markAllBtnText}>{isAr ? "تحديد الكل كمقروء" : "Mark all as read"}</Text>
           </TouchableOpacity>
         )}
       </View>
       {alerts.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
           <MaterialIcons name="notifications-off" size={48} color={colors.muted} />
-          <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد تنبيهات</Text>
+          <Text style={[styles.emptyText, { color: colors.muted }]}>{isAr ? "لا توجد تنبيهات" : "No alerts"}</Text>
         </View>
       ) : (
         alerts.map((alert, index) => (
@@ -303,23 +306,23 @@ export default function AdminControlPanel() {
 
   const renderDataManagement = () => (
     <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>إدارة البيانات</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("panel_data")}</Text>
       <Text style={[styles.subtitle, { color: colors.muted }]}>
         يمكنك من هنا الوصول لجميع البيانات وتعديلها أو حذفها
       </Text>
 
       {/* Data Management Cards */}
       {[
-        { title: "إدارة الإنتاج", icon: "precision-manufacturing", color: "#3B82F6", desc: "عرض وتعديل وحذف بيانات الإنتاج", route: "/production" },
-        { title: "إدارة المبيعات", icon: "point-of-sale", color: "#10B981", desc: "عرض وتعديل وحذف بيانات المبيعات", route: "/sales" },
-        { title: "إدارة المصروفات", icon: "account-balance-wallet", color: "#F59E0B", desc: "عرض وتعديل وحذف المصروفات", route: "/expenses" },
-        { title: "إدارة المهام", icon: "assignment", color: "#8B5CF6", desc: "عرض وتعديل وحذف المهام", route: "/tasks" },
-        { title: "إدارة التكاليف", icon: "calculate", color: "#06B6D4", desc: "عرض وتعديل وحذف بيانات التكاليف", route: "/production-costs" },
-        { title: "إدارة المستخدمين", icon: "people", color: "#EC4899", desc: "إدارة حسابات المستخدمين والصلاحيات", route: "/admin-dashboard" },
-        { title: "إدارة التحصيل", icon: "payments", color: "#14B8A6", desc: "عرض وتعديل بيانات التحصيل", route: "/collection" },
-        { title: "إدارة المستودعات", icon: "warehouse", color: "#F97316", desc: "عرض وتعديل بيانات المستودعات", route: "/warehouse" },
-        { title: "إدارة الصيانة", icon: "build", color: "#6366F1", desc: "عرض وتعديل بيانات الصيانة", route: "/maintenance" },
-        { title: "الإجراءات الإدارية", icon: "admin-panel-settings", color: "#DC2626", desc: "عرض وتعديل الإجراءات الإدارية", route: "/administrative" },
+        { title: isAr ? "إدارة الإنتاج" : "Production Management", icon: "precision-manufacturing", color: "#3B82F6", desc: isAr ? "عرض وتعديل وحذف بيانات الإنتاج" : "View, edit, and delete production data", route: "/production" },
+        { title: isAr ? "إدارة المبيعات" : "Sales Management", icon: "point-of-sale", color: "#10B981", desc: isAr ? "عرض وتعديل وحذف بيانات المبيعات" : "View, edit, and delete sales data", route: "/sales" },
+        { title: isAr ? "إدارة المصروفات" : "Expenses Management", icon: "account-balance-wallet", color: "#F59E0B", desc: isAr ? "عرض وتعديل وحذف المصروفات" : "View, edit, and delete expenses", route: "/expenses" },
+        { title: isAr ? "إدارة المهام" : "Tasks Management", icon: "assignment", color: "#8B5CF6", desc: isAr ? "عرض وتعديل وحذف المهام" : "View, edit, and delete tasks", route: "/tasks" },
+        { title: isAr ? "إدارة التكاليف" : "Costs Management", icon: "calculate", color: "#06B6D4", desc: isAr ? "عرض وتعديل وحذف بيانات التكاليف" : "View, edit, and delete costs data", route: "/production-costs" },
+        { title: t("users_management"), icon: "people", color: "#EC4899", desc: isAr ? "إدارة حسابات المستخدمين والصلاحيات" : "Manage user accounts and permissions", route: "/admin-dashboard" },
+        { title: isAr ? "إدارة التحصيل" : "Collection Management", icon: "payments", color: "#14B8A6", desc: isAr ? "عرض وتعديل بيانات التحصيل" : "View and edit collection data", route: "/collection" },
+        { title: isAr ? "إدارة المستودعات" : "Warehouse Management", icon: "warehouse", color: "#F97316", desc: isAr ? "عرض وتعديل بيانات المستودعات" : "View and edit warehouse data", route: "/warehouse" },
+        { title: isAr ? "إدارة الصيانة" : "Maintenance Management", icon: "build", color: "#6366F1", desc: isAr ? "عرض وتعديل بيانات الصيانة" : "View and edit maintenance data", route: "/maintenance" },
+        { title: t("administrative"), icon: "admin-panel-settings", color: "#DC2626", desc: isAr ? "عرض وتعديل الإجراءات الإدارية" : "View and edit administrative procedures", route: "/administrative" },
       ].map((item, index) => (
         <TouchableOpacity
           key={index}
@@ -343,7 +346,7 @@ export default function AdminControlPanel() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.muted }]}>جاري تحميل البيانات...</Text>
+        <Text style={[styles.loadingText, { color: colors.muted }]}>{t("loading")}</Text>
       </ScreenContainer>
     );
   }
@@ -360,8 +363,8 @@ export default function AdminControlPanel() {
             <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>لوحة تحكم المدير</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>إدارة شاملة لجميع البيانات</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>{t("comprehensive_panel")}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>{isAr ? "إدارة شاملة لجميع البيانات" : "Comprehensive management of all data"}</Text>
           </View>
           <View style={[styles.adminBadge, { backgroundColor: colors.primary }]}>
             <MaterialIcons name="admin-panel-settings" size={20} color="#fff" />
@@ -371,10 +374,10 @@ export default function AdminControlPanel() {
         {/* Tabs */}
         <View style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {[
-            { id: "overview", label: "نظرة عامة", icon: "dashboard" },
-            { id: "activity", label: "الأنشطة", icon: "history" },
-            { id: "alerts", label: "التنبيهات", icon: "notifications" },
-            { id: "data", label: "البيانات", icon: "storage" },
+            { id: "overview", label: isAr ? "نظرة عامة" : "Overview", icon: "dashboard" },
+            { id: "activity", label: isAr ? "الأنشطة" : "Activity", icon: "history" },
+            { id: "alerts", label: t("notifications"), icon: "notifications" },
+            { id: "data", label: isAr ? "البيانات" : "Data", icon: "storage" },
           ].map((tab) => (
             <TouchableOpacity
               key={tab.id}

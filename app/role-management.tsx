@@ -11,9 +11,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { UserRole, RolePermissions } from "@/lib/services/roles.service";
+import { useLanguage } from "@/lib/language-context";
 
 export default function RoleManagementScreen() {
   const colors = useColors();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [expandedRole, setExpandedRole] = useState<UserRole | null>(null);
@@ -63,7 +66,7 @@ export default function RoleManagementScreen() {
                 color={colors.success}
               />
               <Text style={{ color: colors.muted, fontSize: 11 }}>
-                {role.permissions.length} صلاحية
+                {role.permissions.length} {isAr ? "صلاحية" : "Permissions"}
               </Text>
             </View>
           </View>
@@ -113,7 +116,7 @@ export default function RoleManagementScreen() {
                 marginBottom: 10,
               }}
             >
-              الصلاحيات المتاحة:
+              {isAr ? "الصلاحيات المتاحة:" : "Available Permissions:"}
             </Text>
             {role.permissions.map((permission) => (
               <View
@@ -172,10 +175,10 @@ export default function RoleManagementScreen() {
               marginBottom: 4,
             }}
           >
-            إدارة الأدوار والصلاحيات
+            {isAr ? "إدارة الأدوار والصلاحيات" : "Roles and Permissions Management"}
           </Text>
           <Text style={{ color: colors.muted, fontSize: 12 }}>
-            إدارة أدوار المستخدمين والصلاحيات المرتبطة بها
+            {isAr ? "إدارة أدوار المستخدمين والصلاحيات المرتبطة بها" : "Manage user roles and associated permissions"}
           </Text>
         </View>
 
@@ -189,7 +192,7 @@ export default function RoleManagementScreen() {
               marginBottom: 12,
             }}
           >
-            الأدوار المتاحة ({allRoles.length})
+            {isAr ? "الأدوار المتاحة" : "Available Roles"} ({allRoles.length})
           </Text>
 
           {allRoles.map((role) => (
@@ -216,11 +219,10 @@ export default function RoleManagementScreen() {
                 marginBottom: 8,
               }}
             >
-              نصيحة
+              {isAr ? "نصيحة" : "Tip"}
             </Text>
             <Text style={{ color: colors.muted, fontSize: 11, lineHeight: 16 }}>
-              يمكنك تعديل الصلاحيات لكل دور بالضغط على زر التعديل. تأكد من أن كل
-              مستخدم لديه الصلاحيات المناسبة لعمله.
+              {isAr ? "يمكنك تعديل الصلاحيات لكل دور بالضغط على زر التعديل. تأكد من أن كل مستخدم لديه الصلاحيات المناسبة لعمله." : "You can edit permissions for each role by clicking the edit button. Ensure each user has the appropriate permissions for their work."}
             </Text>
           </View>
         </View>
@@ -268,7 +270,7 @@ export default function RoleManagementScreen() {
                   fontWeight: "bold",
                 }}
               >
-                تعديل الصلاحيات
+                {isAr ? "تعديل الصلاحيات" : "Edit Permissions"}
               </Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
                 <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -366,7 +368,7 @@ export default function RoleManagementScreen() {
                       }}
                     >
                       <Text style={{ color: "white", fontWeight: "600" }}>
-                        حفظ التغييرات
+                        {isAr ? "حفظ التغييرات" : "Save Changes"}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -382,7 +384,7 @@ export default function RoleManagementScreen() {
                       }}
                     >
                       <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                        إلغاء
+                        {isAr ? "إلغاء" : "Cancel"}
                       </Text>
                     </TouchableOpacity>
                   </View>

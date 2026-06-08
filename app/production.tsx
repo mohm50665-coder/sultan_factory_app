@@ -92,7 +92,7 @@ const formatDate = (d: Date): string => {
 };
 
 export default function ProductionScreen() {
-  const { language } = useLanguage();
+  const { language, t, isRtl } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
@@ -254,7 +254,7 @@ export default function ProductionScreen() {
 
   const handleSave = async () => {
     if (activeMachines.length === 0) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
+      Alert.alert(t("alert"), isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
       return;
     }
 
@@ -274,9 +274,9 @@ export default function ProductionScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
+      Alert.alert(t("success") + " ✓", editingEntry ? t("updated_success") : t("saved_success"));
     } catch (e) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      Alert.alert(t("error"), t("operation_failed"));
     }
   };
 
@@ -290,7 +290,7 @@ export default function ProductionScreen() {
 
   const handleDelete = async (entry: ProductionEntry) => {
     if (Platform.OS === "web") {
-      const confirmed = confirm(isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`);
+      const confirmed = confirm(t("confirm_delete_msg") + ` "${entry.date}"?`);
       if (confirmed) {
         try {
           await productionService.deleteByDate(entry.date);
@@ -298,10 +298,10 @@ export default function ProductionScreen() {
         } catch (e) { console.log(e); }
       }
     } else {
-      Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`, [
-        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      Alert.alert(t("confirm_delete"), t("confirm_delete_msg") + ` "${entry.date}"?`, [
+        { text: t("cancel"), style: "cancel" },
         {
-          text: isAr ? "حذف" : "Delete",
+          text: t("delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -378,8 +378,8 @@ export default function ProductionScreen() {
     return (
       <View key={entry.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
         {/* رأس السجل */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => handleEdit(entry)}
               style={{ backgroundColor: "#0a7ea415", borderRadius: 20, padding: 8 }}
@@ -404,19 +404,19 @@ export default function ProductionScreen() {
         {/* ملخص المكائن والمنتجات */}
         {machineKeys.map((machine) => (
           <View key={machine} style={{ marginBottom: 8, paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={{ color: colors.muted, fontSize: 12 }}>
-                {entry.machines[machine].shifts.map(s => s.productName || (isAr ? "بدون اسم" : "No name")).join(" | ")}
+                {entry.machines[machine].shifts.map(s => s.productName || (t("no_name"))).join(" | ")}
               </Text>
               <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14 }}>{machine}</Text>
             </View>
             {entry.machines[machine].shifts.map((shift, idx) => (
-              <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingRight: 8 }}>
+              <View key={idx} style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', marginTop: 4, paddingRight: 8 }}>
                 <Text style={{ color: colors.muted, fontSize: 11 }}>
                   {shift.shiftStart && shift.shiftEnd ? `${shift.shiftStart} - ${shift.shiftEnd}` : ""}
                 </Text>
                 <Text style={{ color: colors.foreground, fontSize: 11 }}>
-                  {isAr ? `وردية ${shift.shiftNumber}` : `Shift ${shift.shiftNumber}`}: {shift.productionDozen || 0} {isAr ? "درزن" : "dz"}
+                  {isAr ? `وردية ${shift.shiftNumber}` : `Shift ${shift.shiftNumber}`}: {shift.productionDozen || 0} {t("dozen")}
                 </Text>
               </View>
             ))}
@@ -424,19 +424,19 @@ export default function ProductionScreen() {
         ))}
 
         {/* الإجماليات */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-around', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "إنتاج" : "Production"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{t("production")}</Text>
             <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14 }}>{totals.totalDozen}</Text>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "درزن" : "dozen"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{t("dozen")}</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "هدر" : "Waste"}</Text>
             <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 14 }}>{totals.totalWasteAll}</Text>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "جم" : "g"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{t("grams")}</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "نسبة الهدر" : "Waste %"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{t("waste_percentage")}</Text>
             <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 14 }}>{totals.wastePercentage}%</Text>
           </View>
         </View>
@@ -448,15 +448,15 @@ export default function ProductionScreen() {
   const renderShiftForm = (machine: string, shift: ShiftData, shiftIndex: number, totalShifts: number) => (
     <View key={`${machine}-shift-${shiftIndex}`} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
       {/* رأس الوردية */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8 }}>
           {totalShifts > 1 && (
             <TouchableOpacity onPress={() => removeShift(machine, shiftIndex)} style={{ backgroundColor: "#ef444415", borderRadius: 16, padding: 4 }}>
               <MaterialIcons name="remove-circle" size={20} color="#ef4444" />
             </TouchableOpacity>
           )}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14 }}>
             {isAr ? `الوردية ${shift.shiftNumber}` : `Shift ${shift.shiftNumber}`}
           </Text>
@@ -466,9 +466,9 @@ export default function ProductionScreen() {
 
       {/* اسم المنتج */}
       <View style={{ marginBottom: 12 }}>
-        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسم المنتج" : "Product Name"}</Text>
+        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("product_name")}</Text>
         <TextInput
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
           placeholder={isAr ? "مثال: جوارب رجالي قطن" : "e.g. Men's cotton socks"}
           placeholderTextColor={colors.muted}
           value={shift.productName}
@@ -477,11 +477,11 @@ export default function ProductionScreen() {
       </View>
 
       {/* وقت بداية ونهاية الوردية */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نهاية الوردية" : "Shift End"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "نهاية الوردية" : "Shift End"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="18:00"
             placeholderTextColor={colors.muted}
             value={shift.shiftEnd}
@@ -489,9 +489,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بداية الوردية" : "Shift Start"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "بداية الوردية" : "Shift Start"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="06:00"
             placeholderTextColor={colors.muted}
             value={shift.shiftStart}
@@ -501,11 +501,11 @@ export default function ProductionScreen() {
       </View>
 
       {/* كمية الإنتاج */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (زوج)" : "Production (Pairs)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("production_pairs")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.productionPairs}
@@ -514,9 +514,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (درزن)" : "Production (Dozen)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("production_dozen")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.productionDozen}
@@ -527,11 +527,11 @@ export default function ProductionScreen() {
       </View>
 
       {/* هدر الخيوط وهدر الجوارب */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر جوارب (جم)" : "Socks Waste (g)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("waste_socks")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.wasteSocksGrams}
@@ -540,9 +540,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر خيوط (جم)" : "Thread Waste (g)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("waste_thread")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.wasteThreadGrams}
@@ -553,11 +553,11 @@ export default function ProductionScreen() {
       </View>
 
       {/* النخب الثاني وهدر الإبر */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("waste_needles")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.wasteNeedles}
@@ -566,9 +566,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (زوج)" : "2nd Grade (Pairs)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "نخب ثاني (زوج)" : "2nd Grade (Pairs)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.secondGradePairs}
@@ -577,9 +577,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (درزن)" : "2nd Grade (Dz)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "نخب ثاني (درزن)" : "2nd Grade (Dz)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.secondGradeDozen}
@@ -590,11 +590,11 @@ export default function ProductionScreen() {
       </View>
 
       {/* مدة الإنتاج */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "دقيقة" : "Minutes"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("minutes")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.productionMinutes}
@@ -603,9 +603,9 @@ export default function ProductionScreen() {
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "ساعة" : "Hours"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("hours")}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 14 }}
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={shift.productionHours}
@@ -617,12 +617,12 @@ export default function ProductionScreen() {
 
       {/* وزن الخيوط */}
       <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 12, marginTop: 4 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12, marginBottom: 8, textAlign: 'right' }}>{isAr ? "وزن الخيوط (جرام)" : "Yarn Weight (g)"}</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12, marginBottom: 8, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "وزن الخيوط (جرام)" : "Yarn Weight (g)"}</Text>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسباندكس" : "Spandex"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("spandex")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnSpandex}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnSpandex", v)}
@@ -630,9 +630,9 @@ export default function ProductionScreen() {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "مطاط" : "Rubber"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("rubber")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnRubber}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnRubber", v)}
@@ -640,11 +640,11 @@ export default function ProductionScreen() {
             />
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8, marginBottom: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "قطن" : "Cotton"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("cotton")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnCotton}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnCotton", v)}
@@ -652,9 +652,9 @@ export default function ProductionScreen() {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نايلون" : "Nylon"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("nylon")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnNylon}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnNylon", v)}
@@ -662,11 +662,11 @@ export default function ProductionScreen() {
             />
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسبان" : "Span"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("span")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnSpan}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnSpan", v)}
@@ -674,9 +674,9 @@ export default function ProductionScreen() {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بامبو" : "Bamboo"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("bamboo")}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 13 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={shift.yarnBamboo}
               onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnBamboo", v)}
@@ -693,9 +693,9 @@ export default function ProductionScreen() {
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       {/* التاريخ */}
       <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
+        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isRtl ? 'right' : 'left' }}>{t("date")}</Text>
         <TextInput
-          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
           value={selectedDate}
           onChangeText={setSelectedDate}
           placeholder="2026-01-01"
@@ -704,8 +704,8 @@ export default function ProductionScreen() {
 
         {/* اختيار المكائن */}
         <View style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اختر المكائن" : "Select Machines"}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>{isAr ? "اختر المكائن" : "Select Machines"}</Text>
+          <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {MACHINES.map((machine) => (
               <TouchableOpacity
                 key={machine}
@@ -736,15 +736,15 @@ export default function ProductionScreen() {
         return (
           <View key={machine} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
             {/* رأس المكينة */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <TouchableOpacity
                 onPress={() => addShift(machine)}
-                style={{ backgroundColor: "#0a7ea420", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                style={{ backgroundColor: "#0a7ea420", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 4 }}
               >
                 <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة وردية" : "Add Shift"}</Text>
                 <MaterialIcons name="add" size={16} color="#0a7ea4" />
               </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{machine}</Text>
                 <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
                   <MaterialIcons name="precision-manufacturing" size={16} color="#16a34a" />
@@ -760,7 +760,7 @@ export default function ProductionScreen() {
 
       {/* أزرار الحفظ */}
       {activeMachines.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
           {/* المرفقات */}
           <AttachmentPicker
             attachments={productionAttachments}
@@ -770,17 +770,17 @@ export default function ProductionScreen() {
 
           <TouchableOpacity
             onPress={() => { setShowForm(false); resetForm(); }}
-            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "center", alignItems: "center", gap: 6 }}
           >
-            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{t("cancel")}</Text>
             <MaterialIcons name="close" size={18} color={colors.foreground} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleSave}
-            style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+            style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "center", alignItems: "center", gap: 6 }}
           >
-            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
+            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (t("edit")) : (t("save"))}</Text>
             <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -791,7 +791,7 @@ export default function ProductionScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={{ backgroundColor: "#16a34a", paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ backgroundColor: "#16a34a", paddingHorizontal: 24, paddingVertical: 20, flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <TouchableOpacity
           onPress={() => { resetForm(); setShowForm(true); }}
           style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
@@ -816,8 +816,8 @@ export default function ProductionScreen() {
         <AdminBadgeIcon />
 
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "الإنتاج" : "Production"}</Text>
-          <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{t("production")}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{entries.length} {t("record")}</Text>
         </View>
 
         <BackButton />
@@ -846,11 +846,11 @@ export default function ProductionScreen() {
 
         return (
           <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right', marginBottom: 12 }}>{label}</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: isRtl ? 'right' : 'left', marginBottom: 12 }}>{label}</Text>
+            <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between' }}>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4 }}>
                 <MaterialIcons name="scale" size={22} color="#0a7ea4" />
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{isAr ? "خيوط" : "Yarn"}</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{t("yarn")}</Text>
                 <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>{sumYarnWeight.toFixed(0)}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4 }}>
@@ -872,7 +872,7 @@ export default function ProductionScreen() {
       {!showForm && (
         <TouchableOpacity
           onPress={() => router.push("/production-totals" as any)}
-          style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: "#f0fdf4", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#16a34a", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: "#f0fdf4", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#16a34a", flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
         >
           <MaterialIcons name="chevron-left" size={24} color="#16a34a" />
           <View style={{ flex: 1, alignItems: "flex-end" }}>
@@ -887,11 +887,11 @@ export default function ProductionScreen() {
 
           <TouchableOpacity
             onPress={() => router.push("/product-cost-calculator" as any)}
-            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 4, backgroundColor: "#fef3c7", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#f59e0b", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 4, backgroundColor: "#fef3c7", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#f59e0b", flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
           >
             <MaterialIcons name="chevron-left" size={24} color="#f59e0b" />
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#f59e0b" }}>{isAr ? "حساب تكاليف منتج جديد" : "Calculate Product Cost"}</Text>
+              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#f59e0b" }}>{t("product_cost_calc")}</Text>
               <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{isAr ? "إضافة تفاصيل الخيوط والألوان" : "Add Thread and Color Details"}</Text>
             </View>
             <View style={{ backgroundColor: "#f59e0b", borderRadius: 12, padding: 10, marginLeft: 12 }}>
@@ -910,15 +910,15 @@ export default function ProductionScreen() {
               <View style={{ backgroundColor: "#16a34a15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="precision-manufacturing" size={48} color="#16a34a" />
               </View>
-              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "الإنتاج" : "Production"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{t("production")}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
-                {isAr ? "لا توجد بيانات إنتاج بعد.\nاضغط على زر (+) لإضافة بيانات إنتاج جديدة." : "No production data yet.\nPress (+) to add new production data."}
+                {t("no_records_hint")}
               </Text>
               <TouchableOpacity
                 onPress={() => { resetForm(); setShowForm(true); }}
                 style={{ backgroundColor: "#16a34a", marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                   <Text style={{ color: '#ffffff', fontWeight: '600' }}>{isAr ? "إضافة إنتاج" : "Add Production"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>

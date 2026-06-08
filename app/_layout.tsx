@@ -55,10 +55,10 @@ class ErrorBoundary extends React.Component<
           }}
         >
           <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
-            حدث خطأ
+            Error Occurred
           </Text>
           <Text style={{ fontSize: 14, color: "#666", textAlign: "center" }}>
-            {this.state.error?.message || "خطأ غير معروف"}
+            {this.state.error?.message || "Unknown error"}
           </Text>
         </View>
       );

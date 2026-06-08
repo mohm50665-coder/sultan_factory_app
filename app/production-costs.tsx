@@ -223,36 +223,36 @@ export default function ProductionCostsScreen() {
       <BackButton />
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
         <Text style={{ fontSize: 24, fontWeight: "bold", color: colors.foreground, marginBottom: 16, textAlign: isRtl ? "right" : "left" }}>
-          {isAr ? "حساب التكاليف" : "Cost Calculation"}
+          {t("production_costs")}
         </Text>
 
         {/* Summary Card */}
         {summary && (
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground, marginBottom: 12 }}>
-              {isAr ? "ملخص التكاليف اليومي" : "Daily Cost Summary"}
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground, marginBottom: 12, textAlign: isRtl ? "right" : "left" }}>
+              {t("cost_summary")}
             </Text>
             <View style={{ gap: 8 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.muted }}>{isAr ? "إجمالي التكاليف" : "Total Cost"}</Text>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.muted }}>{t("total_cost")}</Text>
                 <Text style={{ color: colors.foreground, fontWeight: "bold" }}>
-                  {summary.totalCost.toFixed(2)} {isAr ? "ريال" : "SAR"}
+                  {summary.totalCost.toFixed(2)} {t("riyal")}
                 </Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.muted }}>{isAr ? "المواد الخام" : "Raw Materials"}</Text>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.muted }}>{t("raw_materials")}</Text>
                 <Text style={{ color: colors.foreground }}>{summary.rawMaterialCost.toFixed(2)}</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.muted }}>{isAr ? "الأجور" : "Labor"}</Text>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.muted }}>{t("labor_cost")}</Text>
                 <Text style={{ color: colors.foreground }}>{summary.laborCost.toFixed(2)}</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.muted }}>{isAr ? "المرافق" : "Utilities"}</Text>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.muted }}>{t("utilities_cost")}</Text>
                 <Text style={{ color: colors.foreground }}>{summary.utilitiesCost.toFixed(2)}</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text style={{ color: colors.muted }}>{isAr ? "التكلفة لكل وحدة" : "Cost Per Unit"}</Text>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.muted }}>{t("cost_per_unit")}</Text>
                 <Text style={{ color: colors.foreground, fontWeight: "bold" }}>
                   {summary.costPerUnit.toFixed(2)}
                 </Text>
@@ -267,7 +267,7 @@ export default function ProductionCostsScreen() {
             resetForm();
             setShowForm(true);
           }}
-          style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 12, marginBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 12, marginBottom: 16, flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 8 }}
         >
           <MaterialIcons name="add" size={20} color="white" />
           <Text style={{ color: "white", fontWeight: "bold" }}>
@@ -278,11 +278,11 @@ export default function ProductionCostsScreen() {
         {/* Costs List */}
         {costs.map((cost) => (
           <View key={cost.id} style={{ backgroundColor: colors.surface, borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <Text style={{ fontWeight: "bold", color: colors.foreground }}>
                 {cost.date}
               </Text>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isRtl ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   onPress={() => {
                     setFormData(cost);
@@ -297,14 +297,14 @@ export default function ProductionCostsScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-            <Text style={{ color: colors.muted, fontSize: 12 }}>
-              {isAr ? "إجمالي: " : "Total: "}
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? "right" : "left" }}>
+              {t("total")}
               {(Object.values(cost.rawMaterials).reduce((a, b) => a + b, 0) +
                 cost.labor +
                 cost.utilities +
                 cost.maintenance +
                 cost.other).toFixed(2)}{" "}
-              {isAr ? "ريال" : "SAR"}
+              {t("riyal")}
             </Text>
           </View>
         ))}
@@ -312,14 +312,14 @@ export default function ProductionCostsScreen() {
         {/* Form Modal */}
         {showForm && (
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 18, fontWeight: "bold", color: colors.foreground, marginBottom: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: "bold", color: colors.foreground, marginBottom: 12, textAlign: isRtl ? "right" : "left" }}>
               {editingId ? (isAr ? "تعديل التكاليف" : "Edit Costs") : (isAr ? "إضافة تكاليف جديدة" : "Add New Costs")}
             </Text>
 
             {/* Date Input */}
             <View style={{ marginBottom: 12 }}>
-              <Text style={{ color: colors.foreground, marginBottom: 4 }}>
-                {isAr ? "التاريخ" : "Date"}
+              <Text style={{ color: colors.foreground, marginBottom: 4, textAlign: isRtl ? "right" : "left" }}>
+                {t("date")}
               </Text>
               <TextInput
                 style={{
@@ -329,6 +329,7 @@ export default function ProductionCostsScreen() {
                   padding: 8,
                   color: colors.foreground,
                   backgroundColor: colors.background,
+                  textAlign: isRtl ? "right" : "left"
                 }}
                 value={formData.date}
                 onChangeText={(text) =>
@@ -339,13 +340,13 @@ export default function ProductionCostsScreen() {
             </View>
 
             {/* Raw Materials */}
-            <Text style={{ color: colors.foreground, fontWeight: "bold", marginBottom: 8 }}>
-              {isAr ? "المواد الخام" : "Raw Materials"}
+            <Text style={{ color: colors.foreground, fontWeight: "bold", marginBottom: 8, textAlign: isRtl ? "right" : "left" }}>
+              {t("raw_materials")}
             </Text>
             {Object.entries(formData.rawMaterials).map(([key, value]) => (
               <View key={key} style={{ marginBottom: 8 }}>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? "right" : "left" }}>
+                  {t(key as any) || key.charAt(0).toUpperCase() + key.slice(1)}
                 </Text>
                 <TextInput
                   style={{
@@ -355,6 +356,7 @@ export default function ProductionCostsScreen() {
                     padding: 8,
                     color: colors.foreground,
                     backgroundColor: colors.background,
+                    textAlign: isRtl ? "right" : "left"
                   }}
                   value={value.toString()}
                   onChangeText={(text) =>
@@ -374,13 +376,13 @@ export default function ProductionCostsScreen() {
 
             {/* Other Costs */}
             {[
-              { key: "labor", label: isAr ? "الأجور" : "Labor" },
-              { key: "utilities", label: isAr ? "المرافق" : "Utilities" },
-              { key: "maintenance", label: isAr ? "الصيانة" : "Maintenance" },
-              { key: "other", label: isAr ? "أخرى" : "Other" },
+              { key: "labor", label: t("labor_cost") },
+              { key: "utilities", label: t("utilities_cost") },
+              { key: "maintenance", label: t("maintenance_cost") },
+              { key: "other", label: t("other_costs") },
             ].map(({ key, label }) => (
               <View key={key} style={{ marginBottom: 8 }}>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>{label}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? "right" : "left" }}>{label}</Text>
                 <TextInput
                   style={{
                     borderWidth: 1,
@@ -389,6 +391,7 @@ export default function ProductionCostsScreen() {
                     padding: 8,
                     color: colors.foreground,
                     backgroundColor: colors.background,
+                    textAlign: isRtl ? "right" : "left"
                   }}
                   value={formData[key as keyof CostData].toString()}
                   onChangeText={(text) =>
@@ -405,8 +408,8 @@ export default function ProductionCostsScreen() {
 
             {/* Notes */}
             <View style={{ marginBottom: 12 }}>
-              <Text style={{ color: colors.muted, fontSize: 12 }}>
-                {isAr ? "ملاحظات" : "Notes"}
+              <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? "right" : "left" }}>
+                {t("notes")}
               </Text>
               <TextInput
                 style={{
@@ -417,18 +420,19 @@ export default function ProductionCostsScreen() {
                   color: colors.foreground,
                   backgroundColor: colors.background,
                   minHeight: 60,
+                  textAlign: isRtl ? "right" : "left"
                 }}
                 value={formData.notes}
                 onChangeText={(text) =>
                   setFormData({ ...formData, notes: text })
                 }
                 multiline
-                placeholder={isAr ? "أضف ملاحظات..." : "Add notes..."}
+                placeholder={t("enter_notes")}
               />
             </View>
 
             {/* Buttons */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: isRtl ? "row-reverse" : "row", gap: 8 }}>
               <TouchableOpacity
                 onPress={handleSave}
                 style={{
@@ -440,7 +444,7 @@ export default function ProductionCostsScreen() {
                 }}
               >
                 <Text style={{ color: "white", fontWeight: "bold" }}>
-                  {isAr ? "حفظ" : "Save"}
+                  {t("save")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -457,7 +461,7 @@ export default function ProductionCostsScreen() {
                 }}
               >
                 <Text style={{ color: colors.foreground, fontWeight: "bold" }}>
-                  {isAr ? "إلغاء" : "Cancel"}
+                  {t("cancel")}
                 </Text>
               </TouchableOpacity>
             </View>

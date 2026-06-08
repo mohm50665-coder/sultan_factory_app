@@ -15,6 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { costsService, reportsService } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "@/lib/language-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -29,6 +30,8 @@ interface AnalyticsData {
 export default function AdvancedAnalytics() {
   const router = useRouter();
   const colors = useColors();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<"production" | "costs" | "sales" | "comparison">("production");
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
@@ -49,7 +52,9 @@ export default function AdvancedAnalytics() {
       const costs = await costsService.getAll();
       
       // Process data for analytics
-      const months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو"];
+      const months = isAr 
+        ? ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو"]
+        : ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
       const productionData = months.map((month, i) => ({
         month,
         value: Math.floor(Math.random() * 500) + 300,
@@ -106,12 +111,12 @@ export default function AdvancedAnalytics() {
   const renderKPICards = () => (
     <View style={styles.kpiGrid}>
       {[
-        { title: "كفاءة الإنتاج", value: `${analyticsData.efficiency}%`, icon: "speed", color: "#10B981", trend: "+3%" },
-        { title: "نسبة الهدر", value: "4.2%", icon: "delete-sweep", color: "#F59E0B", trend: "-1.5%" },
-        { title: "معدل التحصيل", value: "78%", icon: "payments", color: "#3B82F6", trend: "+5%" },
-        { title: "رضا العملاء", value: "92%", icon: "sentiment-satisfied", color: "#8B5CF6", trend: "+2%" },
-        { title: "إنتاجية العامل", value: "45 دزينة", icon: "person", color: "#EC4899", trend: "+8%" },
-        { title: "وقت التوقف", value: "2.3 ساعة", icon: "timer-off", color: "#EF4444", trend: "-0.5h" },
+        { title: isAr ? "كفاءة الإنتاج" : "Production Efficiency", value: `${analyticsData.efficiency}%`, icon: "speed", color: "#10B981", trend: "+3%" },
+        { title: isAr ? "نسبة الهدر" : "Waste Rate", value: "4.2%", icon: "delete-sweep", color: "#F59E0B", trend: "-1.5%" },
+        { title: isAr ? "معدل التحصيل" : "Collection Rate", value: "78%", icon: "payments", color: "#3B82F6", trend: "+5%" },
+        { title: isAr ? "رضا العملاء" : "Customer Satisfaction", value: "92%", icon: "sentiment-satisfied", color: "#8B5CF6", trend: "+2%" },
+        { title: isAr ? "إنتاجية العامل" : "Worker Productivity", value: isAr ? "45 دزينة" : "45 Dozen", icon: "person", color: "#EC4899", trend: "+8%" },
+        { title: isAr ? "وقت التوقف" : "Downtime", value: isAr ? "2.3 ساعة" : "2.3 Hours", icon: "timer-off", color: "#EF4444", trend: "-0.5h" },
       ].map((kpi, index) => (
         <View key={index} style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.kpiIcon, { backgroundColor: kpi.color + "15" }]}>
@@ -137,11 +142,11 @@ export default function AdvancedAnalytics() {
   const renderComparisonTable = () => (
     <View style={[styles.tableContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={[styles.tableHeader, { backgroundColor: colors.primary }]}>
-        <Text style={styles.tableHeaderText}>الشهر</Text>
-        <Text style={styles.tableHeaderText}>الإنتاج</Text>
-        <Text style={styles.tableHeaderText}>التكاليف</Text>
-        <Text style={styles.tableHeaderText}>المبيعات</Text>
-        <Text style={styles.tableHeaderText}>الربح</Text>
+        <Text style={styles.tableHeaderText}>{isAr ? "الشهر" : "Month"}</Text>
+        <Text style={styles.tableHeaderText}>{isAr ? "الإنتاج" : "Production"}</Text>
+        <Text style={styles.tableHeaderText}>{isAr ? "التكاليف" : "Costs"}</Text>
+        <Text style={styles.tableHeaderText}>{isAr ? "المبيعات" : "Sales"}</Text>
+        <Text style={styles.tableHeaderText}>{isAr ? "الربح" : "Profit"}</Text>
       </View>
       {analyticsData.production.map((item, index) => {
         const cost = analyticsData.costs[index]?.value || 0;
@@ -166,7 +171,7 @@ export default function AdvancedAnalytics() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.muted, marginTop: 12 }}>جاري تحميل التحليلات...</Text>
+        <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري تحميل التحليلات..." : "Loading analytics..."}</Text>
       </ScreenContainer>
     );
   }
@@ -177,11 +182,11 @@ export default function AdvancedAnalytics() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
+            <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>التحليلات المتقدمة</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>تحليل شامل للأداء والمقارنات</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>{isAr ? "التحليلات المتقدمة" : "Advanced Analytics"}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>{isAr ? "تحليل شامل للأداء والمقارنات" : "Comprehensive performance and comparison analysis"}</Text>
           </View>
           <TouchableOpacity onPress={loadAnalytics}>
             <MaterialIcons name="refresh" size={24} color={colors.primary} />
@@ -192,10 +197,10 @@ export default function AdvancedAnalytics() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
           <View style={styles.tabs}>
             {[
-              { id: "production" as const, label: "الإنتاج", icon: "factory" },
-              { id: "costs" as const, label: "التكاليف", icon: "calculate" },
-              { id: "sales" as const, label: "المبيعات", icon: "point-of-sale" },
-              { id: "comparison" as const, label: "المقارنة", icon: "compare-arrows" },
+              { id: "production" as const, label: isAr ? "الإنتاج" : "Production", icon: "factory" },
+              { id: "costs" as const, label: isAr ? "التكاليف" : "Costs", icon: "calculate" },
+              { id: "sales" as const, label: isAr ? "المبيعات" : "Sales", icon: "point-of-sale" },
+              { id: "comparison" as const, label: isAr ? "المقارنة" : "Comparison", icon: "compare-arrows" },
             ].map((tab) => (
               <TouchableOpacity
                 key={tab.id}
@@ -216,30 +221,30 @@ export default function AdvancedAnalytics() {
         </ScrollView>
 
         {/* KPI Cards */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>مؤشرات الأداء الرئيسية</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isAr ? "مؤشرات الأداء الرئيسية" : "Key Performance Indicators"}</Text>
         {renderKPICards()}
 
         {/* Chart Section */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>
-          {activeSection === "production" && "رسم بياني - الإنتاج الشهري"}
-          {activeSection === "costs" && "رسم بياني - التكاليف الشهرية"}
-          {activeSection === "sales" && "رسم بياني - المبيعات الشهرية"}
-          {activeSection === "comparison" && "جدول المقارنة الشاملة"}
+          {activeSection === "production" && (isAr ? "رسم بياني - الإنتاج الشهري" : "Chart - Monthly Production")}
+          {activeSection === "costs" && (isAr ? "رسم بياني - التكاليف الشهرية" : "Chart - Monthly Costs")}
+          {activeSection === "sales" && (isAr ? "رسم بياني - المبيعات الشهرية" : "Chart - Monthly Sales")}
+          {activeSection === "comparison" && (isAr ? "جدول المقارنة الشاملة" : "Comprehensive Comparison Table")}
         </Text>
 
-        {activeSection === "production" && renderBarChart(analyticsData.production, "#3B82F6", "دزينة")}
-        {activeSection === "costs" && renderBarChart(analyticsData.costs, "#F59E0B", "ريال")}
-        {activeSection === "sales" && renderBarChart(analyticsData.sales, "#10B981", "ريال")}
+        {activeSection === "production" && renderBarChart(analyticsData.production, "#3B82F6", isAr ? "دزينة" : "Dozen")}
+        {activeSection === "costs" && renderBarChart(analyticsData.costs, "#F59E0B", isAr ? "ريال" : "SAR")}
+        {activeSection === "sales" && renderBarChart(analyticsData.sales, "#10B981", isAr ? "ريال" : "SAR")}
         {activeSection === "comparison" && renderComparisonTable()}
 
         {/* Insights */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>رؤى وتوصيات</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>{isAr ? "رؤى وتوصيات" : "Insights and Recommendations"}</Text>
         <View style={styles.insights}>
           {[
-            { icon: "lightbulb", color: "#F59E0B", text: "الإنتاجية ارتفعت 8% مقارنة بالشهر الماضي - استمر في نفس الوتيرة" },
-            { icon: "warning", color: "#EF4444", text: "تكاليف المواد الخام ارتفعت 12% - يُنصح بمراجعة الموردين" },
-            { icon: "trending-up", color: "#10B981", text: "معدل التحصيل تحسن - العملاء يلتزمون بالدفع أكثر" },
-            { icon: "schedule", color: "#8B5CF6", text: "وقت التوقف انخفض - الصيانة الوقائية تؤتي ثمارها" },
+            { icon: "lightbulb", color: "#F59E0B", text: isAr ? "الإنتاجية ارتفعت 8% مقارنة بالشهر الماضي - استمر في نفس الوتيرة" : "Productivity increased by 8% compared to last month - keep up the pace" },
+            { icon: "warning", color: "#EF4444", text: isAr ? "تكاليف المواد الخام ارتفعت 12% - يُنصح بمراجعة الموردين" : "Raw material costs increased by 12% - advised to review suppliers" },
+            { icon: "trending-up", color: "#10B981", text: isAr ? "معدل التحصيل تحسن - العملاء يلتزمون بالدفع أكثر" : "Collection rate improved - customers are committing to pay more" },
+            { icon: "schedule", color: "#8B5CF6", text: isAr ? "وقت التوقف انخفض - الصيانة الوقائية تؤتي ثمارها" : "Downtime decreased - preventive maintenance is paying off" },
           ].map((insight, index) => (
             <View key={index} style={[styles.insightCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.insightIcon, { backgroundColor: insight.color + "15" }]}>

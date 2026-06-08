@@ -25,34 +25,34 @@ import { notificationsService } from "@/lib/services/notifications.service";
 
 // مصادر التكليف
 const ASSIGNMENT_SOURCES = [
-  { label: "ممثل مجلس الإدارة", labelEn: "Board Representative", value: "board_representative" },
-  { label: "المدير العام", labelEn: "General Manager", value: "general_manager" },
+  { labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", value: "board_representative" },
+  { labelAr: "المدير العام", labelEn: "General Manager", value: "general_manager" },
 ];
 
 // الموظفين المكلفين
 const ASSIGNED_EMPLOYEES = [
-  { label: "المدير العام", labelEn: "General Manager", value: "general_manager" },
-  { label: "مدير التسويق والمبيعات", labelEn: "Marketing & Sales Manager", value: "marketing_sales_manager" },
-  { label: "مدير الإنتاج", labelEn: "Production Manager", value: "production_manager" },
-  { label: "مدير المستودعات", labelEn: "Warehouse Manager", value: "warehouse_manager" },
-  { label: "مسئول الصيانة", labelEn: "Maintenance Officer", value: "maintenance_officer" },
-  { label: "مدير الشؤون الإدارية والمالية", labelEn: "Admin & Finance Manager", value: "admin_finance_manager" },
+  { labelAr: "المدير العام", labelEn: "General Manager", value: "general_manager" },
+  { labelAr: "مدير التسويق والمبيعات", labelEn: "Marketing & Sales Manager", value: "marketing_sales_manager" },
+  { labelAr: "مدير الإنتاج", labelEn: "Production Manager", value: "production_manager" },
+  { labelAr: "مدير المستودعات", labelEn: "Warehouse Manager", value: "warehouse_manager" },
+  { labelAr: "مسئول الصيانة", labelEn: "Maintenance Officer", value: "maintenance_officer" },
+  { labelAr: "مدير الشؤون الإدارية والمالية", labelEn: "Admin & Finance Manager", value: "admin_finance_manager" },
 ];
 
 // النتائج
 const RESULTS = [
-  { label: "معلقة", labelEn: "Pending", value: "pending" },
-  { label: "أنجز", labelEn: "Completed", value: "completed" },
-  { label: "لم ينجز", labelEn: "Not Completed", value: "not_completed" },
-  { label: "إنجاز جزئي", labelEn: "Partial", value: "partial" },
-  { label: "تمديد", labelEn: "Extended", value: "extended" },
-  { label: "توصيات", labelEn: "Recommendations", value: "recommendations" },
+  { labelAr: "معلقة", labelEn: "Pending", value: "pending" },
+  { labelAr: "أنجز", labelEn: "Completed", value: "completed" },
+  { labelAr: "لم ينجز", labelEn: "Not Completed", value: "not_completed" },
+  { labelAr: "إنجاز جزئي", labelEn: "Partial", value: "partial" },
+  { labelAr: "تمديد", labelEn: "Extended", value: "extended" },
+  { labelAr: "توصيات", labelEn: "Recommendations", value: "recommendations" },
 ];
 
 export default function TasksScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language, isRtl } = useLanguage();
+  const { language, t, isRtl } = useLanguage();
   const isAr = language === "ar";
 
   const [tasks, setTasks] = useState<TaskData[]>([]);
@@ -104,7 +104,7 @@ export default function TasksScreen() {
       const data = await taskService.getAll();
       setTasks(data);
     } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل تحميل المهام" : "Failed to load tasks");
+      Alert.alert(t("error"), isAr ? "فشل تحميل المهام" : "Failed to load tasks");
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +114,7 @@ export default function TasksScreen() {
 
   const handleSave = async () => {
     if (!formData.taskDescription || !formData.assignedEmployee) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill required fields");
+      Alert.alert(t("error"), t("fill_all_fields"));
       return;
     }
 
@@ -122,7 +122,7 @@ export default function TasksScreen() {
       setIsLoading(true);
       if (editingId) {
         await taskService.update(editingId, formData);
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث المهمة" : "Task updated");
+        Alert.alert(t("success"), t("updated_success") || (isAr ? "تم تحديث المهمة" : "Task updated"));
       } else {
         await taskService.create(formData);
         // إشعار تلقائي عند إسناد مهمة
@@ -131,13 +131,13 @@ export default function TasksScreen() {
           title: isAr ? "مهمة جديدة" : "New Task",
           message: isAr ? `تم تكليف ${getEmployeeLabel(formData.assignedEmployee)} بمهمة جديدة: ${formData.taskDescription.substring(0, 50)}` : `New task assigned to ${getEmployeeLabel(formData.assignedEmployee)}: ${formData.taskDescription.substring(0, 50)}`,
         });
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إنشاء المهمة" : "Task created");
+        Alert.alert(t("success"), t("task_created") || (isAr ? "تم إنشاء المهمة" : "Task created"));
       }
       setShowForm(false);
       resetForm();
       loadTasks();
     } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل الحفظ" : "Failed to save");
+      Alert.alert(t("error"), t("operation_failed") || (isAr ? "فشل الحفظ" : "Failed to save"));
     } finally {
       setIsLoading(false);
     }
@@ -145,19 +145,19 @@ export default function TasksScreen() {
 
   const handleDelete = (id: number) => {
     Alert.alert(
-      isAr ? "تأكيد الحذف" : "Confirm Delete",
-      isAr ? "هل أنت متأكد من حذف هذه المهمة؟" : "Delete this task?",
+      t("confirm_delete"),
+      t("confirm_delete_msg") || (isAr ? "هل أنت متأكد من حذف هذه المهمة؟" : "Delete this task?"),
       [
-        { text: isAr ? "إلغاء" : "Cancel" },
+        { text: t("cancel") },
         {
-          text: isAr ? "حذف" : "Delete",
+          text: t("delete"),
           style: "destructive",
           onPress: async () => {
             try {
               await taskService.delete(id);
               loadTasks();
             } catch (e) {
-              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل الحذف" : "Failed");
+              Alert.alert(t("error"), t("operation_failed") || (isAr ? "فشل الحذف" : "Failed"));
             }
           },
         },
@@ -191,7 +191,7 @@ export default function TasksScreen() {
   const handleSaveEvaluation = async () => {
     if (!selectedTask?.id) return;
     if (evaluationText.length < 1500) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? `التقييم يجب أن لا يقل عن 1500 حرف (الحالي: ${evaluationText.length})` : `Evaluation must be at least 1500 chars (current: ${evaluationText.length})`);
+      Alert.alert(t("error"), isAr ? `التقييم يجب أن لا يقل عن 1500 حرف (الحالي: ${evaluationText.length})` : `Evaluation must be at least 1500 chars (current: ${evaluationText.length})`);
       return;
     }
     await taskService.update(selectedTask.id, { ...selectedTask, adminEvaluation: evaluationText });
@@ -202,7 +202,7 @@ export default function TasksScreen() {
     });
     setShowEvaluation(false);
     loadTasks();
-    Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حفظ التقييم" : "Evaluation saved");
+    Alert.alert(t("success"), t("saved_success") || (isAr ? "تم حفظ التقييم" : "Evaluation saved"));
   };
 
   const handleSaveWarning = async () => {
@@ -210,7 +210,7 @@ export default function TasksScreen() {
     await taskService.update(selectedTask.id, { ...selectedTask, hasWarning: true, warningText });
     setShowWarning(false);
     loadTasks();
-    Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إرفاق الإنذار" : "Warning attached");
+    Alert.alert(t("success"), isAr ? "تم إرفاق الإنذار" : "Warning attached");
   };
 
   const handleSaveDecision = async () => {
@@ -218,22 +218,22 @@ export default function TasksScreen() {
     await taskService.update(selectedTask.id, { ...selectedTask, attachedDecisions: decisionText });
     setShowDecision(false);
     loadTasks();
-    Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إرفاق القرار" : "Decision attached");
+    Alert.alert(t("success"), isAr ? "تم إرفاق القرار" : "Decision attached");
   };
 
   const getSourceLabel = (val: string) => {
     const s = ASSIGNMENT_SOURCES.find((x) => x.value === val);
-    return isAr ? s?.label || val : s?.labelEn || val;
+    return isAr ? s?.labelAr || val : s?.labelEn || val;
   };
 
   const getEmployeeLabel = (val: string) => {
     const e = ASSIGNED_EMPLOYEES.find((x) => x.value === val);
-    return isAr ? e?.label || val : e?.labelEn || val;
+    return isAr ? e?.labelAr || val : e?.labelEn || val;
   };
 
   const getResultLabel = (val: string) => {
     const r = RESULTS.find((x) => x.value === val);
-    return isAr ? r?.label || val : r?.labelEn || val;
+    return isAr ? r?.labelAr || val : r?.labelEn || val;
   };
 
   const getResultColor = (result: string) => {
@@ -311,13 +311,13 @@ export default function TasksScreen() {
         {/* Reason / Recommendations */}
         {item.result === "not_completed" && item.resultReason && (
           <View style={styles.reasonBox}>
-            <Text style={styles.reasonLabel}>{isAr ? "السبب:" : "Reason:"}</Text>
+            <Text style={styles.reasonLabel}>{t("task_reason") || (isAr ? "السبب:" : "Reason:")}</Text>
             <Text style={styles.reasonValue}>{item.resultReason}</Text>
           </View>
         )}
         {item.result === "recommendations" && item.recommendations && (
           <View style={styles.reasonBox}>
-            <Text style={styles.reasonLabel}>{isAr ? "التوصيات:" : "Recommendations:"}</Text>
+            <Text style={styles.reasonLabel}>{t("recommendations") || (isAr ? "التوصيات:" : "Recommendations:")}</Text>
             <Text style={styles.reasonValue}>{item.recommendations}</Text>
           </View>
         )}
@@ -328,14 +328,14 @@ export default function TasksScreen() {
             {item.reward && item.reward > 0 ? (
               <View style={styles.rewardBadge}>
                 <MaterialIcons name="star" size={14} color="#10b981" />
-                <Text style={styles.rewardText}>{isAr ? "مكافأة" : "Reward"}: {item.reward} {isAr ? "ريال" : "SAR"}</Text>
+                <Text style={styles.rewardText}>{t("task_reward") || (isAr ? "مكافأة" : "Reward")}: {item.reward} {t("riyal")}</Text>
                 {item.rewardReason ? <Text style={styles.smallReason}>({item.rewardReason})</Text> : null}
               </View>
             ) : null}
             {item.deduction && item.deduction > 0 ? (
               <View style={styles.deductionBadge}>
                 <MaterialIcons name="remove-circle" size={14} color="#ef4444" />
-                <Text style={styles.deductionText}>{isAr ? "حسم" : "Deduction"}: {item.deduction} {isAr ? "ريال" : "SAR"}</Text>
+                <Text style={styles.deductionText}>{t("task_penalty") || (isAr ? "حسم" : "Deduction")}: {item.deduction} {t("riyal")}</Text>
                 {item.deductionReason ? <Text style={styles.smallReason}>({item.deductionReason})</Text> : null}
               </View>
             ) : null}
@@ -354,7 +354,7 @@ export default function TasksScreen() {
         {item.adminEvaluation && canSeeEvaluation && (
           <View style={styles.evalBox}>
             <MaterialIcons name="rate-review" size={14} color="#7c3aed" />
-            <Text style={styles.evalLabel}>{isAr ? "تقييم وتوجيه:" : "Evaluation:"}</Text>
+            <Text style={styles.evalLabel}>{t("task_evaluation") || (isAr ? "تقييم وتوجيه:" : "Evaluation:")}</Text>
             <Text style={styles.evalText} numberOfLines={3}>{item.adminEvaluation}</Text>
           </View>
         )}
@@ -367,14 +367,14 @@ export default function TasksScreen() {
               style={[styles.adminBtn, { backgroundColor: "#f5f3ff" }]}
             >
               <MaterialIcons name="rate-review" size={16} color="#7c3aed" />
-              <Text style={[styles.adminBtnText, { color: "#7c3aed" }]}>{isAr ? "تقييم" : "Evaluate"}</Text>
+              <Text style={[styles.adminBtnText, { color: "#7c3aed" }]}>{t("task_evaluation") || (isAr ? "تقييم" : "Evaluate")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { setSelectedTask(item); setWarningText(item.warningText || ""); setShowWarning(true); }}
               style={[styles.adminBtn, { backgroundColor: "#fef2f2" }]}
             >
               <MaterialIcons name="warning" size={16} color="#dc2626" />
-              <Text style={[styles.adminBtnText, { color: "#dc2626" }]}>{isAr ? "إنذار" : "Warning"}</Text>
+              <Text style={[styles.adminBtnText, { color: "#dc2626" }]}>{t("task_warning") || (isAr ? "إنذار" : "Warning")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { setSelectedTask(item); setDecisionText(item.attachedDecisions || ""); setShowDecision(true); }}
@@ -394,7 +394,7 @@ export default function TasksScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>{isAr ? "المهام" : "Tasks"}</Text>
+        <Text style={styles.headerTitle}>{t("tasks")}</Text>
         {isAdmin && (
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>
             <MaterialIcons name="add" size={24} color="white" />
@@ -407,19 +407,19 @@ export default function TasksScreen() {
       <View style={styles.summaryRow}>
         <View style={[styles.summaryCard, { borderLeftColor: "#6b7280" }]}>
           <Text style={styles.summaryVal}>{tasks.length}</Text>
-          <Text style={styles.summaryLbl}>{isAr ? "الكل" : "All"}</Text>
+          <Text style={styles.summaryLbl}>{t("all")}</Text>
         </View>
         <View style={[styles.summaryCard, { borderLeftColor: "#10b981" }]}>
           <Text style={styles.summaryVal}>{tasks.filter((t) => t.result === "completed").length}</Text>
-          <Text style={styles.summaryLbl}>{isAr ? "منجز" : "Done"}</Text>
+          <Text style={styles.summaryLbl}>{t("task_status_completed") || (isAr ? "منجز" : "Done")}</Text>
         </View>
         <View style={[styles.summaryCard, { borderLeftColor: "#f59e0b" }]}>
           <Text style={styles.summaryVal}>{tasks.filter((t) => t.result === "pending").length}</Text>
-          <Text style={styles.summaryLbl}>{isAr ? "معلق" : "Pending"}</Text>
+          <Text style={styles.summaryLbl}>{t("meeting_pending") || (isAr ? "معلق" : "Pending")}</Text>
         </View>
         <View style={[styles.summaryCard, { borderLeftColor: "#ef4444" }]}>
           <Text style={styles.summaryVal}>{tasks.filter((t) => t.result === "not_completed").length}</Text>
-          <Text style={styles.summaryLbl}>{isAr ? "لم ينجز" : "Failed"}</Text>
+          <Text style={styles.summaryLbl}>{t("task_status_not_completed") || (isAr ? "لم ينجز" : "Failed")}</Text>
         </View>
       </View>
 
@@ -430,7 +430,7 @@ export default function TasksScreen() {
             onPress={() => setFilterEmployee("all")}
             style={[styles.filterChip, filterEmployee === "all" && { backgroundColor: colors.primary }]}
           >
-            <Text style={[styles.filterChipText, filterEmployee === "all" && { color: "white" }]}>{isAr ? "الكل" : "All"}</Text>
+            <Text style={[styles.filterChipText, filterEmployee === "all" && { color: "white" }]}>{t("all")}</Text>
           </TouchableOpacity>
           {ASSIGNED_EMPLOYEES.map((emp) => (
             <TouchableOpacity
@@ -438,7 +438,7 @@ export default function TasksScreen() {
               onPress={() => setFilterEmployee(emp.value)}
               style={[styles.filterChip, filterEmployee === emp.value && { backgroundColor: colors.primary }]}
             >
-              <Text style={[styles.filterChipText, filterEmployee === emp.value && { color: "white" }]}>{isAr ? emp.label : emp.labelEn}</Text>
+              <Text style={[styles.filterChipText, filterEmployee === emp.value && { color: "white" }]}>{isAr ? emp.labelAr : emp.labelEn}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -457,7 +457,7 @@ export default function TasksScreen() {
               onPress={() => setFilterResult(r.value)}
               style={[styles.filterChip, filterResult === r.value && { backgroundColor: getResultColor(r.value) }]}
             >
-              <Text style={[styles.filterChipText, filterResult === r.value && { color: "white" }]}>{isAr ? r.label : r.labelEn}</Text>
+              <Text style={[styles.filterChipText, filterResult === r.value && { color: "white" }]}>{isAr ? r.labelAr : r.labelEn}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -490,7 +490,7 @@ export default function TasksScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <MaterialIcons name="assignment" size={56} color="#d1d5db" />
-              <Text style={styles.emptyText}>{isAr ? "لا توجد مهام" : "No tasks"}</Text>
+              <Text style={styles.emptyText}>{t("no_tasks")}</Text>
             </View>
           }
         />
@@ -503,17 +503,17 @@ export default function TasksScreen() {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity onPress={() => setShowForm(false)}>
-                  <Text style={{ color: "#ef4444", fontWeight: "600", fontSize: 15 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+                  <Text style={{ color: "#ef4444", fontWeight: "600", fontSize: 15 }}>{t("cancel")}</Text>
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>{editingId ? (isAr ? "تعديل المهمة" : "Edit Task") : (isAr ? "إنشاء مهمة" : "New Task")}</Text>
+                <Text style={styles.modalTitle}>{editingId ? (isAr ? "تعديل المهمة" : "Edit Task") : (t("add_task") || (isAr ? "إنشاء مهمة" : "New Task"))}</Text>
                 <TouchableOpacity onPress={handleSave}>
-                  <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 15 }}>{isAr ? "حفظ" : "Save"}</Text>
+                  <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 15 }}>{t("save")}</Text>
                 </TouchableOpacity>
               </View>
 
               <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
                 {/* مصدر التكليف */}
-                <Text style={styles.sectionTitle}>{isAr ? "مصدر التكليف *" : "Assignment Source *"}</Text>
+                <Text style={styles.sectionTitle}>{t("task_source") || (isAr ? "مصدر التكليف *" : "Assignment Source *")}</Text>
                 <View style={styles.optionsRow}>
                   {ASSIGNMENT_SOURCES.map((s) => (
                     <TouchableOpacity
@@ -522,14 +522,14 @@ export default function TasksScreen() {
                       style={[styles.optionBtn, formData.assignmentSource === s.value && styles.optionBtnActive]}
                     >
                       <Text style={[styles.optionText, formData.assignmentSource === s.value && styles.optionTextActive]}>
-                        {isAr ? s.label : s.labelEn}
+                        {isAr ? s.labelAr : s.labelEn}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
                 {/* الموظف المكلف */}
-                <Text style={styles.sectionTitle}>{isAr ? "الموظف المكلف *" : "Assigned Employee *"}</Text>
+                <Text style={styles.sectionTitle}>{t("task_assignee") || (isAr ? "الموظف المكلف *" : "Assigned Employee *")}</Text>
                 <View style={styles.employeeGrid}>
                   {ASSIGNED_EMPLOYEES.map((e) => (
                     <TouchableOpacity
@@ -538,14 +538,14 @@ export default function TasksScreen() {
                       style={[styles.employeeBtn, formData.assignedEmployee === e.value && styles.employeeBtnActive]}
                     >
                       <Text style={[styles.employeeBtnText, formData.assignedEmployee === e.value && styles.employeeBtnTextActive]}>
-                        {isAr ? e.label : e.labelEn}
+                        {isAr ? e.labelAr : e.labelEn}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
                 {/* وصف المهمة */}
-                <Text style={styles.sectionTitle}>{isAr ? "وصف المهمة *" : "Task Description *"}</Text>
+                <Text style={styles.sectionTitle}>{t("task_description") || (isAr ? "وصف المهمة *" : "Task Description *")}</Text>
                 <TextInput
                   style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
                   value={formData.taskDescription}
@@ -556,10 +556,10 @@ export default function TasksScreen() {
                 />
 
                 {/* التواريخ */}
-                <Text style={styles.sectionTitle}>{isAr ? "المدة الزمنية" : "Duration"}</Text>
+                <Text style={styles.sectionTitle}>{t("duration")}</Text>
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>{isAr ? "البداية" : "Start"}</Text>
+                    <Text style={styles.fieldLabel}>{t("task_start_date") || (isAr ? "البداية" : "Start")}</Text>
                     <TextInput
                       style={styles.input}
                       value={formData.startDate}
@@ -568,7 +568,7 @@ export default function TasksScreen() {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>{isAr ? "النهاية" : "End"}</Text>
+                    <Text style={styles.fieldLabel}>{t("task_end_date") || (isAr ? "النهاية" : "End")}</Text>
                     <TextInput
                       style={styles.input}
                       value={formData.endDate}
@@ -579,7 +579,7 @@ export default function TasksScreen() {
                 </View>
 
                 {/* النتائج */}
-                <Text style={styles.sectionTitle}>{isAr ? "النتائج" : "Results"}</Text>
+                <Text style={styles.sectionTitle}>{t("task_results") || (isAr ? "النتائج" : "Results")}</Text>
                 <View style={styles.resultsGrid}>
                   {RESULTS.map((r) => (
                     <TouchableOpacity
@@ -588,7 +588,7 @@ export default function TasksScreen() {
                       style={[styles.resultBtn, formData.result === r.value && { backgroundColor: getResultColor(r.value), borderColor: getResultColor(r.value) }]}
                     >
                       <Text style={[styles.resultBtnText, formData.result === r.value && { color: "white" }]}>
-                        {isAr ? r.label : r.labelEn}
+                        {isAr ? r.labelAr : r.labelEn}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -597,7 +597,7 @@ export default function TasksScreen() {
                 {/* حقول إضافية حسب النتيجة */}
                 {formData.result === "not_completed" && (
                   <View>
-                    <Text style={styles.fieldLabel}>{isAr ? "سبب عدم الإنجاز" : "Reason"}</Text>
+                    <Text style={styles.fieldLabel}>{t("task_reason") || (isAr ? "سبب عدم الإنجاز" : "Reason")}</Text>
                     <TextInput
                       style={styles.input}
                       value={formData.resultReason || ""}
@@ -610,7 +610,7 @@ export default function TasksScreen() {
 
                 {formData.result === "partial" && (
                   <View>
-                    <Text style={styles.fieldLabel}>{isAr ? "نسبة الإنجاز %" : "Completion %"}</Text>
+                    <Text style={styles.fieldLabel}>{t("task_percentage") || (isAr ? "نسبة الإنجاز %" : "Completion %")}</Text>
                     <TextInput
                       style={styles.input}
                       value={formData.completionPercentage?.toString() || ""}
@@ -635,7 +635,7 @@ export default function TasksScreen() {
 
                 {formData.result === "recommendations" && (
                   <View>
-                    <Text style={styles.fieldLabel}>{isAr ? "التوصيات" : "Recommendations"}</Text>
+                    <Text style={styles.fieldLabel}>{t("recommendations")}</Text>
                     <TextInput
                       style={[styles.input, { minHeight: 60, textAlignVertical: "top" }]}
                       value={formData.recommendations || ""}
@@ -699,18 +699,16 @@ export default function TasksScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowEvaluation(false)}>
-                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{t("cancel")}</Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>{isAr ? "تقييم وتوجيه المهمة" : "Task Evaluation"}</Text>
+              <Text style={styles.modalTitle}>{t("task_evaluation") || (isAr ? "تقييم وتوجيه المهمة" : "Task Evaluation")}</Text>
               <TouchableOpacity onPress={handleSaveEvaluation}>
-                <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "حفظ" : "Save"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("save")}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={{ flex: 1, padding: 16 }}>
               <Text style={styles.evalInfo}>
-                {isAr
-                  ? "هذا التقييم يظهر فقط للموظف المكلف بالمهمة لغرض المتابعة والإنجاز والتقييم. يجب أن لا يقل عن 1500 حرف."
-                  : "This evaluation is visible only to the assigned employee. Minimum 1500 characters."}
+                {isAr ? "هذا التقييم يظهر فقط للموظف المكلف بالمهمة لغرض المتابعة والإنجاز والتقييم. يجب أن لا يقل عن 1500 حرف." : "This evaluation is visible only to the assigned employee. Minimum 1500 characters."}
               </Text>
               <Text style={styles.charCount}>
                 {evaluationText.length} / 1500 {isAr ? "حرف" : "chars"}
@@ -735,11 +733,11 @@ export default function TasksScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowWarning(false)}>
-                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{t("cancel")}</Text>
               </TouchableOpacity>
               <Text style={styles.modalTitle}>{isAr ? "إرفاق إنذار" : "Attach Warning"}</Text>
               <TouchableOpacity onPress={handleSaveWarning}>
-                <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "حفظ" : "Save"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("save")}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={{ flex: 1, padding: 16 }}>
@@ -763,11 +761,11 @@ export default function TasksScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowDecision(false)}>
-                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: "#ef4444", fontWeight: "600" }}>{t("cancel")}</Text>
               </TouchableOpacity>
               <Text style={styles.modalTitle}>{isAr ? "قرارات المكافأة والحسم" : "Reward/Deduction Decisions"}</Text>
               <TouchableOpacity onPress={handleSaveDecision}>
-                <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "حفظ" : "Save"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("save")}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={{ flex: 1, padding: 16 }}>

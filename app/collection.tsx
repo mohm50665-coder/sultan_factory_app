@@ -22,11 +22,10 @@ import { useLanguage } from "@/lib/language-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 
-
 export default function CollectionScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language } = useLanguage();
+  const { language, t, isRtl } = useLanguage();
   const isAr = language === "ar";
 
   const [collections, setCollections] = useState<CollectionData[]>([]);
@@ -53,7 +52,7 @@ export default function CollectionScreen() {
       const data = await collectionService.getAll();
       setCollections(data);
     } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل تحميل بيانات التحصيل" : "Failed to load collection data");
+      Alert.alert(t('error'), isAr ? "فشل تحميل بيانات التحصيل" : "Failed to load collection data");
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +60,7 @@ export default function CollectionScreen() {
 
   const handleSave = async () => {
     if (!formData.collectorName || !formData.customerName || formData.amount <= 0) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى ملء جميع الحقول بشكل صحيح" : "Please fill all fields correctly");
+      Alert.alert(t('error'), t('fill_all_fields'));
       return;
     }
 
@@ -69,16 +68,16 @@ export default function CollectionScreen() {
       setIsLoading(true);
       if (editingId) {
         await collectionService.update(editingId, formData);
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث البيانات بنجاح" : "Data updated successfully");
+        Alert.alert(t('success'), t('updated_success'));
       } else {
         await collectionService.create(formData);
-        Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة البيانات بنجاح" : "Data added successfully");
+        Alert.alert(t('success'), t('saved_success'));
       }
       setShowForm(false);
       resetForm();
       loadCollections();
     } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      Alert.alert(t('error'), t('operation_failed'));
     } finally {
       setIsLoading(false);
     }
@@ -86,20 +85,20 @@ export default function CollectionScreen() {
 
   const handleDelete = async (id: number) => {
     Alert.alert(
-      isAr ? "تأكيد الحذف" : "Confirm Deletion",
-      isAr ? "هل أنت متأكد من حذف هذا السجل؟" : "Are you sure you want to delete this record?",
+      t('confirm_delete'),
+      t('confirm_delete_msg'),
       [
-        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
+        { text: t('cancel'), onPress: () => {} },
         {
-          text: isAr ? "حذف" : "Delete",
+          text: t('delete'),
           onPress: async () => {
             try {
               setIsLoading(true);
               await collectionService.delete(id);
-              Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف البيانات بنجاح" : "Data deleted successfully");
+              Alert.alert(t('success'), t('deleted_success'));
               loadCollections();
             } catch (error) {
-              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حذف البيانات" : "Failed to delete data");
+              Alert.alert(t('error'), t('operation_failed'));
             } finally {
               setIsLoading(false);
             }
@@ -133,12 +132,12 @@ export default function CollectionScreen() {
 
   const renderCollectionItem = ({ item }: { item: CollectionData }) => (
     <View style={{ backgroundColor: '#ffffff', borderRadius: 8, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.customerName}</Text>
-          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 4 }}>{isAr ? `المحصل: ${item.collectorName}` : `Collector: ${item.collectorName}`}</Text>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: isRtl ? 'right' : 'left' }}>{item.customerName}</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 4, textAlign: isRtl ? 'right' : 'left' }}>{t('collector_name')}: {item.collectorName}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8 }}>
           <TouchableOpacity
             onPress={() => handleEdit(item)}
             style={{ backgroundColor: colors.primary + '19', borderRadius: 8, padding: 8 }}
@@ -155,7 +154,7 @@ export default function CollectionScreen() {
       </View>
 
       <View style={{ backgroundColor: colors.success + '19', borderRadius: 4, padding: 8 }}>
-        <Text style={{ color: colors.success, fontWeight: '600', fontSize: 14 }}>{isAr ? `المبلغ: ${item.amount} ريال` : `Amount: ${item.amount} SAR`}</Text>
+        <Text style={{ color: colors.success, fontWeight: '600', fontSize: 14, textAlign: isRtl ? 'right' : 'left' }}>{t('amount')}: {item.amount} {t('riyal')}</Text>
       </View>
     </View>
   );
@@ -163,12 +162,12 @@ export default function CollectionScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 16, flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
           <BackButton />
         </View>
-        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{isAr ? "التحصيل" : "Collection"}</Text>
-        <View style={{ marginRight: 8 }}>
+        <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{t('collection')}</Text>
+        <View style={{ marginRight: isRtl ? 0 : 8, marginLeft: isRtl ? 8 : 0 }}>
           <AdminBadgeIcon />
         </View>
         <TouchableOpacity
@@ -187,8 +186,8 @@ export default function CollectionScreen() {
 
       {/* ملخص التحصيلات */}
       <View style={{ backgroundColor: colors.success + '19', borderBottomWidth: 1, borderColor: colors.border, padding: 16 }}>
-        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4 }}>{isAr ? "إجمالي التحصيلات" : "Total Collections"}</Text>
-        <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 24 }}>{isAr ? `${getTotalCollected()} ريال` : `${getTotalCollected()} SAR`}</Text>
+        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t('total_collected')}</Text>
+        <Text style={{ color: colors.success, fontWeight: 'bold', fontSize: 24, textAlign: isRtl ? 'right' : 'left' }}>{getTotalCollected()} {t('riyal')}</Text>
       </View>
 
       {/* قائمة التحصيلات */}
@@ -205,7 +204,7 @@ export default function CollectionScreen() {
           ListEmptyComponent={
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <MaterialIcons name="inbox" size={48} color={colors.muted} />
-              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 16 }}>{isAr ? "لا توجد بيانات تحصيل" : "No collection data"}</Text>
+              <Text style={{ color: colors.muted, textAlign: 'center', marginTop: 16 }}>{t('no_collections')}</Text>
             </View>
           }
         />
@@ -221,16 +220,16 @@ export default function CollectionScreen() {
         <View style={{ flex: 1 }}>
           <View style={{ flex: 1, backgroundColor: colors.background, marginTop: 48 }}>
             {/* رأس النموذج */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderColor: colors.border }}>
               <TouchableOpacity onPress={() => setShowForm(false)}>
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('cancel')}</Text>
               </TouchableOpacity>
               <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18 }}>
-                {editingId ? (isAr ? "تعديل التحصيل" : "Edit Collection") : (isAr ? "إضافة تحصيل جديد" : "Add New Collection")}
+                {editingId ? t('edit_collection_entry') : t('add_collection_entry')}
               </Text>
               <TouchableOpacity onPress={handleSave} disabled={isLoading}>
-                <Text style={{ fontWeight: '600' }}>
-                  {isLoading ? (isAr ? "جاري..." : "Loading...") : (isAr ? "حفظ" : "Save")}
+                <Text style={{ fontWeight: '600', color: colors.primary }}>
+                  {isLoading ? t('loading') : t('save')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -238,7 +237,7 @@ export default function CollectionScreen() {
             {/* محتوى النموذج */}
             <ScrollView style={{ flex: 1, padding: 24 }}>
               <FormInput
-                label={isAr ? "اسم المحصل" : "Collector Name"}
+                label={t('collector_name')}
                 value={formData.collectorName}
                 onChangeText={(text) => setFormData({ ...formData, collectorName: text })}
                 placeholder={isAr ? "أدخل اسم المحصل" : "Enter collector name"}
@@ -246,7 +245,7 @@ export default function CollectionScreen() {
               />
 
               <FormInput
-                label={isAr ? "اسم العميل" : "Customer Name"}
+                label={t('customer_name')}
                 value={formData.customerName}
                 onChangeText={(text) => setFormData({ ...formData, customerName: text })}
                 placeholder={isAr ? "أدخل اسم العميل" : "Enter customer name"}
@@ -254,12 +253,12 @@ export default function CollectionScreen() {
               />
 
               <FormNumberInput
-                label={isAr ? "المبلغ المحصل" : "Collected Amount"}
+                label={t('collected_amount')}
                 value={formData.amount.toString()}
                 onChangeText={(text) =>
                   setFormData({ ...formData, amount: parseInt(text) || 0 })
                 }
-                unit={isAr ? "ريال" : "SAR"}
+                unit={t('riyal')}
                 required
               />
 

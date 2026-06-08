@@ -32,7 +32,7 @@ interface WorkerEntry {
   products: ProductItem[];
   durationHours?: string;
   durationMinutes?: string;
-  // حقول التخزين
+  // Storage fields
   finishedDozen?: string;
   finishedPairs?: string;
   secondGradeDozen?: string;
@@ -43,62 +43,62 @@ interface WorkerEntry {
   notes: string;
 }
 
-// بيانات العمال لكل مرحلة
+// Workers data for each stage
 const STAGE_CONFIG: Record<
   string,
-  { name: string; color: string; icon: string; workers: string[]; fields: string[] }
+  { name: string; englishName?: string; color: string; icon: string; workers: string[]; fields: string[] }
 > = {
   machines: {
-    name: "إنتاج المكائن",
+    name: "إنتاج المكائن", englishName: "Machines Production",
     color: "#0a7ea4",
     icon: "precision-manufacturing",
     workers: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"],
     fields: ["dozen", "pairs"],
   },
   rosso: {
-    name: "الروسو",
+    name: "الروسو", englishName: "Rosso",
     color: "#7c3aed",
     icon: "loop",
     workers: ["فريدو", "قيوم", "الجميع"],
     fields: ["dozen", "pairs"],
   },
   qalb: {
-    name: "القلب",
+    name: "القلب", englishName: "Qalb",
     color: "#059669",
     icon: "flip",
     workers: ["حسين السوري"],
     fields: ["dozen", "pairs"],
   },
   kawiya: {
-    name: "الكاوية",
+    name: "الكاوية", englishName: "Kawiya",
     color: "#dc2626",
     icon: "local-fire-department",
     workers: ["جنيد"],
     fields: ["dozen", "pairs"],
   },
   inspection: {
-    name: "الفحص",
+    name: "الفحص", englishName: "Inspection",
     color: "#d97706",
     icon: "search",
     workers: ["عارف", "انام الدين", "الجميع"],
     fields: ["dozen", "pairs"],
   },
   packing: {
-    name: "التغليف",
+    name: "التغليف", englishName: "Packing",
     color: "#2563eb",
     icon: "inventory-2",
     workers: ["محمد عمر", "غلام", "بشير", "الجميع"],
     fields: ["dozen", "pairs"],
   },
   antislip: {
-    name: "مانع الانزلاق",
+    name: "مانع الانزلاق", englishName: "Antislip",
     color: "#0891b2",
     icon: "layers",
     workers: ["محمد عمر", "مرتضى", "أوجيل", "الجميع"],
     fields: ["dozen", "pairs"],
   },
   storage: {
-    name: "التخزين",
+    name: "التخزين", englishName: "Storage",
     color: "#4f46e5",
     icon: "warehouse",
     workers: ["شميم"],
@@ -112,7 +112,7 @@ export default function ManufacturingStageScreen() {
   const colors = useColors();
   const { user } = useAuth();
   const stage = (params.stage as string) || "machines";
-  // عمال المرحلة يمكنهم الإدخال، المستودعات view only فقط
+  // Stage workers can input, warehouses view only
   const isViewOnly = user?.department === "warehouse" && user?.role !== "admin" && stage !== "storage";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
@@ -147,13 +147,13 @@ export default function ManufacturingStageScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
   const [selectedWorker, setSelectedWorker] = useState(isStageWorker ? (user?.name || "") : "");
-  // منتجات (حتى 5)
+  // Products (up to 5)
   const [products, setProducts] = useState<ProductItem[]>([
     { productName: "", quantityDozen: "", quantityPairs: "" },
   ]);
   const [durationHours, setDurationHours] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
-  // حقول التخزين
+  // Storage fields
   const [finishedDozen, setFinishedDozen] = useState("");
   const [finishedPairs, setFinishedPairs] = useState("");
   const [secondGradeDozen, setSecondGradeDozen] = useState("");
@@ -163,7 +163,8 @@ export default function ManufacturingStageScreen() {
   const [notes, setNotes] = useState("");
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
   const [stageAttachments, setStageAttachments] = useState<AttachmentFile[]>([]);
-  const { language } = useLanguage();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === 'ar';
 
   useEffect(() => {
     loadEntries();
@@ -174,10 +175,10 @@ export default function ManufacturingStageScreen() {
       const data = await manufacturingStageService.getAll();
       if (data) {
         const filtered = data.filter((d: any) => d.stageName === stage);
-        // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)
+        // Group records by workerName + date + createdAt (same entry)
         const grouped: Record<string, WorkerEntry> = {};
         filtered.forEach((d: any) => {
-          // نستخدم groupKey لتجميع المنتجات التي أُدخلت معاً
+          // Use groupKey to group products entered together
           const groupKey = `${d.workerName}_${d.date || ""}_${d.id}`;
           if (!grouped[groupKey]) {
             grouped[groupKey] = {
@@ -222,65 +223,65 @@ export default function ManufacturingStageScreen() {
     setEntryDate(new Date().toISOString().split("T")[0]);
   };
 
-  // إضافة منتج جديد (حتى 5)
+  // Add new product (up to 5)
   const addProduct = () => {
     if (products.length >= 5) {
-      Alert.alert("تنبيه", "الحد الأقصى 5 منتجات لكل إدخال");
+      Alert.alert(t("alert"), isAr ? "الحد الأقصى 5 منتجات لكل إدخال" : "Maximum 5 products per entry");
       return;
     }
     setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "" }]);
   };
 
-  // حذف منتج
+  // Delete product
   const removeProduct = (index: number) => {
     if (products.length <= 1) return;
     const newProducts = products.filter((_, i) => i !== index);
     setProducts(newProducts);
   };
 
-  // تحديث بيانات منتج
+  // Update product data
   const updateProduct = (index: number, field: keyof ProductItem, value: string) => {
     const newProducts = [...products];
     newProducts[index] = { ...newProducts[index], [field]: value };
     setProducts(newProducts);
   };
 
-  // حفظ البيانات
+  // Save data
   const handleSave = async () => {
     if (!selectedWorker) {
-      Alert.alert("تنبيه", "يرجى اختيار اسم العامل");
+      Alert.alert(t("alert"), isAr ? "يرجى اختيار اسم العامل" : "Please select worker name");
       return;
     }
 
     if (isStorageStage) {
       if (!finishedDozen && !finishedPairs && !secondGradeDozen && !secondGradePairs && !antislipDozen && !antislipPairs) {
-        Alert.alert("تنبيه", "يرجى إدخال كمية واحدة على الأقل");
+        Alert.alert(t("alert"), isAr ? "يرجى إدخال كمية واحدة على الأقل" : "Please enter at least one quantity");
         return;
       }
     } else {
-      // التحقق من أن كل منتج له اسم وكمية
+      // Check that each product has a name and quantity
       const validProducts = products.filter(p => p.productName.trim());
       if (validProducts.length === 0) {
-        Alert.alert("تنبيه", "يرجى إدخال اسم منتج واحد على الأقل مع الكمية");
+        Alert.alert(t("alert"), isAr ? "يرجى إدخال اسم منتج واحد على الأقل مع الكمية" : "Please enter at least one product name with quantity");
         return;
       }
       const hasQuantity = validProducts.some(p => p.quantityDozen || p.quantityPairs);
       if (!hasQuantity) {
-        Alert.alert("تنبيه", "يرجى إدخال كمية لمنتج واحد على الأقل");
+        Alert.alert(t("alert"), isAr ? "يرجى إدخال كمية لمنتج واحد على الأقل" : "Please enter quantity for at least one product");
         return;
       }
     }
 
     try {
       if (isStorageStage) {
-        // التخزين - إدخال واحد
+        // Storage - single entry
         const apiData = {
           stageName: stage,
           workerName: selectedWorker,
           quantityDozen: parseInt(finishedDozen) || 0,
           quantityPair: parseInt(finishedPairs) || 0,
           productType: notes || "",
-          productName: "تخزين",
+          productName: isAr ? "تخزين" : "Storage",
           date: entryDate,
           userId: user?.id || 1,
         };
@@ -290,15 +291,15 @@ export default function ManufacturingStageScreen() {
           await manufacturingStageService.create(apiData);
         }
       } else {
-        // مراحل عادية - إدخال لكل منتج
+        // Normal stages - entry for each product
         const validProducts = products.filter(p => p.productName.trim());
         
         if (editingEntry) {
-          // عند التعديل: حذف القديم وإدخال الجديد
+          // On edit: delete old and insert new
           await manufacturingStageService.delete(parseInt(editingEntry.id));
         }
         
-        // إدخال كل منتج كسجل منفصل
+        // Insert each product as a separate record
         for (const product of validProducts) {
           const apiData = {
             stageName: stage,
@@ -317,13 +318,13 @@ export default function ManufacturingStageScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح");
+      Alert.alert(t("success"), editingEntry ? t("updated_success") : t("saved_success"));
     } catch (e) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(t("error"), t("operation_failed"));
     }
   };
 
-  // تعديل سجل
+  // Edit record
   const handleEdit = (entry: WorkerEntry) => {
     setSelectedWorker(entry.workerName);
     if (entry.products && entry.products.length > 0) {
@@ -341,21 +342,21 @@ export default function ManufacturingStageScreen() {
     setShowForm(true);
   };
 
-  // حذف سجل
+  // Delete record
   const handleDelete = (entry: WorkerEntry) => {
     Alert.alert(
-      "تأكيد الحذف",
-      `هل أنت متأكد من حذف سجل "${entry.workerName}"؟`,
+      t("confirm_delete"),
+      `${t("confirm_delete_msg")} "${entry.workerName}"?`,
       [
-        { text: "إلغاء", style: "cancel" },
+        { text: t("cancel"), style: "cancel" },
         {
-          text: "حذف",
+          text: t("delete"),
           style: "destructive",
           onPress: async () => {
             try {
               await manufacturingStageService.delete(parseInt(entry.id));
               await loadEntries();
-              Alert.alert("تم ✓", "تم حذف السجل بنجاح");
+              Alert.alert(t("success"), t("deleted_success"));
             } catch (e) { console.log(e); }
           },
         },
@@ -363,13 +364,13 @@ export default function ManufacturingStageScreen() {
     );
   };
 
-  // عرض سجل واحد
+  // View single record
   const renderEntry = ({ item }: { item: WorkerEntry }) => (
     <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
       {/* اسم العامل والأزرار */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         {!isViewOnly && (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => handleEdit(item)}
               style={{ backgroundColor: `${config.color}15`, borderRadius: 20, padding: 8 }}
@@ -384,7 +385,7 @@ export default function ManufacturingStageScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.workerName}</Text>
           <View style={{ backgroundColor: `${config.color}20`, borderRadius: 16, padding: 6 }}>
             <MaterialIcons name="person" size={18} color={config.color} />
@@ -393,7 +394,7 @@ export default function ManufacturingStageScreen() {
       </View>
 
       {/* التاريخ */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
+      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
         <Text style={{ color: colors.muted, fontSize: 13 }}>{item.date}</Text>
         <MaterialIcons name="calendar-today" size={14} color={colors.muted} />
       </View>
@@ -401,7 +402,7 @@ export default function ManufacturingStageScreen() {
       {/* المنتجات */}
       {item.products && item.products.length > 0 && (
         <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
-          <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14, marginBottom: 10, textAlign: 'right' }}>
+          <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14, marginBottom: 10, textAlign: isRtl ? 'right' : 'left' }}>
             المنتجات ({item.products.length})
           </Text>
           {item.products.map((product, idx) => (
@@ -412,21 +413,21 @@ export default function ManufacturingStageScreen() {
               marginBottom: idx < item.products.length - 1 ? 10 : 0,
             }}>
               {/* اسم المنتج */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 6 }}>
+              <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 6 }}>
                 <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 15 }}>
-                  {product.productName || "بدون اسم"}
+                  {product.productName || t("no_name")}
                 </Text>
                 <MaterialIcons name="inventory" size={16} color={config.color} />
               </View>
               {/* الكميات */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-around' }}>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{product.quantityDozen || "0"}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>درزن</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{t("dozen")}</Text>
                 </View>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{product.quantityPairs || "0"}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>زوج</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{t("pairs")}</Text>
                 </View>
               </View>
             </View>
@@ -437,7 +438,7 @@ export default function ManufacturingStageScreen() {
       {/* ملاحظات */}
       {item.notes ? (
         <View style={{ marginTop: 8, backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right' }}>{item.notes}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? 'right' : 'left' }}>{item.notes}</Text>
         </View>
       ) : null}
     </View>
@@ -446,7 +447,7 @@ export default function ManufacturingStageScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {isViewOnly ? (
           <View style={{ width: 40 }} />
         ) : (
@@ -458,9 +459,9 @@ export default function ManufacturingStageScreen() {
           </TouchableOpacity>
         )}
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? config.name : (config.englishName || config.name)}</Text>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 }}>
-            {entries.length > 0 ? `${entries.length} سجل` : "لا توجد سجلات"}
+            {entries.length > 0 ? `${entries.length} سجل` : t("no_records")}
           </Text>
         </View>
         <BackButton />
@@ -470,16 +471,16 @@ export default function ManufacturingStageScreen() {
       {showForm ? (
         <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
-              {editingEntry ? "✏️ تعديل بيانات" : "➕ إدخال بيانات جديدة"}
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: isRtl ? 'right' : 'left' }}>
+              {editingEntry ? t("edit_entry") : t("new_entry")}
             </Text>
 
             {/* اختيار اسم العامل */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>
                 اسم العامل
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+              <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                 {stageWorkers.map((worker) => (
                   <TouchableOpacity
                     key={worker}
@@ -503,11 +504,11 @@ export default function ManufacturingStageScreen() {
 
             {/* التاريخ */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isRtl ? 'right' : 'left' }}>
                 التاريخ
               </Text>
               <TextInput
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={colors.muted}
                 value={entryDate}
@@ -521,19 +522,19 @@ export default function ManufacturingStageScreen() {
               <View>
                 {/* الإنتاج التام */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>الإنتاج التام</Text>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>{t("finished_production")}</Text>
+                  <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("pairs")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={finishedPairs} onChangeText={setFinishedPairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("dozen")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={finishedDozen} onChangeText={setFinishedDozen} keyboardType="numeric"
                       />
                     </View>
@@ -541,19 +542,19 @@ export default function ManufacturingStageScreen() {
                 </View>
                 {/* النخب الثاني */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>النخب الثاني</Text>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>{t("second_grade_storage")}</Text>
+                  <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("pairs")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={secondGradePairs} onChangeText={setSecondGradePairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("dozen")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={secondGradeDozen} onChangeText={setSecondGradeDozen} keyboardType="numeric"
                       />
                     </View>
@@ -561,19 +562,19 @@ export default function ManufacturingStageScreen() {
                 </View>
                 {/* مانع الانزلاق */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>جوارب مانع الانزلاق</Text>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>{t("antislip_socks")}</Text>
+                  <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("pairs")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={antislipPairs} onChangeText={setAntislipPairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("dozen")}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={antislipDozen} onChangeText={setAntislipDozen} keyboardType="numeric"
                       />
                     </View>
@@ -584,12 +585,12 @@ export default function ManufacturingStageScreen() {
               <View>
                 {/* قائمة المنتجات */}
                 <View style={{ marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <TouchableOpacity
                       onPress={addProduct}
-                      style={{ backgroundColor: config.color, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      style={{ backgroundColor: config.color, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, flexDirection: isRtl ? 'row-reverse' : 'row', alignItems: 'center', gap: 4 }}
                     >
-                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>إضافة منتج</Text>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>{t("add_product")}</Text>
                       <MaterialIcons name="add" size={16} color="white" />
                     </TouchableOpacity>
                     <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
@@ -609,7 +610,7 @@ export default function ManufacturingStageScreen() {
                       borderLeftColor: config.color,
                     }}>
                       {/* رأس المنتج */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         {products.length > 1 && (
                           <TouchableOpacity onPress={() => removeProduct(index)} style={{ padding: 4 }}>
                             <MaterialIcons name="close" size={20} color="#ef4444" />
@@ -622,10 +623,10 @@ export default function ManufacturingStageScreen() {
 
                       {/* اسم المنتج */}
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>اسم المنتج *</Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("product_name")} *</Text>
                         <TextInput
-                          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 15 }}
-                          placeholder="أدخل اسم المنتج"
+                          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 15 }}
+                          placeholder={t("enter_product_name")}
                           placeholderTextColor={colors.muted}
                           value={product.productName}
                           onChangeText={(v) => updateProduct(index, "productName", v)}
@@ -634,11 +635,11 @@ export default function ManufacturingStageScreen() {
                       </View>
 
                       {/* الكميات */}
-                      <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12 }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("pairs")}</Text>
                           <TextInput
-                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                             placeholder="0" placeholderTextColor={colors.muted}
                             value={product.quantityPairs}
                             onChangeText={(v) => updateProduct(index, "quantityPairs", v)}
@@ -646,9 +647,9 @@ export default function ManufacturingStageScreen() {
                           />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("dozen")}</Text>
                           <TextInput
-                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                             placeholder="0" placeholderTextColor={colors.muted}
                             value={product.quantityDozen}
                             onChangeText={(v) => updateProduct(index, "quantityDozen", v)}
@@ -664,21 +665,21 @@ export default function ManufacturingStageScreen() {
 
             {/* المدة الزمنية للإنجاز */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isRtl ? 'right' : 'left' }}>
                 المدة الزمنية للإنجاز
               </Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>دقيقة</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("minutes")}</Text>
                   <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                     placeholder="0" placeholderTextColor={colors.muted} value={durationMinutes} onChangeText={setDurationMinutes} keyboardType="numeric"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>ساعة</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isRtl ? 'right' : 'left' }}>{t("hours")}</Text>
                   <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16 }}
                     placeholder="0" placeholderTextColor={colors.muted} value={durationHours} onChangeText={setDurationHours} keyboardType="numeric"
                   />
                 </View>
@@ -687,12 +688,12 @@ export default function ManufacturingStageScreen() {
 
             {/* ملاحظات */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isRtl ? 'right' : 'left' }}>
                 ملاحظات (اختياري)
               </Text>
               <TextInput
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16, minHeight: 70, textAlignVertical: "top" }}
-                placeholder="أدخل ملاحظات إضافية"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isRtl ? 'right' : 'left', fontSize: 16, minHeight: 70, textAlignVertical: "top" }}
+                placeholder={t("enter_notes")}
                 placeholderTextColor={colors.muted}
                 value={notes} onChangeText={setNotes} multiline numberOfLines={3}
               />
@@ -706,20 +707,20 @@ export default function ManufacturingStageScreen() {
             />
 
             {/* أزرار الإجراءات */}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+            <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', gap: 12, marginTop: 8 }}>
               <TouchableOpacity
                 onPress={() => { setShowForm(false); resetForm(); }}
-                style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 16, alignItems: 'center', flexDirection: "row", justifyContent: "center", gap: 6 }}
+                style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 16, alignItems: 'center', flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "center", gap: 6 }}
               >
-                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>إلغاء</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{t("cancel")}</Text>
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleSave}
-                style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
+                style={{ backgroundColor: config.color, flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
               >
                 <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
-                  {editingEntry ? "تعديل" : "حفظ"}
+                  {editingEntry ? t("edit") : t("save")}
                 </Text>
                 <MaterialIcons name={editingEntry ? "edit" : "save"} size={20} color="white" />
               </TouchableOpacity>
@@ -727,7 +728,7 @@ export default function ManufacturingStageScreen() {
           </View>
         </ScrollView>
       ) : (
-        /* قائمة السجلات */
+        /* Records list */
         <FlatList
           data={entries}
           keyExtractor={(item) => item.id}
@@ -738,15 +739,15 @@ export default function ManufacturingStageScreen() {
               <View style={{ backgroundColor: `${config.color}15`, borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name={config.icon as any} size={48} color={config.color} />
               </View>
-              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{config.name}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? config.name : (config.englishName || config.name)}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
-                {isViewOnly ? "لا توجد بيانات مسجلة بعد." : "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة."}
+                {isViewOnly ? t("no_records_yet") : t("no_records_hint")}
               </Text>
               <View style={{ marginTop: 20, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
-                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
-                  العمال في هذه المرحلة:
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isRtl ? 'right' : 'left' }}>
+                  {t("workers_in_stage")}:
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                <View style={{ flexDirection: isRtl ? 'row-reverse' : 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                   {stageWorkers.map((worker) => (
                     <View key={worker} style={{ backgroundColor: `${config.color}15`, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 }}>
                       <Text style={{ color: config.color, fontWeight: "600", fontSize: 13 }}>{worker}</Text>
@@ -759,8 +760,8 @@ export default function ManufacturingStageScreen() {
                   onPress={() => { resetForm(); setShowForm(true); }}
                   style={{ backgroundColor: config.color, marginTop: 20, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ color: '#ffffff', fontWeight: '600' }}>إضافة بيانات</Text>
+                  <View style={{ flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                    <Text style={{ color: '#ffffff', fontWeight: '600' }}>{t("add_data")}</Text>
                     <MaterialIcons name="add" size={20} color="white" />
                   </View>
                 </TouchableOpacity>

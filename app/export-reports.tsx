@@ -20,11 +20,14 @@ import {
 } from "@/lib/services/pdf-export.service";
 import { reportsService } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "@/lib/language-context";
 
 interface ReportOption {
   id: string;
-  title: string;
-  description: string;
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
   icon: string;
   color: string;
   type: "production" | "cost" | "sales" | "performance" | "quality" | "maintenance";
@@ -33,40 +36,50 @@ interface ReportOption {
 const REPORT_OPTIONS: ReportOption[] = [
   {
     id: "comprehensive",
-    title: "التقرير الشامل",
-    description: "ملخص شامل لجميع أقسام المصنع (إنتاج، مبيعات، تكاليف، مهام)",
+    titleAr: "التقرير الشامل",
+    titleEn: "Comprehensive Report",
+    descriptionAr: "ملخص شامل لجميع أقسام المصنع (إنتاج، مبيعات، تكاليف، مهام)",
+    descriptionEn: "Comprehensive summary of all factory departments (production, sales, costs, tasks)",
     icon: "assessment",
     color: "#3B82F6",
     type: "performance",
   },
   {
     id: "production",
-    title: "تقرير الإنتاج",
-    description: "تفاصيل الإنتاج اليومي والهدر ومؤشرات الأداء",
+    titleAr: "تقرير الإنتاج",
+    titleEn: "Production Report",
+    descriptionAr: "تفاصيل الإنتاج اليومي والهدر ومؤشرات الأداء",
+    descriptionEn: "Daily production details, waste, and performance indicators",
     icon: "precision-manufacturing",
     color: "#10B981",
     type: "production",
   },
   {
     id: "costs",
-    title: "تقرير التكاليف",
-    description: "تحليل تكاليف المواد الخام والعمالة والصيانة",
+    titleAr: "تقرير التكاليف",
+    titleEn: "Costs Report",
+    descriptionAr: "تحليل تكاليف المواد الخام والعمالة والصيانة",
+    descriptionEn: "Analysis of raw materials, labor, and maintenance costs",
     icon: "calculate",
     color: "#F59E0B",
     type: "cost",
   },
   {
     id: "sales",
-    title: "تقرير المبيعات",
-    description: "ملخص المبيعات والتحصيل وحالة العملاء",
+    titleAr: "تقرير المبيعات",
+    titleEn: "Sales Report",
+    descriptionAr: "ملخص المبيعات والتحصيل وحالة العملاء",
+    descriptionEn: "Sales summary, collection, and customer status",
     icon: "point-of-sale",
     color: "#8B5CF6",
     type: "sales",
   },
   {
     id: "maintenance",
-    title: "تقرير الصيانة",
-    description: "حالة المعدات والتوصيات والأعطال",
+    titleAr: "تقرير الصيانة",
+    titleEn: "Maintenance Report",
+    descriptionAr: "حالة المعدات والتوصيات والأعطال",
+    descriptionEn: "Equipment status, recommendations, and breakdowns",
     icon: "build",
     color: "#EF4444",
     type: "maintenance",
@@ -76,6 +89,8 @@ const REPORT_OPTIONS: ReportOption[] = [
 export default function ExportReports() {
   const router = useRouter();
   const colors = useColors();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const [generating, setGenerating] = useState<string | null>(null);
   const [userId, setUserId] = useState<number>(0);
   const [recentReports, setRecentReports] = useState<any[]>([]);
@@ -109,7 +124,7 @@ export default function ExportReports() {
         const result = await reportsService.generateComprehensive(thirtyDaysAgo, today, userId);
         const pdfData = generateComprehensiveReport(result?.data || {});
         await exportReportAsPDF(pdfData);
-        Alert.alert("تم", "تم تصدير التقرير الشامل بنجاح");
+        Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير التقرير الشامل بنجاح" : "Comprehensive report exported successfully");
       } else if (option.id === "production") {
         const pdfData = generateProductionReport({
           totalDozen: 0,
@@ -122,7 +137,7 @@ export default function ExportReports() {
           wastePercentage: 3.2,
         });
         await exportReportAsPDF(pdfData);
-        Alert.alert("تم", "تم تصدير تقرير الإنتاج بنجاح");
+        Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير تقرير الإنتاج بنجاح" : "Production report exported successfully");
       } else if (option.id === "costs") {
         const pdfData = generateCostReport({
           totalCost: 0,
@@ -136,22 +151,22 @@ export default function ExportReports() {
           targetCostPerUnit: 13,
         });
         await exportReportAsPDF(pdfData);
-        Alert.alert("تم", "تم تصدير تقرير التكاليف بنجاح");
+        Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير تقرير التكاليف بنجاح" : "Costs report exported successfully");
       } else {
         // Generic report
         await reportsService.create({
-          reportName: option.title,
+          reportName: isAr ? option.titleAr : option.titleEn,
           reportType: option.type,
           startDate: thirtyDaysAgo,
           endDate: today,
           generatedBy: userId,
         });
-        Alert.alert("تم", `تم إنشاء ${option.title} بنجاح`);
+        Alert.alert(isAr ? "تم" : "Done", isAr ? `تم إنشاء ${option.titleAr} بنجاح` : `${option.titleEn} created successfully`);
       }
 
       await loadData();
     } catch (error: any) {
-      Alert.alert("خطأ", error.message || "فشل في إنشاء التقرير");
+      Alert.alert(isAr ? "خطأ" : "Error", error.message || (isAr ? "فشل في إنشاء التقرير" : "Failed to generate report"));
     } finally {
       setGenerating(null);
     }
@@ -163,17 +178,17 @@ export default function ExportReports() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
+            <MaterialIcons name={isRtl ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>تصدير التقارير</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>إنشاء وتصدير تقارير PDF</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>{isAr ? "تصدير التقارير" : "Export Reports"}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>{isAr ? "إنشاء وتصدير تقارير PDF" : "Generate and export PDF reports"}</Text>
           </View>
           <MaterialIcons name="picture-as-pdf" size={28} color="#EF4444" />
         </View>
 
         {/* Report Options */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>اختر نوع التقرير</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isAr ? "اختر نوع التقرير" : "Select Report Type"}</Text>
         {REPORT_OPTIONS.map((option) => (
           <TouchableOpacity
             key={option.id}
@@ -189,8 +204,8 @@ export default function ExportReports() {
               )}
             </View>
             <View style={styles.reportContent}>
-              <Text style={[styles.reportTitle, { color: colors.foreground }]}>{option.title}</Text>
-              <Text style={[styles.reportDesc, { color: colors.muted }]}>{option.description}</Text>
+              <Text style={[styles.reportTitle, { color: colors.foreground }]}>{isAr ? option.titleAr : option.titleEn}</Text>
+              <Text style={[styles.reportDesc, { color: colors.muted }]}>{isAr ? option.descriptionAr : option.descriptionEn}</Text>
             </View>
             <MaterialIcons name="file-download" size={24} color={option.color} />
           </TouchableOpacity>
@@ -199,14 +214,14 @@ export default function ExportReports() {
         {/* Recent Reports */}
         {recentReports.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>التقارير الأخيرة</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>{isAr ? "التقارير الأخيرة" : "Recent Reports"}</Text>
             {recentReports.map((report, index) => (
               <View key={report.id || index} style={[styles.recentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <MaterialIcons name="description" size={20} color={colors.primary} />
                 <View style={styles.recentContent}>
                   <Text style={[styles.recentTitle, { color: colors.foreground }]}>{report.reportName}</Text>
                   <Text style={[styles.recentDate, { color: colors.muted }]}>
-                    {report.createdAt ? new Date(report.createdAt).toLocaleString("ar-SA") : ""}
+                    {report.createdAt ? new Date(report.createdAt).toLocaleString(isAr ? "ar-SA" : "en-US") : ""}
                   </Text>
                 </View>
                 <View style={[styles.typeBadge, { backgroundColor: colors.primary + "20" }]}>

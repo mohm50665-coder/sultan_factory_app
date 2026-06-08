@@ -29,7 +29,7 @@ export default function WarehouseScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const { language, t, isRtl } = useLanguage();
   const isAr = language === "ar";
 
   const WAREHOUSE_SECTIONS: WarehouseSection[] = [
@@ -43,7 +43,7 @@ export default function WarehouseScreen() {
     },
     {
       id: "finished_in",
-      label: isAr ? "مستودع الإنتاج التام" : "Finished Goods Warehouse",
+      label: t("finished_warehouse"),
       icon: "inventory",
       color: "#16a34a",
       route: "/warehouse-finished",
@@ -51,7 +51,7 @@ export default function WarehouseScreen() {
     },
     {
       id: "raw_in",
-      label: isAr ? "مستودع المواد الخام" : "Raw Materials Warehouse",
+      label: t("raw_materials_warehouse"),
       icon: "inventory-2",
       color: "#3b82f6",
       route: "/warehouse-raw",
@@ -59,7 +59,7 @@ export default function WarehouseScreen() {
     },
     {
       id: "out",
-      label: isAr ? "الخارج من المستودعات" : "Warehouse Outbound",
+      label: t("warehouse_outgoing"),
       icon: "output",
       color: "#ef4444",
       route: "/warehouse-out",
@@ -70,10 +70,10 @@ export default function WarehouseScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
+      <View style={[styles.header, { backgroundColor: "#f59e0b", flexDirection: isRtl ? "row-reverse" : "row" }]}>
         <BackButton />
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isAr ? "المستودعات" : "Warehouses"}</Text>
+          <Text style={styles.headerTitle}>{t("warehouse")}</Text>
           <Text style={styles.headerSubtitle}>{isAr ? "إدارة المخزون والمواد" : "Inventory and Materials Management"}</Text>
         </View>
         <AdminBadgeIcon />
@@ -91,11 +91,11 @@ export default function WarehouseScreen() {
             activeOpacity={0.7}
             style={styles.sectionCard}
           >
-            <View style={styles.sectionRow}>
-              <MaterialIcons name="chevron-left" size={24} color={colors.muted} />
-              <View style={styles.sectionInfo}>
-                <Text style={styles.sectionLabel}>{section.label}</Text>
-                <Text style={styles.sectionDescription}>{section.description}</Text>
+            <View style={[styles.sectionRow, { flexDirection: isRtl ? "row-reverse" : "row" }]}>
+              <MaterialIcons name={isRtl ? "chevron-left" : "chevron-right"} size={24} color={colors.muted} />
+              <View style={[styles.sectionInfo, { alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 16 : 0, marginLeft: isRtl ? 0 : 16 }]}>
+                <Text style={[styles.sectionLabel, { textAlign: isRtl ? "right" : "left" }]}>{section.label}</Text>
+                <Text style={[styles.sectionDescription, { textAlign: isRtl ? "right" : "left" }]}>{section.description}</Text>
               </View>
               <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
                 <MaterialIcons name={section.icon as any} size={28} color={section.color} />
@@ -112,7 +112,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingVertical: 20,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
@@ -152,7 +151,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sectionRow: {
-    flexDirection: "row",
     alignItems: "center",
   },
   sectionIcon: {
@@ -164,19 +162,15 @@ const styles = StyleSheet.create({
   },
   sectionInfo: {
     flex: 1,
-    marginRight: 16,
-    alignItems: "flex-end",
   },
   sectionLabel: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#11181C",
-    textAlign: "right",
   },
   sectionDescription: {
     fontSize: 12,
     color: "#687076",
     marginTop: 4,
-    textAlign: "right",
   },
 });

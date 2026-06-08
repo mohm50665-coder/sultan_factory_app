@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
@@ -41,6 +42,8 @@ interface MeetingOutput {
 
 export default function MeetingOutputsScreen() {
   const router = useRouter();
+  const { language, t, isRtl } = useLanguage();
+  const isAr = language === "ar";
   const colors = useColors();
   const [outputs, setOutputs] = useState<MeetingOutput[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -125,7 +128,7 @@ export default function MeetingOutputsScreen() {
 
   const handleSaveOutput = async () => {
     if (!selectedMeeting) {
-      Alert.alert("خطأ", "الرجاء اختيار الاجتماع");
+      Alert.alert(t("error"), isAr ? "الرجاء اختيار الاجتماع" : "Please select a meeting");
       return;
     }
 
@@ -134,15 +137,15 @@ export default function MeetingOutputsScreen() {
     const cleanActionItems = form.actionItems.filter(a => a.task.trim());
 
     if (cleanRecommendations.length === 0 && cleanDecisions.length === 0) {
-      Alert.alert("خطأ", "الرجاء إدخال توصية أو قرار واحد على الأقل");
+      Alert.alert(t("error"), isAr ? "الرجاء إدخال توصية أو قرار واحد على الأقل" : "Please enter at least one recommendation or decision");
       return;
     }
 
     try {
       const description = [
-        ...cleanRecommendations.map(r => `[توصية] ${r}`),
-        ...cleanDecisions.map(d => `[قرار] ${d}`),
-        ...cleanActionItems.map(a => `[مهمة] ${a.task} - ${a.assignee} - ${a.deadline}`),
+        ...cleanRecommendations.map(r => `${isAr ? "[توصية]" : "[Recommendation]"} ${r}`),
+        ...cleanDecisions.map(d => `${isAr ? "[قرار]" : "[Decision]"} ${d}`),
+        ...cleanActionItems.map(a => `${isAr ? "[مهمة]" : "[Task]"} ${a.task} - ${a.assignee} - ${a.deadline}`),
       ].join(" | ");
 
       if (editingOutput) {
@@ -161,24 +164,24 @@ export default function MeetingOutputsScreen() {
 
       await loadData();
       setShowForm(false);
-      Alert.alert("نجح", editingOutput ? "تم تحديث المخرجات" : "تم حفظ مخرجات الاجتماع");
+      Alert.alert(t("success"), editingOutput ? isAr ? "تم تحديث المخرجات" : "Outputs updated" : t("meeting_output_saved"));
     } catch (error) {
-      Alert.alert("خطأ", "فشل في الحفظ");
+      Alert.alert(t("error"), t("save_error"));
     }
   };
 
   const handleDeleteOutput = (output: MeetingOutput) => {
-    Alert.alert("تأكيد", "هل تريد حذف مخرجات هذا الاجتماع؟", [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(t("confirm"), t("confirm_delete_msg"), [
+      { text: t("cancel"), style: "cancel" },
       {
-        text: "حذف",
+        text: t("delete"),
         style: "destructive",
         onPress: async () => {
           try {
             await meetingOutputsService.delete(Number(output.id));
             setOutputs(outputs.filter(o => o.id !== output.id));
           } catch (e) {
-            Alert.alert("خطأ", "فشل في الحذف");
+            Alert.alert(t("error"), t("operation_failed"));
           }
         },
       },
@@ -190,7 +193,7 @@ export default function MeetingOutputsScreen() {
   const addActionItem = () => setForm(prev => ({ ...prev, actionItems: [...prev.actionItems, { task: "", assignee: "", deadline: "" }] }));
 
   const addAttachment = () => {
-    const name = "مرفق " + (form.attachments.length + 1);
+    const name = isAr ? "مرفق " : "Attachment " + (form.attachments.length + 1);
     setForm(prev => ({ ...prev, attachments: [...prev.attachments, name] }));
   };
 
@@ -209,7 +212,7 @@ export default function MeetingOutputsScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: "#1E3A5F" }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>مخرجات الاجتماع</Text>
+        <Text style={styles.headerTitle}>{t("meeting_outputs")}</Text>
         <TouchableOpacity onPress={handleNewOutput}>
           <MaterialIcons name="add-circle" size={28} color="white" />
         </TouchableOpacity>
@@ -233,7 +236,7 @@ export default function MeetingOutputsScreen() {
             {/* Recommendations */}
             {item.recommendations.length > 0 && (
               <View style={{ marginBottom: 8 }}>
-                <Text style={{ color: colors.primary, fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>التوصيات:</Text>
+                <Text style={{ color: colors.primary, fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>{t("meeting_recommendations_label")}:</Text>
                 {item.recommendations.map((rec, idx) => (
                   <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
                     <Text style={{ color: "#10B981", fontSize: 12 }}>•</Text>
@@ -246,7 +249,7 @@ export default function MeetingOutputsScreen() {
             {/* Decisions */}
             {item.decisions.length > 0 && (
               <View style={{ marginBottom: 8 }}>
-                <Text style={{ color: "#8B5CF6", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>القرارات:</Text>
+                <Text style={{ color: "#8B5CF6", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>{t("meeting_decisions")}:</Text>
                 {item.decisions.map((dec, idx) => (
                   <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
                     <Text style={{ color: "#8B5CF6", fontSize: 12 }}>•</Text>
@@ -259,7 +262,7 @@ export default function MeetingOutputsScreen() {
             {/* Action Items */}
             {item.actionItems.length > 0 && (
               <View style={{ marginBottom: 8 }}>
-                <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>بنود العمل:</Text>
+                <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 12, marginBottom: 4 }}>{t("meeting_action_items")}:</Text>
                 {item.actionItems.map((ai, idx) => (
                   <View key={idx} style={{ flexDirection: "row", gap: 6, marginBottom: 2 }}>
                     <MaterialIcons name="assignment-turned-in" size={14} color="#F59E0B" />
@@ -275,7 +278,7 @@ export default function MeetingOutputsScreen() {
             {item.attachments.length > 0 && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <MaterialIcons name="attach-file" size={14} color={colors.muted} />
-                <Text style={{ color: colors.muted, fontSize: 11 }}>{item.attachments.length} مرفق</Text>
+                <Text style={{ color: colors.muted, fontSize: 11 }}>{item.attachments.length} {isAr ? "مرفق" : "Attachment"}</Text>
               </View>
             )}
 
@@ -286,14 +289,14 @@ export default function MeetingOutputsScreen() {
                 onPress={() => handleEditOutput(item)}
               >
                 <MaterialIcons name="edit" size={14} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontSize: 11 }}>تعديل</Text>
+                <Text style={{ color: colors.primary, fontSize: 11 }}>{t("edit")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionChip, { backgroundColor: "#EF444420" }]}
                 onPress={() => handleDeleteOutput(item)}
               >
                 <MaterialIcons name="delete" size={14} color="#EF4444" />
-                <Text style={{ color: "#EF4444", fontSize: 11 }}>حذف</Text>
+                <Text style={{ color: "#EF4444", fontSize: 11 }}>{t("delete")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -301,9 +304,9 @@ export default function MeetingOutputsScreen() {
         ListEmptyComponent={
           <View style={{ alignItems: "center", paddingVertical: 60 }}>
             <MaterialIcons name="summarize" size={56} color={colors.muted} />
-            <Text style={{ color: colors.muted, marginTop: 12, fontSize: 15 }}>لا توجد مخرجات مسجلة</Text>
+            <Text style={{ color: colors.muted, marginTop: 12, fontSize: 15 }}>{t("no_meeting_outputs")}</Text>
             <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={handleNewOutput}>
-              <Text style={{ color: "white", fontWeight: "600" }}>إضافة مخرجات اجتماع</Text>
+              <Text style={{ color: "white", fontWeight: "600" }}>{t("add_meeting_output")}</Text>
             </TouchableOpacity>
           </View>
         }
@@ -314,27 +317,27 @@ export default function MeetingOutputsScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowForm(false)}>
-              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("cancel")}</Text>
             </TouchableOpacity>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
-              {editingOutput ? "تعديل المخرجات" : "إضافة مخرجات اجتماع"}
+              {editingOutput ? (isAr ? "تعديل المخرجات" : "Edit Outputs") : t("add_meeting_output")}
             </Text>
             <TouchableOpacity onPress={handleSaveOutput}>
-              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>{t("save")}</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
             {/* Select Meeting */}
             <View>
-              <Text style={[styles.label, { color: colors.foreground }]}>اختر الاجتماع *</Text>
+              <Text style={[styles.label, { color: colors.foreground }]}>{t("select_meeting")} *</Text>
               <TouchableOpacity
                 style={[styles.selectBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setShowMeetingPicker(true)}
               >
                 <MaterialIcons name="event" size={18} color={colors.primary} />
                 <Text style={{ color: selectedMeeting ? colors.foreground : colors.muted, fontSize: 13, flex: 1 }}>
-                  {selectedMeeting ? `#${selectedMeeting.meetingNumber} - ${selectedMeeting.title}` : "اختر الاجتماع"}
+                  {selectedMeeting ? `#${selectedMeeting.meetingNumber} - ${selectedMeeting.title}` : t("select_meeting")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -342,7 +345,7 @@ export default function MeetingOutputsScreen() {
             {/* Recommendations */}
             <View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={[styles.label, { color: colors.foreground }]}>التوصيات</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{t("meeting_recommendations_label")}</Text>
                 <TouchableOpacity onPress={addRecommendation}>
                   <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
@@ -357,7 +360,7 @@ export default function MeetingOutputsScreen() {
                       updated[idx] = t;
                       setForm({ ...form, recommendations: updated });
                     }}
-                    placeholder={`توصية ${idx + 1}`}
+                    placeholder={isAr ? `توصية ${idx + 1}` : `Recommendation ${idx + 1}`}
                     placeholderTextColor={colors.muted}
                   />
                   {form.recommendations.length > 1 && (
@@ -375,7 +378,7 @@ export default function MeetingOutputsScreen() {
             {/* Decisions */}
             <View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={[styles.label, { color: colors.foreground }]}>القرارات</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{t("meeting_decisions")}</Text>
                 <TouchableOpacity onPress={addDecision}>
                   <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
@@ -390,7 +393,7 @@ export default function MeetingOutputsScreen() {
                       updated[idx] = t;
                       setForm({ ...form, decisions: updated });
                     }}
-                    placeholder={`قرار ${idx + 1}`}
+                    placeholder={isAr ? `قرار ${idx + 1}` : `Decision ${idx + 1}`}
                     placeholderTextColor={colors.muted}
                   />
                   {form.decisions.length > 1 && (
@@ -408,7 +411,7 @@ export default function MeetingOutputsScreen() {
             {/* Action Items */}
             <View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={[styles.label, { color: colors.foreground }]}>بنود العمل</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{t("meeting_action_items")}</Text>
                 <TouchableOpacity onPress={addActionItem}>
                   <MaterialIcons name="add-circle-outline" size={20} color={colors.primary} />
                 </TouchableOpacity>
@@ -423,7 +426,7 @@ export default function MeetingOutputsScreen() {
                       updated[idx] = { ...updated[idx], task: t };
                       setForm({ ...form, actionItems: updated });
                     }}
-                    placeholder="المهمة"
+                    placeholder={isAr ? "المهمة" : "Task"}
                     placeholderTextColor={colors.muted}
                   />
                   <View style={{ flexDirection: "row", gap: 6 }}>
@@ -435,7 +438,7 @@ export default function MeetingOutputsScreen() {
                         updated[idx] = { ...updated[idx], assignee: t };
                         setForm({ ...form, actionItems: updated });
                       }}
-                      placeholder="المسؤول"
+                      placeholder={isAr ? "المسؤول" : "Assignee"}
                       placeholderTextColor={colors.muted}
                     />
                     <TextInput
@@ -446,7 +449,7 @@ export default function MeetingOutputsScreen() {
                         updated[idx] = { ...updated[idx], deadline: t };
                         setForm({ ...form, actionItems: updated });
                       }}
-                      placeholder="الموعد"
+                      placeholder={isAr ? "الموعد" : "Deadline"}
                       placeholderTextColor={colors.muted}
                     />
                   </View>
@@ -464,13 +467,13 @@ export default function MeetingOutputsScreen() {
 
             {/* Attachments */}
             <View>
-              <Text style={[styles.label, { color: colors.foreground }]}>المرفقات</Text>
+              <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "المرفقات" : "Attachments"}</Text>
               <TouchableOpacity
                 style={[styles.selectBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={addAttachment}
               >
                 <MaterialIcons name="attach-file" size={18} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>إضافة مرفق</Text>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{isAr ? "إضافة مرفق" : "Add Attachment"}</Text>
               </TouchableOpacity>
               {form.attachments.length > 0 && (
                 <View style={{ gap: 4, marginTop: 8 }}>
@@ -489,12 +492,12 @@ export default function MeetingOutputsScreen() {
 
             {/* Notes */}
             <View>
-              <Text style={[styles.label, { color: colors.foreground }]}>ملاحظات إضافية</Text>
+              <Text style={[styles.label, { color: colors.foreground }]}>{t("notes")}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, height: 80, textAlignVertical: "top" }]}
                 value={form.notes}
                 onChangeText={t => setForm({ ...form, notes: t })}
-                placeholder="ملاحظات..."
+                placeholder={isAr ? "ملاحظات..." : "Notes..."}
                 placeholderTextColor={colors.muted}
                 multiline
               />
@@ -508,9 +511,9 @@ export default function MeetingOutputsScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowMeetingPicker(false)}>
-              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>{t("cancel")}</Text>
             </TouchableOpacity>
-            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>اختر الاجتماع</Text>
+            <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>{t("select_meeting")}</Text>
             <View style={{ width: 40 }} />
           </View>
           <FlatList
@@ -539,7 +542,7 @@ export default function MeetingOutputsScreen() {
             )}
             ListEmptyComponent={
               <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                <Text style={{ color: colors.muted }}>لا توجد اجتماعات. أنشئ اجتماعاً أولاً.</Text>
+                <Text style={{ color: colors.muted }}>{isAr ? "لا توجد اجتماعات. أنشئ اجتماعاً أولاً." : "No meetings. Create a meeting first."}</Text>
               </View>
             }
           />
