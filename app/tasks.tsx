@@ -80,6 +80,7 @@ export default function TasksScreen() {
 
   const [filterEmployee, setFilterEmployee] = useState<string>("all");
   const [filterResult, setFilterResult] = useState<string>("all");
+  const [filterCreatedBy, setFilterCreatedBy] = useState<string>("all"); // all, mine, others
 
   const [formData, setFormData] = useState<TaskData>({
     assignmentSource: "general_manager",
@@ -133,11 +134,20 @@ export default function TasksScreen() {
         Alert.alert(t("success"), t("updated_success") || (isAr ? "تم تحديث المهمة" : "Task updated"));
       } else {
         await taskService.create({ ...formData, createdBy: currentUser?.username || "" });
+<<<<<<< Updated upstream
         // إشعار تلقائي عند إسناد مهمة
+=======
+        // إشعار تلقائي عند إسناد مهمة - مع تفاصيل كاملة
+        const sourceLabel = ASSIGNMENT_SOURCES.find(s => s.value === formData.assignmentSource)?.[isAr ? 'labelAr' : 'labelEn'] || formData.assignmentSource;
+        const employeeLabel = getEmployeeLabel(formData.assignedEmployee);
+>>>>>>> Stashed changes
         await notificationsService.add({
           type: "task",
-          title: isAr ? "مهمة جديدة" : "New Task",
-          message: isAr ? `تم تكليف ${getEmployeeLabel(formData.assignedEmployee)} بمهمة جديدة: ${formData.taskDescription.substring(0, 50)}` : `New task assigned to ${getEmployeeLabel(formData.assignedEmployee)}: ${formData.taskDescription.substring(0, 50)}`,
+          title: isAr ? "🔔 مهمة جديدة" : "🔔 New Task Assigned",
+          message: isAr 
+            ? `من: ${sourceLabel}\nللموظف: ${employeeLabel}\nالمهمة: ${formData.taskDescription.substring(0, 40)}...\nالموعد: ${formData.endDate}`
+            : `From: ${sourceLabel}\nAssigned to: ${employeeLabel}\nTask: ${formData.taskDescription.substring(0, 40)}...\nDeadline: ${formData.endDate}`,
+          data: { taskId: formData.id, assignedEmployee: formData.assignedEmployee }
         });
         Alert.alert(t("success"), t("task_created") || (isAr ? "تم إنشاء المهمة" : "Task created"));
       }
@@ -467,6 +477,28 @@ export default function TasksScreen() {
           ))}
         </ScrollView>
       </View>
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => setFilterCreatedBy("all")}
+            style={[styles.filterChip, filterCreatedBy === "all" && { backgroundColor: colors.primary }]}
+          >
+            <Text style={[styles.filterChipText, filterCreatedBy === "all" && { color: "white" }]}>{isAr ? "جميع المهام" : "All Tasks"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setFilterCreatedBy("mine")}
+            style={[styles.filterChip, filterCreatedBy === "mine" && { backgroundColor: "#10b981" }]}
+          >
+            <Text style={[styles.filterChipText, filterCreatedBy === "mine" && { color: "white" }]}>{isAr ? "المهام التي أنشأتها" : "My Created Tasks"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setFilterCreatedBy("others")}
+            style={[styles.filterChip, filterCreatedBy === "others" && { backgroundColor: "#0891b2" }]}
+          >
+            <Text style={[styles.filterChipText, filterCreatedBy === "others" && { color: "white" }]}>{isAr ? "المهام المسندة إليّ" : "Tasks Assigned to Me"}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       {/* Tasks List */}
       {isLoading ? (
@@ -476,8 +508,24 @@ export default function TasksScreen() {
       ) : (
         <FlatList
           data={tasks.filter((t) => {
+<<<<<<< Updated upstream
             // جميع المستخدمين يرون جميع المهام (يمكن لأي مستخدم إضافة مهمة)
             // لكن المستخدم العادي يرى المهام المكلف بها + المهام التي أنشأها
+=======
+            // تطبيق فلتر المهام التي أنشأتها
+            if (filterCreatedBy === "mine") {
+              return t.createdBy === currentUser?.username;
+            } else if (filterCreatedBy === "others") {
+              // المهام المسندة إليّ (التي لم أنشئها)
+              const isAssignedToMe = 
+                t.assignedUsername === currentUser?.username ||
+                t.assignedEmployee === currentUser?.username ||
+                t.assignedEmployee === currentUser?.role;
+              return isAssignedToMe && t.createdBy !== currentUser?.username;
+            }
+            // filterCreatedBy === "all"
+            // المستخدم العادي يرى فقط المهام المكلف بها + المهام التي أنشأها
+>>>>>>> Stashed changes
             if (!isAdmin && currentUser) {
               const isAssignedToMe = 
                 t.assignedUsername === currentUser.username ||

@@ -642,6 +642,24 @@ export default function ComprehensiveAdminPanel() {
         </View>
         <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
       </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => router.push("/task-assignment-sources" as any)}
+        style={[styles.settingsItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      >
+        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#8b5cf615", justifyContent: "center", alignItems: "center" }}>
+          <MaterialIcons name="assignment" size={20} color="#8b5cf6" />
+        </View>
+        <View style={{ flex: 1, marginLeft: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+            {isAr ? "مصادر التكليف" : "Task Assignment Sources"}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            {isAr ? "إدارة قائمة المشرفين ومدراء الأقسام" : "Manage supervisors and managers list"}
+          </Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
+      </TouchableOpacity>
     </View>
   );
 
