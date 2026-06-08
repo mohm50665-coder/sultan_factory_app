@@ -23,10 +23,18 @@ import { taskService, TaskData } from "@/lib/services/data.service";
 import { useAuth } from "@/lib/auth-context";
 import { notificationsService } from "@/lib/services/notifications.service";
 
-// مصادر التكليف
+// مصادر التكليف (قائمة منسدلة: المشرفين، مدراء الإدارات، المدير العام، ممثل مجلس الإدارة)
 const ASSIGNMENT_SOURCES = [
   { labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", value: "board_representative" },
   { labelAr: "المدير العام", labelEn: "General Manager", value: "general_manager" },
+  { labelAr: "مدير الإنتاج", labelEn: "Production Manager", value: "production_manager" },
+  { labelAr: "مدير التسويق والمبيعات", labelEn: "Marketing & Sales Manager", value: "marketing_sales_manager" },
+  { labelAr: "مدير المستودعات", labelEn: "Warehouse Manager", value: "warehouse_manager" },
+  { labelAr: "مدير الشؤون الإدارية والمالية", labelEn: "Admin & Finance Manager", value: "admin_finance_manager" },
+  { labelAr: "مشرف الصيانة", labelEn: "Maintenance Supervisor", value: "maintenance_supervisor" },
+  { labelAr: "مشرف الإنتاج", labelEn: "Production Supervisor", value: "production_supervisor" },
+  { labelAr: "مشرف المستودعات", labelEn: "Warehouse Supervisor", value: "warehouse_supervisor" },
+  { labelAr: "مشرف الجودة", labelEn: "Quality Supervisor", value: "quality_supervisor" },
 ];
 
 // الموظفين المكلفين
@@ -124,7 +132,7 @@ export default function TasksScreen() {
         await taskService.update(editingId, formData);
         Alert.alert(t("success"), t("updated_success") || (isAr ? "تم تحديث المهمة" : "Task updated"));
       } else {
-        await taskService.create(formData);
+        await taskService.create({ ...formData, createdBy: currentUser?.username || "" });
         // إشعار تلقائي عند إسناد مهمة
         await notificationsService.add({
           type: "task",
@@ -395,12 +403,9 @@ export default function TasksScreen() {
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
         <Text style={styles.headerTitle}>{t("tasks")}</Text>
-        {isAdmin && (
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>
-            <MaterialIcons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        )}
-        {!isAdmin && <View style={{ width: 40 }} />}
+          <MaterialIcons name="add" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
       {/* Summary */}
@@ -471,14 +476,15 @@ export default function TasksScreen() {
       ) : (
         <FlatList
           data={tasks.filter((t) => {
-            // المستخدم العادي يرى فقط المهام المكلف بها
+            // جميع المستخدمين يرون جميع المهام (يمكن لأي مستخدم إضافة مهمة)
+            // لكن المستخدم العادي يرى المهام المكلف بها + المهام التي أنشأها
             if (!isAdmin && currentUser) {
-              // مطابقة باسم المستخدم أو بالدور
               const isAssignedToMe = 
                 t.assignedUsername === currentUser.username ||
                 t.assignedEmployee === currentUser.username ||
                 t.assignedEmployee === currentUser.role;
-              if (!isAssignedToMe) return false;
+              const isCreatedByMe = t.createdBy === currentUser.username;
+              if (!isAssignedToMe && !isCreatedByMe) return false;
             }
             const empMatch = filterEmployee === "all" || t.assignedEmployee === filterEmployee;
             const resultMatch = filterResult === "all" || t.result === filterResult;
@@ -512,21 +518,23 @@ export default function TasksScreen() {
               </View>
 
               <ScrollView style={{ flex: 1, padding: 16 }} contentContainerStyle={{ paddingBottom: 40 }}>
-                {/* مصدر التكليف */}
+                {/* مصدر التكليف - قائمة منسدلة */}
                 <Text style={styles.sectionTitle}>{t("task_source") || (isAr ? "مصدر التكليف *" : "Assignment Source *")}</Text>
-                <View style={styles.optionsRow}>
-                  {ASSIGNMENT_SOURCES.map((s) => (
-                    <TouchableOpacity
-                      key={s.value}
-                      onPress={() => setFormData({ ...formData, assignmentSource: s.value as any })}
-                      style={[styles.optionBtn, formData.assignmentSource === s.value && styles.optionBtnActive]}
-                    >
-                      <Text style={[styles.optionText, formData.assignmentSource === s.value && styles.optionTextActive]}>
-                        {isAr ? s.labelAr : s.labelEn}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                <ScrollView horizontal={false} style={{ maxHeight: 180 }} nestedScrollEnabled>
+                  <View style={styles.employeeGrid}>
+                    {ASSIGNMENT_SOURCES.map((s) => (
+                      <TouchableOpacity
+                        key={s.value}
+                        onPress={() => setFormData({ ...formData, assignmentSource: s.value as any })}
+                        style={[styles.employeeBtn, formData.assignmentSource === s.value && styles.employeeBtnActive]}
+                      >
+                        <Text style={[styles.employeeBtnText, formData.assignmentSource === s.value && styles.employeeBtnTextActive]}>
+                          {isAr ? s.labelAr : s.labelEn}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
 
                 {/* الموظف المكلف */}
                 <Text style={styles.sectionTitle}>{t("task_assignee") || (isAr ? "الموظف المكلف *" : "Assigned Employee *")}</Text>
