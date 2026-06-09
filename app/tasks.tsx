@@ -134,13 +134,9 @@ export default function TasksScreen() {
         Alert.alert(t("success"), t("updated_success") || (isAr ? "تم تحديث المهمة" : "Task updated"));
       } else {
         await taskService.create({ ...formData, createdBy: currentUser?.username || "" });
-<<<<<<< Updated upstream
-        // إشعار تلقائي عند إسناد مهمة
-=======
         // إشعار تلقائي عند إسناد مهمة - مع تفاصيل كاملة
         const sourceLabel = ASSIGNMENT_SOURCES.find(s => s.value === formData.assignmentSource)?.[isAr ? 'labelAr' : 'labelEn'] || formData.assignmentSource;
         const employeeLabel = getEmployeeLabel(formData.assignedEmployee);
->>>>>>> Stashed changes
         await notificationsService.add({
           type: "task",
           title: isAr ? "🔔 مهمة جديدة" : "🔔 New Task Assigned",
@@ -508,10 +504,6 @@ export default function TasksScreen() {
       ) : (
         <FlatList
           data={tasks.filter((t) => {
-<<<<<<< Updated upstream
-            // جميع المستخدمين يرون جميع المهام (يمكن لأي مستخدم إضافة مهمة)
-            // لكن المستخدم العادي يرى المهام المكلف بها + المهام التي أنشأها
-=======
             // تطبيق فلتر المهام التي أنشأتها
             if (filterCreatedBy === "mine") {
               return t.createdBy === currentUser?.username;
@@ -525,7 +517,6 @@ export default function TasksScreen() {
             }
             // filterCreatedBy === "all"
             // المستخدم العادي يرى فقط المهام المكلف بها + المهام التي أنشأها
->>>>>>> Stashed changes
             if (!isAdmin && currentUser) {
               const isAssignedToMe = 
                 t.assignedUsername === currentUser.username ||
