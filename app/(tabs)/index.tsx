@@ -506,11 +506,13 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Extra Tools */}
-        <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
-          {t("extra_tools")}
-        </Text>
-        <View style={styles.toolsGrid}>
+        {/* Extra Tools - Only show if user has permissions */}
+        {(user?.role === 'admin' || Object.values(userToolPermissions).some(p => p)) && (
+          <>
+            <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
+              {t("extra_tools")}
+            </Text>
+            <View style={styles.toolsGrid}>
           <TouchableOpacity
             onPress={() => handleNavigate("/reports")}
             style={styles.toolItem}
@@ -647,7 +649,9 @@ export default function HomeScreen() {
               <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مشاركة التقارير" : "Share"}</Text>
             </View>
           </TouchableOpacity>
-        </View>
+            </View>
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );

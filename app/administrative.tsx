@@ -21,25 +21,25 @@ import { administrativeExportService } from "@/lib/services/administrative-expor
 import { notificationsService } from "@/lib/services/notifications.service";
 
 const REQUEST_TYPES = [
-  { label: "\u0637\u0644\u0628 \u0625\u062c\u0627\u0632\u0629", value: "leave_request" },
-  { label: "\u0637\u0644\u0628 \u0627\u0633\u062a\u062f\u0639\u0627\u0621", value: "recall_request" },
-  { label: "\u0637\u0644\u0628 \u0633\u0644\u0641\u0629", value: "advance_request" },
-  { label: "\u0637\u0644\u0628 \u0627\u0633\u062a\u0642\u0627\u0644\u0629", value: "resignation_request" },
-  { label: "\u0637\u0644\u0628 \u0646\u0642\u0644 \u0643\u0641\u0627\u0644\u0629", value: "sponsorship_transfer" },
-  { label: "\u0637\u0644\u0628 \u062a\u0642\u062f\u0645 \u0631\u0627\u062a\u0628", value: "advance_salary" },
-  { label: "\u0637\u0644\u0628 \u062a\u062f\u0631\u064a\u0628", value: "training_request" },
-  { label: "\u0637\u0644\u0628 \u0646\u0642\u0644", value: "transfer_request" },
+  { labelAr: "طلب إجازة", labelEn: "Leave Request", value: "leave_request" },
+  { labelAr: "طلب استدعاء", labelEn: "Recall Request", value: "recall_request" },
+  { labelAr: "طلب سلفة", labelEn: "Advance Request", value: "advance_request" },
+  { labelAr: "طلب استقالة", labelEn: "Resignation Request", value: "resignation_request" },
+  { labelAr: "طلب نقل كفالة", labelEn: "Sponsorship Transfer", value: "sponsorship_transfer" },
+  { labelAr: "طلب تقدم راتب", labelEn: "Advance Salary", value: "advance_salary" },
+  { labelAr: "طلب تدريب", labelEn: "Training Request", value: "training_request" },
+  { labelAr: "طلب نقل", labelEn: "Transfer Request", value: "transfer_request" },
 ];
 
 const DEPARTMENTS = [
-  { label: "\u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "production" },
-  { label: "\u0645\u0631\u0627\u062d\u0644 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "manufacturing" },
-  { label: "\u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a \u0648\u0627\u0644\u062a\u062d\u0635\u064a\u0644", value: "sales" },
-  { label: "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639\u0627\u062a", value: "warehouse" },
-  { label: "\u0627\u0644\u0635\u064a\u0627\u0646\u0629", value: "maintenance" },
-  { label: "\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062a", value: "financial" },
-  { label: "\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629", value: "administrative" },
-  { label: "\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629", value: "board_representative" },
+  { labelAr: "الإنتاج", labelEn: "Production", value: "production" },
+  { labelAr: "مراحل تسليم الإنتاج", labelEn: "Manufacturing", value: "manufacturing" },
+  { labelAr: "المبيعات والتحصيل", labelEn: "Sales & Collection", value: "sales" },
+  { labelAr: "المستودعات", labelEn: "Warehouse", value: "warehouse" },
+  { labelAr: "الصيانة", labelEn: "Maintenance", value: "maintenance" },
+  { labelAr: "المصروفات", labelEn: "Financial", value: "financial" },
+  { labelAr: "الإجراءات الإدارية", labelEn: "Administrative", value: "administrative" },
+  { labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", value: "board_representative" },
 ];
 
 const emptyFormData = (): AdministrativeData => ({
@@ -219,11 +219,11 @@ export default function AdministrativeScreen() {
   };
 
   const getRequestTypeLabel = (type: string) => {
-    return REQUEST_TYPES.find((t) => t.value === type)?.label || type;
+    return REQUEST_TYPES.find((t) => t.value === type)?.[isAr ? 'labelAr' : 'labelEn'] || type;
   };
 
   const getDepartmentLabel = (dept: string) => {
-    return DEPARTMENTS.find((d) => d.value === dept)?.label || dept || "\u063a\u064a\u0631 \u0645\u062d\u062f\u062f";
+    return DEPARTMENTS.find((d) => d.value === dept)?.[isAr ? 'labelAr' : 'labelEn'] || dept || (isAr ? "غير محدد" : "Not specified");
   };
 
   const getStatusLabel = (request: AdministrativeData) => {
@@ -231,7 +231,7 @@ export default function AdministrativeScreen() {
     if (status === "approved") return isAr ? "موافق" : "Approved";
     if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
     if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return isAr ? "قيد المراجعة" : "Under Review";
-    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
+    return isAr ? "قيد الانتظار" : "Pending";
   };
 
   const getStatusColor = (request: AdministrativeData) => {
@@ -245,7 +245,7 @@ export default function AdministrativeScreen() {
   const getApproverStatusLabel = (status: string) => {
     if (status === "approved") return isAr ? "موافق" : "Approved";
     if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
-    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
+    return isAr ? "قيد الانتظار" : "Pending";
   };
 
   const formatDate = (dateStr?: string) => {
@@ -521,7 +521,7 @@ Approvals:
                         style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: formData.department === dept.value ? colors.primary + "15" : "transparent" }}
                       >
                         <Text style={{ color: formData.department === dept.value ? colors.primary : colors.foreground, fontWeight: formData.department === dept.value ? "600" : "400", textAlign: "right" }}>
-                          {dept.label}
+                          {dept[isAr ? 'labelAr' : 'labelEn']}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -551,7 +551,7 @@ Approvals:
                           style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: formData.requestType === type.value ? colors.primary + "15" : "transparent" }}
                         >
                           <Text style={{ color: formData.requestType === type.value ? colors.primary : colors.foreground, fontWeight: formData.requestType === type.value ? "600" : "400", textAlign: "right" }}>
-                            {type.label}
+                            {type[isAr ? 'labelAr' : 'labelEn']}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -767,20 +767,20 @@ Approvals:
                 onPress={() => setFilterType(filterType === t.value ? "all" : t.value)}
                 style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: filterType === t.value ? colors.primary : colors.surface, borderWidth: 1, borderColor: filterType === t.value ? colors.primary : colors.border }}
               >
-                <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === t.value ? "#fff" : colors.muted }}>{t.label}</Text>
+                <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === t.value ? "#fff" : colors.muted }}>{t[isAr ? 'labelAr' : 'labelEn']}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
           {/* \u062a\u0635\u0641\u064a\u0629 \u062d\u0633\u0628 \u0627\u0644\u062d\u0627\u0644\u0629 \u0648\u0627\u0644\u0642\u0633\u0645 */}
           <View style={{ flexDirection: "row", gap: 6 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-              {[{ label: "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631", value: "pending" }, { label: "\u0645\u0648\u0627\u0641\u0642", value: "approved" }, { label: "\u0645\u0631\u0641\u0648\u0636", value: "rejected" }].map((s) => (
+              {[{ labelAr: "قيد الانتظار", labelEn: "Pending", value: "pending" }, { labelAr: "موافق", labelEn: "Approved", value: "approved" }, { labelAr: "مرفوض", labelEn: "Rejected", value: "rejected" }].map((s) => (
                 <TouchableOpacity
                   key={s.value}
                   onPress={() => setFilterStatus(filterStatus === s.value ? "all" : s.value)}
                   style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) + "20" : colors.surface, borderWidth: 1, borderColor: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) : colors.border }}
                 >
-                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) : colors.muted }}>{s.label}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterStatus === s.value ? (s.value === "approved" ? colors.success : s.value === "rejected" ? colors.error : colors.warning) : colors.muted }}>{s[isAr ? 'labelAr' : 'labelEn']}</Text>
                 </TouchableOpacity>
               ))}
               {DEPARTMENTS.map((d) => (
@@ -789,7 +789,7 @@ Approvals:
                   onPress={() => setFilterDepartment(filterDepartment === d.value ? "all" : d.value)}
                   style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: filterDepartment === d.value ? colors.primary + "20" : colors.surface, borderWidth: 1, borderColor: filterDepartment === d.value ? colors.primary : colors.border }}
                 >
-                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterDepartment === d.value ? colors.primary : colors.muted }}>{d.label}</Text>
+                  <Text style={{ fontSize: 10, fontWeight: "600", color: filterDepartment === d.value ? colors.primary : colors.muted }}>{d[isAr ? 'labelAr' : 'labelEn']}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
