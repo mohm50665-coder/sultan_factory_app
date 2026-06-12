@@ -407,7 +407,6 @@ export const ar = {
   request_date: "تاريخ الطلب",
   leave_start_date: "تاريخ بداية الإجازة",
   leave_end_date: "تاريخ نهاية الإجازة",
-  leave_reason: "سبب الإجازة",
   request_status: "حالة الطلب",
   status_approved: "موافق عليه",
   status_rejected: "مرفوض",
@@ -656,4 +655,49 @@ export const ar = {
   try_again: "حاول مرة أخرى",
   ok: "حسناً",
   cancel_action: "إلغاء",
+
+  // Missing Keys for Tasks
+  task_assignee: "الموظف المكلف",
+  task_created: "تم إنشاء المهمة",
+  task_start_date: "تاريخ بداية المهمة",
+  task_end_date: "تاريخ نهاية المهمة",
+  task_status_completed: "مكتملة",
+  task_status_not_completed: "غير مكتملة",
+  task_results: "نتائج المهمة",
+  task_reason: "سبب عدم الإنجاز",
+  task_percentage: "نسبة الإنجاز",
+  task_reward: "المكافأة",
+  task_penalty: "العقوبة",
+  task_warning: "التحذير",
+  task_evaluation: "تقييم المهمة",
+  task_source: "مصدر التكليف",
+
+  // Missing Keys for Meetings
+  meeting_completed: "مكتملة",
+  meeting_pending: "قيد الانتظار",
+  meeting_decisions: "قرارات الاجتماع",
+  meeting_action_items: "بنود العمل",
+  meeting_recommendations_label: "التوصيات",
+  meeting_output_saved: "تم حفظ مخرجات الاجتماع",
+  add_meeting_output: "إضافة مخرجات الاجتماع",
+  no_meetings: "لا توجد اجتماعات",
+  no_meeting_outputs: "لا توجد مخرجات اجتماع",
+  select_meeting: "اختر الاجتماع",
+  request_meeting: "طلب اجتماع",
+
+  // Missing Keys for Workers
+  add_worker: "إضافة عامل",
+  edit_worker: "تعديل العامل",
+  active_users: "المستخدمون النشطون",
+  total_users: "إجمالي المستخدمين",
+  reset_user_password: "إعادة تعيين كلمة المرور",
+
+  // Missing Keys for Export
+  csv: "CSV",
+  html: "HTML",
+  input: "الإدخال",
+  panel_data: "بيانات لوحة التحكم",
+  kpi: "مؤشرات الأداء",
+  waste_percentage: "نسبة الهدر",
+  save_error: "خطأ في الحفظ",
 };

@@ -409,7 +409,6 @@ export const en = {
   request_date: "Request Date",
   leave_start_date: "Leave Start Date",
   leave_end_date: "Leave End Date",
-  leave_reason: "Leave Reason",
   request_status: "Request Status",
   status_approved: "Approved",
   status_rejected: "Rejected",
@@ -658,4 +657,48 @@ export const en = {
   try_again: "Try Again",
   ok: "OK",
   cancel_action: "Cancel",
+
+  // Missing Keys for Tasks
+  task_assignee: "Assigned Employee",
+  task_created: "Task Created",
+  task_start_date: "Task Start Date",
+  task_end_date: "Task End Date",
+  task_status_completed: "Completed",
+  task_status_not_completed: "Not Completed",
+  task_results: "Task Results",
+  task_reason: "Reason for Non-Completion",
+  task_percentage: "Completion Percentage",
+  task_reward: "Reward",
+  task_penalty: "Penalty",
+  task_warning: "Warning",
+  task_evaluation: "Task Evaluation",
+  task_source: "Assignment Source",
+
+  // Missing Keys for Meetings
+  meeting_completed: "Completed",
+  meeting_pending: "Pending",
+  meeting_decisions: "Meeting Decisions",
+  meeting_action_items: "Action Items",
+  meeting_recommendations_label: "Recommendations",
+  meeting_output_saved: "Meeting Outputs Saved",
+  add_meeting_output: "Add Meeting Output",
+  no_meetings: "No Meetings",
+  no_meeting_outputs: "No Meeting Outputs",
+  select_meeting: "Select Meeting",
+  request_meeting: "Request Meeting",
+
+  // Missing Keys for Workers
+  add_worker: "Add Worker",
+  edit_worker: "Edit Worker",
+  active_users: "Active Users",
+  total_users: "Total Users",
+  reset_user_password: "Reset Password",
+
+  // Missing Keys for Export
+  csv: "CSV",
+  html: "HTML",
+  input: "Input",
+  panel_data: "Dashboard Data",
+  kpi: "Key Performance Indicators",
+  waste_percentage: "Waste Percentage",
 };
