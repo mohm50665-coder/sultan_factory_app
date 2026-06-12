@@ -10,6 +10,8 @@ import {
   Linking,
   Platform,
 } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -113,16 +115,52 @@ export default function ShareReportsScreen() {
     return text;
   };
 
-  const shareViaWhatsApp = (reportId: string) => {
+  const shareViaWhatsApp = async (reportId: string) => {
     if (reportData.length === 0 && !selectedReport) {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات لمشاركتها" : "No data to share");
       return;
     }
-    const text = encodeURIComponent(generateReportText(reportId));
-    const url = `https://wa.me/?text=${text}`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح واتساب" : "Could not open WhatsApp");
-    });
+    
+    try {
+      // Generate report text
+      const reportText = generateReportText(reportId);
+      
+      // Generate CSV data
+      let csvContent = "";
+      if (reportData.length > 0) {
+        const headers = Object.keys(reportData[0]);
+        csvContent = headers.join(",") + "\n";
+        reportData.forEach(row => {
+          csvContent += headers.map(h => `"${row[h] || ""}"`).join(",") + "\n";
+        });
+      }
+      
+      // Save CSV file
+      const fileName = `${reportId}_report_${new Date().toISOString().split('T')[0]}.csv`;
+      const filePath = `${FileSystem.documentDirectory}${fileName}`;
+      
+      if (csvContent) {
+        await FileSystem.writeAsStringAsync(filePath, csvContent);
+      }
+      
+      // Share via WhatsApp with file
+      const text = encodeURIComponent(reportText);
+      const url = `https://wa.me/?text=${text}`;
+      
+      // If file exists, try to share it
+      if (csvContent && await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: "text/csv",
+          dialogTitle: isAr ? "مشاركة التقرير" : "Share Report",
+        });
+      } else {
+        Linking.openURL(url).catch(() => {
+          Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح واتساب" : "Could not open WhatsApp");
+        });
+      }
+    } catch (error) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ في مشاركة التقرير" : "Error sharing report");
+    }
   };
 
   const shareViaEmail = (reportId: string) => {
@@ -142,6 +180,19 @@ export default function ShareReportsScreen() {
   const handleSelectReport = async (report: ReportOption) => {
     setSelectedReport(report.id);
     await loadReportData(report.id);
+  };
+
+  const handleShareReport = async (method: 'whatsapp' | 'email') => {
+    if (!selectedReport) {
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "الرجاء اختيار تقرير أولاً" : "Please select a report first");
+      return;
+    }
+    
+    if (method === 'whatsapp') {
+      await shareViaWhatsApp(selectedReport);
+    } else {
+      shareViaEmail(selectedReport);
+    }
   };
 
   return (
@@ -194,7 +245,7 @@ export default function ShareReportsScreen() {
 
             <View style={[styles.shareOptions, { flexDirection: isAr ? "row" : "row-reverse" }]}>
               <Pressable
-                onPress={() => shareViaWhatsApp(selectedReport)}
+                onPress={() => handleShareReport('whatsapp')}
                 style={({ pressed }) => [
                   styles.shareBtn,
                   { backgroundColor: "#25D366" },
@@ -206,7 +257,7 @@ export default function ShareReportsScreen() {
               </Pressable>
 
               <Pressable
-                onPress={() => shareViaEmail(selectedReport)}
+                onPress={() => handleShareReport('email')}
                 style={({ pressed }) => [
                   styles.shareBtn,
                   { backgroundColor: "#EA4335" },

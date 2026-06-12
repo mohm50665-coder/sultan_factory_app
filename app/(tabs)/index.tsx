@@ -482,7 +482,10 @@ export default function HomeScreen() {
       {/* Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.grid}>
-          {visibleDashboardItems.map((item) => (
+          {visibleDashboardItems.map((item) => {
+            // Show badge for notifications section
+            const showBadge = item.id === "server_notifications" && unreadCount > 0;
+            return (
             <TouchableOpacity
               key={item.id}
               onPress={() => handleNavigate(item.route)}
@@ -490,10 +493,17 @@ export default function HomeScreen() {
               activeOpacity={0.7}
             >
               <View style={[{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }, styles.card]}>
-                <View
-                  style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
-                >
-                  <MaterialIcons name={item.icon as any} size={26} color={item.color} />
+                <View style={{ position: 'relative' }}>
+                  <View
+                    style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
+                  >
+                    <MaterialIcons name={item.icon as any} size={26} color={item.color} />
+                  </View>
+                  {showBadge && (
+                    <View style={[styles.badge, { top: 0, right: 0 }]}>
+                      <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, textAlign: isRtl ? "right" : "left" }}>
                   {isAr ? item.labelAr : item.labelEn}
@@ -503,7 +513,8 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
 
         {/* Extra Tools - Only show if user has permissions */}
@@ -523,16 +534,21 @@ export default function HomeScreen() {
               <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("reports")}</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/notifications-center")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="notifications" size={24} color="#d97706" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("notifications")}</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleNavigate("/notifications-center")}
+              style={styles.toolItem}
+              activeOpacity={0.7}
+            >
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', position: 'relative' }}>
+                <MaterialIcons name="notifications" size={24} color="#d97706" />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+                  </View>
+                )}
+                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("notifications")}</Text>
+              </View>
+            </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleNavigate("/export-data")}
             style={styles.toolItem}

@@ -30,6 +30,10 @@ const AVAILABLE_TOOLS: Tool[] = [
   { id: 'global_search', labelAr: 'البحث الشامل', labelEn: 'Global Search', icon: 'search', color: '#06b6d4' },
   { id: 'data_backup', labelAr: 'النسخ الاحتياطي', labelEn: 'Data Backup', icon: 'backup', color: '#14b8a6' },
   { id: 'user_management', labelAr: 'إدارة المستخدمين', labelEn: 'User Management', icon: 'people', color: '#f59e0b' },
+  { id: 'collection_report', labelAr: 'تقرير التحصيل', labelEn: 'Collection Report', icon: 'receipt', color: '#10b981' },
+  { id: 'delivery_report', labelAr: 'تقرير مراحل التسليم', labelEn: 'Delivery Stages Report', icon: 'local-shipping', color: '#3b82f6' },
+  { id: 'admin_procedures', labelAr: 'تقرير الإجراءات الإدارية', labelEn: 'Administrative Procedures', icon: 'assignment', color: '#8b5cf6' },
+  { id: 'tenders_report', labelAr: 'تقرير المناقصات', labelEn: 'Government Tenders Report', icon: 'gavel', color: '#ec4899' },
 ];
 
 export default function AdminToolsPermissionsScreen() {
