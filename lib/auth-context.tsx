@@ -88,13 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const bootstrapAsync = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        setUser(parsed);
+      try {
+        const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setUser(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to restore user:", e);
+        // Silently fail - user will see login screen
       }
     } catch (e) {
-      console.error("Failed to restore user:", e);
+      console.error("Bootstrap error:", e);
     } finally {
       setIsLoading(false);
     }
