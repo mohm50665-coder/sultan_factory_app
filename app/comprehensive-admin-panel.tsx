@@ -141,7 +141,7 @@ const DEFAULT_STAGES: Stage[] = [
 export default function ComprehensiveAdminPanel() {
   const router = useRouter();
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
+  const { language } = useLanguage();
   const isAr = language === "ar";
 
   const [activeSection, setActiveSection] = useState<ActiveSection>("stages");
@@ -236,7 +236,7 @@ export default function ComprehensiveAdminPanel() {
 
   const handleSaveWorker = async () => {
     if (!workerName.trim()) {
-      Alert.alert(t("error"), isAr ? "يرجى إدخال اسم الموظف" : "Please enter worker name");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "يرجى إدخال اسم الموظف" : "Please enter worker name");
       return;
     }
     if (!selectedStage) return;
@@ -262,17 +262,17 @@ export default function ComprehensiveAdminPanel() {
 
     await saveStages(updatedStages);
     setShowWorkerModal(false);
-    Alert.alert(t("done"), t("saved_success"));
+    Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ التعديلات" : "Changes saved");
   };
 
   const handleDeleteWorker = (stage: Stage, worker: StageWorker) => {
     Alert.alert(
-      t("confirm_delete"),
+      isAr ? "تأكيد الحذف" : "Confirm Delete",
       isAr ? `حذف "${worker.name}" من ${stage.label}؟` : `Delete "${worker.nameEn}" from ${stage.labelEn}?`,
       [
-        { text: t("cancel"), style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
-          text: t("delete"),
+          text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
             const updatedStages = stages.map((s) => {
@@ -292,19 +292,19 @@ export default function ComprehensiveAdminPanel() {
       isAr ? "نقل الموظف" : "Move Worker",
       isAr ? `نقل "${worker.name}" إلى:` : `Move "${worker.nameEn}" to:`,
       [
-        ...otherStages.map((stg) => ({
-          text: isAr ? stg.label : stg.labelEn,
+        ...otherStages.map((t) => ({
+          text: isAr ? t.label : t.labelEn,
           onPress: async () => {
             const updatedStages = stages.map((s) => {
               if (s.id === stage.id) return { ...s, workers: s.workers.filter((w) => w.id !== worker.id) };
-              if (s.id === stg.id) return { ...s, workers: [...s.workers, worker] };
+              if (s.id === t.id) return { ...s, workers: [...s.workers, worker] };
               return s;
             });
             await saveStages(updatedStages);
-            Alert.alert(t("done"), isAr ? `تم نقل ${worker.name}` : `Moved ${worker.nameEn}`);
+            Alert.alert(isAr ? "تم" : "Done", isAr ? `تم نقل ${worker.name}` : `Moved ${worker.nameEn}`);
           },
         })),
-        { text: t("cancel"), style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       ]
     );
   };
@@ -337,10 +337,10 @@ export default function ComprehensiveAdminPanel() {
     if (!selectedUser) return;
     try {
       await adminService.updateToolPermissions(selectedUser.id, userPermissions);
-      Alert.alert(t("done"), isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
+      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ الصلاحيات" : "Permissions saved");
     } catch (e) {
       console.log("Error saving permissions:", e);
-      Alert.alert(t("error"), isAr ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
     }
   };
 
@@ -350,16 +350,16 @@ export default function ComprehensiveAdminPanel() {
       isAr ? "تأكيد التصفير" : "Confirm Clear",
       isAr ? "سيتم حذف جميع بيانات ممثل مجلس الإدارة نهائياً" : "All board data will be permanently deleted",
       [
-        { text: t("cancel"), style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
           text: isAr ? "تصفير" : "Clear",
           style: "destructive",
           onPress: async () => {
             try {
               await boardDataService.clear();
-              Alert.alert(t("done"), isAr ? "تم تصفير جميع البيانات" : "All data cleared");
+              Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصفير جميع البيانات" : "All data cleared");
             } catch (e) {
-              Alert.alert(t("error"), isAr ? "فشل التصفير" : "Failed to clear data");
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل التصفير" : "Failed to clear data");
             }
           },
         },
@@ -372,14 +372,14 @@ export default function ComprehensiveAdminPanel() {
       isAr ? "إعادة تعيين" : "Reset",
       isAr ? "إرجاع المراحل والموظفين للوضع الافتراضي؟" : "Reset stages and workers to defaults?",
       [
-        { text: t("cancel"), style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
           text: isAr ? "إعادة تعيين" : "Reset",
           style: "destructive",
           onPress: async () => {
             // Reset to defaults on server
             await saveStages(DEFAULT_STAGES);
-            Alert.alert(t("done"), isAr ? "تم إعادة التعيين" : "Reset complete");
+            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم إعادة التعيين" : "Reset complete");
           },
         },
       ]
@@ -412,7 +412,7 @@ export default function ComprehensiveAdminPanel() {
             >
               <MaterialIcons name="person-add" size={14} color="#fff" />
               <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600", marginLeft: 4 }}>
-                {t("add")}
+                {isAr ? "إضافة" : "Add"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -598,7 +598,7 @@ export default function ComprehensiveAdminPanel() {
         </View>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
-            {t("users_management")}
+            {isAr ? "إدارة المستخدمين" : "User Management"}
           </Text>
           <Text style={{ fontSize: 12, color: colors.muted }}>
             {isAr ? "إضافة، تعديل، حذف المستخدمين والأدوار" : "Add, edit, delete users and roles"}
@@ -642,24 +642,6 @@ export default function ComprehensiveAdminPanel() {
         </View>
         <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
       </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => router.push("/task-assignment-sources" as any)}
-        style={[styles.settingsItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      >
-        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: "#8b5cf615", justifyContent: "center", alignItems: "center" }}>
-          <MaterialIcons name="assignment" size={20} color="#8b5cf6" />
-        </View>
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
-            {isAr ? "مصادر التكليف" : "Task Assignment Sources"}
-          </Text>
-          <Text style={{ fontSize: 12, color: colors.muted }}>
-            {isAr ? "إدارة قائمة المشرفين ومدراء الأقسام" : "Manage supervisors and managers list"}
-          </Text>
-        </View>
-        <MaterialIcons name="chevron-right" size={20} color={colors.muted} />
-      </TouchableOpacity>
     </View>
   );
 
@@ -688,7 +670,7 @@ export default function ComprehensiveAdminPanel() {
           <MaterialIcons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {t("comprehensive_panel")}
+          {isAr ? "لوحة التحكم الشاملة" : "Admin Control Panel"}
         </Text>
         <View style={{ width: 32 }} />
       </View>
@@ -729,7 +711,7 @@ export default function ComprehensiveAdminPanel() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-              {editingWorker ? (t("edit_worker")) : (t("add_worker"))}
+              {editingWorker ? (isAr ? "تعديل موظف" : "Edit Worker") : (isAr ? "إضافة موظف" : "Add Worker")}
             </Text>
             {selectedStage && (
               <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>
@@ -755,16 +737,16 @@ export default function ComprehensiveAdminPanel() {
               style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
               value={workerNameEn}
               onChangeText={setWorkerNameEn}
-              placeholder={t("optional")}
+              placeholder={isAr ? "اختياري" : "Optional"}
               placeholderTextColor={colors.muted}
             />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity onPress={handleSaveWorker} style={[styles.modalBtn, { backgroundColor: colors.primary }]}>
-                <Text style={{ color: "#fff", fontWeight: "600" }}>{t("save")}</Text>
+                <Text style={{ color: "#fff", fontWeight: "600" }}>{isAr ? "حفظ" : "Save"}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowWorkerModal(false)} style={[styles.modalBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
-                <Text style={{ color: colors.foreground, fontWeight: "600" }}>{t("cancel")}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -79,19 +79,19 @@ interface SickLeaveEntry extends BaseEntry {
 
 type AnyEntry = PeriodicEntry | EmergencyEntry | StoppedDeviceEntry | SafetyEntry | SafetyRecommendationEntry | WorkInjuryEntry | SickLeaveEntry;
 
-const getSectionTitles = (isAr: boolean): Record<string, string> => ({
-  periodic: isAr ? "الجدول الدوري للصيانة" : "Periodic Maintenance Schedule",
-  emergency: isAr ? "الطوارئ" : "Emergency",
-  "stopped-devices": isAr ? "تقرير الأجهزة المتوقفة" : "Stopped Devices Report",
-  safety: isAr ? "السلامة" : "Safety",
-  "safety-recommendations": isAr ? "توصيات السلامة والصحة المهنية" : "Occupational Safety Recommendations",
-  "work-injuries": isAr ? "إصابات العمل" : "Work Injuries",
-  "sick-leaves": isAr ? "حصر الإجازات المرضية" : "Sick Leaves",
-});
+const SECTION_TITLES: Record<string, string> = {
+  periodic: "الجدول الدوري للصيانة",
+  emergency: "الطوارئ",
+  "stopped-devices": "تقرير الأجهزة المتوقفة",
+  safety: "السلامة",
+  "safety-recommendations": "توصيات السلامة والصحة المهنية",
+  "work-injuries": "إصابات العمل",
+  "sick-leaves": "حصر الإجازات المرضية",
+};
 
-const getDeviceStatusOptions = (isAr: boolean) => [isAr ? "يعمل" : "Working", isAr ? "لايعمل" : "Not Working", isAr ? "صيانة" : "Maintenance"];
-const getSafetyOptions = (isAr: boolean) => [isAr ? "مطابق" : "Compliant", isAr ? "غير مطابق" : "Non-compliant", isAr ? "تحسين" : "Needs Improvement"];
-const getSeverityOptions = (isAr: boolean) => [isAr ? "خفيفة" : "Mild", isAr ? "متوسطة" : "Moderate", isAr ? "حرجة" : "Critical", isAr ? "إعاقة" : "Disability", isAr ? "وفاة" : "Death"];
+const DEVICE_STATUS_OPTIONS = ["يعمل", "لايعمل", "صيانة"];
+const SAFETY_OPTIONS = ["مطابق", "غير مطابق", "تحسين"];
+const SEVERITY_OPTIONS = ["خفيفة", "متوسطة", "حرجة", "إعاقة", "وفاة"];
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -100,12 +100,11 @@ function formatDate(d: Date): string {
 export default function MaintenanceSectionScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
-  const isAr = language === 'ar';
+  const { language } = useLanguage();
   const params = useLocalSearchParams<{ section: string; entryPerson: string }>();
   const section = params.section || "periodic";
   const entryPerson = decodeURIComponent(params.entryPerson || "");
-  const title = getSectionTitles(isAr)[section] || (isAr ? "الصيانة" : "Maintenance");
+  const title = SECTION_TITLES[section] || "الصيانة";
 
   const [sectionAttachments, setSectionAttachments] = useState<AttachmentFile[]>([]);
 
@@ -237,7 +236,7 @@ export default function MaintenanceSectionScreen() {
       }
       await loadEntries();
     } catch (e) {
-      Alert.alert(t("error"), isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      Alert.alert("خطأ", "فشل حفظ البيانات");
     }
     resetForm();
   };
@@ -290,9 +289,9 @@ export default function MaintenanceSectionScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert(t("confirm_delete"), t("confirm_delete_msg"), [
-      { text: t("cancel"), style: "cancel" },
-      { text: t("delete"), style: "destructive", onPress: async () => {
+    Alert.alert("تأكيد الحذف", "هل أنت متأكد من حذف هذا السجل؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: async () => {
         try {
           await maintenanceEntriesService.delete(parseInt(id));
           await loadEntries();
@@ -307,92 +306,92 @@ export default function MaintenanceSectionScreen() {
       case "periodic":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("date")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "الأجهزة والآلات" : "Devices and Machines" : "Devices and Machines"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={devices} onChangeText={setDevices} placeholder={isAr ? isAr ? "أسماء الأجهزة" : "Device Names" : "Device Names"} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("maintenance_results")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={results} onChangeText={setResults} placeholder={t("maintenance_results")} placeholderTextColor={colors.muted} multiline />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("recommendations")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendations} onChangeText={setRecommendations} placeholder={t("recommendations")} placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>الأجهزة والآلات</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={devices} onChangeText={setDevices} placeholder="أسماء الأجهزة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>نتائج الصيانة</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={results} onChangeText={setResults} placeholder="نتائج الصيانة" placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>التوصيات</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendations} onChangeText={setRecommendations} placeholder="التوصيات" placeholderTextColor={colors.muted} multiline />
           </>
         );
       case "emergency":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("date")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("malfunction_location")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={location} onChangeText={setLocation} placeholder={t("malfunction_location")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("requesting_party")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={requestingParty} onChangeText={setRequestingParty} placeholder={t("requesting_party")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("malfunction_cause")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={cause} onChangeText={setCause} placeholder={t("malfunction_cause")} placeholderTextColor={colors.muted} multiline />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("maintenance_action")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={action} onChangeText={setAction} placeholder={t("maintenance_action")} placeholderTextColor={colors.muted} multiline />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("maintenance_duration")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={duration} onChangeText={setDuration} placeholder={t("maintenance_duration")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("maintenance_results")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={results} onChangeText={setResults} placeholder={t("maintenance_results")} placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>مكان العطل</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={location} onChangeText={setLocation} placeholder="مكان العطل" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>الجهة الطالبة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={requestingParty} onChangeText={setRequestingParty} placeholder="الجهة الطالبة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>أسباب العطل</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={cause} onChangeText={setCause} placeholder="أسباب العطل" placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>إجراء الصيانة</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={action} onChangeText={setAction} placeholder="إجراء الصيانة" placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>مدة الصيانة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={duration} onChangeText={setDuration} placeholder="مدة الصيانة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>نتائج الصيانة</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={results} onChangeText={setResults} placeholder="نتائج الصيانة" placeholderTextColor={colors.muted} multiline />
             <TouchableOpacity onPress={() => setDocumentAttached(!documentAttached)} style={[styles.attachBtn, documentAttached && { backgroundColor: "#16a34a" }]}>
               <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color="#fff" />
-              <Text style={styles.attachText}>{documentAttached ? isAr ? "تم إرفاق النموذج" : "Form Attached" : t("attach_form")}</Text>
+              <Text style={styles.attachText}>{documentAttached ? "تم إرفاق النموذج" : "إرفاق نموذج طلب الصيانة"}</Text>
             </TouchableOpacity>
           </>
         );
       case "stopped-devices":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "تاريخ التقرير" : "Report Date" : "Report Date"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>تاريخ التقرير</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "بيانات الأجهزة والآلات" : "Devices and Machines Data" : "Devices and Machines Data"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={deviceName} onChangeText={setDeviceName} placeholder={t("device_name")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("device_status")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>بيانات الأجهزة والآلات</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={deviceName} onChangeText={setDeviceName} placeholder="اسم الجهاز/الآلة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>حالة الأجهزة</Text>
             <View style={styles.chipRow}>
-              {getDeviceStatusOptions(isAr).map((opt) => (
+              {DEVICE_STATUS_OPTIONS.map((opt) => (
                 <TouchableOpacity key={opt} onPress={() => setDeviceStatus(opt)} style={[styles.chip, deviceStatus === opt ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: deviceStatus === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("stop_reason")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={stopReason} onChangeText={setStopReason} placeholder={t("stop_reason")} placeholderTextColor={colors.muted} multiline />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("recommendations")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendations} onChangeText={setRecommendations} placeholder={t("recommendations")} placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>سبب التوقف</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={stopReason} onChangeText={setStopReason} placeholder="سبب التوقف" placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>التوصيات</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendations} onChangeText={setRecommendations} placeholder="التوصيات" placeholderTextColor={colors.muted} multiline />
           </>
         );
       case "safety":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("date")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "التقيد بارتداء وسائل السلامة أثناء العمل" : "Adherence to wearing safety equipment during work" : "Adherence to wearing safety equipment during work"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>التقيد بارتداء وسائل السلامة أثناء العمل</Text>
             <View style={styles.chipRow}>
-              {getSafetyOptions(isAr).map((opt) => (
+              {SAFETY_OPTIONS.map((opt) => (
                 <TouchableOpacity key={opt} onPress={() => setWearingSafety(opt)} style={[styles.chip, wearingSafety === opt ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: wearingSafety === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "بيئة العمل - وجود الملصقات واللوحات الإرشادية" : "Work environment - Presence of posters and signboards" : "Work environment - Presence of posters and signboards"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>بيئة العمل - وجود الملصقات واللوحات الإرشادية</Text>
             <View style={styles.chipRow}>
-              {getSafetyOptions(isAr).map((opt) => (
+              {SAFETY_OPTIONS.map((opt) => (
                 <TouchableOpacity key={opt} onPress={() => setWorkEnvironment(opt)} style={[styles.chip, workEnvironment === opt ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: workEnvironment === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "وجود مستلزمات وأدوات إسعافية مناسبة" : "Presence of appropriate first aid supplies and tools" : "Presence of appropriate first aid supplies and tools"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>وجود مستلزمات وأدوات إسعافية مناسبة</Text>
             <View style={styles.chipRow}>
-              {getSafetyOptions(isAr).map((opt) => (
+              {SAFETY_OPTIONS.map((opt) => (
                 <TouchableOpacity key={opt} onPress={() => setFirstAidTools(opt)} style={[styles.chip, firstAidTools === opt ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: firstAidTools === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "جاهزية أجهزة الرش وطفايات الحريق وأجهزة الإنذار" : "Readiness of sprinklers, fire extinguishers and alarms" : "Readiness of sprinklers, fire extinguishers and alarms"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>جاهزية أجهزة الرش وطفايات الحريق وأجهزة الإنذار</Text>
             <View style={styles.chipRow}>
-              {getSafetyOptions(isAr).map((opt) => (
+              {SAFETY_OPTIONS.map((opt) => (
                 <TouchableOpacity key={opt} onPress={() => setFireExtinguishers(opt)} style={[styles.chip, fireExtinguishers === opt ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: fireExtinguishers === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
@@ -403,27 +402,27 @@ export default function MaintenanceSectionScreen() {
       case "safety-recommendations":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("date")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>التاريخ</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "التوصية" : "Recommendation" : "Recommendation"}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendation} onChangeText={setRecommendation} placeholder={isAr ? isAr ? "أدخل التوصية" : "Enter recommendation" : "Enter recommendation"} placeholderTextColor={colors.muted} multiline numberOfLines={4} />
+            <Text style={[styles.label, { color: colors.foreground }]}>التوصية</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendation} onChangeText={setRecommendation} placeholder="أدخل التوصية" placeholderTextColor={colors.muted} multiline numberOfLines={4} />
           </>
         );
       case "work-injuries":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "بيانات المصاب" : "Injured Data" : "Injured Data"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuredName} onChangeText={setInjuredName} placeholder={t("injured_name")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "تحديد الإصابة" : "Determine Injury" : "Determine Injury"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuryType} onChangeText={setInjuryType} placeholder={t("injury_type")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("injury_date")}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>بيانات المصاب</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuredName} onChangeText={setInjuredName} placeholder="اسم المصاب" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>تحديد الإصابة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuryType} onChangeText={setInjuryType} placeholder="نوع الإصابة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>تاريخ الإصابة</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuryDate} onChangeText={setInjuryDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("procedures_taken")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={actions} onChangeText={setActions} placeholder={isAr ? isAr ? "الإجراءات المنفذة في الحالة" : "Procedures taken in the case" : "Procedures taken in the case"} placeholderTextColor={colors.muted} multiline />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "حالة المصاب" : "Injured Status" : "Injured Status"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>الإجراءات المنفذة</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={actions} onChangeText={setActions} placeholder="الإجراءات المنفذة في الحالة" placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>حالة المصاب</Text>
             <View style={styles.chipRow}>
-              {getSeverityOptions(isAr).map((opt) => (
-                <TouchableOpacity key={opt} onPress={() => setSeverity(opt)} style={[styles.chip, severity === opt ? { backgroundColor: opt === (isAr ? "وفاة" : "Death") || opt === (isAr ? "حرجة" : "Critical") ? "#dc2626" : colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
+              {SEVERITY_OPTIONS.map((opt) => (
+                <TouchableOpacity key={opt} onPress={() => setSeverity(opt)} style={[styles.chip, severity === opt ? { backgroundColor: opt === "وفاة" || opt === "حرجة" ? "#dc2626" : colors.primary } : { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                   <Text style={[styles.chipText, { color: severity === opt ? "#fff" : colors.foreground }]}>{opt}</Text>
                 </TouchableOpacity>
               ))}
@@ -433,18 +432,18 @@ export default function MaintenanceSectionScreen() {
       case "sick-leaves":
         return (
           <>
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("employee_name")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={employeeName} onChangeText={setEmployeeName} placeholder={t("employee_name")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("leave_source")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveSource} onChangeText={setLeaveSource} placeholder={t("leave_source")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? isAr ? "تاريخ الإجازة" : "Leave Date" : "Leave Date"}</Text>
+            <Text style={[styles.label, { color: colors.foreground }]}>اسم الموظف</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={employeeName} onChangeText={setEmployeeName} placeholder="اسم الموظف" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>مصدر الإجازة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveSource} onChangeText={setLeaveSource} placeholder="مصدر الإجازة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>تاريخ الإجازة</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveDate} onChangeText={setLeaveDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("leave_reason")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={reason} onChangeText={setReason} placeholder={t("leave_reason")} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("leave_duration")}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveDuration} onChangeText={setLeaveDuration} placeholder={isAr ? isAr ? "مدة الإجازة (أيام)" : "Leave Duration (days)" : "Leave Duration (days)"} placeholderTextColor={colors.muted} keyboardType="numeric" />
-            <Text style={[styles.label, { color: colors.foreground }]}>{t("recommendations")}</Text>
-            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={leaveRecommendations} onChangeText={setLeaveRecommendations} placeholder={t("recommendations")} placeholderTextColor={colors.muted} multiline />
+            <Text style={[styles.label, { color: colors.foreground }]}>سبب الإجازة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={reason} onChangeText={setReason} placeholder="سبب الإجازة" placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>مدة الإجازة</Text>
+            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveDuration} onChangeText={setLeaveDuration} placeholder="مدة الإجازة (أيام)" placeholderTextColor={colors.muted} keyboardType="numeric" />
+            <Text style={[styles.label, { color: colors.foreground }]}>التوصيات</Text>
+            <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={leaveRecommendations} onChangeText={setLeaveRecommendations} placeholder="التوصيات" placeholderTextColor={colors.muted} multiline />
           </>
         );
       default:
@@ -475,13 +474,13 @@ export default function MaintenanceSectionScreen() {
             <Text style={[styles.entryField, { color: colors.muted }]}>الإجراء: <Text style={{ color: colors.foreground }}>{e.action}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>المدة: <Text style={{ color: colors.foreground }}>{e.duration}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>النتائج: <Text style={{ color: colors.foreground }}>{e.results}</Text></Text>
-            {e.documentAttached && <Text style={{ color: "#16a34a", fontSize: 12 }}>{isAr ? isAr ? "✓ نموذج مرفق" : "✓ Form Attached" : "✓ Form Attached"}</Text>}
+            {e.documentAttached && <Text style={{ color: "#16a34a", fontSize: 12 }}>✓ نموذج مرفق</Text>}
           </>
         );
       }
       case "stopped-devices": {
         const e = entry as StoppedDeviceEntry;
-        const statusColor = e.status === (isAr ? "يعمل" : "Working") ? "#16a34a" : e.status === (isAr ? "لايعمل" : "Not Working") ? "#dc2626" : "#ea580c";
+        const statusColor = e.status === "يعمل" ? "#16a34a" : e.status === "لايعمل" ? "#dc2626" : "#ea580c";
         return (
           <>
             <Text style={[styles.entryField, { color: colors.muted }]}>الجهاز: <Text style={{ color: colors.foreground }}>{e.deviceName}</Text></Text>
@@ -508,7 +507,7 @@ export default function MaintenanceSectionScreen() {
       }
       case "work-injuries": {
         const e = entry as WorkInjuryEntry;
-        const sevColor = e.severity === (isAr ? "وفاة" : "Death") || e.severity === (isAr ? "حرجة" : "Critical") ? "#dc2626" : e.severity === (isAr ? "متوسطة" : "Moderate") ? "#ea580c" : "#16a34a";
+        const sevColor = e.severity === "وفاة" || e.severity === "حرجة" ? "#dc2626" : e.severity === "متوسطة" ? "#ea580c" : "#16a34a";
         return (
           <>
             <Text style={[styles.entryField, { color: colors.muted }]}>المصاب: <Text style={{ color: colors.foreground }}>{e.injuredName}</Text></Text>
@@ -557,7 +556,7 @@ export default function MaintenanceSectionScreen() {
         {!showForm && (
           <TouchableOpacity onPress={() => setShowForm(true)} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
             <MaterialIcons name="add" size={20} color="#fff" />
-            <Text style={styles.addBtnText}>{isAr ? isAr ? "إضافة سجل جديد" : "Add New Record" : "Add New Record"}</Text>
+            <Text style={styles.addBtnText}>إضافة سجل جديد</Text>
           </TouchableOpacity>
         )}
 
@@ -565,7 +564,7 @@ export default function MaintenanceSectionScreen() {
         {showForm && (
           <View style={[styles.formCard, { borderColor: colors.border }]}>
             <Text style={[styles.formTitle, { color: colors.foreground }]}>
-              {editingEntry ? isAr ? "تعديل السجل" : "Edit Record" : isAr ? "إضافة سجل جديد" : "Add New Record"}
+              {editingEntry ? "تعديل السجل" : "إضافة سجل جديد"}
             </Text>
             {renderForm()}
             {/* المرفقات */}
@@ -577,10 +576,10 @@ export default function MaintenanceSectionScreen() {
             <View style={styles.formActions}>
               <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
                 <MaterialIcons name="save" size={18} color="#fff" />
-                <Text style={styles.saveBtnText}>{t("save")}</Text>
+                <Text style={styles.saveBtnText}>حفظ</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={resetForm} style={[styles.cancelBtn, { borderColor: colors.border }]}>
-                <Text style={[styles.cancelBtnText, { color: colors.muted }]}>{t("cancel")}</Text>
+                <Text style={[styles.cancelBtnText, { color: colors.muted }]}>إلغاء</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -613,7 +612,7 @@ export default function MaintenanceSectionScreen() {
         {entries.length === 0 && !showForm && (
           <View style={styles.emptyState}>
             <MaterialIcons name="inbox" size={48} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>{t("no_records_yet")}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد سجلات بعد</Text>
           </View>
         )}
       </ScrollView>

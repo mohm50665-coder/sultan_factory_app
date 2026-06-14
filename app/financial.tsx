@@ -43,7 +43,7 @@ function formatDate(d: Date): string {
 }
 
 export default function FinancialScreen() {
-  const { language, t, isRtl } = useLanguage();
+  const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
@@ -99,7 +99,7 @@ export default function FinancialScreen() {
 
   const handleSave = async () => {
     if (!amount || !description) {
-      Alert.alert(t('alert'), t('fill_all_fields'));
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى ملء جميع الحقول" : "Please fill all fields");
       return;
     }
     const entry: ExpenseEntry = {
@@ -131,7 +131,7 @@ export default function FinancialScreen() {
       await loadEntries();
       resetForm();
     } catch (e) {
-      Alert.alert(t('error'), t('operation_failed'));
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     }
   };
 
@@ -144,9 +144,9 @@ export default function FinancialScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert(t('confirm_delete'), t('confirm_delete_msg'), [
-      { text: t('cancel'), style: "cancel" },
-      { text: t('delete'), style: "destructive", onPress: async () => {
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل أنت متأكد من حذف هذا السجل؟" : "Are you sure you want to delete this record?", [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: async () => {
         try { await financialService.delete(parseInt(id)); await loadEntries(); } catch (e) {}
       } },
     ]);
@@ -189,7 +189,7 @@ export default function FinancialScreen() {
 
   const handleSaveReport = async () => {
     if (!reportTitle || !reportContent) {
-      Alert.alert(t('alert'), t('fill_all_fields'));
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى ملء جميع الحقول" : "Please fill all fields");
       return;
     }
     try {
@@ -203,7 +203,7 @@ export default function FinancialScreen() {
       await loadReports();
       resetReportForm();
     } catch (e) {
-      Alert.alert(t('error'), t('operation_failed'));
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في حفظ التقرير" : "Failed to save report");
     }
   };
 
@@ -216,15 +216,15 @@ export default function FinancialScreen() {
   };
 
   const handleDeleteReport = (id: string) => {
-    Alert.alert(t('confirm_delete'), t('confirm_delete_msg'), [
-      { text: t('cancel'), style: "cancel" },
-      { text: t('delete'), style: "destructive", onPress: async () => {
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل أنت متأكد من حذف هذا التقرير؟" : "Are you sure you want to delete this report?", [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: async () => {
         try {
           const { financialReportsService } = await import("@/lib/services/api.service");
           await financialReportsService.delete(Number(id));
           setReports(reports.filter((r) => r.id !== id));
         } catch (e) {
-          Alert.alert(t('error'), t('operation_failed'));
+          Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في الحذف" : "Failed to delete");
         }
       }},
     ]);
@@ -235,7 +235,7 @@ export default function FinancialScreen() {
       {/* رأس الصفحة */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>{t('expenses')}</Text>
+        <Text style={styles.headerTitle}>{isAr ? "المصروفات" : "Expenses"}</Text>
         <AdminBadgeIcon />
       </View>
 
@@ -249,14 +249,14 @@ export default function FinancialScreen() {
           style={[styles.tab, activeTab === "expenses" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
         >
           <MaterialIcons name="payments" size={20} color={activeTab === "expenses" ? colors.primary : colors.muted} />
-          <Text style={[styles.tabText, { color: activeTab === "expenses" ? colors.primary : colors.muted }]}>{t('expenses')}</Text>
+          <Text style={[styles.tabText, { color: activeTab === "expenses" ? colors.primary : colors.muted }]}>{isAr ? "المصروفات" : "Expenses"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab("report")}
           style={[styles.tab, activeTab === "report" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
         >
           <MaterialIcons name="description" size={20} color={activeTab === "report" ? colors.primary : colors.muted} />
-          <Text style={[styles.tabText, { color: activeTab === "report" ? colors.primary : colors.muted }]}>{t('financial_report')}</Text>
+          <Text style={[styles.tabText, { color: activeTab === "report" ? colors.primary : colors.muted }]}>{isAr ? "التقرير المالي" : "Financial Report"}</Text>
         </TouchableOpacity>
       </View>
 
@@ -265,15 +265,15 @@ export default function FinancialScreen() {
           <>
             {/* ملخص المصروفات */}
             <View style={[styles.summaryCard, { backgroundColor: "#fef2f2", borderColor: "#fecaca" }]}>
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>{t('total_expenses')}</Text>
-              <Text style={{ color: "#dc2626", fontSize: 22, fontWeight: "bold", marginTop: 4 }}>{getTotalExpenses().toLocaleString()} {t('riyal')}</Text>
+              <Text style={{ color: "#6b7280", fontSize: 12 }}>{isAr ? "إجمالي المصروفات" : "Total Expenses"}</Text>
+              <Text style={{ color: "#dc2626", fontSize: 22, fontWeight: "bold", marginTop: 4 }}>{getTotalExpenses().toLocaleString()} {isAr ? "ريال" : "SAR"}</Text>
             </View>
 
             {/* زر إضافة */}
             {!showForm && (
               <TouchableOpacity onPress={() => setShowForm(true)} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
                 <MaterialIcons name="add" size={20} color="#fff" />
-                <Text style={styles.addBtnText}>{t('add_expense')}</Text>
+                <Text style={styles.addBtnText}>{isAr ? "إضافة مصروف" : "Add Expense"}</Text>
               </TouchableOpacity>
             )}
 
@@ -281,10 +281,10 @@ export default function FinancialScreen() {
             {showForm && (
               <View style={[styles.formCard, { borderColor: colors.border }]}>
                 <Text style={[styles.formTitle, { color: colors.foreground }]}>
-                  {editingEntry ? (t('edit_expense')) : (t('add_expense'))}
+                  {editingEntry ? (isAr ? "تعديل المصروف" : "Edit Expense") : (isAr ? "إضافة مصروف جديد" : "Add New Expense")}
                 </Text>
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('date')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
                   value={date}
@@ -293,7 +293,7 @@ export default function FinancialScreen() {
                   placeholderTextColor={colors.muted}
                 />
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('expense_amount')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "مبلغ الصرف (ريال)" : "Amount (SAR)"}</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
                   value={amount}
@@ -303,7 +303,7 @@ export default function FinancialScreen() {
                   keyboardType="numeric"
                 />
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('expense_description')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "بيان الصرف" : "Description"}</Text>
                 <TextInput
                   style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]}
                   value={description}
@@ -323,16 +323,16 @@ export default function FinancialScreen() {
                 <View style={styles.formActions}>
                   <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
                     <MaterialIcons name="save" size={18} color="#fff" />
-                    <Text style={styles.saveBtnText}>{t('save')}</Text>
+                    <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
                   </TouchableOpacity>
                   {editingEntry && (
                     <TouchableOpacity onPress={handleSave} style={[styles.editBtn, { backgroundColor: "#0891b2" }]}>
                       <MaterialIcons name="edit" size={18} color="#fff" />
-                      <Text style={styles.saveBtnText}>{t('edit')}</Text>
+                      <Text style={styles.saveBtnText}>{isAr ? "تعديل" : "Edit"}</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity onPress={resetForm} style={[styles.cancelBtn, { borderColor: colors.border }]}>
-                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>{t('cancel')}</Text>
+                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>{isAr ? "إلغاء" : "Cancel"}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -341,7 +341,7 @@ export default function FinancialScreen() {
             {/* عرض السجلات */}
             {entries.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>{`${t('records')} (${entries.length})`}</Text>
+                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>{isAr ? `السجلات (${entries.length})` : `Records (${entries.length})`}</Text>
                 {entries.map((entry) => (
                   <View key={entry.id} style={[styles.entryCard, { borderColor: colors.border }]}>
                     <View style={styles.entryHeader}>
@@ -355,8 +355,8 @@ export default function FinancialScreen() {
                         </TouchableOpacity>
                       </View>
                     </View>
-                    <Text style={[styles.entryField, { color: colors.muted }]}>{`${t('expense_amount')}: `}<Text style={{ color: "#dc2626", fontWeight: "bold" }}>{parseFloat(entry.amount).toLocaleString()} {t('riyal')}</Text></Text>
-                    <Text style={[styles.entryField, { color: colors.muted }]}>{`${t('expense_description')}: `}<Text style={{ color: colors.foreground }}>{entry.description}</Text></Text>
+                    <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "مبلغ الصرف: " : "Amount: "}<Text style={{ color: "#dc2626", fontWeight: "bold" }}>{parseFloat(entry.amount).toLocaleString()} {isAr ? "ريال" : "SAR"}</Text></Text>
+                    <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "بيان الصرف: " : "Description: "}<Text style={{ color: colors.foreground }}>{entry.description}</Text></Text>
                   </View>
                 ))}
               </View>
@@ -365,7 +365,7 @@ export default function FinancialScreen() {
             {entries.length === 0 && !showForm && (
               <View style={styles.emptyState}>
                 <MaterialIcons name="inbox" size={48} color={colors.muted} />
-                <Text style={[styles.emptyText, { color: colors.muted }]}>{t('no_expenses')}</Text>
+                <Text style={[styles.emptyText, { color: colors.muted }]}>{isAr ? "لا توجد مصروفات مسجلة" : "No expenses recorded"}</Text>
               </View>
             )}
           </>
@@ -375,17 +375,17 @@ export default function FinancialScreen() {
             {!showReportForm && (
               <TouchableOpacity onPress={() => setShowReportForm(true)} style={[styles.addBtn, { backgroundColor: "#6366f1" }]}>
                 <MaterialIcons name="note-add" size={20} color="#fff" />
-                <Text style={styles.addBtnText}>{t('add_report')}</Text>
+                <Text style={styles.addBtnText}>{isAr ? "إدراج تقرير مالي" : "Add Financial Report"}</Text>
               </TouchableOpacity>
             )}
 
             {showReportForm && (
               <View style={[styles.formCard, { borderColor: colors.border }]}>
                 <Text style={[styles.formTitle, { color: colors.foreground }]}>
-                  {editingReport ? (isAr ? "تعديل التقرير" : "Edit Report") : (t('add_report'))}
+                  {editingReport ? (isAr ? "تعديل التقرير" : "Edit Report") : (isAr ? "إدراج تقرير مالي جديد" : "Add New Financial Report")}
                 </Text>
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('date')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
                   value={reportDate}
@@ -394,7 +394,7 @@ export default function FinancialScreen() {
                   placeholderTextColor={colors.muted}
                 />
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('report_title')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "عنوان التقرير" : "Report Title"}</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.foreground }]}
                   value={reportTitle}
@@ -403,7 +403,7 @@ export default function FinancialScreen() {
                   placeholderTextColor={colors.muted}
                 />
 
-                <Text style={[styles.label, { color: colors.foreground }]}>{t('report_content')}</Text>
+                <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "محتوى التقرير" : "Report Content"}</Text>
                 <TextInput
                   style={[styles.input, styles.largeTextArea, { borderColor: colors.border, color: colors.foreground }]}
                   value={reportContent}
@@ -416,10 +416,10 @@ export default function FinancialScreen() {
                 <View style={styles.formActions}>
                   <TouchableOpacity onPress={handleSaveReport} style={[styles.saveBtn, { backgroundColor: "#6366f1" }]}>
                     <MaterialIcons name="save" size={18} color="#fff" />
-                    <Text style={styles.saveBtnText}>{t('save')}</Text>
+                    <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={resetReportForm} style={[styles.cancelBtn, { borderColor: colors.border }]}>
-                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>{t('cancel')}</Text>
+                    <Text style={[styles.cancelBtnText, { color: colors.muted }]}>{isAr ? "إلغاء" : "Cancel"}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -428,7 +428,7 @@ export default function FinancialScreen() {
             {/* عرض التقارير */}
             {reports.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>{`${isAr ? "التقارير" : "Reports"} (${reports.length})`}</Text>
+                <Text style={[styles.sectionHeader, { color: colors.foreground }]}>{isAr ? `التقارير (${reports.length})` : `Reports (${reports.length})`}</Text>
                 {reports.map((report) => (
                   <View key={report.id} style={[styles.entryCard, { borderColor: colors.border }]}>
                     <View style={styles.entryHeader}>
@@ -452,7 +452,7 @@ export default function FinancialScreen() {
             {reports.length === 0 && !showReportForm && (
               <View style={styles.emptyState}>
                 <MaterialIcons name="description" size={48} color={colors.muted} />
-                <Text style={[styles.emptyText, { color: colors.muted }]}>{t('no_reports')}</Text>
+                <Text style={[styles.emptyText, { color: colors.muted }]}>{isAr ? "لا توجد تقارير مالية" : "No financial reports"}</Text>
               </View>
             )}
           </>

@@ -45,8 +45,8 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // Fallback to local server for native apps
-  return "http://169.254.0.21:3000";
+  // Fallback to deployed server URL for native apps
+  return "https://sultanapp-paotprzy.manus.space";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";

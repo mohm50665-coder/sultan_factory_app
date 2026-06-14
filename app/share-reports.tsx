@@ -10,35 +10,29 @@ import {
   Linking,
   Platform,
 } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { productionService, salesService, expensesService, taskService } from "@/lib/services/api.service";
 import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
-import { useLanguage } from "@/lib/language-context";
 
 interface ReportOption {
   id: string;
-  titleAr: string;
-  titleEn: string;
+  title: string;
   icon: string;
 }
 
 const REPORT_OPTIONS: ReportOption[] = [
-  { id: "production", titleAr: "تقرير الإنتاج", titleEn: "Production Report", icon: "factory" },
-  { id: "sales", titleAr: "تقرير المبيعات", titleEn: "Sales Report", icon: "point-of-sale" },
-  { id: "warehouse", titleAr: "تقرير المستودعات", titleEn: "Warehouse Report", icon: "warehouse" },
-  { id: "maintenance", titleAr: "تقرير الصيانة", titleEn: "Maintenance Report", icon: "build" },
-  { id: "expenses", titleAr: "تقرير المصروفات", titleEn: "Expenses Report", icon: "receipt-long" },
-  { id: "tasks", titleAr: "تقرير المهام", titleEn: "Tasks Report", icon: "task-alt" },
+  { id: "production", title: "تقرير الإنتاج", icon: "factory" },
+  { id: "sales", title: "تقرير المبيعات", icon: "point-of-sale" },
+  { id: "warehouse", title: "تقرير المستودعات", icon: "warehouse" },
+  { id: "maintenance", title: "تقرير الصيانة", icon: "build" },
+  { id: "expenses", title: "تقرير المصروفات", icon: "receipt-long" },
+  { id: "tasks", title: "تقرير المهام", icon: "task-alt" },
 ];
 
 export default function ShareReportsScreen() {
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
-  const isAr = language === "ar";
   const [selectedReport, setSelectedReport] = useState<string>("");
   const [reportData, setReportData] = useState<any[]>([]);
 
@@ -60,120 +54,84 @@ export default function ShareReportsScreen() {
   };
 
   const generateReportText = (reportId: string): string => {
-    const today = new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US");
-    let text = isAr ? `📊 تقرير مصنع السلطان\n📅 التاريخ: ${today}\n\n` : `📊 Sultan Factory Report\n📅 Date: ${today}\n\n`;
+    const today = new Date().toLocaleDateString("ar-SA");
+    let text = `📊 تقرير مصنع السلطان\n📅 التاريخ: ${today}\n\n`;
 
     if (reportData.length === 0) {
-      return text + (isAr ? "لا توجد بيانات مسجلة بعد." : "No data recorded yet.");
+      return text + "لا توجد بيانات مسجلة بعد.";
     }
 
     switch (reportId) {
       case "production":
-        text += isAr ? "🏭 تقرير الإنتاج:\n" : "🏭 Production Report:\n";
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += "🏭 تقرير الإنتاج:\n";
+        text += `إجمالي السجلات: ${reportData.length}\n`;
         const totalProd = reportData.reduce((s, e) => s + parseFloat(e.quantity || e.production || 0), 0);
         const totalWaste = reportData.reduce((s, e) => s + parseFloat(e.waste || 0), 0);
-        text += isAr ? `إجمالي الإنتاج: ${totalProd.toFixed(0)}\n` : `Total Production: ${totalProd.toFixed(0)}\n`;
-        text += isAr ? `إجمالي الهدر: ${totalWaste.toFixed(0)}\n` : `Total Waste: ${totalWaste.toFixed(0)}\n`;
-        text += isAr ? `نسبة الهدر: ${totalProd > 0 ? ((totalWaste / totalProd) * 100).toFixed(1) : 0}%\n` : `Waste Percentage: ${totalProd > 0 ? ((totalWaste / totalProd) * 100).toFixed(1) : 0}%\n`;
+        text += `إجمالي الإنتاج: ${totalProd.toFixed(0)}\n`;
+        text += `إجمالي الهدر: ${totalWaste.toFixed(0)}\n`;
+        text += `نسبة الهدر: ${totalProd > 0 ? ((totalWaste / totalProd) * 100).toFixed(1) : 0}%\n`;
         break;
       case "sales":
-        text += isAr ? "💰 تقرير المبيعات:\n" : "💰 Sales Report:\n";
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += "💰 تقرير المبيعات:\n";
+        text += `إجمالي السجلات: ${reportData.length}\n`;
         const totalSales = reportData.reduce((s, e) => s + parseFloat(e.amount || e.total || 0), 0);
-        text += isAr ? `إجمالي المبيعات: ${totalSales.toFixed(0)} ريال\n` : `Total Sales: ${totalSales.toFixed(0)} SAR\n`;
+        text += `إجمالي المبيعات: ${totalSales.toFixed(0)} ريال\n`;
         break;
       case "warehouse":
-        text += isAr ? "📦 تقرير المستودعات:\n" : "📦 Warehouse Report:\n";
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += "📦 تقرير المستودعات:\n";
+        text += `إجمالي السجلات: ${reportData.length}\n`;
         break;
       case "maintenance":
-        text += isAr ? "🔧 تقرير الصيانة:\n" : "🔧 Maintenance Report:\n";
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += "🔧 تقرير الصيانة:\n";
+        text += `إجمالي السجلات: ${reportData.length}\n`;
         const completed = reportData.filter((e) => e.status === "completed" || e.status === "مكتمل").length;
-        text += isAr ? `صيانة مكتملة: ${completed}\n` : `Completed Maintenance: ${completed}\n`;
-        text += isAr ? `صيانة معلقة: ${reportData.length - completed}\n` : `Pending Maintenance: ${reportData.length - completed}\n`;
+        text += `صيانة مكتملة: ${completed}\n`;
+        text += `صيانة معلقة: ${reportData.length - completed}\n`;
         break;
       case "expenses":
-        text += isAr ? "📝 تقرير المصروفات:\n" : "📝 Expenses Report:\n";
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += "📝 تقرير المصروفات:\n";
+        text += `إجمالي السجلات: ${reportData.length}\n`;
         const totalExp = reportData.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
-        text += isAr ? `إجمالي المصروفات: ${totalExp.toFixed(0)} ريال\n` : `Total Expenses: ${totalExp.toFixed(0)} SAR\n`;
+        text += `إجمالي المصروفات: ${totalExp.toFixed(0)} ريال\n`;
         break;
       case "tasks":
-        text += isAr ? "✅ تقرير المهام:\n" : "✅ Tasks Report:\n";
-        text += isAr ? `إجمالي المهام: ${reportData.length}\n` : `Total Tasks: ${reportData.length}\n`;
+        text += "✅ تقرير المهام:\n";
+        text += `إجمالي المهام: ${reportData.length}\n`;
         const done = reportData.filter((e) => e.result === "completed" || e.result === "أنجز").length;
-        text += isAr ? `مهام منجزة: ${done}\n` : `Completed Tasks: ${done}\n`;
-        text += isAr ? `مهام معلقة: ${reportData.length - done}\n` : `Pending Tasks: ${reportData.length - done}\n`;
+        text += `مهام منجزة: ${done}\n`;
+        text += `مهام معلقة: ${reportData.length - done}\n`;
         break;
       default:
-        text += isAr ? `إجمالي السجلات: ${reportData.length}\n` : `Total Records: ${reportData.length}\n`;
+        text += `إجمالي السجلات: ${reportData.length}\n`;
     }
 
-    text += isAr ? "\n---\nتم إنشاء هذا التقرير من تطبيق مصنع السلطان" : "\n---\nThis report was generated from Sultan Factory App";
+    text += "\n---\nتم إنشاء هذا التقرير من تطبيق مصنع السلطان";
     return text;
   };
 
-  const shareViaWhatsApp = async (reportId: string) => {
+  const shareViaWhatsApp = (reportId: string) => {
     if (reportData.length === 0 && !selectedReport) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات لمشاركتها" : "No data to share");
+      Alert.alert("تنبيه", "لا توجد بيانات لمشاركتها");
       return;
     }
-    
-    try {
-      // Generate report text
-      const reportText = generateReportText(reportId);
-      
-      // Generate CSV data
-      let csvContent = "";
-      if (reportData.length > 0) {
-        const headers = Object.keys(reportData[0]);
-        csvContent = headers.join(",") + "\n";
-        reportData.forEach(row => {
-          csvContent += headers.map(h => `"${row[h] || ""}"`).join(",") + "\n";
-        });
-      }
-      
-      // Save CSV file
-      const fileName = `${reportId}_report_${new Date().toISOString().split('T')[0]}.csv`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-      
-      if (csvContent) {
-        await FileSystem.writeAsStringAsync(filePath, csvContent);
-      }
-      
-      // Share via WhatsApp with file
-      const text = encodeURIComponent(reportText);
-      const url = `https://wa.me/?text=${text}`;
-      
-      // If file exists, try to share it
-      if (csvContent && await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(filePath, {
-          mimeType: "text/csv",
-          dialogTitle: isAr ? "مشاركة التقرير" : "Share Report",
-        });
-      } else {
-        Linking.openURL(url).catch(() => {
-          Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح واتساب" : "Could not open WhatsApp");
-        });
-      }
-    } catch (error) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ في مشاركة التقرير" : "Error sharing report");
-    }
+    const text = encodeURIComponent(generateReportText(reportId));
+    const url = `https://wa.me/?text=${text}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert("خطأ", "تعذر فتح واتساب");
+    });
   };
 
   const shareViaEmail = (reportId: string) => {
     if (reportData.length === 0 && !selectedReport) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات لمشاركتها" : "No data to share");
+      Alert.alert("تنبيه", "لا توجد بيانات لمشاركتها");
       return;
     }
     const report = REPORT_OPTIONS.find((r) => r.id === reportId);
-    const subject = encodeURIComponent(`${isAr ? report?.titleAr : report?.titleEn || (isAr ? "تقرير" : "Report")} - ${isAr ? "مصنع السلطان" : "Sultan Factory"}`);
+    const subject = encodeURIComponent(`${report?.title || "تقرير"} - مصنع السلطان`);
     const body = encodeURIComponent(generateReportText(reportId));
     const url = `mailto:?subject=${subject}&body=${body}`;
     Linking.openURL(url).catch(() => {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح البريد الإلكتروني" : "Could not open Email");
+      Alert.alert("خطأ", "تعذر فتح البريد الإلكتروني");
     });
   };
 
@@ -182,30 +140,17 @@ export default function ShareReportsScreen() {
     await loadReportData(report.id);
   };
 
-  const handleShareReport = async (method: 'whatsapp' | 'email') => {
-    if (!selectedReport) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "الرجاء اختيار تقرير أولاً" : "Please select a report first");
-      return;
-    }
-    
-    if (method === 'whatsapp') {
-      await shareViaWhatsApp(selectedReport);
-    } else {
-      shareViaEmail(selectedReport);
-    }
-  };
-
   return (
     <ScreenContainer>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>{isAr ? "مشاركة التقارير" : "Share Reports"}</Text>
+        <Text style={styles.headerTitle}>مشاركة التقارير</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content}>
         {/* اختيار التقرير */}
-        <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "اختر التقرير" : "Select Report"}</Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>اختر التقرير</Text>
 
         <View style={styles.reportsGrid}>
           {REPORT_OPTIONS.map((report) => (
@@ -232,7 +177,7 @@ export default function ShareReportsScreen() {
                   { color: selectedReport === report.id ? colors.primary : colors.foreground },
                 ]}
               >
-                {isAr ? report.titleAr : report.titleEn}
+                {report.title}
               </Text>
             </Pressable>
           ))}
@@ -241,11 +186,11 @@ export default function ShareReportsScreen() {
         {/* خيارات المشاركة */}
         {selectedReport && (
           <View style={{ marginTop: 24 }}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "طريقة المشاركة" : "Share Method"}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>طريقة المشاركة</Text>
 
-            <View style={[styles.shareOptions, { flexDirection: isAr ? "row" : "row-reverse" }]}>
+            <View style={styles.shareOptions}>
               <Pressable
-                onPress={() => handleShareReport('whatsapp')}
+                onPress={() => shareViaWhatsApp(selectedReport)}
                 style={({ pressed }) => [
                   styles.shareBtn,
                   { backgroundColor: "#25D366" },
@@ -253,11 +198,11 @@ export default function ShareReportsScreen() {
                 ]}
               >
                 <MaterialIcons name="chat" size={24} color="white" />
-                <Text style={styles.shareBtnText}>{isAr ? "واتساب" : "WhatsApp"}</Text>
+                <Text style={styles.shareBtnText}>واتساب</Text>
               </Pressable>
 
               <Pressable
-                onPress={() => handleShareReport('email')}
+                onPress={() => shareViaEmail(selectedReport)}
                 style={({ pressed }) => [
                   styles.shareBtn,
                   { backgroundColor: "#EA4335" },
@@ -265,14 +210,14 @@ export default function ShareReportsScreen() {
                 ]}
               >
                 <MaterialIcons name="email" size={24} color="white" />
-                <Text style={styles.shareBtnText}>{isAr ? "بريد إلكتروني" : "Email"}</Text>
+                <Text style={styles.shareBtnText}>بريد إلكتروني</Text>
               </Pressable>
             </View>
 
             {/* معاينة التقرير */}
             <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.previewTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "معاينة التقرير" : "Report Preview"}</Text>
-              <Text style={[styles.previewText, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>
+              <Text style={[styles.previewTitle, { color: colors.foreground }]}>معاينة التقرير</Text>
+              <Text style={[styles.previewText, { color: colors.muted }]}>
                 {generateReportText(selectedReport)}
               </Text>
             </View>
@@ -304,6 +249,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 12,
+    textAlign: "right",
   },
   reportsGrid: {
     flexDirection: "row",
@@ -324,6 +270,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   shareOptions: {
+    flexDirection: "row",
     gap: 12,
     marginBottom: 20,
   },
@@ -351,9 +298,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     marginBottom: 12,
+    textAlign: "right",
   },
   previewText: {
     fontSize: 13,
     lineHeight: 22,
+    textAlign: "right",
   },
 });

@@ -64,7 +64,7 @@ const createEmptyColors = (): ColorEntry[] => [
 export default function ProductCostCalculatorScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
+  const { language, isRtl } = useLanguage();
   const { user } = useAuth();
   const isAr = language === "ar";
 
@@ -74,12 +74,12 @@ export default function ProductCostCalculatorScreen() {
     productName: "",
     productColor: "",
     threads: {
-      cotton: { type: t("cotton"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
-      bamboo: { type: t("bamboo"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
-      nylon: { type: t("nylon"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
-      span: { type: t("span"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
-      spandex: { type: t("spandex"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
-      rubber: { type: t("rubber"), weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      cotton: { type: "قطن", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      bamboo: { type: "بامبو", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      nylon: { type: "نايلون", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      span: { type: "إسبان", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      spandex: { type: "إسباندكس", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
+      rubber: { type: "مطاط", weight: 0, pricePerKg: 0, colors: createEmptyColors() },
     },
     notes: "",
   });
@@ -109,8 +109,8 @@ export default function ProductCostCalculatorScreen() {
   const handleSave = async () => {
     if (!formData.productName.trim()) {
       showAlert(
-        t("alert"),
-        t("enter_product_name_alert")
+        isAr ? "تنبيه" : "Alert",
+        isAr ? "الرجاء إدخال اسم المنتج" : "Please enter product name"
       );
       return;
     }
@@ -132,15 +132,15 @@ export default function ProductCostCalculatorScreen() {
       });
 
       showAlert(
-        t("success"),
-        t("calculation_saved")
+        isAr ? "نجاح" : "Success",
+        isAr ? "تم حفظ بيانات تكاليف المنتج بنجاح" : "Product cost data saved successfully"
       );
       router.back();
     } catch (error) {
       console.error("Error saving:", error);
       showAlert(
-        t("error"),
-        t("save_error")
+        isAr ? "خطأ" : "Error",
+        isAr ? "حدث خطأ في حفظ البيانات" : "Error saving data"
       );
     } finally {
       setIsLoading(false);
@@ -155,13 +155,13 @@ export default function ProductCostCalculatorScreen() {
       const cost = calculateThreadCost(thread);
       const colorsText = thread.colors
         .filter((c) => c.color.trim())
-        .map((c, i) => `    ${i + 1}. ${c.color} (${t("color_code")}: ${c.code})`)
+        .map((c, i) => `    ${i + 1}. ${c.color} (${isAr ? "كود" : "Code"}: ${c.code})`)
         .join("\n");
 
       return `${thread.type}:
-  ${isAr ? "الوزن" : "Weight"}: ${thread.weight} ${t("grams")}
-  ${t("price_per_kg")}: ${thread.pricePerKg} ${t("riyal")}
-  ${isAr ? "التكلفة" : "Cost"}: ${cost.toFixed(2)} ${t("riyal")}
+  ${isAr ? "الوزن" : "Weight"}: ${thread.weight} ${isAr ? "جرام" : "g"}
+  ${isAr ? "سعر الكيلو" : "Price/Kg"}: ${thread.pricePerKg} ${isAr ? "ريال" : "SAR"}
+  ${isAr ? "التكلفة" : "Cost"}: ${cost.toFixed(2)} ${isAr ? "ريال" : "SAR"}
   ${isAr ? "الألوان" : "Colors"}:
 ${colorsText || "    -"}`;
     });
@@ -171,9 +171,9 @@ ${colorsText || "    -"}`;
 ${isAr ? "تقرير تكاليف المنتج" : "Product Cost Report"}
 ═══════════════════════════════════════
 
-${t("date")}: ${formData.date}
-${t("product_name")}: ${formData.productName}
-${t("product_color")}: ${formData.productColor}
+${isAr ? "التاريخ" : "Date"}: ${formData.date}
+${isAr ? "اسم المنتج" : "Product"}: ${formData.productName}
+${isAr ? "لون المنتج" : "Color"}: ${formData.productColor}
 
 ───────────────────────────────────────
 ${isAr ? "تفاصيل الخيوط" : "Thread Details"}
@@ -184,10 +184,10 @@ ${threadLines.join("\n\n")}
 ───────────────────────────────────────
 ${isAr ? "الملخص" : "Summary"}
 ───────────────────────────────────────
-${t("total_weight")}: ${totalWeight} ${t("grams")}
-${t("total_cost")}: ${totalCost.toFixed(2)} ${t("riyal")}
+${isAr ? "إجمالي الوزن" : "Total Weight"}: ${totalWeight} ${isAr ? "جرام" : "g"}
+${isAr ? "إجمالي التكلفة" : "Total Cost"}: ${totalCost.toFixed(2)} ${isAr ? "ريال" : "SAR"}
 
-${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
+${formData.notes ? `${isAr ? "ملاحظات" : "Notes"}: ${formData.notes}` : ""}
 ═══════════════════════════════════════
 `;
 
@@ -209,7 +209,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
     } catch (error) {
       console.error("Export error:", error);
       showAlert(
-        t("error"),
+        isAr ? "خطأ" : "Error",
         isAr ? "حدث خطأ في التصدير" : "Error exporting data"
       );
     }
@@ -284,7 +284,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
           {threadCost > 0 && (
             <View style={[styles.costBadge, { backgroundColor: colors.primary + "15" }]}>
               <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
-                {threadCost.toFixed(2)} {t("riyal")}
+                {threadCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
               </Text>
             </View>
           )}
@@ -336,7 +336,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
             {isAr ? "اللون" : "Color"}
           </Text>
           <Text style={[styles.colorHeaderText, { color: colors.primary, flex: 2 }]}>
-            {t("color_code")}
+            {isAr ? "كود الخيط" : "Code"}
           </Text>
         </View>
 
@@ -390,7 +390,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ color: "white", fontSize: 20, fontWeight: "bold" }}>
-              {t("product_cost_calc")}
+              {isAr ? "حساب تكاليف منتج جديد" : "New Product Cost"}
             </Text>
             <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
               {isAr ? "أدخل بيانات الخيوط والألوان والأسعار" : "Enter thread, color & price data"}
@@ -409,19 +409,19 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
           <View style={{ flexDirection: "row", justifyContent: "space-around", alignItems: "center" }}>
             <View style={{ alignItems: "center" }}>
               <Text style={{ color: colors.muted, fontSize: 11 }}>
-                {t("total_weight")}
+                {isAr ? "إجمالي الوزن" : "Total Weight"}
               </Text>
               <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>
-                {totalWeight} {t("grams")}
+                {totalWeight} {isAr ? "جرام" : "g"}
               </Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={{ alignItems: "center" }}>
               <Text style={{ color: colors.muted, fontSize: 11 }}>
-                {t("total_cost")}
+                {isAr ? "إجمالي التكلفة" : "Total Cost"}
               </Text>
               <Text style={{ color: colors.success, fontSize: 16, fontWeight: "700" }}>
-                {totalCost.toFixed(2)} {t("riyal")}
+                {totalCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
               </Text>
             </View>
           </View>
@@ -439,7 +439,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
           {/* Date */}
           <View style={{ marginBottom: 12 }}>
             <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
-              {t("date")}
+              {isAr ? "التاريخ" : "Date"}
             </Text>
             <TextInput
               style={[
@@ -513,7 +513,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
             <MaterialIcons name="calculate" size={20} color={colors.primary} />
             <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16, marginLeft: 8 }}>
-              {t("cost_summary")}
+              {isAr ? "ملخص التكاليف" : "Cost Summary"}
             </Text>
           </View>
 
@@ -526,7 +526,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
                 <Text style={{ color: colors.foreground, fontSize: 13 }}>{thread.type}</Text>
                 <View style={{ flexDirection: "row", gap: 16 }}>
                   <Text style={{ color: colors.muted, fontSize: 12 }}>{thread.weight}g × {thread.pricePerKg}{isAr ? " ر.س/كجم" : " SAR/kg"}</Text>
-                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", minWidth: 70, textAlign: "right" }}>{cost.toFixed(2)} {t("riyal")}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", minWidth: 70, textAlign: "right" }}>{cost.toFixed(2)} {isAr ? "ر.س" : "SAR"}</Text>
                 </View>
               </View>
             );
@@ -538,7 +538,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
               {isAr ? "الإجمالي" : "Total"}
             </Text>
             <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "800" }}>
-              {totalCost.toFixed(2)} {t("riyal")}
+              {totalCost.toFixed(2)} {isAr ? "ر.س" : "SAR"}
             </Text>
           </View>
         </View>
@@ -579,7 +579,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <MaterialIcons name="ios-share" size={20} color={colors.primary} />
               <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 14 }}>
-                {t("export")}
+                {isAr ? "تصدير" : "Export"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -597,7 +597,7 @@ ${formData.notes ? `${t("notes")}: ${formData.notes}` : ""}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <MaterialIcons name="save" size={22} color="white" />
                 <Text style={{ color: "white", fontWeight: "700", fontSize: 16 }}>
-                  {t("save_calculation")}
+                  {isAr ? "حفظ البيانات" : "Save Data"}
                 </Text>
               </View>
             )}

@@ -11,7 +11,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { productionService } from "@/lib/services/api.service";
-import { useLanguage } from "@/lib/language-context";
 
 interface MachineStats {
   machineNumber: string;
@@ -26,8 +25,6 @@ interface MachineStats {
 
 export default function MachinesComparisonScreen() {
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
-  const isAr = language === "ar";
   const [machines, setMachines] = useState<MachineStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,7 +39,7 @@ export default function MachinesComparisonScreen() {
         const machineMap: Record<string, { production: number; waste: number; secondGrade: number; count: number }> = {};
 
         entries.forEach((entry: any) => {
-          const num = entry.machineNumber || (isAr ? "غير محدد" : "Unspecified");
+          const num = entry.machineNumber || "غير محدد";
           if (!machineMap[num]) {
             machineMap[num] = { production: 0, waste: 0, secondGrade: 0, count: 0 };
           }
@@ -91,7 +88,7 @@ export default function MachinesComparisonScreen() {
     <ScreenContainer>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>{isAr ? "مقارنة أداء المكائن" : "Machines Comparison"}</Text>
+        <Text style={styles.headerTitle}>مقارنة أداء المكائن</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -101,9 +98,9 @@ export default function MachinesComparisonScreen() {
         ) : machines.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialIcons name="precision-manufacturing" size={64} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>{isAr ? "لا توجد بيانات إنتاج بعد" : "No production data yet"}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد بيانات إنتاج بعد</Text>
             <Text style={[styles.emptySubText, { color: colors.muted }]}>
-              {isAr ? "أدخل بيانات الإنتاج أولاً لعرض مقارنة أداء المكائن" : "Enter production data first to view machines comparison"}
+              أدخل بيانات الإنتاج أولاً لعرض مقارنة أداء المكائن
             </Text>
           </View>
         ) : (
@@ -113,9 +110,9 @@ export default function MachinesComparisonScreen() {
               {getBestMachine() && (
                 <View style={[styles.highlightCard, { backgroundColor: "#dcfce7", borderColor: "#22c55e" }]}>
                   <MaterialIcons name="emoji-events" size={28} color="#22c55e" />
-                  <Text style={[styles.highlightLabel, { color: "#166534" }]}>{isAr ? "الأفضل أداءً" : "Best Performance"}</Text>
+                  <Text style={[styles.highlightLabel, { color: "#166534" }]}>الأفضل أداءً</Text>
                   <Text style={[styles.highlightValue, { color: "#166534" }]}>
-                    {isAr ? "مكينة" : "Machine"} {getBestMachine()!.machineNumber}
+                    مكينة {getBestMachine()!.machineNumber}
                   </Text>
                   <Text style={[styles.highlightPercent, { color: "#22c55e" }]}>
                     {getBestMachine()!.efficiency.toFixed(1)}%
@@ -125,9 +122,9 @@ export default function MachinesComparisonScreen() {
               {getWorstMachine() && machines.length > 1 && (
                 <View style={[styles.highlightCard, { backgroundColor: "#fef2f2", borderColor: "#ef4444" }]}>
                   <MaterialIcons name="warning" size={28} color="#ef4444" />
-                  <Text style={[styles.highlightLabel, { color: "#991b1b" }]}>{isAr ? "تحتاج تحسين" : "Needs Improvement"}</Text>
+                  <Text style={[styles.highlightLabel, { color: "#991b1b" }]}>تحتاج تحسين</Text>
                   <Text style={[styles.highlightValue, { color: "#991b1b" }]}>
-                    {isAr ? "مكينة" : "Machine"} {getWorstMachine()!.machineNumber}
+                    مكينة {getWorstMachine()!.machineNumber}
                   </Text>
                   <Text style={[styles.highlightPercent, { color: "#ef4444" }]}>
                     {getWorstMachine()!.efficiency.toFixed(1)}%
@@ -139,16 +136,16 @@ export default function MachinesComparisonScreen() {
             {/* جدول المقارنة */}
             <View style={[styles.tableCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.tableTitle, { color: colors.foreground }]}>
-                {isAr ? "ترتيب المكائن حسب الكفاءة" : "Machines Ranking by Efficiency"}
+                ترتيب المكائن حسب الكفاءة
               </Text>
 
               {/* رأس الجدول */}
               <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.thCell, { color: colors.muted, flex: 0.8 }]}>#</Text>
-                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>{isAr ? "المكينة" : "Machine"}</Text>
-                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>{isAr ? "الإنتاج" : "Production"}</Text>
-                <Text style={[styles.thCell, { color: colors.muted, flex: 1 }]}>{isAr ? "الهدر%" : "Waste%"}</Text>
-                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>{isAr ? "الكفاءة" : "Efficiency"}</Text>
+                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>المكينة</Text>
+                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>الإنتاج</Text>
+                <Text style={[styles.thCell, { color: colors.muted, flex: 1 }]}>الهدر%</Text>
+                <Text style={[styles.thCell, { color: colors.muted, flex: 1.2 }]}>الكفاءة</Text>
               </View>
 
               {machines.map((machine, index) => (
@@ -186,17 +183,17 @@ export default function MachinesComparisonScreen() {
 
             {/* ملخص */}
             <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.summaryTitle, { color: colors.foreground }]}>{isAr ? "ملخص الأداء العام" : "Overall Performance Summary"}</Text>
+              <Text style={[styles.summaryTitle, { color: colors.foreground }]}>ملخص الأداء العام</Text>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.primary }]}>{machines.length}</Text>
-                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>{isAr ? "عدد المكائن" : "Machines Count"}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>عدد المكائن</Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: colors.primary }]}>
                     {machines.reduce((sum, m) => sum + m.totalProduction, 0).toFixed(0)}
                   </Text>
-                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>{isAr ? "إجمالي الإنتاج" : "Total Production"}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>إجمالي الإنتاج</Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, { color: "#ef4444" }]}>
@@ -204,7 +201,7 @@ export default function MachinesComparisonScreen() {
                       ? (machines.reduce((sum, m) => sum + m.wastePercentage, 0) / machines.length).toFixed(1)
                       : "0"}%
                   </Text>
-                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>{isAr ? "متوسط الهدر" : "Avg Waste"}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.muted }]}>متوسط الهدر</Text>
                 </View>
               </View>
             </View>

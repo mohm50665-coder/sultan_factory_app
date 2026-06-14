@@ -37,7 +37,6 @@ class ErrorBoundary extends React.Component<
     this.state = { hasError: false, error: null };
   }
   static getDerivedStateFromError(error: Error) {
-    console.error("ErrorBoundary caught:", error);
     return { hasError: true, error };
   }
   componentDidCatch(error: Error, errorInfo: any) {
@@ -56,13 +55,10 @@ class ErrorBoundary extends React.Component<
           }}
         >
           <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
-            خطأ في التطبيق
+            حدث خطأ
           </Text>
-          <Text style={{ fontSize: 14, color: "#666", textAlign: "center", marginBottom: 10 }}>
+          <Text style={{ fontSize: 14, color: "#666", textAlign: "center" }}>
             {this.state.error?.message || "خطأ غير معروف"}
-          </Text>
-          <Text style={{ fontSize: 12, color: "#999", textAlign: "center" }}>
-            يرجى إعادة تشغيل التطبيق
           </Text>
         </View>
       );

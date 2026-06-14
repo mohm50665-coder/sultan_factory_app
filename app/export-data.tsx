@@ -14,12 +14,10 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { exportService } from "@/lib/services/export.service";
-import { useLanguage } from "@/lib/language-context";
 
 interface ExportSection {
   id: string;
-  labelAr: string;
-  labelEn: string;
+  label: string;
   storageKey: string;
   icon: string;
   selected: boolean;
@@ -28,8 +26,6 @@ interface ExportSection {
 export default function ExportDataScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
-  const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<"json" | "html" | "csv">(
     "json"
@@ -37,72 +33,63 @@ export default function ExportDataScreen() {
   const [sections, setSections] = useState<ExportSection[]>([
     {
       id: "production",
-      labelAr: "الإنتاج",
-      labelEn: "Production",
+      label: "الإنتاج",
       storageKey: "sultan_production_data_v2",
       icon: "factory",
       selected: true,
     },
     {
       id: "manufacturing",
-      labelAr: "مراحل التصنيع",
-      labelEn: "Manufacturing Stages",
+      label: "مراحل التصنيع",
       storageKey: "sultan_manufacturing_machines",
       icon: "precision-manufacturing",
       selected: true,
     },
     {
       id: "sales",
-      labelAr: "المبيعات",
-      labelEn: "Sales",
+      label: "المبيعات",
       storageKey: "sultan_sales_data",
       icon: "shopping-cart",
       selected: true,
     },
     {
       id: "collection",
-      labelAr: "التحصيل",
-      labelEn: "Collection",
+      label: "التحصيل",
       storageKey: "sultan_collection_data",
       icon: "attach-money",
       selected: true,
     },
     {
       id: "warehouse",
-      labelAr: "المستودعات",
-      labelEn: "Warehouses",
+      label: "المستودعات",
       storageKey: "sultan_warehouse_raw",
       icon: "warehouse",
       selected: true,
     },
     {
       id: "maintenance",
-      labelAr: "الصيانة",
-      labelEn: "Maintenance",
+      label: "الصيانة",
       storageKey: "sultan_maintenance_periodic",
       icon: "build",
       selected: true,
     },
     {
       id: "administrative",
-      labelAr: "الإجراءات الإدارية",
-      labelEn: "Administrative Procedures",
+      label: "الإجراءات الإدارية",
       storageKey: "sultan_administrative_data",
       icon: "assignment",
       selected: true,
     },
     {
       id: "financial",
-      labelAr: "الشؤون المالية",
-      labelEn: "Financial Affairs",
+      label: "الشؤون المالية",
       storageKey: "sultan_expenses",
       icon: "account-balance",
       selected: true,
     },
     {
       id: "tasks",
-      labelAr: "المهام",
-      labelEn: "Tasks",
+      label: "المهام",
       storageKey: "tasks_entries",
       icon: "checklist",
       selected: true,
@@ -122,10 +109,7 @@ export default function ExportDataScreen() {
       const selectedSections = sections.filter((s) => s.selected);
 
       if (selectedSections.length === 0) {
-        Alert.alert(
-          isAr ? "خطأ" : "Error",
-          isAr ? "الرجاء اختيار قسم واحد على الأقل" : "Please select at least one section"
-        );
+        Alert.alert("خطأ", "الرجاء اختيار قسم واحد على الأقل");
         return;
       }
 
@@ -136,21 +120,16 @@ export default function ExportDataScreen() {
         storageKeys,
         exportFormat as "json" | "html",
         {
-          title: isAr ? "تقرير مصنع السلطان" : "Sultan Factory Report",
+          title: "تقرير مصنع السلطان",
         }
       );
 
       Alert.alert(
-        isAr ? "نجاح" : "Success",
-        isAr
-          ? `تم تصدير البيانات بنجاح.\nالملف محفوظ في: ${fileUri}`
-          : `Data exported successfully.\nFile saved at: ${fileUri}`
+        "نجاح",
+        `تم تصدير البيانات بنجاح.\nالملف محفوظ في: ${fileUri}`
       );
     } catch (error) {
-      Alert.alert(
-        isAr ? "خطأ" : "Error",
-        isAr ? "فشل في تصدير البيانات" : "Failed to export data"
-      );
+      Alert.alert("خطأ", "فشل في تصدير البيانات");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -164,11 +143,9 @@ export default function ExportDataScreen() {
         <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: 'row', alignItems: 'center' }}>
           <BackButton />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>
-              {isAr ? "تصدير البيانات" : "Export Data"}
-            </Text>
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>تصدير البيانات</Text>
             <Text style={{ fontSize: 14, marginTop: 4 }}>
-              {isAr ? "اختر الأقسام والصيغة المطلوبة" : "Choose sections and required format"}
+              اختر الأقسام والصيغة المطلوبة
             </Text>
           </View>
         </View>
@@ -177,7 +154,7 @@ export default function ExportDataScreen() {
           {/* اختيار صيغة التصدير */}
           <View style={{ marginBottom: 24 }}>
             <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16, marginBottom: 12 }}>
-              {isAr ? "صيغة التصدير" : "Export Format"}
+              صيغة التصدير
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {(["json", "html", "csv"] as const).map((format) => (
@@ -200,7 +177,7 @@ export default function ExportDataScreen() {
           <View style={{ marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>
-                {isAr ? "الأقسام" : "Sections"}
+                الأقسام
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -215,8 +192,8 @@ export default function ExportDataScreen() {
               >
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
                   {sections.every((s) => s.selected)
-                    ? (isAr ? "إلغاء الكل" : "Deselect All")
-                    : (isAr ? "تحديد الكل" : "Select All")}
+                    ? "إلغاء الكل"
+                    : "تحديد الكل"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -234,7 +211,7 @@ export default function ExportDataScreen() {
                       color={colors.primary}
                     />
                     <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                      {isAr ? section.labelAr : section.labelEn}
+                      {section.label}
                     </Text>
                   </View>
                   <Switch
@@ -254,12 +231,11 @@ export default function ExportDataScreen() {
               <MaterialIcons name="info" size={20} color={colors.primary} />
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
-                  {isAr ? "معلومات التصدير" : "Export Information"}
+                  معلومات التصدير
                 </Text>
                 <Text style={{ color: colors.muted, fontSize: 12 }}>
-                  {isAr
-                    ? "سيتم تصدير جميع البيانات المحفوظة في الأقسام المختارة بالصيغة المحددة. يمكنك العثور على الملف في مجلد المستندات."
-                    : "All saved data in the selected sections will be exported in the specified format. You can find the file in the documents folder."}
+                  سيتم تصدير جميع البيانات المحفوظة في الأقسام المختارة بالصيغة
+                  المحددة. يمكنك العثور على الملف في مجلد المستندات.
                 </Text>
               </View>
             </View>
@@ -277,7 +253,7 @@ export default function ExportDataScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <MaterialIcons name="download" size={20} color="white" />
                 <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
-                  {isAr ? "تصدير البيانات" : "Export Data"}
+                  تصدير البيانات
                 </Text>
               </View>
             )}

@@ -31,18 +31,18 @@ interface BoardData {
   updatedAt: string;
 }
 
+const CATEGORIES = [
+  { id: "primary", label: "بيانات أساسية", labelEn: "Primary Data", icon: "folder", color: "#3B82F6" },
+  { id: "secondary", label: "بيانات فرعية", labelEn: "Secondary Data", icon: "folder-open", color: "#10B981" },
+  { id: "kpi", label: "مؤشرات الأداء", labelEn: "KPIs", icon: "trending-up", color: "#F59E0B" },
+  { id: "report", label: "التقارير", labelEn: "Reports", icon: "assessment", color: "#8B5CF6" },
+];
+
 export default function BoardRepresentativeScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
+  const { language } = useLanguage();
   const isAr = language === "ar";
-
-  const CATEGORIES = [
-    { id: "primary", label: isAr ? "بيانات أساسية" : "Primary Data", icon: "folder", color: "#3B82F6" },
-    { id: "secondary", label: isAr ? "بيانات فرعية" : "Secondary Data", icon: "folder-open", color: "#10B981" },
-    { id: "kpi", label: isAr ? "مؤشرات الأداء" : "KPIs", icon: "trending-up", color: "#F59E0B" },
-    { id: "report", label: isAr ? "التقارير" : "Reports", icon: "assessment", color: "#8B5CF6" },
-  ];
 
   const [activeTab, setActiveTab] = useState<"data" | "kpis" | "reports">("data");
   const [boardData, setBoardData] = useState<BoardData[]>([]);
@@ -107,7 +107,7 @@ export default function BoardRepresentativeScreen() {
 
   const handleSaveData = async () => {
     if (!formData.value) {
-      Alert.alert(t("error"), t("fill_all_fields"));
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء ملء البيانات المطلوبة" : "Please fill required fields");
       return;
     }
 
@@ -132,10 +132,10 @@ export default function BoardRepresentativeScreen() {
       }
       setShowModal(false);
       await loadData();
-      Alert.alert(t("success"), t("saved_success"));
+      Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم حفظ البيانات" : "Data saved successfully");
     } catch (e) {
       console.error("Error saving board data:", e);
-      Alert.alert(t("error"), t("operation_failed"));
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     } finally {
       setIsSaving(false);
     }
@@ -143,20 +143,20 @@ export default function BoardRepresentativeScreen() {
 
   const handleDeleteData = (id: number) => {
     Alert.alert(
-      t("confirm_delete"),
-      t("confirm_delete_msg"),
+      isAr ? "تأكيد الحذف" : "Confirm Delete",
+      isAr ? "هل أنت متأكد من حذف هذه البيانات؟" : "Are you sure?",
       [
-        { text: t("cancel"), style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
-          text: t("delete"),
+          text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
             try {
               await boardDataService.delete(id);
               await loadData();
-              Alert.alert(t("done"), t("deleted_success"));
+              Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف البيانات" : "Data deleted");
             } catch (e) {
-              Alert.alert(t("error"), t("operation_failed"));
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل الحذف" : "Failed to delete");
             }
           },
         },
@@ -178,7 +178,7 @@ export default function BoardRepresentativeScreen() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
             {category && <MaterialIcons name={category.icon as any} size={20} color={category.color} />}
             <Text style={[styles.dataTitle, { color: colors.foreground }]}>
-              {category?.label}
+              {isAr ? category?.label : category?.labelEn}
             </Text>
           </View>
           <Text style={[styles.dataContent, { color: colors.foreground }]}>{item.value}</Text>
@@ -213,12 +213,12 @@ export default function BoardRepresentativeScreen() {
       <ScreenContainer>
         <View style={[styles.header, { backgroundColor: colors.primary }]}>
           <BackButton />
-          <Text style={styles.headerTitle}>{t("board_representative")}</Text>
+          <Text style={styles.headerTitle}>{isAr ? "ممثل مجلس الإدارة" : "Board Representative"}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.muted, marginTop: 12 }}>{t("loading")}</Text>
+          <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري التحميل..." : "Loading..."}</Text>
         </View>
       </ScreenContainer>
     );
@@ -229,16 +229,16 @@ export default function BoardRepresentativeScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>{t("board_representative")}</Text>
+        <Text style={styles.headerTitle}>{isAr ? "ممثل مجلس الإدارة" : "Board Representative"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {/* Tabs */}
       <View style={[styles.tabsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {[
-          { id: "data", label: t("panel_data") },
-          { id: "kpis", label: t("kpi") },
-          { id: "reports", label: t("reports") },
+          { id: "data", label: isAr ? "البيانات" : "Data" },
+          { id: "kpis", label: isAr ? "مؤشرات الأداء" : "KPIs" },
+          { id: "reports", label: isAr ? "التقارير" : "Reports" },
         ].map(tab => (
           <TouchableOpacity
             key={tab.id}
@@ -271,7 +271,7 @@ export default function BoardRepresentativeScreen() {
               <MaterialIcons name="search" size={20} color={colors.muted} />
               <TextInput
                 style={[styles.searchInput, { color: colors.foreground }]}
-                placeholder={t("search")}
+                placeholder={isAr ? "ابحث..." : "Search..."}
                 value={searchText}
                 onChangeText={setSearchText}
                 placeholderTextColor={colors.muted}
@@ -284,7 +284,7 @@ export default function BoardRepresentativeScreen() {
                 onPress={() => setSelectedCategory(null)}
               >
                 <Text style={{ color: !selectedCategory ? "white" : colors.foreground, fontWeight: "600", fontSize: 12 }}>
-                  {t("all")}
+                  {isAr ? "الكل" : "All"}
                 </Text>
               </TouchableOpacity>
               {CATEGORIES.map(cat => (
@@ -294,7 +294,7 @@ export default function BoardRepresentativeScreen() {
                   onPress={() => setSelectedCategory(cat.id)}
                 >
                   <Text style={{ color: selectedCategory === cat.id ? "white" : colors.foreground, fontWeight: "600", fontSize: 12 }}>
-                    {cat.label}
+                    {isAr ? cat.label : cat.labelEn}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -303,7 +303,7 @@ export default function BoardRepresentativeScreen() {
             <TouchableOpacity style={[styles.addBtn, { backgroundColor: colors.primary }]} onPress={handleAddData}>
               <MaterialIcons name="add" size={20} color="white" />
               <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>
-                {t("add_data")}
+                {isAr ? "إضافة بيانات" : "Add Data"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -317,7 +317,7 @@ export default function BoardRepresentativeScreen() {
               <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 40 }}>
                 <MaterialIcons name="folder-open" size={48} color={colors.muted} />
                 <Text style={{ color: colors.muted, marginTop: 12 }}>
-                  {t("no_data")}
+                  {isAr ? "لا توجد بيانات - أضف بيانات جديدة" : "No data - add new data"}
                 </Text>
               </View>
             }
@@ -370,7 +370,7 @@ export default function BoardRepresentativeScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold" }}>
-              {editingData ? (t("edit")) : (t("add_data"))}
+              {editingData ? (isAr ? "تعديل البيانات" : "Edit Data") : (isAr ? "إضافة بيانات جديدة" : "Add New Data")}
             </Text>
             <TouchableOpacity onPress={() => setShowModal(false)}>
               <MaterialIcons name="close" size={24} color={colors.muted} />
@@ -392,7 +392,7 @@ export default function BoardRepresentativeScreen() {
                       onPress={() => setFormData({ ...formData, dataType: cat.id })}
                     >
                       <Text style={{ color: formData.dataType === cat.id ? "white" : colors.foreground, fontSize: 12 }}>
-                        {cat.label}
+                        {isAr ? cat.label : cat.labelEn}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -418,7 +418,7 @@ export default function BoardRepresentativeScreen() {
             {/* Description */}
             <View>
               <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                {t("description")}
+                {isAr ? "الوصف" : "Description"}
               </Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
@@ -433,7 +433,7 @@ export default function BoardRepresentativeScreen() {
             {!editingData && (
               <View>
                 <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                  {t("date")}
+                  {isAr ? "التاريخ" : "Date"}
                 </Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
@@ -448,7 +448,7 @@ export default function BoardRepresentativeScreen() {
             {/* Notes */}
             <View>
               <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
-                {t("notes")}
+                {isAr ? "ملاحظات" : "Notes"}
               </Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 60, textAlignVertical: "top" }]}
@@ -471,7 +471,7 @@ export default function BoardRepresentativeScreen() {
                   <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text style={{ color: "white", fontWeight: "600", textAlign: "center" }}>
-                    {t("save")}
+                    {isAr ? "حفظ" : "Save"}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -480,7 +480,7 @@ export default function BoardRepresentativeScreen() {
                 onPress={() => setShowModal(false)}
               >
                 <Text style={{ color: colors.foreground, fontWeight: "600", textAlign: "center" }}>
-                  {t("cancel")}
+                  {isAr ? "إلغاء" : "Cancel"}
                 </Text>
               </TouchableOpacity>
             </View>

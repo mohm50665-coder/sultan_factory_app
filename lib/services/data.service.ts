@@ -109,10 +109,9 @@ export interface FinancialData {
 
 export interface TaskData {
   id?: number;
-  assignmentSource: string;
+  assignmentSource: "board_representative" | "general_manager";
   assignedEmployee: string;
   assignedUsername?: string;
-  createdBy?: string;
   taskDescription: string;
   createdDate: string;
   startDate: string;

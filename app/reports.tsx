@@ -10,7 +10,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { productionService, salesService, collectionService, expensesService } from "@/lib/services/api.service";
-import { useLanguage } from "@/lib/language-context";
 
 interface KPIData {
   totalProduction: number;
@@ -22,8 +21,6 @@ interface KPIData {
 
 export default function ReportsScreen() {
   const colors = useColors();
-  const { language, t, isRtl } = useLanguage();
-  const isAr = language === 'ar';
   const [dateFilter, setDateFilter] = useState("month");
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,13 +84,13 @@ export default function ReportsScreen() {
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* رأس الصفحة */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.foreground, fontSize: 24, fontWeight: "bold", marginBottom: 4, textAlign: isRtl ? "right" : "left" }}>
-              {t('reports')}
+            <Text style={{ color: colors.foreground, fontSize: 24, fontWeight: "bold", marginBottom: 4, textAlign: "right" }}>
+              التقارير والإحصائيات
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 12, textAlign: isRtl ? "right" : "left" }}>
-              {isAr ? "مؤشرات الأداء بناءً على البيانات المدخلة" : "Performance indicators based on entered data"}
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right" }}>
+              مؤشرات الأداء بناءً على البيانات المدخلة
             </Text>
           </View>
           <BackButton />
@@ -101,7 +98,7 @@ export default function ReportsScreen() {
 
         {loading ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 }}>
-            <Text style={{ color: colors.muted, fontSize: 14 }}>{t('loading')}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14 }}>جاري تحميل البيانات...</Text>
           </View>
         ) : !hasData ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 }}>
@@ -109,30 +106,30 @@ export default function ReportsScreen() {
               <MaterialIcons name="bar-chart" size={48} color={colors.primary} />
             </View>
             <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", marginBottom: 8 }}>
-              {t('no_data')}
+              لا توجد بيانات بعد
             </Text>
             <Text style={{ color: colors.muted, fontSize: 13, textAlign: "center", paddingHorizontal: 40, lineHeight: 20 }}>
-              {isAr ? "ستظهر التقارير والإحصائيات هنا تلقائياً بعد إدخال بيانات الإنتاج والمبيعات والمصروفات من الأقسام المختلفة." : "Reports and statistics will appear here automatically after entering production, sales, and expenses data from different departments."}
+              ستظهر التقارير والإحصائيات هنا تلقائياً بعد إدخال بيانات الإنتاج والمبيعات والمصروفات من الأقسام المختلفة.
             </Text>
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16 }}>
             {/* بطاقات المؤشرات */}
-            <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, textAlign: isRtl ? "right" : "left" }}>
-              {isAr ? "ملخص الأداء" : "Performance Summary"}
+            <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, textAlign: "right" }}>
+              ملخص الأداء
             </Text>
 
             {/* الإنتاج */}
             {kpiData.totalProduction > 0 && (
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: isRtl ? 4 : 0, borderLeftWidth: isRtl ? 0 : 4, borderRightColor: isRtl ? "#3B82F6" : "transparent", borderLeftColor: isRtl ? "transparent" : "#3B82F6" }}>
-                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#3B82F6" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#3B82F620", justifyContent: "center", alignItems: "center" }}>
                     <MaterialIcons name="precision-manufacturing" size={22} color="#3B82F6" />
                   </View>
-                  <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 12 : 0, marginLeft: isRtl ? 0 : 12 }}>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>{isAr ? "إجمالي الإنتاج" : "Total Production"}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي الإنتاج</Text>
                     <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalProduction.toLocaleString()}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{t('dozen')}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>درزن</Text>
                   </View>
                 </View>
               </View>
@@ -140,15 +137,15 @@ export default function ReportsScreen() {
 
             {/* نسبة الهدر */}
             {kpiData.totalProduction > 0 && (
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: isRtl ? 4 : 0, borderLeftWidth: isRtl ? 0 : 4, borderRightColor: isRtl ? "#EF4444" : "transparent", borderLeftColor: isRtl ? "transparent" : "#EF4444" }}>
-                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#EF4444" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#EF444420", justifyContent: "center", alignItems: "center" }}>
                     <MaterialIcons name="warning" size={22} color="#EF4444" />
                   </View>
-                  <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 12 : 0, marginLeft: isRtl ? 0 : 12 }}>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>{t('waste_percentage')}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>نسبة الهدر</Text>
                     <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalWastePercent}%</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? "من إجمالي وزن الخيوط" : "of total yarn weight"}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>من إجمالي وزن الخيوط</Text>
                   </View>
                 </View>
               </View>
@@ -156,15 +153,15 @@ export default function ReportsScreen() {
 
             {/* المبيعات */}
             {kpiData.totalSales > 0 && (
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: isRtl ? 4 : 0, borderLeftWidth: isRtl ? 0 : 4, borderRightColor: isRtl ? "#10B981" : "transparent", borderLeftColor: isRtl ? "transparent" : "#10B981" }}>
-                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#10B981" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#10B98120", justifyContent: "center", alignItems: "center" }}>
                     <MaterialIcons name="shopping-cart" size={22} color="#10B981" />
                   </View>
-                  <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 12 : 0, marginLeft: isRtl ? 0 : 12 }}>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>{t('total_sales')}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي المبيعات</Text>
                     <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalSales.toLocaleString()}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{t('pairs')}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>زوج</Text>
                   </View>
                 </View>
               </View>
@@ -172,15 +169,15 @@ export default function ReportsScreen() {
 
             {/* التحصيل */}
             {kpiData.totalCollection > 0 && (
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: isRtl ? 4 : 0, borderLeftWidth: isRtl ? 0 : 4, borderRightColor: isRtl ? "#F59E0B" : "transparent", borderLeftColor: isRtl ? "transparent" : "#F59E0B" }}>
-                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderRightWidth: 4, borderRightColor: "#F59E0B" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#F59E0B20", justifyContent: "center", alignItems: "center" }}>
                     <MaterialIcons name="account-balance-wallet" size={22} color="#F59E0B" />
                   </View>
-                  <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 12 : 0, marginLeft: isRtl ? 0 : 12 }}>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>{t('total_collected')}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي التحصيل</Text>
                     <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalCollection.toLocaleString()}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{t('riyal')}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>ريال</Text>
                   </View>
                 </View>
               </View>
@@ -188,15 +185,15 @@ export default function ReportsScreen() {
 
             {/* المصروفات */}
             {kpiData.totalExpenses > 0 && (
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 24, borderRightWidth: isRtl ? 4 : 0, borderLeftWidth: isRtl ? 0 : 4, borderRightColor: isRtl ? "#8B5CF6" : "transparent", borderLeftColor: isRtl ? "transparent" : "#8B5CF6" }}>
-                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 24, borderRightWidth: 4, borderRightColor: "#8B5CF6" }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#8B5CF620", justifyContent: "center", alignItems: "center" }}>
                     <MaterialIcons name="receipt-long" size={22} color="#8B5CF6" />
                   </View>
-                  <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start", marginRight: isRtl ? 12 : 0, marginLeft: isRtl ? 0 : 12 }}>
-                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>{t('total_expenses')}</Text>
+                  <View style={{ flex: 1, alignItems: "flex-end", marginRight: 12 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 2 }}>إجمالي المصروفات</Text>
                     <Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "bold" }}>{kpiData.totalExpenses.toLocaleString()}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{t('riyal')}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>ريال</Text>
                   </View>
                 </View>
               </View>
