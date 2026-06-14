@@ -320,13 +320,13 @@ export default function MeetingRequestScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <MaterialIcons name="people" size={14} color={colors.muted} />
                 <Text style={{ color: colors.muted, fontSize: 12 }}>
-                  {item.attendees.length} isAr ? "عضو:" : "Member:" {item.attendees.map(a => getUserName(a)).join("، ")}
+                  {item.attendees.length} {isAr ? "عضو:" : "Member:"} {item.attendees.map(a => getUserName(a)).join("، ")}
                 </Text>
               </View>
               {item.attachments.length > 0 && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <MaterialIcons name="attach-file" size={14} color={colors.muted} />
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>{item.attachments.length} isAr ? "مرفق" : "Attachment"</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{item.attachments.length} {isAr ? "مرفق" : "Attachment"}</Text>
                 </View>
               )}
             </View>
@@ -338,7 +338,7 @@ export default function MeetingRequestScreen() {
                 onPress={() => handleOpenLink(item.meetingLink!)}
               >
                 <MaterialIcons name="link" size={16} color="#10B981" />
-                <Text style={{ color: "#10B981", fontSize: 12, fontWeight: "600" }}>isAr ? "الدخول للاجتماع" : "Join Meeting"</Text>
+                <Text style={{ color: "#10B981", fontSize: 12, fontWeight: "600" }}>{isAr ? "الدخول للاجتماع" : "Join Meeting"}</Text>
               </TouchableOpacity>
             )}
 
@@ -350,7 +350,7 @@ export default function MeetingRequestScreen() {
                   onPress={() => handleStatusChange(item, "completed")}
                 >
                   <MaterialIcons name="check" size={14} color="#10B981" />
-                  <Text style={{ color: "#10B981", fontSize: 11 }}>t("meeting_completed")</Text>
+                  <Text style={{ color: "#10B981", fontSize: 11 }}>{t("meeting_completed")}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -358,14 +358,14 @@ export default function MeetingRequestScreen() {
                 onPress={() => handleEditMeeting(item)}
               >
                 <MaterialIcons name="edit" size={14} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontSize: 11 }}>t("edit")</Text>
+                <Text style={{ color: colors.primary, fontSize: 11 }}>{t("edit")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionChip, { backgroundColor: "#EF444420" }]}
                 onPress={() => handleDeleteMeeting(item)}
               >
                 <MaterialIcons name="delete" size={14} color="#EF4444" />
-                <Text style={{ color: "#EF4444", fontSize: 11 }}>t("delete")</Text>
+                <Text style={{ color: "#EF4444", fontSize: 11 }}>{t("delete")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -373,9 +373,9 @@ export default function MeetingRequestScreen() {
         ListEmptyComponent={
           <View style={{ alignItems: "center", paddingVertical: 60 }}>
             <MaterialIcons name="event-busy" size={56} color={colors.muted} />
-            <Text style={{ color: colors.muted, marginTop: 12, fontSize: 15 }}>t("no_meetings")</Text>
+            <Text style={{ color: colors.muted, marginTop: 12, fontSize: 15 }}>{t("no_meetings")}</Text>
             <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={handleNewMeeting}>
-              <Text style={{ color: "white", fontWeight: "600" }}>isAr ? "جدولة اجتماع جديد" : "Schedule New Meeting"</Text>
+              <Text style={{ color: "white", fontWeight: "600" }}>{isAr ? "جدولة اجتماع جديد" : "Schedule New Meeting"}</Text>
             </TouchableOpacity>
           </View>
         }
