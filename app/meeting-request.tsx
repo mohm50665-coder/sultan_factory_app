@@ -208,10 +208,12 @@ export default function MeetingRequestScreen() {
   };
 
   const handleOpenLink = (link: string) => {
-    if (link) {
-      const url = link.startsWith("http") ? link : "https://" + link;
-      Linking.openURL(url).catch(() => Alert.alert(t("error"), isAr ? "لا يمكن فتح الرابط" : "Cannot open link"));
+    if (!link || link.trim() === "") {
+      Alert.alert(t("error"), isAr ? "لم يتم تحديد رابط للاجتماع" : "No meeting link provided");
+      return;
     }
+    const url = link.startsWith("http") ? link : "https://" + link;
+    Linking.openURL(url).catch(() => Alert.alert(t("error"), isAr ? "لا يمكن فتح الرابط" : "Cannot open link"));
   };
 
   const toggleAttendee = (userId: string) => {
