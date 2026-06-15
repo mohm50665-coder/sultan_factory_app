@@ -22,6 +22,7 @@ interface UserToolPermissions {
 }
 
 const AVAILABLE_TOOLS: Tool[] = [
+  // الأدوات الأساسية
   { id: 'advanced_analytics', labelAr: 'التحليلات المتقدمة', labelEn: 'Advanced Analytics', icon: 'insights', color: '#0891b2' },
   { id: 'export_reports', labelAr: 'تصدير التقارير PDF', labelEn: 'Export Reports PDF', icon: 'picture-as-pdf', color: '#dc2626' },
   { id: 'cost_comparison', labelAr: 'تقرير مقارنة التكاليف', labelEn: 'Cost Comparison Report', icon: 'trending-down', color: '#f97316' },
@@ -30,6 +31,17 @@ const AVAILABLE_TOOLS: Tool[] = [
   { id: 'global_search', labelAr: 'البحث الشامل', labelEn: 'Global Search', icon: 'search', color: '#06b6d4' },
   { id: 'data_backup', labelAr: 'النسخ الاحتياطي', labelEn: 'Data Backup', icon: 'backup', color: '#14b8a6' },
   { id: 'user_management', labelAr: 'إدارة المستخدمين', labelEn: 'User Management', icon: 'people', color: '#f59e0b' },
+  // الأدوات الإضافية
+  { id: 'reports', labelAr: 'التقارير', labelEn: 'Reports', icon: 'bar-chart', color: '#059669' },
+  { id: 'notifications_center', labelAr: 'مركز الإشعارات', labelEn: 'Notifications Center', icon: 'notifications', color: '#d97706' },
+  { id: 'export_data', labelAr: 'تصدير البيانات', labelEn: 'Export Data', icon: 'file-download', color: '#6366f1' },
+  { id: 'production_export', labelAr: 'طباعة الإنتاج', labelEn: 'Production Export', icon: 'print', color: '#16a34a' },
+  { id: 'waste_alerts', labelAr: 'تنبيهات الهدر', labelEn: 'Waste Alerts', icon: 'warning-amber', color: '#dc2626' },
+  { id: 'reports_analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: 'bar-chart', color: '#059669' },
+  { id: 'section_reports', labelAr: 'تقارير الأقسام', labelEn: 'Section Reports', icon: 'summarize', color: '#0891b2' },
+  { id: 'employee_performance', labelAr: 'أداء الموظفين', labelEn: 'Employee Performance', icon: 'assessment', color: '#059669' },
+  { id: 'machines_comparison', labelAr: 'مقارنة المكائن', labelEn: 'Machines Comparison', icon: 'precision-manufacturing', color: '#8b5cf6' },
+  { id: 'share_reports', labelAr: 'مشاركة التقارير', labelEn: 'Share Reports', icon: 'share', color: '#0ea5e9' },
 ];
 
 export default function AdminToolsPermissionsScreen() {

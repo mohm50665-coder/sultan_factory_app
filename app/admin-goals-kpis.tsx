@@ -107,17 +107,16 @@ export default function AdminGoalsKpisScreen() {
     notes: "",
   });
 
-  // Fetch goals using TRPC
+  // Fetch goals using tRPC
   const { data: goalsData, isLoading: goalsLoading, refetch: refetchGoals } = useQuery({
     queryKey: ["goals", currentMonth, selectedDepartment],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/goals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month: currentMonth, department: selectedDepartment }),
+        const result = await trpc.goalsAndKpis.getMonthlyGoals.useQuery({
+          month: currentMonth,
+          department: selectedDepartment,
         });
-        return response.json();
+        return result.data || [];
       } catch (error) {
         console.error("Error fetching goals:", error);
         return [];
@@ -125,17 +124,16 @@ export default function AdminGoalsKpisScreen() {
     },
   });
 
-  // Fetch KPIs using TRPC
+  // Fetch KPIs using tRPC
   const { data: kpisData, isLoading: kpisLoading, refetch: refetchKpis } = useQuery({
     queryKey: ["kpis", currentMonth, selectedDepartment],
     queryFn: async () => {
       try {
-        const response = await fetch("/api/kpis", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month: currentMonth, department: selectedDepartment }),
+        const result = await trpc.goalsAndKpis.getKpis.useQuery({
+          month: currentMonth,
+          department: selectedDepartment,
         });
-        return response.json();
+        return result.data || [];
       } catch (error) {
         console.error("Error fetching KPIs:", error);
         return [];
@@ -146,16 +144,12 @@ export default function AdminGoalsKpisScreen() {
   // Create goal mutation
   const createGoalMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await fetch("/api/goals/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          month: currentMonth,
-          createdBy: user?.id,
-        }),
+      const result = await trpc.goalsAndKpis.createMonthlyGoal.useMutation({
+        ...data,
+        month: currentMonth,
+        createdBy: user?.id,
       });
-      return response.json();
+      return result;
     },
     onSuccess: () => {
       refetchGoals();
