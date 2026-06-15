@@ -32,12 +32,12 @@ interface MonthlyGoal {
   goalName: string;
   targetValue: number;
   unit: string;
-  weight: number;
+  weight?: number;
   description?: string;
   status: "active" | "completed" | "cancelled";
   createdBy: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 interface KPI {
@@ -52,9 +52,9 @@ interface KPI {
   unit: string;
   status: "on_track" | "at_risk" | "off_track" | "exceeded";
   trend: "up" | "down" | "stable";
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  notes: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 const DEPARTMENTS = [

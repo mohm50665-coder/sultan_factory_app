@@ -19,6 +19,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
 
+// Helper function to check tool permissions
+const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | undefined): boolean => {
+  if (!userPermissions) return false;
+  return userPermissions[toolId] === true;
+};
+
 interface DashboardItem {
   id: string;
   labelAr: string;
@@ -507,147 +513,171 @@ export default function HomeScreen() {
         </View>
 
         {/* Extra Tools */}
-        <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
-          {t("extra_tools")}
-        </Text>
-        <View style={styles.toolsGrid}>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/reports")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("reports")}</Text>
+        {user?.toolPermissions && Object.values(user.toolPermissions).some(v => v === true) && (
+          <>
+            <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
+              {t("extra_tools")}
+            </Text>
+            <View style={styles.toolsGrid}>
+              {canAccessTool('reports', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/reports")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="bar-chart" size={24} color="#059669" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("reports")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('notifications_center', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/notifications-center")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="notifications" size={24} color="#d97706" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("notifications")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('export_data', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/export-data")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="file-download" size={24} color="#6366f1" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("export")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('activity_log', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/activity-log-viewer")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="history" size={24} color="#0891b2" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "سجل التعديلات" : "Activity Log"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('production_export', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/production-export")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="print" size={24} color="#16a34a" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("production_export")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('waste_alerts', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/waste-alerts")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="warning-amber" size={24} color="#dc2626" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("waste_alerts")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('reports_analytics', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/reports-analytics")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="bar-chart" size={24} color="#059669" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "التحليلات" : "Analytics"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('section_reports', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/section-reports")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="summarize" size={24} color="#0891b2" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "تقارير الأقسام" : "Reports"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {user?.role === "admin" && canAccessTool('users_management', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/users-management")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="people" size={24} color="#7c3aed" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("users_management")}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {user?.role === "admin" && canAccessTool('employee_performance', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/employee-performance")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="assessment" size={24} color="#059669" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "أداء الموظفين" : "Performance"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {user?.role === "admin" && canAccessTool('backup_restore', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/backup-restore")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="backup" size={24} color="#6366f1" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "نسخ احتياطي" : "Backup"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('machines_comparison', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/machines-comparison")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="precision-manufacturing" size={24} color="#8b5cf6" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مقارنة المكائن" : "Machines"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              {canAccessTool('share_reports', user?.toolPermissions) && (
+                <TouchableOpacity
+                  onPress={() => handleNavigate("/share-reports")}
+                  style={styles.toolItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <MaterialIcons name="share" size={24} color="#0ea5e9" />
+                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مشاركة التقارير" : "Share"}</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/notifications-center")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="notifications" size={24} color="#d97706" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("notifications")}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/export-data")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="file-download" size={24} color="#6366f1" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("export")}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/activity-log-viewer")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="history" size={24} color="#0891b2" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "سجل التعديلات" : "Activity Log"}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/production-export")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="print" size={24} color="#16a34a" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("production_export")}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/waste-alerts")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="warning-amber" size={24} color="#dc2626" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("waste_alerts")}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/reports-analytics")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="bar-chart" size={24} color="#059669" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "التحليلات" : "Analytics"}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/section-reports")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="summarize" size={24} color="#0891b2" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "تقارير الأقسام" : "Reports"}</Text>
-            </View>
-          </TouchableOpacity>
-          {user?.role === "admin" && (
-            <TouchableOpacity
-              onPress={() => handleNavigate("/users-management")}
-              style={styles.toolItem}
-              activeOpacity={0.7}
-            >
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-                <MaterialIcons name="people" size={24} color="#7c3aed" />
-                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("users_management")}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          {user?.role === "admin" && (
-            <TouchableOpacity
-              onPress={() => handleNavigate("/employee-performance")}
-              style={styles.toolItem}
-              activeOpacity={0.7}
-            >
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-                <MaterialIcons name="assessment" size={24} color="#059669" />
-                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "أداء الموظفين" : "Performance"}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          {user?.role === "admin" && (
-            <TouchableOpacity
-              onPress={() => handleNavigate("/backup-restore")}
-              style={styles.toolItem}
-              activeOpacity={0.7}
-            >
-              <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-                <MaterialIcons name="backup" size={24} color="#6366f1" />
-                <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "نسخ احتياطي" : "Backup"}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => handleNavigate("/machines-comparison")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="precision-manufacturing" size={24} color="#8b5cf6" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مقارنة المكائن" : "Machines"}</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleNavigate("/share-reports")}
-            style={styles.toolItem}
-            activeOpacity={0.7}
-          >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-              <MaterialIcons name="share" size={24} color="#0ea5e9" />
-              <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "مشاركة التقارير" : "Share"}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );

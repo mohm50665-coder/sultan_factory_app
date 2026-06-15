@@ -447,9 +447,9 @@ export const monthlyGoals = mysqlTable("monthlyGoals", {
   goalName: varchar("goalName", { length: 255 }).notNull(), // اسم الهدف (مثلاً: إنتاج 10000 درزن)
   targetValue: int("targetValue").notNull(), // القيمة المستهدفة
   unit: varchar("unit", { length: 50 }).notNull(), // الوحدة (درزن، ريال، ساعة، إلخ)
-  weight: int("weight").default(100), // وزن الهدف في حساب الأداء الكلي
-  description: text("description"), // وصف تفصيلي للهدف
-  status: mysqlEnum("status", ["active", "completed", "cancelled"]).default("active"),
+  weight: int("weight").default(100).notNull(), // وزن الهدف في حساب الأداء الكلي
+  description: text("description").default("").notNull(), // وصف تفصيلي للهدف
+  status: mysqlEnum("status", ["active", "completed", "cancelled"]).default("active").notNull(),
   createdBy: int("createdBy").notNull(), // معرف الأدمن الذي أنشأ الهدف
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -481,11 +481,11 @@ export const kpis = mysqlTable("kpis", {
   kpiType: mysqlEnum("kpiType", ["production", "quality", "efficiency", "safety", "financial", "custom"]).notNull(),
   currentValue: int("currentValue").notNull(), // القيمة الحالية
   targetValue: int("targetValue").notNull(), // القيمة المستهدفة
-  previousValue: int("previousValue").default(0), // القيمة السابقة (للمقارنة)
+  previousValue: int("previousValue").default(0).notNull(), // القيمة السابقة (للمقارنة)
   unit: varchar("unit", { length: 50 }).notNull(), // الوحدة
-  status: mysqlEnum("status", ["on_track", "at_risk", "off_track", "exceeded"]).default("on_track"),
-  trend: mysqlEnum("trend", ["up", "down", "stable"]).default("stable"), // الاتجاه
-  notes: text("notes"),
+  status: mysqlEnum("status", ["on_track", "at_risk", "off_track", "exceeded"]).default("on_track").notNull(),
+  trend: mysqlEnum("trend", ["up", "down", "stable"]).default("stable").notNull(), // الاتجاه
+  notes: text("notes").default("").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -1655,7 +1655,14 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const result = await db.insert(kpisTable).values(input);
+        const kpiData = {
+          ...input,
+          previousValue: input.previousValue ?? 0,
+          status: input.status ?? "on_track",
+          trend: input.trend ?? "stable",
+          notes: input.notes ?? "",
+        };
+        const result = await db.insert(kpisTable).values(kpiData);
         return { success: true, id: result[0].insertId };
       }),
 
