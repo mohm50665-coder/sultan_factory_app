@@ -141,16 +141,8 @@ export default function AdminGoalsKpisScreen() {
     },
   });
 
-  // Create goal mutation
-  const createGoalMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const result = await trpc.goalsAndKpis.createMonthlyGoal.useMutation({
-        ...data,
-        month: currentMonth,
-        createdBy: user?.id,
-      });
-      return result;
-    },
+  // Create goal mutation using tRPC
+  const createGoalMutation = trpc.goalsAndKpis.createMonthlyGoal.useMutation({
     onSuccess: () => {
       refetchGoals();
       setShowGoalForm(false);
@@ -164,24 +156,14 @@ export default function AdminGoalsKpisScreen() {
       });
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة الهدف بنجاح" : "Goal added successfully");
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Goal creation error:', error);
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل إضافة الهدف" : "Failed to add goal");
     },
   });
 
-  // Create KPI mutation
-  const createKpiMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await fetch("/api/kpis/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          month: currentMonth,
-        }),
-      });
-      return response.json();
-    },
+  // Create KPI mutation using tRPC
+  const createKpiMutation = trpc.goalsAndKpis.createKpi.useMutation({
     onSuccess: () => {
       refetchKpis();
       setShowKpiForm(false);
@@ -196,38 +178,29 @@ export default function AdminGoalsKpisScreen() {
       });
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إضافة مؤشر الأداء بنجاح" : "KPI added successfully");
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('KPI creation error:', error);
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل إضافة مؤشر الأداء" : "Failed to add KPI");
     },
   });
 
-  // Delete goal mutation
-  const deleteGoalMutation = useMutation({
-    mutationFn: async (goalId: number) => {
-      const response = await fetch(`/api/goals/${goalId}`, {
-        method: "DELETE",
-      });
-      return response.json();
-    },
+  // Delete goal mutation using tRPC
+  const deleteGoalMutation = trpc.goalsAndKpis.deleteMonthlyGoal.useMutation({
     onSuccess: () => {
       refetchGoals();
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف الهدف بنجاح" : "Goal deleted successfully");
     },
   });
 
-  // Delete KPI mutation
-  const deleteKpiMutation = useMutation({
-    mutationFn: async (kpiId: number) => {
-      const response = await fetch(`/api/kpis/${kpiId}`, {
-        method: "DELETE",
-      });
-      return response.json();
-    },
+  // Delete KPI mutation using tRPC
+  const deleteKpiMutation = trpc.goalsAndKpis.deleteKpi.useMutation({
     onSuccess: () => {
       refetchKpis();
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حذف مؤشر الأداء بنجاح" : "KPI deleted successfully");
     },
   });
+
+
 
   // Check for alerts
   useEffect(() => {
@@ -248,7 +221,11 @@ export default function AdminGoalsKpisScreen() {
       Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
     }
-    createGoalMutation.mutate(goalForm);
+    createGoalMutation.mutate({
+      ...goalForm,
+      month: currentMonth,
+      createdBy: user?.id || 0,
+    });
   };
 
   const handleAddKpi = () => {
@@ -256,7 +233,10 @@ export default function AdminGoalsKpisScreen() {
       Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى ملء جميع الحقول المطلوبة" : "Please fill all required fields");
       return;
     }
-    createKpiMutation.mutate(kpiForm);
+    createKpiMutation.mutate({
+      ...kpiForm,
+      month: currentMonth,
+    });
   };
 
   const calculateProgress = (current: number, target: number) => {
@@ -442,7 +422,7 @@ export default function AdminGoalsKpisScreen() {
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => deleteGoalMutation.mutate(goal.id)}
+                  onPress={() => deleteGoalMutation.mutate({ id: goal.id })}
                   style={styles.deleteButton}
                 >
                   <MaterialIcons name="delete" size={20} color="#ef4444" />
@@ -662,7 +642,7 @@ export default function AdminGoalsKpisScreen() {
                   </View>
 
                   <TouchableOpacity
-                    onPress={() => deleteKpiMutation.mutate(kpi.id)}
+                    onPress={() => deleteKpiMutation.mutate({ id: kpi.id })}
                     style={styles.deleteButton}
                   >
                     <MaterialIcons name="delete" size={20} color="#ef4444" />

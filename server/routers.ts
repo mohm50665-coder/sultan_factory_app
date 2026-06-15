@@ -245,6 +245,7 @@ export const appRouter = router({
         role: u.role,
         isActive: u.isActive,
         allowedSections: u.allowedSections,
+        toolPermissions: u.toolPermissions,
         createdAt: u.createdAt?.toISOString(),
       }));
     }),

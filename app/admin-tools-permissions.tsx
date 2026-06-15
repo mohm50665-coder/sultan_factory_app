@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Switch, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { useColors } from '@/hooks/use-colors';
 import { useLanguage } from '@/lib/language-context';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/lib/auth-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 
@@ -22,24 +22,18 @@ interface UserToolPermissions {
 }
 
 const AVAILABLE_TOOLS: Tool[] = [
-  // الأدوات الأساسية
-  { id: 'advanced_analytics', labelAr: 'التحليلات المتقدمة', labelEn: 'Advanced Analytics', icon: 'insights', color: '#0891b2' },
-  { id: 'export_reports', labelAr: 'تصدير التقارير PDF', labelEn: 'Export Reports PDF', icon: 'picture-as-pdf', color: '#dc2626' },
-  { id: 'cost_comparison', labelAr: 'تقرير مقارنة التكاليف', labelEn: 'Cost Comparison Report', icon: 'trending-down', color: '#f97316' },
-  { id: 'product_cost_calculator', labelAr: 'حساب تكاليف منتج جديد', labelEn: 'Product Cost Calculator', icon: 'calculate', color: '#8b5cf6' },
-  { id: 'activity_log', labelAr: 'سجل التعديلات', labelEn: 'Activity Log', icon: 'history', color: '#6366f1' },
-  { id: 'global_search', labelAr: 'البحث الشامل', labelEn: 'Global Search', icon: 'search', color: '#06b6d4' },
-  { id: 'data_backup', labelAr: 'النسخ الاحتياطي', labelEn: 'Data Backup', icon: 'backup', color: '#14b8a6' },
-  { id: 'user_management', labelAr: 'إدارة المستخدمين', labelEn: 'User Management', icon: 'people', color: '#f59e0b' },
-  // الأدوات الإضافية
+  // الأدوات الإضافية - مطابقة للواجهة الرئيسية
   { id: 'reports', labelAr: 'التقارير', labelEn: 'Reports', icon: 'bar-chart', color: '#059669' },
   { id: 'notifications_center', labelAr: 'مركز الإشعارات', labelEn: 'Notifications Center', icon: 'notifications', color: '#d97706' },
   { id: 'export_data', labelAr: 'تصدير البيانات', labelEn: 'Export Data', icon: 'file-download', color: '#6366f1' },
+  { id: 'activity_log', labelAr: 'سجل التعديلات', labelEn: 'Activity Log', icon: 'history', color: '#0891b2' },
   { id: 'production_export', labelAr: 'طباعة الإنتاج', labelEn: 'Production Export', icon: 'print', color: '#16a34a' },
   { id: 'waste_alerts', labelAr: 'تنبيهات الهدر', labelEn: 'Waste Alerts', icon: 'warning-amber', color: '#dc2626' },
   { id: 'reports_analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: 'bar-chart', color: '#059669' },
   { id: 'section_reports', labelAr: 'تقارير الأقسام', labelEn: 'Section Reports', icon: 'summarize', color: '#0891b2' },
+  { id: 'users_management', labelAr: 'إدارة المستخدمين', labelEn: 'User Management', icon: 'people', color: '#7c3aed' },
   { id: 'employee_performance', labelAr: 'أداء الموظفين', labelEn: 'Employee Performance', icon: 'assessment', color: '#059669' },
+  { id: 'backup_restore', labelAr: 'نسخ احتياطي', labelEn: 'Backup & Restore', icon: 'backup', color: '#6366f1' },
   { id: 'machines_comparison', labelAr: 'مقارنة المكائن', labelEn: 'Machines Comparison', icon: 'precision-manufacturing', color: '#8b5cf6' },
   { id: 'share_reports', labelAr: 'مشاركة التقارير', labelEn: 'Share Reports', icon: 'share', color: '#0ea5e9' },
 ];
@@ -73,7 +67,7 @@ export default function AdminToolsPermissionsScreen() {
     }
   };
 
-  const selectUser = (userData: any) => {
+  const selectUser = (userData: any): void => {
     setSelectedUser(userData);
     // Load from server toolPermissions field
     if (userData.toolPermissions && Object.keys(userData.toolPermissions).length > 0) {
@@ -87,8 +81,8 @@ export default function AdminToolsPermissionsScreen() {
     }
   };
 
-  const toggleToolPermission = (toolId: string) => {
-    setUserPermissions(prev => ({
+  const toggleToolPermission = (toolId: string): void => {
+    setUserPermissions((prev: Record<string, boolean>) => ({
       ...prev,
       [toolId]: !prev[toolId]
     }));
@@ -150,144 +144,105 @@ export default function AdminToolsPermissionsScreen() {
               {isAr ? 'صلاحيات الأدوات الإضافية' : 'Additional Tools Permissions'}
             </Text>
             <Text style={{ fontSize: 14, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
-              {isAr ? 'تحديد الأدوات المتاحة لكل مستخدم' : 'Select available tools for each user'}
+              {isAr ? 'حدد الأدوات التي يمكن للمستخدم الوصول إليها' : 'Select which tools the user can access'}
             </Text>
           </View>
 
           {/* User Selection */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+          <View>
             <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, marginBottom: 8, textAlign: isAr ? 'right' : 'left' }}>
-              {isAr ? 'اختر المستخدم:' : 'Select User:'}
+              {isAr ? 'اختر المستخدم' : 'Select User'}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8, flexDirection: isAr ? 'row-reverse' : 'row' }}>
-              {users.map((u) => (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              {users.map((u: any) => (
                 <TouchableOpacity
                   key={u.id}
                   onPress={() => selectUser(u)}
                   style={{
                     paddingHorizontal: 12,
                     paddingVertical: 8,
+                    marginRight: 8,
                     borderRadius: 8,
-                    marginLeft: isAr ? 8 : 0,
-                    marginRight: isAr ? 0 : 8,
-                    backgroundColor: selectedUser?.id === u.id ? colors.primary : colors.background,
+                    backgroundColor: selectedUser?.id === u.id ? colors.primary : colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.border,
+                    borderColor: selectedUser?.id === u.id ? colors.primary : colors.border,
                   }}
                 >
-                  <Text style={{
-                    color: selectedUser?.id === u.id ? 'white' : colors.foreground,
-                    fontWeight: '600',
-                    fontSize: 12
-                  }}>
+                  <Text style={{ color: selectedUser?.id === u.id ? '#fff' : colors.foreground, fontWeight: '600' }}>
                     {u.name}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {selectedUser && (
-              <View style={{ backgroundColor: colors.background, padding: 8, borderRadius: 8 }}>
-                <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
-                  {isAr ? 'القسم: ' : 'Department: '}{selectedUser.department}
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
-                  {isAr ? 'الدور: ' : 'Role: '}{selectedUser.role}
-                </Text>
-              </View>
-            )}
           </View>
 
-          {/* Tools Permissions */}
-          {selectedUser && (
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, textAlign: isAr ? 'right' : 'left' }}>
-                {isAr ? 'الأدوات المتاحة:' : 'Available Tools:'}
-              </Text>
-              {AVAILABLE_TOOLS.map((tool) => (
-                <View
-                  key={tool.id}
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderRadius: 12,
-                    padding: 12,
-                    flexDirection: isAr ? 'row' : 'row-reverse',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: userPermissions[tool.id] ? tool.color : colors.border,
-                  }}
-                >
-                  <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', gap: 12, flex: 1 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: tool.color + '20', justifyContent: 'center', alignItems: 'center' }}>
-                      <MaterialIcons name={tool.icon as any} size={20} color={tool.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, textAlign: isAr ? 'right' : 'left' }}>
-                        {isAr ? tool.labelAr : tool.labelEn}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
-                        {isAr ? tool.labelEn : tool.labelAr}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={userPermissions[tool.id] || false}
-                    onValueChange={() => toggleToolPermission(tool.id)}
-                    trackColor={{ false: colors.border, true: colors.primary + '80' }}
-                    thumbColor={userPermissions[tool.id] ? colors.primary : colors.muted}
-                  />
+          {/* Tools List */}
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, marginBottom: 12, textAlign: isAr ? 'right' : 'left' }}>
+              {isAr ? 'الأدوات المتاحة' : 'Available Tools'}
+            </Text>
+            {AVAILABLE_TOOLS.map((tool: Tool) => (
+              <View
+                key={tool.id}
+                style={{
+                  flexDirection: isAr ? 'row' : 'row-reverse',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  paddingHorizontal: 12,
+                  marginBottom: 8,
+                  backgroundColor: colors.surface,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <MaterialIcons name={tool.icon as any} size={24} color={tool.color} style={{ marginRight: isAr ? 12 : 0, marginLeft: isAr ? 0 : 12 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, textAlign: isAr ? 'right' : 'left' }}>
+                    {isAr ? tool.labelAr : tool.labelEn}
+                  </Text>
                 </View>
-              ))}
-            </View>
-          )}
+                <Switch
+                  value={userPermissions[tool.id] || false}
+                  onValueChange={() => toggleToolPermission(tool.id)}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={userPermissions[tool.id] ? colors.primary : colors.muted}
+                />
+              </View>
+            ))}
+          </View>
 
           {/* Action Buttons */}
-          <View style={{ gap: 8, marginTop: 16 }}>
+          <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', gap: 12, marginTop: 16 }}>
             <TouchableOpacity
               onPress={savePermissions}
               disabled={isLoading}
               style={{
-                backgroundColor: colors.primary,
-                borderRadius: 12,
+                flex: 1,
                 paddingVertical: 12,
+                backgroundColor: colors.primary,
+                borderRadius: 8,
                 alignItems: 'center',
-                opacity: isLoading ? 0.6 : 1
               }}
             >
-              <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
-                {isAr ? 'حفظ الصلاحيات' : 'Save Permissions'}
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+                {isLoading ? (isAr ? 'جاري الحفظ...' : 'Saving...') : (isAr ? 'حفظ الصلاحيات' : 'Save Permissions')}
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={resetToDefaults}
               style={{
-                backgroundColor: colors.surface,
-                borderRadius: 12,
+                flex: 1,
                 paddingVertical: 12,
-                alignItems: 'center',
+                backgroundColor: colors.surface,
+                borderRadius: 8,
                 borderWidth: 1,
-                borderColor: colors.border
+                borderColor: colors.border,
+                alignItems: 'center',
               }}
             >
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                {isAr ? 'إعادة تعيين للافتراضي' : 'Reset to Defaults'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 12,
-                paddingVertical: 12,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: colors.border
-              }}
-            >
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                {isAr ? 'رجوع' : 'Back'}
+                {isAr ? 'إعادة تعيين' : 'Reset'}
               </Text>
             </TouchableOpacity>
           </View>
