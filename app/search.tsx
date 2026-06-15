@@ -10,6 +10,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useLanguage } from "@/lib/language-context";
 
 interface SearchFilter {
   id: string;
@@ -22,6 +23,8 @@ interface SearchFilter {
 }
 
 export default function SearchScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const colors = useColors();
   const [searchText, setSearchText] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
@@ -34,27 +37,27 @@ export default function SearchScreen() {
   const [filterName, setFilterName] = useState("");
 
   const departments = [
-    { id: "all", name: "جميع الأقسام" },
-    { id: "production", name: "الإنتاج" },
-    { id: "manufacturing", name: "مراحل التصنيع" },
-    { id: "sales", name: "المبيعات" },
-    { id: "warehouse", name: "المستودعات" },
-    { id: "maintenance", name: "الصيانة" },
+    { id: "all", name: isAr ? "جميع الأقسام" : "All Departments" },
+    { id: "production", name: isAr ? "الإنتاج" : "Production" },
+    { id: "manufacturing", name: isAr ? "مراحل التصنيع" : "Manufacturing Stages" },
+    { id: "sales", name: isAr ? "المبيعات" : "Sales" },
+    { id: "warehouse", name: isAr ? "المستودعات" : "Warehouse" },
+    { id: "maintenance", name: isAr ? "الصيانة" : "Maintenance" },
   ];
 
   const employees = [
-    { id: "all", name: "جميع الموظفين" },
-    { id: "rana", name: "رنا" },
-    { id: "shafiq", name: "شفيق" },
-    { id: "mohammed", name: "محمد أحمد" },
-    { id: "atallah", name: "عطالله" },
+    { id: "all", name: isAr ? "جميع الموظفين" : "All Employees" },
+    { id: "rana", name: isAr ? "رنا" : "Rana" },
+    { id: "shafiq", name: isAr ? "شفيق" : "Shafiq" },
+    { id: "mohammed", name: isAr ? "محمد أحمد" : "Mohammed Ahmed" },
+    { id: "atallah", name: isAr ? "عطالله" : "Atallah" },
   ];
 
   const statuses = [
-    { id: "all", name: "جميع الحالات" },
-    { id: "pending", name: "قيد الانتظار" },
-    { id: "in_progress", name: "قيد التنفيذ" },
-    { id: "completed", name: "مكتملة" },
+    { id: "all", name: isAr ? "جميع الحالات" : "All Statuses" },
+    { id: "pending", name: isAr ? "قيد الانتظار" : "Pending" },
+    { id: "in_progress", name: isAr ? "قيد التنفيذ" : "In Progress" },
+    { id: "completed", name: isAr ? "مكتملة" : "Completed" },
   ];
 
   const handleSaveFilter = () => {
@@ -95,12 +98,13 @@ export default function SearchScreen() {
               fontSize: 24,
               fontWeight: "bold",
               marginBottom: 4,
+              textAlign: isAr ? "right" : "left",
             }}
           >
-            البحث والتصفية
+            {isAr ? "البحث والتصفية" : "Search and Filter"}
           </Text>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>
-            ابحث وصفي البيانات بسهولة
+          <Text style={{ color: colors.muted, fontSize: 12, textAlign: isAr ? "right" : "left" }}>
+            {isAr ? "ابحث وصفي البيانات بسهولة" : "Search and filter data easily"}
           </Text>
         </View>
 
@@ -108,7 +112,7 @@ export default function SearchScreen() {
         <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
           <View
             style={{
-              flexDirection: "row",
+              flexDirection: isAr ? "row-reverse" : "row",
               alignItems: "center",
               backgroundColor: colors.surface,
               borderRadius: 8,
@@ -125,8 +129,9 @@ export default function SearchScreen() {
                 paddingHorizontal: 8,
                 color: colors.foreground,
                 fontSize: 14,
+                textAlign: isAr ? "right" : "left",
               }}
-              placeholder="ابحث عن..."
+              placeholder={isAr ? "ابحث عن..." : "Search for..."}
               placeholderTextColor={colors.muted}
               value={searchText}
               onChangeText={setSearchText}
@@ -147,18 +152,19 @@ export default function SearchScreen() {
               fontSize: 13,
               fontWeight: "600",
               marginBottom: 12,
+              textAlign: isAr ? "right" : "left",
             }}
           >
-            مرشحات التصفية
+            {isAr ? "مرشحات التصفية" : "Filters"}
           </Text>
 
           {/* القسم */}
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
-              القسم
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "القسم" : "Department"}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 8 }}>
                 {departments.map((dept) => (
                   <TouchableOpacity
                     key={dept.id}
@@ -198,11 +204,11 @@ export default function SearchScreen() {
 
           {/* الموظف */}
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
-              الموظف
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "الموظف" : "Employee"}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 8 }}>
                 {employees.map((emp) => (
                   <TouchableOpacity
                     key={emp.id}
@@ -242,11 +248,11 @@ export default function SearchScreen() {
 
           {/* الحالة */}
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
-              الحالة
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "الحالة" : "Status"}
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 8 }}>
                 {statuses.map((status) => (
                   <TouchableOpacity
                     key={status.id}
@@ -285,10 +291,10 @@ export default function SearchScreen() {
           </View>
 
           {/* نطاق التاريخ */}
-          <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
-                من التاريخ
+              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "من التاريخ" : "From Date"}
               </Text>
               <TextInput
                 style={{
@@ -300,6 +306,7 @@ export default function SearchScreen() {
                   fontSize: 12,
                   borderWidth: 1,
                   borderColor: colors.border,
+                  textAlign: isAr ? "right" : "left",
                 }}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={colors.muted}
@@ -308,8 +315,8 @@ export default function SearchScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
-                إلى التاريخ
+              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "إلى التاريخ" : "To Date"}
               </Text>
               <TextInput
                 style={{
@@ -321,6 +328,7 @@ export default function SearchScreen() {
                   fontSize: 12,
                   borderWidth: 1,
                   borderColor: colors.border,
+                  textAlign: isAr ? "right" : "left",
                 }}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={colors.muted}
@@ -336,7 +344,7 @@ export default function SearchScreen() {
           style={{
             paddingHorizontal: 16,
             marginBottom: 20,
-            flexDirection: "row",
+            flexDirection: isAr ? "row-reverse" : "row",
             gap: 12,
           }}
         >
@@ -350,7 +358,7 @@ export default function SearchScreen() {
             }}
           >
             <Text style={{ color: "white", fontWeight: "600", fontSize: 13 }}>
-              بحث
+              {isAr ? "بحث" : "Search"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -366,7 +374,7 @@ export default function SearchScreen() {
             }}
           >
             <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>
-              حفظ المرشح
+              {isAr ? "حفظ المرشح" : "Save Filter"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -394,13 +402,14 @@ export default function SearchScreen() {
                   borderWidth: 1,
                   borderColor: colors.border,
                   marginBottom: 12,
+                  textAlign: isAr ? "right" : "left",
                 }}
-                placeholder="اسم المرشح"
+                placeholder={isAr ? "اسم المرشح" : "Filter Name"}
                 placeholderTextColor={colors.muted}
                 value={filterName}
                 onChangeText={setFilterName}
               />
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   onPress={handleSaveFilter}
                   style={{
@@ -412,7 +421,7 @@ export default function SearchScreen() {
                   }}
                 >
                   <Text style={{ color: "white", fontWeight: "600", fontSize: 12 }}>
-                    حفظ
+                    {isAr ? "حفظ" : "Save"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -428,7 +437,7 @@ export default function SearchScreen() {
                   }}
                 >
                   <Text style={{ color: colors.foreground, fontWeight: "600", fontSize: 12 }}>
-                    إلغاء
+                    {isAr ? "إلغاء" : "Cancel"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -445,9 +454,10 @@ export default function SearchScreen() {
                 fontSize: 13,
                 fontWeight: "600",
                 marginBottom: 12,
+                textAlign: isAr ? "right" : "left",
               }}
             >
-              المرشحات المحفوظة
+              {isAr ? "المرشحات المحفوظة" : "Saved Filters"}
             </Text>
             {savedFilters.map((filter) => (
               <View
@@ -457,7 +467,7 @@ export default function SearchScreen() {
                   borderRadius: 8,
                   padding: 12,
                   marginBottom: 8,
-                  flexDirection: "row",
+                  flexDirection: isAr ? "row-reverse" : "row",
                   justifyContent: "space-between",
                   alignItems: "center",
                   borderWidth: 1,
@@ -473,11 +483,12 @@ export default function SearchScreen() {
                       color: colors.foreground,
                       fontSize: 12,
                       fontWeight: "500",
+                      textAlign: isAr ? "right" : "left",
                     }}
                   >
                     {filter.name}
                   </Text>
-                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4, textAlign: isAr ? "right" : "left" }}>
                     {filter.date}
                   </Text>
                 </TouchableOpacity>

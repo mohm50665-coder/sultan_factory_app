@@ -58,9 +58,9 @@ const DEFAULT_DEPARTMENTS: Department[] = [
 ];
 
 const ROLES = [
-  { label: "مدير عام (Admin)", value: "admin" },
-  { label: "مشرف", value: "supervisor" },
-  { label: "موظف", value: "user" },
+  { labelAr: "مدير عام (Admin)", labelEn: "General Manager (Admin)", value: "admin" },
+  { labelAr: "مشرف", labelEn: "Supervisor", value: "supervisor" },
+  { labelAr: "موظف", labelEn: "Employee", value: "user" },
 ];
 
 export default function AdminDashboardScreen() {
@@ -193,7 +193,7 @@ export default function AdminDashboardScreen() {
 
   const handleSaveEmployee = async () => {
     if (!employeeForm.name || !employeeForm.username || !employeeForm.department) {
-      Alert.alert("خطأ", "الرجاء ملء الحقول المطلوبة (الاسم، اسم المستخدم، القسم)");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء ملء الحقول المطلوبة (الاسم، اسم المستخدم، القسم)" : "Please fill in the required fields (Name, Username, Department)");
       return;
     }
 
@@ -211,7 +211,7 @@ export default function AdminDashboardScreen() {
         if (employeeForm.password) {
           await simpleAuthService.resetUserPassword(editingUser.id, employeeForm.password);
         }
-        Alert.alert("نجح", "تم تحديث بيانات الموظف");
+        Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم تحديث بيانات الموظف" : "Employee data updated");
       } else {
         // إضافة موظف جديد
         await simpleAuthService.register({
@@ -228,28 +228,28 @@ export default function AdminDashboardScreen() {
         if (newUser) {
           await simpleAuthService.toggleUserActive(newUser.id);
         }
-        Alert.alert("نجح", "تم إضافة الموظف وتفعيله");
+        Alert.alert(isAr ? "نجح" : "Success", isAr ? "تم إضافة الموظف وتفعيله" : "Employee added and activated");
       }
       setShowEmployeeForm(false);
       loadAllData();
     } catch (error: any) {
-      Alert.alert("خطأ", error.message || "فشل في حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", error.message || isAr ? "فشل في حفظ البيانات" : "Failed to save data");
     }
   };
 
   const handleDeleteEmployee = (user: User) => {
     if (user.role === "admin") {
-      Alert.alert("تنبيه", "لا يمكن حذف حساب المدير العام");
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "لا يمكن حذف حساب المدير العام" : "Cannot delete the general manager account");
       return;
     }
-    Alert.alert("تأكيد الحذف", `هل تريد حذف الموظف "${user.name}"؟ (ترك العمل)`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف الموظف "${user.name}"؟ (ترك العمل)` : `Do you want to delete employee "${user.name}"? (Left work)`, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           await simpleAuthService.deleteUser(user.id);
-          Alert.alert("تم", "تم حذف الموظف");
+          Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف الموظف" : "Employee deleted");
           loadAllData();
         },
       },
@@ -290,7 +290,7 @@ export default function AdminDashboardScreen() {
 
   const handleSaveDept = async () => {
     if (!deptForm.labelAr) {
-      Alert.alert("خطأ", "الرجاء إدخال اسم القسم بالعربي");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء إدخال اسم القسم بالعربي" : "Please enter the department name in Arabic");
       return;
     }
     const updatedDepts = [...departments];
@@ -312,19 +312,19 @@ export default function AdminDashboardScreen() {
     }
     await saveDepartments(updatedDepts);
     setShowDeptForm(false);
-    Alert.alert("نجح", editingDept ? "تم تعديل القسم" : "تم إضافة القسم");
+    Alert.alert(isAr ? "نجح" : "Success", editingDept ? isAr ? "تم تعديل القسم" : "Department updated" : isAr ? "تم إضافة القسم" : "Department added");
   };
 
   const handleDeleteDept = (dept: Department) => {
-    Alert.alert("تأكيد الحذف", `هل تريد حذف القسم "${dept.labelAr}"؟`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف القسم "${isAr ? dept.labelAr : dept.labelEn}"؟` : `Do you want to delete department "${isAr ? dept.labelAr : dept.labelEn}"?`, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           const updated = departments.filter(d => d.id !== dept.id && d.parentId !== dept.id);
           await saveDepartments(updated);
-          Alert.alert("تم", "تم حذف القسم");
+          Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف القسم" : "Department deleted");
         },
       },
     ]);
@@ -350,7 +350,7 @@ export default function AdminDashboardScreen() {
 
   const handleSaveProc = async () => {
     if (!procForm.labelAr) {
-      Alert.alert("خطأ", "الرجاء إدخال اسم الإجراء");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "الرجاء إدخال اسم الإجراء" : "Please enter the procedure name");
       return;
     }
     const updatedProcs = [...procedureTypes];
@@ -371,19 +371,19 @@ export default function AdminDashboardScreen() {
     }
     await saveProcedureTypes(updatedProcs);
     setShowProcForm(false);
-    Alert.alert("نجح", editingProc ? "تم تعديل الإجراء" : "تم إضافة الإجراء");
+    Alert.alert(isAr ? "نجح" : "Success", editingProc ? isAr ? "تم تعديل الإجراء" : "Procedure updated" : isAr ? "تم إضافة الإجراء" : "Procedure added");
   };
 
   const handleDeleteProc = (proc: ProcedureType) => {
-    Alert.alert("تأكيد الحذف", `هل تريد حذف الإجراء "${proc.labelAr}"؟`, [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف الإجراء "${proc.labelAr}"؟` : `Do you want to delete procedure "${proc.labelAr}"?`, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           const updated = procedureTypes.filter(p => p.id !== proc.id);
           await saveProcedureTypes(updated);
-          Alert.alert("تم", "تم حذف الإجراء");
+          Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف الإجراء" : "Procedure deleted");
         },
       },
     ]);
@@ -398,7 +398,7 @@ export default function AdminDashboardScreen() {
 
   const getDeptLabel = (deptId: string) => {
     const dept = departments.find(d => d.id === deptId);
-    return dept ? dept.labelAr : deptId;
+    return dept ? (isAr ? dept.labelAr : dept.labelEn) : deptId;
   };
 
   // ===== RENDER =====
@@ -407,7 +407,7 @@ export default function AdminDashboardScreen() {
       <ScreenContainer>
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.muted, marginTop: 12 }}>جاري التحميل...</Text>
+          <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري التحميل..." : "Loading..."}</Text>
         </View>
       </ScreenContainer>
     );
@@ -418,16 +418,16 @@ export default function AdminDashboardScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>لوحة تحكم الأدمن الشاملة</Text>
+        <Text style={styles.headerTitle}>{isAr ? "لوحة تحكم الأدمن الشاملة" : "Comprehensive Admin Dashboard"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {/* Tabs */}
       <View style={[styles.tabsRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {[
-          { id: "employees", label: "الموظفين", icon: "people" },
-          { id: "departments", label: "الأقسام", icon: "business" },
-          { id: "procedures", label: "الإجراءات", icon: "assignment" },
+          { id: "employees", label: isAr ? "الموظفين" : "Employees", icon: "people" },
+          { id: "departments", label: isAr ? "الأقسام" : "Departments", icon: "business" },
+          { id: "procedures", label: isAr ? "الإجراءات" : "Procedures", icon: "assignment" },
         ].map(tab => (
           <TouchableOpacity
             key={tab.id}
@@ -451,7 +451,7 @@ export default function AdminDashboardScreen() {
               <MaterialIcons name="search" size={20} color={colors.muted} />
               <TextInput
                 style={{ flex: 1, paddingVertical: 8, color: colors.foreground, fontSize: 14 }}
-                placeholder="ابحث بالاسم أو المسمى..."
+                placeholder={isAr ? "ابحث بالاسم أو المسمى..." : "Search by name or position..."}
                 value={searchText}
                 onChangeText={setSearchText}
                 placeholderTextColor={colors.muted}
@@ -462,7 +462,7 @@ export default function AdminDashboardScreen() {
                 style={[styles.filterChip, { backgroundColor: !filterDept ? colors.primary : colors.surface, borderColor: colors.border }]}
                 onPress={() => setFilterDept(null)}
               >
-                <Text style={{ color: !filterDept ? "white" : colors.foreground, fontSize: 11, fontWeight: "600" }}>الكل ({users.length})</Text>
+                <Text style={{ color: !filterDept ? "white" : colors.foreground, fontSize: 11, fontWeight: "600" }}>{isAr ? "الكل" : "All"} ({users.length})</Text>
               </TouchableOpacity>
               {departments.filter(d => !d.parentId && d.isActive).map(dept => {
                 const count = users.filter(u => u.department === dept.id).length;
@@ -473,7 +473,7 @@ export default function AdminDashboardScreen() {
                     onPress={() => setFilterDept(dept.id)}
                   >
                     <Text style={{ color: filterDept === dept.id ? "white" : colors.foreground, fontSize: 11, fontWeight: "600" }}>
-                      {dept.labelAr} ({count})
+                      {isAr ? dept.labelAr : dept.labelEn} ({count})
                     </Text>
                   </TouchableOpacity>
                 );
@@ -484,7 +484,7 @@ export default function AdminDashboardScreen() {
           {/* Add Button */}
           <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddEmployee}>
             <MaterialIcons name="person-add" size={20} color="white" />
-            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة موظف جديد</Text>
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>{isAr ? "إضافة موظف جديد" : "Add New Employee"}</Text>
           </TouchableOpacity>
 
           {/* Employees List */}
@@ -499,15 +499,15 @@ export default function AdminDashboardScreen() {
                     <Text style={[styles.empName, { color: colors.foreground }]}>{item.name}</Text>
                     {!item.isActive && (
                       <View style={{ backgroundColor: "#EF444420", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color: "#EF4444", fontSize: 10, fontWeight: "600" }}>معطل</Text>
+                        <Text style={{ color: "#EF4444", fontSize: 10, fontWeight: "600" }}>{isAr ? "معطل" : "Disabled"}</Text>
                       </View>
                     )}
                   </View>
                   <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>@{item.username}</Text>
                   <View style={{ flexDirection: "row", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>القسم: {getDeptLabel(item.department)}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>المسمى: {item.position || "—"}</Text>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>الدور: {ROLES.find(r => r.value === item.role)?.label || item.role}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? "القسم:" : "Department:"} {getDeptLabel(item.department)}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? "المسمى:" : "Position:"} {item.position || "—"}</Text>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? "الدور:" : "Role:"} {isAr ? (ROLES.find(r => r.value === item.role)?.labelAr || item.role) : (ROLES.find(r => r.value === item.role)?.labelEn || item.role)}</Text>
                   </View>
                 </View>
                 {/* Actions */}
@@ -527,7 +527,7 @@ export default function AdminDashboardScreen() {
             ListEmptyComponent={
               <View style={{ alignItems: "center", paddingVertical: 40 }}>
                 <MaterialIcons name="people-outline" size={48} color={colors.muted} />
-                <Text style={{ color: colors.muted, marginTop: 12 }}>لا يوجد موظفين في هذا القسم</Text>
+                <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "لا يوجد موظفين في هذا القسم" : "No employees in this department"}</Text>
               </View>
             }
           />
@@ -539,19 +539,19 @@ export default function AdminDashboardScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
           <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddDept}>
             <MaterialIcons name="add-business" size={20} color="white" />
-            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة قسم جديد</Text>
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>{isAr ? "إضافة قسم جديد" : "Add New Department"}</Text>
           </TouchableOpacity>
 
-          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>الأقسام الرئيسية</Text>
+          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>{isAr ? "الأقسام الرئيسية" : "Main Departments"}</Text>
           {departments.filter(d => !d.parentId).map(dept => (
             <View key={dept.id}>
               <View style={[styles.deptCard, { backgroundColor: colors.surface, borderColor: colors.border, opacity: dept.isActive ? 1 : 0.5 }]}>
                 <MaterialIcons name={dept.icon as any} size={24} color={colors.primary} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{dept.labelAr}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 11 }}>{dept.labelEn}</Text>
+                  <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{isAr ? dept.labelAr : dept.labelEn}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? dept.labelEn : dept.labelAr}</Text>
                   <Text style={{ color: colors.muted, fontSize: 11 }}>
-                    {users.filter(u => u.department === dept.id).length} موظف
+                    {users.filter(u => u.department === dept.id).length} {isAr ? "موظف" : "Employee"}
                   </Text>
                 </View>
                 <View style={{ flexDirection: "row", gap: 4 }}>
@@ -571,7 +571,7 @@ export default function AdminDashboardScreen() {
                 <View key={sub.id} style={[styles.subDeptCard, { backgroundColor: colors.surface, borderColor: colors.border, marginLeft: 24, opacity: sub.isActive ? 1 : 0.5 }]}>
                   <MaterialIcons name={sub.icon as any} size={18} color={colors.muted} />
                   <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={{ color: colors.foreground, fontSize: 13 }}>{sub.labelAr}</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 13 }}>{isAr ? sub.labelAr : sub.labelEn}</Text>
                   </View>
                   <View style={{ flexDirection: "row", gap: 4 }}>
                     <TouchableOpacity style={[styles.miniBtn, { backgroundColor: colors.primary + "20" }]} onPress={() => handleEditDept(sub)}>
@@ -593,14 +593,14 @@ export default function AdminDashboardScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
           <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={handleAddProc}>
             <MaterialIcons name="note-add" size={20} color="white" />
-            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>إضافة إجراء إداري جديد</Text>
+            <Text style={{ color: "white", fontWeight: "600", marginLeft: 8 }}>{isAr ? "إضافة إجراء إداري جديد" : "Add New Administrative Procedure"}</Text>
           </TouchableOpacity>
 
-          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>أنواع الإجراءات الإدارية</Text>
+          <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16, marginTop: 8 }}>{isAr ? "أنواع الإجراءات الإدارية" : "Administrative Procedure Types"}</Text>
           {procedureTypes.map(proc => (
             <View key={proc.id} style={[styles.procCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{proc.labelAr}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "bold" }}>{isAr ? proc.labelAr : proc.labelEn}</Text>
                 <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>
                   المتطلبات: {proc.fields.join(" • ")}
                 </Text>
@@ -623,38 +623,38 @@ export default function AdminDashboardScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowEmployeeForm(false)}>
-              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             </TouchableOpacity>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
-              {editingUser ? "تعديل موظف" : "إضافة موظف جديد"}
+              {editingUser ? (isAr ? "تعديل موظف" : "Edit Employee") : (isAr ? "إضافة موظف جديد" : "Add New Employee")}
             </Text>
             <TouchableOpacity onPress={handleSaveEmployee}>
-              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>{isAr ? "حفظ" : "Save"}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الاسم الكامل *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "الاسم الكامل *" : "Full Name *"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={employeeForm.name}
                 onChangeText={t => setEmployeeForm({ ...employeeForm, name: t })}
-                placeholder="أدخل اسم الموظف"
+                placeholder={isAr ? "أدخل اسم الموظف" : "Enter employee name"}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم المستخدم *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "اسم المستخدم *" : "Username *"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={employeeForm.username}
                 onChangeText={t => setEmployeeForm({ ...employeeForm, username: t })}
-                placeholder="اسم المستخدم لتسجيل الدخول"
+                placeholder={isAr ? "اسم المستخدم لتسجيل الدخول" : "Username for login"}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>رقم الجوال</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "رقم الجوال" : "Phone Number"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={employeeForm.phone}
@@ -665,17 +665,17 @@ export default function AdminDashboardScreen() {
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المسمى الوظيفي</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "المسمى الوظيفي" : "Job Title"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={employeeForm.position}
                 onChangeText={t => setEmployeeForm({ ...employeeForm, position: t })}
-                placeholder="مثال: مشغل مكينة، محاسب..."
+                placeholder={isAr ? "مثال: مشغل مكينة، محاسب..." : "e.g., Machine Operator, Accountant..."}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>القسم *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "القسم *" : "Department *"}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
                 {departments.filter(d => d.isActive).map(dept => (
                   <TouchableOpacity
@@ -684,14 +684,14 @@ export default function AdminDashboardScreen() {
                     onPress={() => setEmployeeForm({ ...employeeForm, department: dept.id })}
                   >
                     <Text style={{ color: employeeForm.department === dept.id ? "white" : colors.foreground, fontSize: 11 }}>
-                      {dept.labelAr}
+                      {isAr ? dept.labelAr : dept.labelEn}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>الدور</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "الدور" : "Role"}</Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {ROLES.map(role => (
                   <TouchableOpacity
@@ -700,7 +700,7 @@ export default function AdminDashboardScreen() {
                     onPress={() => setEmployeeForm({ ...employeeForm, role: role.value })}
                   >
                     <Text style={{ color: employeeForm.role === role.value ? "white" : colors.foreground, fontSize: 11, textAlign: "center" }}>
-                      {role.label}
+                      {isAr ? role.labelAr : role.labelEn}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -708,13 +708,13 @@ export default function AdminDashboardScreen() {
             </View>
             <View>
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
-                {editingUser ? "كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)" : "كلمة المرور"}
+                {editingUser ? (isAr ? "كلمة المرور الجديدة (اتركها فارغة لعدم التغيير)" : "New Password (leave blank to keep unchanged)") : (isAr ? "كلمة المرور" : "Password")}
               </Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={employeeForm.password}
                 onChangeText={t => setEmployeeForm({ ...employeeForm, password: t })}
-                placeholder={editingUser ? "اتركها فارغة لعدم التغيير" : "كلمة المرور الافتراضية: 123456"}
+                placeholder={editingUser ? (isAr ? "اتركها فارغة لعدم التغيير" : "Leave blank to keep unchanged") : (isAr ? "كلمة المرور الافتراضية: 123456" : "Default password: 123456")}
                 secureTextEntry
                 placeholderTextColor={colors.muted}
               />
@@ -728,28 +728,28 @@ export default function AdminDashboardScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowDeptForm(false)}>
-              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             </TouchableOpacity>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
-              {editingDept ? "تعديل القسم" : "إضافة قسم جديد"}
+              {editingDept ? (isAr ? "تعديل القسم" : "Edit Department") : (isAr ? "إضافة قسم جديد" : "Add New Department")}
             </Text>
             <TouchableOpacity onPress={handleSaveDept}>
-              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>{isAr ? "حفظ" : "Save"}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم القسم بالعربي *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "اسم القسم بالعربي *" : "Department Name in Arabic *"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={deptForm.labelAr}
                 onChangeText={t => setDeptForm({ ...deptForm, labelAr: t })}
-                placeholder="مثال: قسم التصميم"
+                placeholder={isAr ? "مثال: قسم التصميم" : "e.g., Design Department"}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم القسم بالإنجليزي</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "اسم القسم بالإنجليزي" : "Department Name in English"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={deptForm.labelEn}
@@ -759,13 +759,13 @@ export default function AdminDashboardScreen() {
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>قسم رئيسي (فرعي من)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "قسم رئيسي (فرعي من)" : "Main Department (Sub of)"}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
                 <TouchableOpacity
                   style={[styles.deptChip, { backgroundColor: !deptForm.parentId ? colors.primary : colors.surface, borderColor: colors.border }]}
                   onPress={() => setDeptForm({ ...deptForm, parentId: "" })}
                 >
-                  <Text style={{ color: !deptForm.parentId ? "white" : colors.foreground, fontSize: 11 }}>قسم رئيسي</Text>
+                  <Text style={{ color: !deptForm.parentId ? "white" : colors.foreground, fontSize: 11 }}>{isAr ? "قسم رئيسي" : "Main Department"}</Text>
                 </TouchableOpacity>
                 {departments.filter(d => !d.parentId).map(dept => (
                   <TouchableOpacity
@@ -774,7 +774,7 @@ export default function AdminDashboardScreen() {
                     onPress={() => setDeptForm({ ...deptForm, parentId: dept.id })}
                   >
                     <Text style={{ color: deptForm.parentId === dept.id ? "white" : colors.foreground, fontSize: 11 }}>
-                      فرعي من: {dept.labelAr}
+                      فرعي من: {isAr ? dept.labelAr : dept.labelEn}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -789,28 +789,28 @@ export default function AdminDashboardScreen() {
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowProcForm(false)}>
-              <Text style={{ color: colors.primary, fontWeight: "600" }}>إلغاء</Text>
+              <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             </TouchableOpacity>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>
-              {editingProc ? "تعديل الإجراء" : "إضافة إجراء جديد"}
+              {editingProc ? (isAr ? "تعديل الإجراء" : "Edit Procedure") : (isAr ? "إضافة إجراء جديد" : "Add New Procedure")}
             </Text>
             <TouchableOpacity onPress={handleSaveProc}>
-              <Text style={{ color: colors.primary, fontWeight: "bold" }}>حفظ</Text>
+              <Text style={{ color: colors.primary, fontWeight: "bold" }}>{isAr ? "حفظ" : "Save"}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الإجراء بالعربي *</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "اسم الإجراء بالعربي *" : "Procedure Name in Arabic *"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={procForm.labelAr}
                 onChangeText={t => setProcForm({ ...procForm, labelAr: t })}
-                placeholder="مثال: طلب ترقية"
+                placeholder={isAr ? "مثال: طلب ترقية" : "e.g., Promotion Request"}
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>اسم الإجراء بالإنجليزي</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "اسم الإجراء بالإنجليزي" : "Procedure Name in English"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                 value={procForm.labelEn}
@@ -820,12 +820,12 @@ export default function AdminDashboardScreen() {
               />
             </View>
             <View>
-              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>المتطلبات والحقول (افصل بفاصلة)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "المتطلبات والحقول (افصل بفاصلة)" : "Requirements and Fields (comma separated)"}</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground, minHeight: 80, textAlignVertical: "top" }]}
                 value={procForm.fields}
                 onChangeText={t => setProcForm({ ...procForm, fields: t })}
-                placeholder="مثال: السبب، التاريخ، المبلغ، ملاحظات"
+                placeholder={isAr ? "مثال: السبب، التاريخ، المبلغ، ملاحظات" : "e.g., Reason, Date, Amount, Notes"}
                 multiline
                 placeholderTextColor={colors.muted}
               />

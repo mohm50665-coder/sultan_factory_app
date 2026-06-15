@@ -43,75 +43,79 @@ interface WorkerEntry {
   notes: string;
 }
 
-// بيانات العمال لكل مرحلة
-const STAGE_CONFIG: Record<
-  string,
-  { name: string; color: string; icon: string; workers: string[]; fields: string[] }
-> = {
-  machines: {
-    name: "إنتاج المكائن",
-    color: "#0a7ea4",
-    icon: "precision-manufacturing",
-    workers: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"],
-    fields: ["dozen", "pairs"],
-  },
-  rosso: {
-    name: "الروسو",
-    color: "#7c3aed",
-    icon: "loop",
-    workers: ["فريدو", "قيوم", "الجميع"],
-    fields: ["dozen", "pairs"],
-  },
-  qalb: {
-    name: "القلب",
-    color: "#059669",
-    icon: "flip",
-    workers: ["حسين السوري"],
-    fields: ["dozen", "pairs"],
-  },
-  kawiya: {
-    name: "الكاوية",
-    color: "#dc2626",
-    icon: "local-fire-department",
-    workers: ["جنيد"],
-    fields: ["dozen", "pairs"],
-  },
-  inspection: {
-    name: "الفحص",
-    color: "#d97706",
-    icon: "search",
-    workers: ["عارف", "انام الدين", "الجميع"],
-    fields: ["dozen", "pairs"],
-  },
-  packing: {
-    name: "التغليف",
-    color: "#2563eb",
-    icon: "inventory-2",
-    workers: ["محمد عمر", "غلام", "بشير", "الجميع"],
-    fields: ["dozen", "pairs"],
-  },
-  antislip: {
-    name: "مانع الانزلاق",
-    color: "#0891b2",
-    icon: "layers",
-    workers: ["محمد عمر", "مرتضى", "أوجيل", "الجميع"],
-    fields: ["dozen", "pairs"],
-  },
-  storage: {
-    name: "التخزين",
-    color: "#4f46e5",
-    icon: "warehouse",
-    workers: ["شميم"],
-    fields: ["storage"],
-  },
-};
+// بيانات العمال لكل مرحلة - سيتم تعريفها داخل الدالة
 
 export default function ManufacturingStageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const stage = (params.stage as string) || "machines";
+
+  // بيانات العمال لكل مرحلة
+  const STAGE_CONFIG: Record<
+    string,
+    { name: string; color: string; icon: string; workers: string[]; fields: string[] }
+  > = {
+    machines: {
+      name: isAr ? "إنتاج المكائن" : "Machines Production",
+      color: "#0a7ea4",
+      icon: "precision-manufacturing",
+      workers: isAr ? ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"] : ["Rana", "Mohammed Ahmed", "Afzal", "Atallah", "Shafiq", "All"],
+      fields: ["dozen", "pairs"],
+    },
+    rosso: {
+      name: isAr ? "الروسو" : "Rosso",
+      color: "#7c3aed",
+      icon: "loop",
+      workers: isAr ? ["فريدو", "قيوم", "الجميع"] : ["Fredo", "Qayyum", "All"],
+      fields: ["dozen", "pairs"],
+    },
+    qalb: {
+      name: isAr ? "القلب" : "Qalb",
+      color: "#059669",
+      icon: "flip",
+      workers: isAr ? ["حسين السوري"] : ["Hussein Al-Suri"],
+      fields: ["dozen", "pairs"],
+    },
+    kawiya: {
+      name: isAr ? "الكاوية" : "Kawiya",
+      color: "#dc2626",
+      icon: "local-fire-department",
+      workers: isAr ? ["جنيد"] : ["Junaid"],
+      fields: ["dozen", "pairs"],
+    },
+    inspection: {
+      name: isAr ? "الفحص" : "Inspection",
+      color: "#d97706",
+      icon: "search",
+      workers: isAr ? ["عارف", "انام الدين", "الجميع"] : ["Aref", "Anamuddin", "All"],
+      fields: ["dozen", "pairs"],
+    },
+    packing: {
+      name: isAr ? "التغليف" : "Packing",
+      color: "#2563eb",
+      icon: "inventory-2",
+      workers: isAr ? ["محمد عمر", "غلام", "بشير", "الجميع"] : ["Mohammed Omar", "Ghulam", "Bashir", "All"],
+      fields: ["dozen", "pairs"],
+    },
+    antislip: {
+      name: isAr ? "مانع الانزلاق" : "Anti-slip",
+      color: "#0891b2",
+      icon: "layers",
+      workers: isAr ? ["محمد عمر", "مرتضى", "أوجيل", "الجميع"] : ["Mohammed Omar", "Murtaza", "Ogil", "All"],
+      fields: ["dozen", "pairs"],
+    },
+    storage: {
+      name: isAr ? "التخزين" : "Storage",
+      color: "#4f46e5",
+      icon: "warehouse",
+      workers: isAr ? ["شميم"] : ["Shamim"],
+      fields: ["storage"],
+    },
+  };
   // عمال المرحلة يمكنهم الإدخال، المستودعات view only فقط
   const isViewOnly = user?.department === "warehouse" && user?.role !== "admin" && stage !== "storage";
 
@@ -127,8 +131,8 @@ export default function ManufacturingStageScreen() {
         if (workers && Array.isArray(workers) && workers.length > 0) {
           const names = workers.map((w: any) => w.workerName);
           // Add "الجميع" for stages that had it
-          if (config.workers.includes("الجميع") && !names.includes("الجميع")) {
-            names.push("الجميع");
+          if (config.workers.includes(isAr ? "الجميع" : "All") && !names.includes(isAr ? "الجميع" : "All")) {
+            names.push(isAr ? "الجميع" : "All");
           }
           setStageWorkers(names);
         }
@@ -163,7 +167,6 @@ export default function ManufacturingStageScreen() {
   const [notes, setNotes] = useState("");
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
   const [stageAttachments, setStageAttachments] = useState<AttachmentFile[]>([]);
-  const { language } = useLanguage();
 
   useEffect(() => {
     loadEntries();
@@ -222,10 +225,10 @@ export default function ManufacturingStageScreen() {
     setEntryDate(new Date().toISOString().split("T")[0]);
   };
 
-  // إضافة منتج جديد (حتى 5)
+  // {isAr ? "إضافة منتج" : "Add Product"} جديد (حتى 5)
   const addProduct = () => {
     if (products.length >= 5) {
-      Alert.alert("تنبيه", "الحد الأقصى 5 منتجات لكل إدخال");
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "الحد الأقصى 5 منتجات لكل إدخال" : "Maximum 5 products per entry");
       return;
     }
     setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "" }]);
@@ -248,25 +251,25 @@ export default function ManufacturingStageScreen() {
   // حفظ البيانات
   const handleSave = async () => {
     if (!selectedWorker) {
-      Alert.alert("تنبيه", "يرجى اختيار اسم العامل");
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى اختيار اسم العامل" : "Please select a worker name");
       return;
     }
 
     if (isStorageStage) {
       if (!finishedDozen && !finishedPairs && !secondGradeDozen && !secondGradePairs && !antislipDozen && !antislipPairs) {
-        Alert.alert("تنبيه", "يرجى إدخال كمية واحدة على الأقل");
+        Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال كمية واحدة على الأقل" : "Please enter at least one quantity");
         return;
       }
     } else {
       // التحقق من أن كل منتج له اسم وكمية
       const validProducts = products.filter(p => p.productName.trim());
       if (validProducts.length === 0) {
-        Alert.alert("تنبيه", "يرجى إدخال اسم منتج واحد على الأقل مع الكمية");
+        Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال اسم منتج واحد على الأقل مع الكمية" : "Please enter at least one product name with quantity");
         return;
       }
       const hasQuantity = validProducts.some(p => p.quantityDozen || p.quantityPairs);
       if (!hasQuantity) {
-        Alert.alert("تنبيه", "يرجى إدخال كمية لمنتج واحد على الأقل");
+        Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال كمية لمنتج واحد على الأقل" : "Please enter a quantity for at least one product");
         return;
       }
     }
@@ -280,7 +283,7 @@ export default function ManufacturingStageScreen() {
           quantityDozen: parseInt(finishedDozen) || 0,
           quantityPair: parseInt(finishedPairs) || 0,
           productType: notes || "",
-          productName: "تخزين",
+          productName: isAr ? "تخزين" : "Storage",
           date: entryDate,
           userId: user?.id || 1,
         };
@@ -317,9 +320,9 @@ export default function ManufacturingStageScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات بنجاح" : "تم حفظ البيانات بنجاح");
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات بنجاح" : "Data updated successfully") : (isAr ? "تم حفظ البيانات بنجاح" : "Data saved successfully"));
     } catch (e) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     }
   };
 
@@ -344,18 +347,18 @@ export default function ManufacturingStageScreen() {
   // حذف سجل
   const handleDelete = (entry: WorkerEntry) => {
     Alert.alert(
-      "تأكيد الحذف",
-      `هل أنت متأكد من حذف سجل "${entry.workerName}"؟`,
+      isAr ? "تأكيد الحذف" : "Confirm Deletion",
+      isAr ? `هل أنت متأكد من حذف سجل "${entry.workerName}"؟` : `Are you sure you want to delete the record for "${entry.workerName}"?`,
       [
-        { text: "إلغاء", style: "cancel" },
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
         {
-          text: "حذف",
+          text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
             try {
               await manufacturingStageService.delete(parseInt(entry.id));
               await loadEntries();
-              Alert.alert("تم ✓", "تم حذف السجل بنجاح");
+              Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل بنجاح" : "Record deleted successfully");
             } catch (e) { console.log(e); }
           },
         },
@@ -366,7 +369,7 @@ export default function ManufacturingStageScreen() {
   // عرض سجل واحد
   const renderEntry = ({ item }: { item: WorkerEntry }) => (
     <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
-      {/* اسم العامل والأزرار */}
+      {/* {isAr ? "اسم العامل" : "Worker Name"} والأزرار */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         {!isViewOnly && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -392,7 +395,7 @@ export default function ManufacturingStageScreen() {
         </View>
       </View>
 
-      {/* التاريخ */}
+      {/* {isAr ? "التاريخ" : "Date"} */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
         <Text style={{ color: colors.muted, fontSize: 13 }}>{item.date}</Text>
         <MaterialIcons name="calendar-today" size={14} color={colors.muted} />
@@ -401,8 +404,8 @@ export default function ManufacturingStageScreen() {
       {/* المنتجات */}
       {item.products && item.products.length > 0 && (
         <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
-          <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14, marginBottom: 10, textAlign: 'right' }}>
-            المنتجات ({item.products.length})
+          <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14, marginBottom: 10, textAlign: isAr ? "right" : "left" }}>
+            {isAr ? `المنتجات (${item.products.length})` : `Products (${item.products.length})`}
           </Text>
           {item.products.map((product, idx) => (
             <View key={idx} style={{ 
@@ -411,10 +414,10 @@ export default function ManufacturingStageScreen() {
               paddingBottom: idx < item.products.length - 1 ? 10 : 0,
               marginBottom: idx < item.products.length - 1 ? 10 : 0,
             }}>
-              {/* اسم المنتج */}
+              {/* {isAr ? "اسم المنتج *" : "Product Name *"} */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 6 }}>
                 <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 15 }}>
-                  {product.productName || "بدون اسم"}
+                  {product.productName || (isAr ? "بدون اسم" : "Unnamed")}
                 </Text>
                 <MaterialIcons name="inventory" size={16} color={config.color} />
               </View>
@@ -422,11 +425,11 @@ export default function ManufacturingStageScreen() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{product.quantityDozen || "0"}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>درزن</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "درزن" : "Dozen"}</Text>
                 </View>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{product.quantityPairs || "0"}</Text>
-                  <Text style={{ color: colors.muted, fontSize: 12 }}>زوج</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "زوج" : "Pair"}</Text>
                 </View>
               </View>
             </View>
@@ -437,7 +440,7 @@ export default function ManufacturingStageScreen() {
       {/* ملاحظات */}
       {item.notes ? (
         <View style={{ marginTop: 8, backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right' }}>{item.notes}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, textAlign: isAr ? "right" : "left" }}>{item.notes}</Text>
         </View>
       ) : null}
     </View>
@@ -460,7 +463,7 @@ export default function ManufacturingStageScreen() {
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 }}>
-            {entries.length > 0 ? `${entries.length} سجل` : "لا توجد سجلات"}
+            {entries.length > 0 ? (isAr ? `${entries.length} سجل` : `${entries.length} records`) : (isAr ? "لا توجد سجلات" : "No records")}
           </Text>
         </View>
         <BackButton />
@@ -470,14 +473,14 @@ export default function ManufacturingStageScreen() {
       {showForm ? (
         <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: 'right' }}>
-              {editingEntry ? "✏️ تعديل بيانات" : "➕ إدخال بيانات جديدة"}
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: isAr ? "right" : "left" }}>
+              {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إدخال بيانات جديدة" : "➕ Enter New Data")}
             </Text>
 
-            {/* اختيار اسم العامل */}
+            {/* اختيار {isAr ? "اسم العامل" : "Worker Name"} */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
-                اسم العامل
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "اسم العامل" : "Worker Name"}
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                 {stageWorkers.map((worker) => (
@@ -501,13 +504,13 @@ export default function ManufacturingStageScreen() {
               </View>
             </View>
 
-            {/* التاريخ */}
+            {/* {isAr ? "التاريخ" : "Date"} */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
-                التاريخ
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "التاريخ" : "Date"}
               </Text>
               <TextInput
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={colors.muted}
                 value={entryDate}
@@ -519,41 +522,41 @@ export default function ManufacturingStageScreen() {
             {/* حقول الإدخال حسب المرحلة */}
             {isStorageStage ? (
               <View>
-                {/* الإنتاج التام */}
+                {/* {isAr ? "الإنتاج التام" : "Finished Production"} */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>الإنتاج التام</Text>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>{isAr ? "الإنتاج التام" : "Finished Production"}</Text>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "زوج" : "Pair"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={finishedPairs} onChangeText={setFinishedPairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "درزن" : "Dozen"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={finishedDozen} onChangeText={setFinishedDozen} keyboardType="numeric"
                       />
                     </View>
                   </View>
                 </View>
-                {/* النخب الثاني */}
+                {/* {isAr ? "النخب الثاني" : "Second Grade"} */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>النخب الثاني</Text>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>{isAr ? "النخب الثاني" : "Second Grade"}</Text>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "زوج" : "Pair"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={secondGradePairs} onChangeText={setSecondGradePairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "درزن" : "Dozen"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={secondGradeDozen} onChangeText={setSecondGradeDozen} keyboardType="numeric"
                       />
                     </View>
@@ -561,19 +564,19 @@ export default function ManufacturingStageScreen() {
                 </View>
                 {/* مانع الانزلاق */}
                 <View style={{ marginBottom: 16, backgroundColor: colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>جوارب مانع الانزلاق</Text>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>{isAr ? "جوارب مانع الانزلاق" : "Anti-slip Socks"}</Text>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "زوج" : "Pair"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={antislipPairs} onChangeText={setAntislipPairs} keyboardType="numeric"
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                      <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "درزن" : "Dozen"}</Text>
                       <TextInput
-                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                         placeholder="0" placeholderTextColor={colors.muted} value={antislipDozen} onChangeText={setAntislipDozen} keyboardType="numeric"
                       />
                     </View>
@@ -589,11 +592,11 @@ export default function ManufacturingStageScreen() {
                       onPress={addProduct}
                       style={{ backgroundColor: config.color, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
                     >
-                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>إضافة منتج</Text>
+                      <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة منتج" : "Add Product"}</Text>
                       <MaterialIcons name="add" size={16} color="white" />
                     </TouchableOpacity>
                     <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                      المنتجات ({products.length}/5)
+                      {isAr ? `المنتجات (${products.length}/5)` : `Products (${products.length}/5)`}
                     </Text>
                   </View>
 
@@ -616,16 +619,16 @@ export default function ManufacturingStageScreen() {
                           </TouchableOpacity>
                         )}
                         <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14 }}>
-                          منتج {index + 1}
+                          {isAr ? `منتج ${index + 1}` : `Product ${index + 1}`}
                         </Text>
                       </View>
 
-                      {/* اسم المنتج */}
+                      {/* {isAr ? "اسم المنتج *" : "Product Name *"} */}
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>اسم المنتج *</Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "اسم المنتج *" : "Product Name *"}</Text>
                         <TextInput
-                          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 15 }}
-                          placeholder="أدخل اسم المنتج"
+                          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 15 }}
+                          placeholder={isAr ? "أدخل اسم المنتج" : "Enter product name"}
                           placeholderTextColor={colors.muted}
                           value={product.productName}
                           onChangeText={(v) => updateProduct(index, "productName", v)}
@@ -636,9 +639,9 @@ export default function ManufacturingStageScreen() {
                       {/* الكميات */}
                       <View style={{ flexDirection: 'row', gap: 12 }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>زوج</Text>
+                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "زوج" : "Pair"}</Text>
                           <TextInput
-                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                             placeholder="0" placeholderTextColor={colors.muted}
                             value={product.quantityPairs}
                             onChangeText={(v) => updateProduct(index, "quantityPairs", v)}
@@ -646,9 +649,9 @@ export default function ManufacturingStageScreen() {
                           />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>درزن</Text>
+                          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "درزن" : "Dozen"}</Text>
                           <TextInput
-                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                             placeholder="0" placeholderTextColor={colors.muted}
                             value={product.quantityDozen}
                             onChangeText={(v) => updateProduct(index, "quantityDozen", v)}
@@ -662,23 +665,23 @@ export default function ManufacturingStageScreen() {
               </View>
             )}
 
-            {/* المدة الزمنية للإنجاز */}
+            {/* {isAr ? "المدة الزمنية للإنجاز" : "Completion Time"} */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
-                المدة الزمنية للإنجاز
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "المدة الزمنية للإنجاز" : "Completion Time"}
               </Text>
               <View style={{ flexDirection: 'row', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>دقيقة</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "دقيقة" : "Minute"}</Text>
                   <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                     placeholder="0" placeholderTextColor={colors.muted} value={durationMinutes} onChangeText={setDurationMinutes} keyboardType="numeric"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>ساعة</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "ساعة" : "Hour"}</Text>
                   <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
                     placeholder="0" placeholderTextColor={colors.muted} value={durationHours} onChangeText={setDurationHours} keyboardType="numeric"
                   />
                 </View>
@@ -687,12 +690,12 @@ export default function ManufacturingStageScreen() {
 
             {/* ملاحظات */}
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>
-                ملاحظات (اختياري)
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "ملاحظات (اختياري)" : "Notes (Optional)"}
               </Text>
               <TextInput
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: 'right', fontSize: 16, minHeight: 70, textAlignVertical: "top" }}
-                placeholder="أدخل ملاحظات إضافية"
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16, minHeight: 70, textAlignVertical: "top" }}
+                placeholder={isAr ? "أدخل ملاحظات إضافية" : "Enter additional notes"}
                 placeholderTextColor={colors.muted}
                 value={notes} onChangeText={setNotes} multiline numberOfLines={3}
               />
@@ -719,7 +722,7 @@ export default function ManufacturingStageScreen() {
                 style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
               >
                 <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
-                  {editingEntry ? "تعديل" : "حفظ"}
+                  {editingEntry ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}
                 </Text>
                 <MaterialIcons name={editingEntry ? "edit" : "save"} size={20} color="white" />
               </TouchableOpacity>
@@ -740,11 +743,11 @@ export default function ManufacturingStageScreen() {
               </View>
               <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{config.name}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
-                {isViewOnly ? "لا توجد بيانات مسجلة بعد." : "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة."}
+                {isViewOnly ? (isAr ? "لا توجد بيانات مسجلة بعد." : "No data recorded yet.") : (isAr ? "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة." : "No data recorded yet.\nPress the (+) button above to add new production data.")}
               </Text>
               <View style={{ marginTop: 20, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
-                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>
-                  العمال في هذه المرحلة:
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
+                  {isAr ? "العمال في هذه المرحلة:" : "Workers in this stage:"}
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
                   {stageWorkers.map((worker) => (
@@ -760,7 +763,7 @@ export default function ManufacturingStageScreen() {
                   style={{ backgroundColor: config.color, marginTop: 20, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ color: '#ffffff', fontWeight: '600' }}>إضافة بيانات</Text>
+                    <Text style={{ color: '#ffffff', fontWeight: '600' }}>{isAr ? "إضافة بيانات" : "Add Data"}</Text>
                     <MaterialIcons name="add" size={20} color="white" />
                   </View>
                 </TouchableOpacity>

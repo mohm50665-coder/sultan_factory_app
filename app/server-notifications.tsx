@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { alertsService, AlertEntry } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "@/lib/language-context";
 
 const NOTIFICATION_SETTINGS_KEY = "sultan_notification_settings";
 
@@ -38,6 +39,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 };
 
 export default function ServerNotifications() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [alerts, setAlerts] = useState<AlertEntry[]>([]);
@@ -83,7 +86,7 @@ export default function ServerNotifications() {
       await alertsService.markAsRead(id);
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, read: 1 } : a));
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيه");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث التنبيه" : "Failed to update alert");
     }
   };
 
@@ -91,24 +94,24 @@ export default function ServerNotifications() {
     try {
       await alertsService.markAllAsRead(userId);
       setAlerts(prev => prev.map(a => ({ ...a, read: 1 })));
-      Alert.alert("تم", "تم تحديد جميع التنبيهات كمقروءة");
+      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تحديد جميع التنبيهات كمقروءة" : "All alerts marked as read");
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيهات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث التنبيهات" : "Failed to update alerts");
     }
   };
 
   const handleDeleteAlert = async (id: number) => {
-    Alert.alert("تأكيد", "هل تريد حذف هذا التنبيه؟", [
-      { text: "إلغاء", style: "cancel" },
+    Alert.alert(isAr ? "تأكيد" : "Confirm", isAr ? "هل تريد حذف هذا التنبيه؟" : "Do you want to delete this alert?", [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       {
-        text: "حذف",
+        text: isAr ? "حذف" : "Delete",
         style: "destructive",
         onPress: async () => {
           try {
             await alertsService.delete(id);
             setAlerts(prev => prev.filter(a => a.id !== id));
           } catch (error) {
-            Alert.alert("خطأ", "فشل في حذف التنبيه");
+            Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في حذف التنبيه" : "Failed to delete alert");
           }
         },
       },
@@ -131,9 +134,9 @@ export default function ServerNotifications() {
 
   const getSeverityLabel = (severity: string) => {
     switch (severity) {
-      case "critical": return "حرج";
-      case "warning": return "تحذير";
-      default: return "معلومات";
+      case "critical": return isAr ? "حرج" : "Critical";
+      case "warning": return isAr ? "تحذير" : "Warning";
+      default: return isAr ? "معلومات" : "Info";
     }
   };
 
@@ -154,7 +157,7 @@ export default function ServerNotifications() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.muted, marginTop: 12 }}>جاري التحميل...</Text>
+        <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري التحميل..." : "Loading..."}</Text>
       </ScreenContainer>
     );
   }
@@ -168,12 +171,12 @@ export default function ServerNotifications() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
+            <MaterialIcons name={isAr ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>الإشعارات والتنبيهات</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-              {unreadCount > 0 ? `${unreadCount} تنبيه غير مقروء` : "لا توجد تنبيهات جديدة"}
+            <Text style={[styles.headerTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "الإشعارات والتنبيهات" : "Notifications & Alerts"}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>
+              {unreadCount > 0 ? (isAr ? `${unreadCount} تنبيه غير مقروء` : `${unreadCount} unread alerts`) : (isAr ? "لا توجد تنبيهات جديدة" : "No new alerts")}
             </Text>
           </View>
           <TouchableOpacity onPress={() => setShowSettings(!showSettings)}>
@@ -184,19 +187,19 @@ export default function ServerNotifications() {
         {/* Settings Panel */}
         {showSettings && (
           <View style={[styles.settingsPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.settingsTitle, { color: colors.foreground }]}>إعدادات الإشعارات</Text>
+            <Text style={[styles.settingsTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "إعدادات الإشعارات" : "Notification Settings"}</Text>
             {[
-              { key: "costAlerts" as const, label: "تنبيهات التكاليف", desc: "عند تجاوز التكاليف المتوقعة" },
-              { key: "productivityAlerts" as const, label: "تنبيهات الإنتاجية", desc: "عند انخفاض الإنتاجية" },
-              { key: "taskAlerts" as const, label: "تنبيهات المهام", desc: "عند اقتراب موعد تسليم المهام" },
-              { key: "qualityAlerts" as const, label: "تنبيهات الجودة", desc: "عند وجود مشاكل جودة" },
-              { key: "safetyAlerts" as const, label: "تنبيهات السلامة", desc: "تنبيهات السلامة المهنية" },
-              { key: "dailyReport" as const, label: "التقرير اليومي", desc: "ملخص يومي للأداء" },
+              { key: "costAlerts" as const, labelAr: "تنبيهات التكاليف", labelEn: "Cost Alerts", descAr: "عند تجاوز التكاليف المتوقعة", descEn: "When expected costs are exceeded" },
+              { key: "productivityAlerts" as const, labelAr: "تنبيهات الإنتاجية", labelEn: "Productivity Alerts", descAr: "عند انخفاض الإنتاجية", descEn: "When productivity drops" },
+              { key: "taskAlerts" as const, labelAr: "تنبيهات المهام", labelEn: "Task Alerts", descAr: "عند اقتراب موعد تسليم المهام", descEn: "When task deadlines approach" },
+              { key: "qualityAlerts" as const, labelAr: "تنبيهات الجودة", labelEn: "Quality Alerts", descAr: "عند وجود مشاكل جودة", descEn: "When quality issues arise" },
+              { key: "safetyAlerts" as const, labelAr: "تنبيهات السلامة", labelEn: "Safety Alerts", descAr: "تنبيهات السلامة المهنية", descEn: "Occupational safety alerts" },
+              { key: "dailyReport" as const, labelAr: "التقرير اليومي", labelEn: "Daily Report", descAr: "ملخص يومي للأداء", descEn: "Daily performance summary" },
             ].map((item) => (
-              <View key={item.key} style={styles.settingRow}>
+              <View key={item.key} style={[styles.settingRow, { flexDirection: isAr ? "row" : "row-reverse" }]}>
                 <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>{item.label}</Text>
-                  <Text style={[styles.settingDesc, { color: colors.muted }]}>{item.desc}</Text>
+                  <Text style={[styles.settingLabel, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? item.labelAr : item.labelEn}</Text>
+                  <Text style={[styles.settingDesc, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? item.descAr : item.descEn}</Text>
                 </View>
                 <Switch
                   value={settings[item.key]}
@@ -213,11 +216,11 @@ export default function ServerNotifications() {
         {unreadCount > 0 && (
           <View style={styles.actions}>
             <TouchableOpacity
-              style={[styles.markAllBtn, { backgroundColor: colors.primary }]}
+              style={[styles.markAllBtn, { backgroundColor: colors.primary, alignSelf: isAr ? "flex-start" : "flex-end", flexDirection: isAr ? "row" : "row-reverse" }]}
               onPress={handleMarkAllRead}
             >
               <MaterialIcons name="done-all" size={18} color="#fff" />
-              <Text style={styles.markAllText}>تحديد الكل كمقروء</Text>
+              <Text style={styles.markAllText}>{isAr ? "تحديد الكل كمقروء" : "Mark all as read"}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -226,9 +229,9 @@ export default function ServerNotifications() {
         {alerts.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
             <MaterialIcons name="notifications-off" size={56} color={colors.muted} />
-            <Text style={[styles.emptyTitle, { color: colors.muted }]}>لا توجد تنبيهات</Text>
+            <Text style={[styles.emptyTitle, { color: colors.muted }]}>{isAr ? "لا توجد تنبيهات" : "No alerts"}</Text>
             <Text style={[styles.emptyDesc, { color: colors.muted }]}>
-              ستظهر هنا التنبيهات عند تجاوز التكاليف أو انخفاض الإنتاجية
+              {isAr ? "ستظهر هنا التنبيهات عند تجاوز التكاليف أو انخفاض الإنتاجية" : "Alerts will appear here when costs are exceeded or productivity drops"}
             </Text>
           </View>
         ) : (
@@ -237,8 +240,8 @@ export default function ServerNotifications() {
               key={alert.id}
               style={[
                 styles.alertCard,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                !alert.read && { borderRightWidth: 4, borderRightColor: getSeverityColor(alert.severity) },
+                { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isAr ? "row" : "row-reverse" },
+                !alert.read && (isAr ? { borderRightWidth: 4, borderRightColor: getSeverityColor(alert.severity) } : { borderLeftWidth: 4, borderLeftColor: getSeverityColor(alert.severity) }),
               ]}
               onPress={() => alert.id && handleMarkRead(alert.id)}
               onLongPress={() => alert.id && handleDeleteAlert(alert.id)}
@@ -247,17 +250,17 @@ export default function ServerNotifications() {
                 <MaterialIcons name={getTypeIcon(alert.type) as any} size={24} color={getSeverityColor(alert.severity)} />
               </View>
               <View style={styles.alertContent}>
-                <View style={styles.alertHeader}>
-                  <Text style={[styles.alertTitle, { color: colors.foreground }]} numberOfLines={1}>{alert.title}</Text>
+                <View style={[styles.alertHeader, { flexDirection: isAr ? "row" : "row-reverse" }]}>
+                  <Text style={[styles.alertTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]} numberOfLines={1}>{alert.title}</Text>
                   <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(alert.severity) + "20" }]}>
                     <Text style={[styles.severityText, { color: getSeverityColor(alert.severity) }]}>
                       {getSeverityLabel(alert.severity)}
                     </Text>
                   </View>
                 </View>
-                <Text style={[styles.alertMessage, { color: colors.muted }]} numberOfLines={2}>{alert.message}</Text>
-                <Text style={[styles.alertTime, { color: colors.muted }]}>
-                  {alert.createdAt ? new Date(alert.createdAt).toLocaleString("ar-SA") : ""}
+                <Text style={[styles.alertMessage, { color: colors.muted, textAlign: isAr ? "right" : "left" }]} numberOfLines={2}>{alert.message}</Text>
+                <Text style={[styles.alertTime, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>
+                  {alert.createdAt ? new Date(alert.createdAt).toLocaleString(isAr ? "ar-SA" : "en-US") : ""}
                 </Text>
               </View>
               {!alert.read && <View style={[styles.unreadDot, { backgroundColor: getSeverityColor(alert.severity) }]} />}
@@ -278,20 +281,20 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 13, marginTop: 2 },
   settingsPanel: { marginHorizontal: 16, marginBottom: 16, padding: 16, borderRadius: 12, borderWidth: 1 },
   settingsTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 12 },
-  settingRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb" },
+  settingRow: { alignItems: "center", paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb" },
   settingInfo: { flex: 1 },
   settingLabel: { fontSize: 14, fontWeight: "600" },
   settingDesc: { fontSize: 11, marginTop: 2 },
   actions: { paddingHorizontal: 16, marginBottom: 12 },
-  markAllBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, alignSelf: "flex-start" },
+  markAllBtn: { alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   markAllText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   emptyState: { alignItems: "center", marginHorizontal: 16, padding: 40, borderRadius: 12 },
   emptyTitle: { fontSize: 18, fontWeight: "bold", marginTop: 12 },
   emptyDesc: { fontSize: 13, marginTop: 8, textAlign: "center", lineHeight: 20 },
-  alertCard: { flexDirection: "row", marginHorizontal: 16, marginBottom: 10, padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
+  alertCard: { marginHorizontal: 16, marginBottom: 10, padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
   alertIconBox: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   alertContent: { flex: 1 },
-  alertHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  alertHeader: { alignItems: "center", gap: 8 },
   alertTitle: { fontSize: 14, fontWeight: "bold", flex: 1 },
   severityBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   severityText: { fontSize: 10, fontWeight: "bold" },

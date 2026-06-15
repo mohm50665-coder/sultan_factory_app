@@ -33,6 +33,8 @@ const AVAILABLE_TOOLS: Tool[] = [
 ];
 
 export default function AdminToolsPermissionsScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const { t } = useLanguage();
@@ -87,10 +89,10 @@ export default function AdminToolsPermissionsScreen() {
       // Save to server
       const { adminService } = await import('@/lib/services/api.service');
       await adminService.updateToolPermissions(selectedUser.id, userPermissions);
-      Alert.alert('نجح', 'تم حفظ الصلاحيات بنجاح');
+      Alert.alert(isAr ? 'نجح' : 'Success', isAr ? 'تم حفظ الصلاحيات بنجاح' : 'Permissions saved successfully');
     } catch (error) {
       console.error('Error saving permissions:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ الصلاحيات');
+      Alert.alert(isAr ? 'خطأ' : 'Error', isAr ? 'حدث خطأ أثناء حفظ الصلاحيات' : 'An error occurred while saving permissions');
     } finally {
       setIsLoading(false);
     }
@@ -98,12 +100,12 @@ export default function AdminToolsPermissionsScreen() {
 
   const resetToDefaults = () => {
     Alert.alert(
-      'تأكيد',
-      'هل تريد إعادة تعيين جميع الأدوات للظهور الافتراضي؟',
+      isAr ? 'تأكيد' : 'Confirm',
+      isAr ? 'هل تريد إعادة تعيين جميع الأدوات للظهور الافتراضي؟' : 'Do you want to reset all tools to default visibility?',
       [
-        { text: 'إلغاء', style: 'cancel' },
+        { text: isAr ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
-          text: 'تأكيد',
+          text: isAr ? 'تأكيد' : 'Confirm',
           style: 'destructive',
           onPress: () => {
             const defaultPermissions: Record<string, boolean> = {};
@@ -120,32 +122,32 @@ export default function AdminToolsPermissionsScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* Header with Back Button */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 12 }}>
+      <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 12 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          <MaterialIcons name={isAr ? "arrow-forward" : "arrow-back"} size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 12, flex: 1 }}>
-          صلاحيات الأدوات
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', marginRight: isAr ? 12 : 0, marginLeft: isAr ? 0 : 12, flex: 1, textAlign: isAr ? 'right' : 'left' }}>
+          {isAr ? 'صلاحيات الأدوات' : 'Tools Permissions'}
         </Text>
       </View>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={{ padding: 16, gap: 16 }}>
           {/* Header */}
           <View style={{ marginBottom: 8 }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.foreground, marginBottom: 4 }}>
-              صلاحيات الأدوات الإضافية
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.foreground, marginBottom: 4, textAlign: isAr ? 'right' : 'left' }}>
+              {isAr ? 'صلاحيات الأدوات الإضافية' : 'Additional Tools Permissions'}
             </Text>
-            <Text style={{ fontSize: 14, color: colors.muted }}>
-              تحديد الأدوات المتاحة لكل مستخدم
+            <Text style={{ fontSize: 14, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
+              {isAr ? 'تحديد الأدوات المتاحة لكل مستخدم' : 'Select available tools for each user'}
             </Text>
           </View>
 
           {/* User Selection */}
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, marginBottom: 8 }}>
-              اختر المستخدم:
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, marginBottom: 8, textAlign: isAr ? 'right' : 'left' }}>
+              {isAr ? 'اختر المستخدم:' : 'Select User:'}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8, flexDirection: isAr ? 'row-reverse' : 'row' }}>
               {users.map((u) => (
                 <TouchableOpacity
                   key={u.id}
@@ -154,7 +156,8 @@ export default function AdminToolsPermissionsScreen() {
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 8,
-                    marginRight: 8,
+                    marginLeft: isAr ? 8 : 0,
+                    marginRight: isAr ? 0 : 8,
                     backgroundColor: selectedUser?.id === u.id ? colors.primary : colors.background,
                     borderWidth: 1,
                     borderColor: colors.border,
@@ -172,11 +175,11 @@ export default function AdminToolsPermissionsScreen() {
             </ScrollView>
             {selectedUser && (
               <View style={{ backgroundColor: colors.background, padding: 8, borderRadius: 8 }}>
-                <Text style={{ fontSize: 12, color: colors.muted }}>
-                  القسم: {selectedUser.department}
+                <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
+                  {isAr ? 'القسم: ' : 'Department: '}{selectedUser.department}
                 </Text>
-                <Text style={{ fontSize: 12, color: colors.muted }}>
-                  الدور: {selectedUser.role}
+                <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
+                  {isAr ? 'الدور: ' : 'Role: '}{selectedUser.role}
                 </Text>
               </View>
             )}
@@ -185,8 +188,8 @@ export default function AdminToolsPermissionsScreen() {
           {/* Tools Permissions */}
           {selectedUser && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground }}>
-                الأدوات المتاحة:
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, textAlign: isAr ? 'right' : 'left' }}>
+                {isAr ? 'الأدوات المتاحة:' : 'Available Tools:'}
               </Text>
               {AVAILABLE_TOOLS.map((tool) => (
                 <View
@@ -195,23 +198,23 @@ export default function AdminToolsPermissionsScreen() {
                     backgroundColor: colors.surface,
                     borderRadius: 12,
                     padding: 12,
-                    flexDirection: 'row',
+                    flexDirection: isAr ? 'row' : 'row-reverse',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     borderWidth: 1,
                     borderColor: userPermissions[tool.id] ? tool.color : colors.border,
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                  <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', gap: 12, flex: 1 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: tool.color + '20', justifyContent: 'center', alignItems: 'center' }}>
                       <MaterialIcons name={tool.icon as any} size={20} color={tool.color} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground }}>
-                        {tool.labelAr}
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: colors.foreground, textAlign: isAr ? 'right' : 'left' }}>
+                        {isAr ? tool.labelAr : tool.labelEn}
                       </Text>
-                      <Text style={{ fontSize: 12, color: colors.muted }}>
-                        {tool.labelEn}
+                      <Text style={{ fontSize: 12, color: colors.muted, textAlign: isAr ? 'right' : 'left' }}>
+                        {isAr ? tool.labelEn : tool.labelAr}
                       </Text>
                     </View>
                   </View>
@@ -240,7 +243,7 @@ export default function AdminToolsPermissionsScreen() {
               }}
             >
               <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
-                حفظ الصلاحيات
+                {isAr ? 'حفظ الصلاحيات' : 'Save Permissions'}
               </Text>
             </TouchableOpacity>
 
@@ -256,7 +259,7 @@ export default function AdminToolsPermissionsScreen() {
               }}
             >
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                إعادة تعيين للافتراضي
+                {isAr ? 'إعادة تعيين للافتراضي' : 'Reset to Defaults'}
               </Text>
             </TouchableOpacity>
 
@@ -272,7 +275,7 @@ export default function AdminToolsPermissionsScreen() {
               }}
             >
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                رجوع
+                {isAr ? 'رجوع' : 'Back'}
               </Text>
             </TouchableOpacity>
           </View>

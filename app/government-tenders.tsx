@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useLanguage } from "@/lib/language-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
@@ -43,6 +44,8 @@ interface MeetingOutput {
 }
 
 export default function GovernmentTendersScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [recentMeetings, setRecentMeetings] = useState<Meeting[]>([]);
@@ -82,32 +85,32 @@ export default function GovernmentTendersScreen() {
   const menuItems = [
     {
       id: "tasks",
-      title: "المهام",
-      subtitle: "إدارة مهام المناقصات",
+      title: isAr ? "المهام" : "Tasks",
+      subtitle: isAr ? "إدارة مهام المناقصات" : "Manage tender tasks",
       icon: "assignment",
       color: "#3B82F6",
       route: "/tasks",
     },
     {
       id: "administrative",
-      title: "الإجراءات الإدارية",
-      subtitle: "إجراءات القسم الإدارية",
+      title: isAr ? "الإجراءات الإدارية" : "Administrative Procedures",
+      subtitle: isAr ? "إجراءات القسم الإدارية" : "Department administrative procedures",
       icon: "admin-panel-settings",
       color: "#8B5CF6",
       route: "/administrative",
     },
     {
       id: "meeting_request",
-      title: "طلب اجتماع",
-      subtitle: "جدولة اجتماع جديد مع الأعضاء",
+      title: isAr ? "طلب اجتماع" : "Meeting Request",
+      subtitle: isAr ? "جدولة اجتماع جديد مع الأعضاء" : "Schedule a new meeting with members",
       icon: "groups",
       color: "#10B981",
       route: "/meeting-request",
     },
     {
       id: "meeting_outputs",
-      title: "مخرجات الاجتماع",
-      subtitle: "التوصيات والقرارات والمرفقات",
+      title: isAr ? "مخرجات الاجتماع" : "Meeting Outputs",
+      subtitle: isAr ? "التوصيات والقرارات والمرفقات" : "Recommendations, decisions, and attachments",
       icon: "summarize",
       color: "#F59E0B",
       route: "/meeting-outputs",
@@ -116,9 +119,9 @@ export default function GovernmentTendersScreen() {
 
   const getMethodLabel = (method: string) => {
     switch (method) {
-      case "in_person": return "حضوري";
-      case "remote": return "عن بعد";
-      case "hybrid": return "مختلط";
+      case "in_person": return isAr ? "حضوري" : "In Person";
+      case "remote": return isAr ? "عن بعد" : "Remote";
+      case "hybrid": return isAr ? "مختلط" : "Hybrid";
       default: return method;
     }
   };
@@ -134,9 +137,9 @@ export default function GovernmentTendersScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "scheduled": return "مجدول";
-      case "completed": return "مكتمل";
-      case "cancelled": return "ملغي";
+      case "scheduled": return isAr ? "مجدول" : "Scheduled";
+      case "completed": return isAr ? "مكتمل" : "Completed";
+      case "cancelled": return isAr ? "ملغي" : "Cancelled";
       default: return status;
     }
   };
@@ -146,7 +149,7 @@ export default function GovernmentTendersScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: "#1E3A5F" }]}>
         <BackButton />
-        <Text style={styles.headerTitle}>المناقصات الحكومية والعسكرية</Text>
+        <Text style={styles.headerTitle}>{isAr ? "المناقصات الحكومية والعسكرية" : "Government and Military Tenders"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -171,9 +174,9 @@ export default function GovernmentTendersScreen() {
         {/* Recent Meetings */}
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>آخر الاجتماعات</Text>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{isAr ? "آخر الاجتماعات" : "Recent Meetings"}</Text>
             <TouchableOpacity onPress={() => router.push("/meeting-request" as any)}>
-              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>عرض الكل</Text>
+              <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>{isAr ? "عرض الكل" : "View All"}</Text>
             </TouchableOpacity>
           </View>
 
@@ -182,7 +185,7 @@ export default function GovernmentTendersScreen() {
           ) : recentMeetings.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 24 }}>
               <MaterialIcons name="event-busy" size={36} color={colors.muted} />
-              <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>لا توجد اجتماعات مسجلة</Text>
+              <Text style={{ color: colors.muted, marginTop: 8, fontSize: 13 }}>{isAr ? "لا توجد اجتماعات مسجلة" : "No meetings recorded"}</Text>
             </View>
           ) : (
             recentMeetings.map(meeting => (
@@ -213,21 +216,21 @@ export default function GovernmentTendersScreen() {
             <Text style={{ color: "#3B82F6", fontWeight: "bold", fontSize: 18, marginTop: 4 }}>
               {recentMeetings.filter(m => m.status === "scheduled").length}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>اجتماعات قادمة</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "اجتماعات قادمة" : "Upcoming Meetings"}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: "#10B98120", borderColor: "#10B98140" }]}>
             <MaterialIcons name="check-circle" size={20} color="#10B981" />
             <Text style={{ color: "#10B981", fontWeight: "bold", fontSize: 18, marginTop: 4 }}>
               {recentMeetings.filter(m => m.status === "completed").length}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>مكتملة</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "مكتملة" : "Completed"}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: "#F59E0B20", borderColor: "#F59E0B40" }]}>
             <MaterialIcons name="people" size={20} color="#F59E0B" />
             <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 18, marginTop: 4 }}>
               {recentMeetings.reduce((sum, m) => sum + m.attendees.length, 0)}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>إجمالي الحضور</Text>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "إجمالي الحضور" : "Total Attendees"}</Text>
           </View>
         </View>
       </ScrollView>

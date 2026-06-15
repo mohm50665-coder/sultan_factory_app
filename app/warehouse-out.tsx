@@ -20,11 +20,16 @@ import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
 
-const WAREHOUSE_TYPES = ["مستودع الإنتاج التام", "مستودع المواد الخام"];
-const FINISHED_ITEMS = ["جوارب إنتاج تام", "جوارب نخب ثاني"];
-const RAW_ITEMS = ["خيوط", "قطع غيار"];
-const INVOICE_TYPES = ["مبيعات", "عينات", "هدايا"];
-const RAW_UNITS = ["كيلو", "غرام", "حبة", "كرتون"];
+const WAREHOUSE_TYPES_AR = ["مستودع الإنتاج التام", "مستودع المواد الخام"];
+const WAREHOUSE_TYPES_EN = ["Finished Products Warehouse", "Raw Materials Warehouse"];
+const FINISHED_ITEMS_AR = ["جوارب إنتاج تام", "جوارب نخب ثاني"];
+const FINISHED_ITEMS_EN = ["Finished Socks", "Second Grade Socks"];
+const RAW_ITEMS_AR = ["خيوط", "قطع غيار"];
+const RAW_ITEMS_EN = ["Thread", "Spare Parts"];
+const INVOICE_TYPES_AR = ["مبيعات", "عينات", "هدايا"];
+const INVOICE_TYPES_EN = ["Sales", "Samples", "Gifts"];
+const RAW_UNITS_AR = ["كيلو", "غرام", "حبة", "كرتون"];
+const RAW_UNITS_EN = ["Kg", "Gram", "Piece", "Carton"];
 
 interface OutEntry {
   id: string;
@@ -56,6 +61,8 @@ export default function WarehouseOutScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [entries, setEntries] = useState<OutEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<OutEntry | null>(null);
@@ -74,7 +81,12 @@ export default function WarehouseOutScreen() {
   const [receiverName, setReceiverName] = useState("");
   const [documentAttached, setDocumentAttached] = useState(false);
   const [warehouseOutAttachments, setWarehouseOutAttachments] = useState<AttachmentFile[]>([]);
-  const { language } = useLanguage();
+
+  const WAREHOUSE_TYPES = isAr ? WAREHOUSE_TYPES_AR : WAREHOUSE_TYPES_EN;
+  const FINISHED_ITEMS = isAr ? FINISHED_ITEMS_AR : FINISHED_ITEMS_EN;
+  const RAW_ITEMS = isAr ? RAW_ITEMS_AR : RAW_ITEMS_EN;
+  const INVOICE_TYPES = isAr ? INVOICE_TYPES_AR : INVOICE_TYPES_EN;
+  const RAW_UNITS = isAr ? RAW_UNITS_AR : RAW_UNITS_EN;
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -110,8 +122,8 @@ export default function WarehouseOutScreen() {
   };
 
   const handleSave = async () => {
-    if (!warehouseType) { Alert.alert("تنبيه", "يرجى اختيار المستودع"); return; }
-    if (!itemCategory) { Alert.alert("تنبيه", "يرجى اختيار الصنف"); return; }
+    if (!warehouseType) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار المستودع" : "Please select warehouse"); return; }
+    if (!itemCategory) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار الصنف" : "Please select item"); return; }
 
     const entry: OutEntry = {
       id: editingEntry?.id || Date.now().toString(),
@@ -130,12 +142,6 @@ export default function WarehouseOutScreen() {
       documentAttached,
     };
 
-    let newEntries: OutEntry[];
-    if (editingEntry) {
-      newEntries = entries.map((e) => (e.id === editingEntry.id ? entry : e));
-    } else {
-      newEntries = [entry, ...entries];
-    }
     try {
       const { id, ...entryData } = entry;
       if (editingEntry) {
@@ -146,9 +152,9 @@ export default function WarehouseOutScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved"));
     } catch (e) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     }
   };
 
@@ -178,29 +184,28 @@ export default function WarehouseOutScreen() {
       } catch (e) { console.log(e); }
     };
     if (Platform.OS === "web") {
-      if (confirm("هل تريد حذف هذا السجل؟")) {
+      if (confirm(isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?")) {
         doDelete();
       }
     } else {
-      Alert.alert("تأكيد الحذف", "هل تريد حذف هذا السجل؟", [
-        { text: "إلغاء", style: "cancel" },
-        { text: "حذف", style: "destructive", onPress: doDelete },
+      Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?", [
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+        { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: doDelete },
       ]);
     }
   };
 
-  const isFinishedWarehouse = warehouseType === "مستودع الإنتاج التام";
-  const isRawWarehouse = warehouseType === "مستودع المواد الخام";
+  const isFinishedWarehouse = warehouseType === WAREHOUSE_TYPES[0];
+  const isRawWarehouse = warehouseType === WAREHOUSE_TYPES[1];
 
   const renderForm = () => (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>
-          {editingEntry ? "✏️ تعديل بيانات" : "➕ إخراج من المستودع"}
+          {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إخراج من المستودع" : "➕ Warehouse Output")}
         </Text>
 
-        {/* اختيار المستودع */}
-        <Text style={styles.label}>اختر المستودع</Text>
+        <Text style={styles.label}>{isAr ? "اختر المستودع" : "Select Warehouse"}</Text>
         <View style={styles.chipRow}>
           {WAREHOUSE_TYPES.map((type) => (
             <TouchableOpacity
@@ -213,10 +218,9 @@ export default function WarehouseOutScreen() {
           ))}
         </View>
 
-        {/* اختيار الصنف - إنتاج تام */}
         {isFinishedWarehouse && (
           <>
-            <Text style={styles.label}>اسم الصنف</Text>
+            <Text style={styles.label}>{isAr ? "اسم الصنف" : "Item Name"}</Text>
             <View style={styles.chipRow}>
               {FINISHED_ITEMS.map((item) => (
                 <TouchableOpacity
@@ -229,18 +233,16 @@ export default function WarehouseOutScreen() {
               ))}
             </View>
 
-            {/* رقم فاتورة المبيعات */}
-            <Text style={styles.label}>رقم فاتورة المبيعات</Text>
+            <Text style={styles.label}>{isAr ? "رقم فاتورة المبيعات" : "Sales Invoice No."}</Text>
             <TextInput
               style={styles.input}
-              placeholder="رقم الفاتورة"
+              placeholder={isAr ? "رقم الفاتورة" : "Invoice No."}
               placeholderTextColor={colors.muted}
               value={invoiceNumber}
               onChangeText={setInvoiceNumber}
             />
 
-            {/* نوع الفاتورة */}
-            <Text style={styles.label}>نوع الفاتورة</Text>
+            <Text style={styles.label}>{isAr ? "نوع الفاتورة" : "Invoice Type"}</Text>
             <View style={styles.chipRow}>
               {INVOICE_TYPES.map((type) => (
                 <TouchableOpacity
@@ -253,8 +255,7 @@ export default function WarehouseOutScreen() {
               ))}
             </View>
 
-            {/* تاريخ الفاتورة */}
-            <Text style={styles.label}>تاريخ الفاتورة</Text>
+            <Text style={styles.label}>{isAr ? "تاريخ الفاتورة" : "Invoice Date"}</Text>
             <TextInput
               style={styles.input}
               placeholder="YYYY-MM-DD"
@@ -263,8 +264,7 @@ export default function WarehouseOutScreen() {
               onChangeText={setInvoiceDate}
             />
 
-            {/* الكمية بالدرزن والزوج */}
-            <Text style={styles.label}>الكمية (درزن)</Text>
+            <Text style={styles.label}>{isAr ? "الكمية (درزن)" : "Quantity (Dozen)"}</Text>
             <TextInput
               style={styles.input}
               placeholder="0"
@@ -273,7 +273,7 @@ export default function WarehouseOutScreen() {
               onChangeText={setQuantityDozen}
               keyboardType="numeric"
             />
-            <Text style={styles.label}>الكمية (زوج)</Text>
+            <Text style={styles.label}>{isAr ? "الكمية (زوج)" : "Quantity (Pairs)"}</Text>
             <TextInput
               style={styles.input}
               placeholder="0"
@@ -285,10 +285,9 @@ export default function WarehouseOutScreen() {
           </>
         )}
 
-        {/* اختيار الصنف - مواد خام */}
         {isRawWarehouse && (
           <>
-            <Text style={styles.label}>نوع الصنف</Text>
+            <Text style={styles.label}>{isAr ? "نوع الصنف" : "Item Type"}</Text>
             <View style={styles.chipRow}>
               {RAW_ITEMS.map((item) => (
                 <TouchableOpacity
@@ -301,18 +300,16 @@ export default function WarehouseOutScreen() {
               ))}
             </View>
 
-            {/* اسم الصنف */}
-            <Text style={styles.label}>اسم الصنف</Text>
+            <Text style={styles.label}>{isAr ? "اسم الصنف" : "Item Name"}</Text>
             <TextInput
               style={styles.input}
-              placeholder="اسم الصنف"
+              placeholder={isAr ? "اسم الصنف" : "Item Name"}
               placeholderTextColor={colors.muted}
               value={itemName}
               onChangeText={setItemName}
             />
 
-            {/* الكمية */}
-            <Text style={styles.label}>الكمية</Text>
+            <Text style={styles.label}>{isAr ? "الكمية" : "Quantity"}</Text>
             <TextInput
               style={styles.input}
               placeholder="0"
@@ -322,8 +319,7 @@ export default function WarehouseOutScreen() {
               keyboardType="numeric"
             />
 
-            {/* الوحدة */}
-            <Text style={styles.label}>الوحدة</Text>
+            <Text style={styles.label}>{isAr ? "الوحدة" : "Unit"}</Text>
             <View style={styles.chipRow}>
               {RAW_UNITS.map((u) => (
                 <TouchableOpacity
@@ -336,11 +332,10 @@ export default function WarehouseOutScreen() {
               ))}
             </View>
 
-            {/* اسم المستلم */}
-            <Text style={styles.label}>اسم الشخص المستلم</Text>
+            <Text style={styles.label}>{isAr ? "اسم الشخص المستلم" : "Receiver Name"}</Text>
             <TextInput
               style={styles.input}
-              placeholder="اسم المستلم"
+              placeholder={isAr ? "اسم المستلم" : "Receiver"}
               placeholderTextColor={colors.muted}
               value={receiverName}
               onChangeText={setReceiverName}
@@ -348,41 +343,38 @@ export default function WarehouseOutScreen() {
           </>
         )}
 
-        {/* إرفاق مستند الإخراج */}
         {(isFinishedWarehouse || isRawWarehouse) && (
           <TouchableOpacity
             onPress={() => setDocumentAttached(!documentAttached)}
             style={[styles.attachBtn, documentAttached && styles.attachBtnActive]}
           >
             <Text style={[styles.attachText, documentAttached && { color: "white" }]}>
-              {documentAttached ? "✓ تم إرفاق المستند" : "📎 إرفاق مستند الإخراج"}
+              {documentAttached ? (isAr ? "✓ تم إرفاق المستند" : "✓ Document Attached") : (isAr ? "📎 إرفاق مستند الإخراج" : "📎 Attach Output Document")}
             </Text>
             <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#ef4444"} />
           </TouchableOpacity>
         )}
 
-        {/* المرفقات */}
         <AttachmentPicker
           attachments={warehouseOutAttachments}
           onAttachmentsChange={setWarehouseOutAttachments}
           language={language}
         />
 
-        {/* أزرار */}
         {(isFinishedWarehouse || isRawWarehouse) && (
           <View style={styles.buttonRow}>
             <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }} style={styles.cancelBtn}>
-              <Text style={styles.cancelText}>إلغاء</Text>
+              <Text style={styles.cancelText}>{isAr ? "إلغاء" : "Cancel"}</Text>
               <MaterialIcons name="close" size={18} color="#11181C" />
             </TouchableOpacity>
             {editingEntry && (
               <TouchableOpacity onPress={handleSave} style={styles.editBtn}>
-                <Text style={styles.editBtnText}>تعديل</Text>
+                <Text style={styles.editBtnText}>{isAr ? "تعديل" : "Edit"}</Text>
                 <MaterialIcons name="edit" size={18} color="white" />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-              <Text style={styles.saveBtnText}>حفظ</Text>
+              <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
               <MaterialIcons name="save" size={18} color="white" />
             </TouchableOpacity>
           </View>
@@ -398,10 +390,10 @@ export default function WarehouseOutScreen() {
           <View style={styles.emptyIcon}>
             <MaterialIcons name="output" size={48} color="#ef4444" />
           </View>
-          <Text style={styles.emptyTitle}>الخارج من المستودعات</Text>
-          <Text style={styles.emptySubtitle}>لا توجد بيانات بعد. اضغط (+) لإضافة إخراج جديد.</Text>
+          <Text style={styles.emptyTitle}>{isAr ? "الخارج من المستودعات" : "Warehouse Output"}</Text>
+          <Text style={styles.emptySubtitle}>{isAr ? "لا توجد بيانات بعد. اضغط (+) لإضافة إخراج جديد." : "No data yet. Press (+) to add a new output."}</Text>
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.addBtnEmpty}>
-            <Text style={{ color: "white", fontWeight: "600" }}>إضافة إخراج</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>{isAr ? "إضافة إخراج" : "Add Output"}</Text>
             <MaterialIcons name="add" size={20} color="white" />
           </TouchableOpacity>
         </View>
@@ -425,43 +417,43 @@ export default function WarehouseOutScreen() {
             <View style={styles.entryBody}>
               <View style={styles.entryRow}>
                 <Text style={[styles.entryValue, { color: "#ef4444" }]}>{entry.warehouseType}</Text>
-                <Text style={styles.entryLabel}>المستودع:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "المستودع:" : "Warehouse:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.itemCategory}</Text>
-                <Text style={styles.entryLabel}>الصنف:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "الصنف:" : "Item:"}</Text>
               </View>
-              {entry.warehouseType === "مستودع الإنتاج التام" ? (
+              {(entry.warehouseType === "مستودع الإنتاج التام" || entry.warehouseType === "Finished Products Warehouse") ? (
                 <>
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.invoiceNumber} ({entry.invoiceType})</Text>
-                    <Text style={styles.entryLabel}>الفاتورة:</Text>
+                    <Text style={styles.entryLabel}>{isAr ? "الفاتورة:" : "Invoice:"}</Text>
                   </View>
                   <View style={styles.entryRow}>
-                    <Text style={styles.entryValue}>{entry.quantityDozen} درزن | {entry.quantityPairs} زوج</Text>
-                    <Text style={styles.entryLabel}>الكمية:</Text>
+                    <Text style={styles.entryValue}>{entry.quantityDozen} {isAr ? "درزن" : "dz"} | {entry.quantityPairs} {isAr ? "زوج" : "pairs"}</Text>
+                    <Text style={styles.entryLabel}>{isAr ? "الكمية:" : "Quantity:"}</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.itemName}</Text>
-                    <Text style={styles.entryLabel}>اسم الصنف:</Text>
+                    <Text style={styles.entryLabel}>{isAr ? "اسم الصنف:" : "Item Name:"}</Text>
                   </View>
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.quantity} {entry.unit}</Text>
-                    <Text style={styles.entryLabel}>الكمية:</Text>
+                    <Text style={styles.entryLabel}>{isAr ? "الكمية:" : "Quantity:"}</Text>
                   </View>
                   <View style={styles.entryRow}>
                     <Text style={styles.entryValue}>{entry.receiverName}</Text>
-                    <Text style={styles.entryLabel}>المستلم:</Text>
+                    <Text style={styles.entryLabel}>{isAr ? "المستلم:" : "Receiver:"}</Text>
                   </View>
                 </>
               )}
               {entry.documentAttached && (
                 <View style={styles.entryRow}>
-                  <Text style={[styles.entryValue, { color: "#ef4444" }]}>✓ مرفق</Text>
-                  <Text style={styles.entryLabel}>المستند:</Text>
+                  <Text style={[styles.entryValue, { color: "#ef4444" }]}>{isAr ? "✓ مرفق" : "✓ Attached"}</Text>
+                  <Text style={styles.entryLabel}>{isAr ? "المستند:" : "Document:"}</Text>
                 </View>
               )}
             </View>
@@ -478,8 +470,8 @@ export default function WarehouseOutScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle}>الخارج من المستودعات</Text>
-          <Text style={styles.headerSub}>{entries.length} سجل</Text>
+          <Text style={styles.headerTitle}>{isAr ? "الخارج من المستودعات" : "Warehouse Output"}</Text>
+          <Text style={styles.headerSub}>{entries.length} {isAr ? "سجل" : "records"}</Text>
         </View>
         <BackButton />
       </View>

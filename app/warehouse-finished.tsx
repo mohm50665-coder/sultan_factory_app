@@ -20,9 +20,12 @@ import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
 
-const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
-const PRODUCT_TYPES = ["إنتاج تام", "نخب ثاني"];
-const DOCUMENT_TYPES = ["فاتورة مرتجعات", "نموذج إدخال إنتاج تام"];
+const DATA_ENTRY_NAMES_AR = ["حيدر", "شميم", "غلام"];
+const DATA_ENTRY_NAMES_EN = ["Haider", "Shameem", "Ghulam"];
+const PRODUCT_TYPES_AR = ["إنتاج تام", "نخب ثاني"];
+const PRODUCT_TYPES_EN = ["Finished Product", "Second Grade"];
+const DOCUMENT_TYPES_AR = ["فاتورة مرتجعات", "نموذج إدخال إنتاج تام"];
+const DOCUMENT_TYPES_EN = ["Returns Invoice", "Finished Product Entry Form"];
 
 interface FinishedEntry {
   id: string;
@@ -51,6 +54,8 @@ export default function WarehouseFinishedScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [entries, setEntries] = useState<FinishedEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FinishedEntry | null>(null);
@@ -67,7 +72,10 @@ export default function WarehouseFinishedScreen() {
 
   const [documentAttached, setDocumentAttached] = useState(false);
   const [finishedAttachments, setFinishedAttachments] = useState<AttachmentFile[]>([]);
-  const { language } = useLanguage();
+
+  const DATA_ENTRY_NAMES = isAr ? DATA_ENTRY_NAMES_AR : DATA_ENTRY_NAMES_EN;
+  const PRODUCT_TYPES = isAr ? PRODUCT_TYPES_AR : PRODUCT_TYPES_EN;
+  const DOCUMENT_TYPES = isAr ? DOCUMENT_TYPES_AR : DOCUMENT_TYPES_EN;
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -95,14 +103,13 @@ export default function WarehouseFinishedScreen() {
     setTotalQuantity("");
     setFirstGradeQty("");
     setSecondGradeQty("");
-
     setDocumentAttached(false);
     setEditingEntry(null);
   };
 
   const handleSave = async () => {
-    if (!dataEntryName) { Alert.alert("تنبيه", "يرجى اختيار اسم مدخل البيانات"); return; }
-    if (!productType) { Alert.alert("تنبيه", "يرجى اختيار نوع الصنف"); return; }
+    if (!dataEntryName) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار اسم مدخل البيانات" : "Please select data entry name"); return; }
+    if (!productType) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار نوع الصنف" : "Please select product type"); return; }
 
     const entry: FinishedEntry = {
       id: editingEntry?.id || Date.now().toString(),
@@ -134,9 +141,9 @@ export default function WarehouseFinishedScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved"));
     } catch (e) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     }
   };
 
@@ -150,7 +157,6 @@ export default function WarehouseFinishedScreen() {
     setTotalQuantity(entry.totalQuantity);
     setFirstGradeQty(entry.firstGradeQty);
     setSecondGradeQty(entry.secondGradeQty);
-
     setDocumentAttached(entry.documentAttached);
     setEditingEntry(entry);
     setShowForm(true);
@@ -164,13 +170,13 @@ export default function WarehouseFinishedScreen() {
       } catch (e) { console.log(e); }
     };
     if (Platform.OS === "web") {
-      if (confirm("هل تريد حذف هذا السجل؟")) {
+      if (confirm(isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?")) {
         doDelete();
       }
     } else {
-      Alert.alert("تأكيد الحذف", "هل تريد حذف هذا السجل؟", [
-        { text: "إلغاء", style: "cancel" },
-        { text: "حذف", style: "destructive", onPress: doDelete },
+      Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?", [
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+        { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: doDelete },
       ]);
     }
   };
@@ -179,11 +185,11 @@ export default function WarehouseFinishedScreen() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>
-          {editingEntry ? "✏️ تعديل بيانات" : "➕ إدخال إنتاج تام"}
+          {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إدخال إنتاج تام" : "➕ Add Finished Product")}
         </Text>
 
         {/* اسم مدخل البيانات */}
-        <Text style={styles.label}>اسم مدخل البيانات</Text>
+        <Text style={styles.label}>{isAr ? "اسم مدخل البيانات" : "Data Entry Name"}</Text>
         <View style={styles.chipRow}>
           {DATA_ENTRY_NAMES.map((name) => (
             <TouchableOpacity
@@ -197,7 +203,7 @@ export default function WarehouseFinishedScreen() {
         </View>
 
         {/* تاريخ الإدخال */}
-        <Text style={styles.label}>تاريخ الإدخال</Text>
+        <Text style={styles.label}>{isAr ? "تاريخ الإدخال" : "Entry Date"}</Text>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
@@ -207,7 +213,7 @@ export default function WarehouseFinishedScreen() {
         />
 
         {/* نوع الصنف */}
-        <Text style={styles.label}>نوع الصنف</Text>
+        <Text style={styles.label}>{isAr ? "نوع الصنف" : "Product Type"}</Text>
         <View style={styles.chipRow}>
           {PRODUCT_TYPES.map((type) => (
             <TouchableOpacity
@@ -221,7 +227,7 @@ export default function WarehouseFinishedScreen() {
         </View>
 
         {/* نوع المستند */}
-        <Text style={styles.label}>نوع المستند</Text>
+        <Text style={styles.label}>{isAr ? "نوع المستند" : "Document Type"}</Text>
         <View style={styles.chipRow}>
           {DOCUMENT_TYPES.map((type) => (
             <TouchableOpacity
@@ -235,17 +241,17 @@ export default function WarehouseFinishedScreen() {
         </View>
 
         {/* رقم مستند الإدخال */}
-        <Text style={styles.label}>رقم مستند الإدخال</Text>
+        <Text style={styles.label}>{isAr ? "رقم مستند الإدخال" : "Document Number"}</Text>
         <TextInput
           style={styles.input}
-          placeholder="رقم المستند"
+          placeholder={isAr ? "رقم المستند" : "Document No."}
           placeholderTextColor={colors.muted}
           value={orderNumber}
           onChangeText={setOrderNumber}
         />
 
         {/* تاريخ المستند */}
-        <Text style={styles.label}>تاريخ المستند</Text>
+        <Text style={styles.label}>{isAr ? "تاريخ المستند" : "Document Date"}</Text>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
@@ -255,7 +261,7 @@ export default function WarehouseFinishedScreen() {
         />
 
         {/* الكمية المدخلة */}
-        <Text style={styles.label}>الكمية المدخلة (إجمالي)</Text>
+        <Text style={styles.label}>{isAr ? "الكمية المدخلة (إجمالي)" : "Total Quantity"}</Text>
         <TextInput
           style={styles.input}
           placeholder="0"
@@ -266,7 +272,7 @@ export default function WarehouseFinishedScreen() {
         />
 
         {/* نخب أول */}
-        <Text style={styles.label}>كمية النخب الأول</Text>
+        <Text style={styles.label}>{isAr ? "كمية النخب الأول" : "First Grade Qty"}</Text>
         <TextInput
           style={styles.input}
           placeholder="0"
@@ -277,7 +283,7 @@ export default function WarehouseFinishedScreen() {
         />
 
         {/* نخب ثاني */}
-        <Text style={styles.label}>كمية النخب الثاني</Text>
+        <Text style={styles.label}>{isAr ? "كمية النخب الثاني" : "Second Grade Qty"}</Text>
         <TextInput
           style={styles.input}
           placeholder="0"
@@ -287,14 +293,13 @@ export default function WarehouseFinishedScreen() {
           keyboardType="numeric"
         />
 
-
         {/* إرفاق مستند */}
         <TouchableOpacity
           onPress={() => setDocumentAttached(!documentAttached)}
           style={[styles.attachBtn, documentAttached && styles.attachBtnActive]}
         >
           <Text style={[styles.attachText, documentAttached && { color: "white" }]}>
-            {documentAttached ? "✓ تم إرفاق المستند" : "📎 إرفاق مستند الإدخال"}
+            {documentAttached ? (isAr ? "✓ تم إرفاق المستند" : "✓ Document Attached") : (isAr ? "📎 إرفاق مستند الإدخال" : "📎 Attach Document")}
           </Text>
           <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#16a34a"} />
         </TouchableOpacity>
@@ -309,17 +314,17 @@ export default function WarehouseFinishedScreen() {
         {/* أزرار */}
         <View style={styles.buttonRow}>
           <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>إلغاء</Text>
+            <Text style={styles.cancelText}>{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={18} color="#11181C" />
           </TouchableOpacity>
           {editingEntry && (
             <TouchableOpacity onPress={handleSave} style={styles.editBtn}>
-              <Text style={styles.editBtnText}>تعديل</Text>
+              <Text style={styles.editBtnText}>{isAr ? "تعديل" : "Edit"}</Text>
               <MaterialIcons name="edit" size={18} color="white" />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-            <Text style={styles.saveBtnText}>حفظ</Text>
+            <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
             <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -334,10 +339,10 @@ export default function WarehouseFinishedScreen() {
           <View style={styles.emptyIcon}>
             <MaterialIcons name="inventory" size={48} color="#16a34a" />
           </View>
-          <Text style={styles.emptyTitle}>مستودع الإنتاج التام</Text>
-          <Text style={styles.emptySubtitle}>لا توجد بيانات بعد. اضغط (+) لإضافة إدخال جديد.</Text>
+          <Text style={styles.emptyTitle}>{isAr ? "مستودع الإنتاج التام" : "Finished Products Warehouse"}</Text>
+          <Text style={styles.emptySubtitle}>{isAr ? "لا توجد بيانات بعد. اضغط (+) لإضافة إدخال جديد." : "No data yet. Press (+) to add a new entry."}</Text>
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.addBtnEmpty}>
-            <Text style={{ color: "white", fontWeight: "600" }}>إضافة إدخال</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>{isAr ? "إضافة إدخال" : "Add Entry"}</Text>
             <MaterialIcons name="add" size={20} color="white" />
           </TouchableOpacity>
         </View>
@@ -361,33 +366,33 @@ export default function WarehouseFinishedScreen() {
             <View style={styles.entryBody}>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.dataEntryName}</Text>
-                <Text style={styles.entryLabel}>مدخل البيانات:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "مدخل البيانات:" : "Data Entry:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.productType}</Text>
-                <Text style={styles.entryLabel}>نوع الصنف:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "نوع الصنف:" : "Product Type:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.documentType || "-"}</Text>
-                <Text style={styles.entryLabel}>نوع المستند:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "نوع المستند:" : "Document Type:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.orderNumber} ({entry.orderDate})</Text>
-                <Text style={styles.entryLabel}>رقم المستند:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "رقم المستند:" : "Document No.:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.totalQuantity}</Text>
-                <Text style={styles.entryLabel}>الكمية الإجمالية:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "الكمية الإجمالية:" : "Total Quantity:"}</Text>
               </View>
               <View style={styles.entryRow}>
-                <Text style={styles.entryValue}>نخب أول: {entry.firstGradeQty} | نخب ثاني: {entry.secondGradeQty}</Text>
-                <Text style={styles.entryLabel}>التفاصيل:</Text>
+                <Text style={styles.entryValue}>{isAr ? `نخب أول: ${entry.firstGradeQty} | نخب ثاني: ${entry.secondGradeQty}` : `1st Grade: ${entry.firstGradeQty} | 2nd Grade: ${entry.secondGradeQty}`}</Text>
+                <Text style={styles.entryLabel}>{isAr ? "التفاصيل:" : "Details:"}</Text>
               </View>
 
               {entry.documentAttached && (
                 <View style={styles.entryRow}>
-                  <Text style={[styles.entryValue, { color: "#16a34a" }]}>✓ مرفق</Text>
-                  <Text style={styles.entryLabel}>المستند:</Text>
+                  <Text style={[styles.entryValue, { color: "#16a34a" }]}>{isAr ? "✓ مرفق" : "✓ Attached"}</Text>
+                  <Text style={styles.entryLabel}>{isAr ? "المستند:" : "Document:"}</Text>
                 </View>
               )}
             </View>
@@ -404,8 +409,8 @@ export default function WarehouseFinishedScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle}>مستودع الإنتاج التام</Text>
-          <Text style={styles.headerSub}>{entries.length} سجل</Text>
+          <Text style={styles.headerTitle}>{isAr ? "مستودع الإنتاج التام" : "Finished Products Warehouse"}</Text>
+          <Text style={styles.headerSub}>{entries.length} {isAr ? "سجل" : "records"}</Text>
         </View>
         <BackButton />
       </View>

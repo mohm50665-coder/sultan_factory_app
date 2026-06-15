@@ -15,8 +15,11 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { authApiService } from "@/lib/services/api.service";
+import { useLanguage } from "@/lib/language-context";
 
 export default function ForgotPasswordScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [isLoading, setIsLoading] = useState(false);
@@ -29,8 +32,8 @@ export default function ForgotPasswordScreen() {
 
   const handleVerify = async () => {
     const newErrors: Record<string, string> = {};
-    if (!username.trim()) newErrors.username = "اسم المستخدم مطلوب";
-    if (!phone.trim()) newErrors.phone = "رقم الجوال مطلوب";
+    if (!username.trim()) newErrors.username = isAr ? "اسم المستخدم مطلوب" : "Username is required";
+    if (!phone.trim()) newErrors.phone = isAr ? "رقم الجوال مطلوب" : "Phone number is required";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -42,8 +45,8 @@ export default function ForgotPasswordScreen() {
       // Move to reset step - verification happens on server
       setStep("reset");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل التحقق من البيانات";
-      Alert.alert("خطأ", message);
+      const message = err instanceof Error ? err.message : (isAr ? "فشل التحقق من البيانات" : "Data verification failed");
+      Alert.alert(isAr ? "خطأ" : "Error", message);
     } finally {
       setIsLoading(false);
     }
@@ -51,9 +54,9 @@ export default function ForgotPasswordScreen() {
 
   const handleResetPassword = async () => {
     const newErrors: Record<string, string> = {};
-    if (!newPassword) newErrors.newPassword = "كلمة المرور الجديدة مطلوبة";
-    if (newPassword.length < 6) newErrors.newPassword = "كلمة المرور يجب أن تكون 6 أحرف على الأقل";
-    if (newPassword !== confirmPassword) newErrors.confirmPassword = "كلمات المرور غير متطابقة";
+    if (!newPassword) newErrors.newPassword = isAr ? "كلمة المرور الجديدة مطلوبة" : "New password is required";
+    if (newPassword.length < 6) newErrors.newPassword = isAr ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل" : "Password must be at least 6 characters";
+    if (newPassword !== confirmPassword) newErrors.confirmPassword = isAr ? "كلمات المرور غير متطابقة" : "Passwords do not match";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -63,11 +66,11 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     try {
       await authApiService.resetPassword(username.trim(), phone.trim(), newPassword);
-      Alert.alert("نجاح", "تم إعادة تعيين كلمة المرور بنجاح");
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إعادة تعيين كلمة المرور بنجاح" : "Password reset successfully");
       router.replace("/login");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل إعادة تعيين كلمة المرور";
-      Alert.alert("خطأ", message);
+      const message = err instanceof Error ? err.message : (isAr ? "فشل إعادة تعيين كلمة المرور" : "Failed to reset password");
+      Alert.alert(isAr ? "خطأ" : "Error", message);
     } finally {
       setIsLoading(false);
     }
@@ -89,11 +92,11 @@ export default function ForgotPasswordScreen() {
 
           {/* العنوان */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>استعادة كلمة المرور</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerTitle, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "استعادة كلمة المرور" : "Forgot Password"}</Text>
+            <Text style={[styles.headerSubtitle, { textAlign: isAr ? "right" : "left" }]}>
               {step === "username"
-                ? "أدخل اسم المستخدم ورقم الجوال للتحقق"
-                : "أدخل كلمة المرور الجديدة"}
+                ? (isAr ? "أدخل اسم المستخدم ورقم الجوال للتحقق" : "Enter username and phone number to verify")
+                : (isAr ? "أدخل كلمة المرور الجديدة" : "Enter new password")}
             </Text>
           </View>
 
@@ -102,11 +105,11 @@ export default function ForgotPasswordScreen() {
               <>
                 {/* اسم المستخدم */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>اسم المستخدم</Text>
-                  <View style={[styles.inputContainer, errors.username ? styles.inputError : null]}>
+                  <Text style={[styles.label, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "اسم المستخدم" : "Username"}</Text>
+                  <View style={[styles.inputContainer, errors.username ? styles.inputError : null, { flexDirection: isAr ? "row" : "row-reverse" }]}>
                     <TextInput
-                      style={styles.input}
-                      placeholder="أدخل اسم المستخدم"
+                      style={[styles.input, { textAlign: isAr ? "right" : "left" }]}
+                      placeholder={isAr ? "أدخل اسم المستخدم" : "Enter username"}
                       placeholderTextColor={colors.muted}
                       value={username}
                       onChangeText={(text) => {
@@ -118,16 +121,16 @@ export default function ForgotPasswordScreen() {
                     />
                     <MaterialIcons name="person" size={20} color={colors.muted} />
                   </View>
-                  {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
+                  {errors.username && <Text style={[styles.errorText, { textAlign: isAr ? "right" : "left" }]}>{errors.username}</Text>}
                 </View>
 
                 {/* رقم الجوال */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>رقم الجوال المسجل</Text>
-                  <View style={[styles.inputContainer, errors.phone ? styles.inputError : null]}>
+                  <Text style={[styles.label, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "رقم الجوال المسجل" : "Registered Phone Number"}</Text>
+                  <View style={[styles.inputContainer, errors.phone ? styles.inputError : null, { flexDirection: isAr ? "row" : "row-reverse" }]}>
                     <TextInput
-                      style={styles.input}
-                      placeholder="أدخل رقم الجوال المسجل"
+                      style={[styles.input, { textAlign: isAr ? "right" : "left" }]}
+                      placeholder={isAr ? "أدخل رقم الجوال المسجل" : "Enter registered phone number"}
                       placeholderTextColor={colors.muted}
                       value={phone}
                       onChangeText={(text) => {
@@ -139,7 +142,7 @@ export default function ForgotPasswordScreen() {
                     />
                     <MaterialIcons name="phone" size={20} color={colors.muted} />
                   </View>
-                  {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+                  {errors.phone && <Text style={[styles.errorText, { textAlign: isAr ? "right" : "left" }]}>{errors.phone}</Text>}
                 </View>
 
                 <TouchableOpacity
@@ -150,7 +153,7 @@ export default function ForgotPasswordScreen() {
                   {isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={styles.submitButtonText}>التحقق</Text>
+                    <Text style={styles.submitButtonText}>{isAr ? "التحقق" : "Verify"}</Text>
                   )}
                 </TouchableOpacity>
               </>
@@ -158,11 +161,11 @@ export default function ForgotPasswordScreen() {
               <>
                 {/* كلمة المرور الجديدة */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>كلمة المرور الجديدة</Text>
-                  <View style={[styles.inputContainer, errors.newPassword ? styles.inputError : null]}>
+                  <Text style={[styles.label, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "كلمة المرور الجديدة" : "New Password"}</Text>
+                  <View style={[styles.inputContainer, errors.newPassword ? styles.inputError : null, { flexDirection: isAr ? "row" : "row-reverse" }]}>
                     <TextInput
-                      style={styles.input}
-                      placeholder="أدخل كلمة المرور الجديدة"
+                      style={[styles.input, { textAlign: isAr ? "right" : "left" }]}
+                      placeholder={isAr ? "أدخل كلمة المرور الجديدة" : "Enter new password"}
                       placeholderTextColor={colors.muted}
                       value={newPassword}
                       onChangeText={(text) => {
@@ -174,16 +177,16 @@ export default function ForgotPasswordScreen() {
                     />
                     <MaterialIcons name="lock" size={20} color={colors.muted} />
                   </View>
-                  {errors.newPassword && <Text style={styles.errorText}>{errors.newPassword}</Text>}
+                  {errors.newPassword && <Text style={[styles.errorText, { textAlign: isAr ? "right" : "left" }]}>{errors.newPassword}</Text>}
                 </View>
 
                 {/* تأكيد كلمة المرور */}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>تأكيد كلمة المرور الجديدة</Text>
-                  <View style={[styles.inputContainer, errors.confirmPassword ? styles.inputError : null]}>
+                  <Text style={[styles.label, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "تأكيد كلمة المرور الجديدة" : "Confirm New Password"}</Text>
+                  <View style={[styles.inputContainer, errors.confirmPassword ? styles.inputError : null, { flexDirection: isAr ? "row" : "row-reverse" }]}>
                     <TextInput
-                      style={styles.input}
-                      placeholder="أعد إدخال كلمة المرور"
+                      style={[styles.input, { textAlign: isAr ? "right" : "left" }]}
+                      placeholder={isAr ? "أعد إدخال كلمة المرور" : "Re-enter password"}
                       placeholderTextColor={colors.muted}
                       value={confirmPassword}
                       onChangeText={(text) => {
@@ -195,7 +198,7 @@ export default function ForgotPasswordScreen() {
                     />
                     <MaterialIcons name="lock-outline" size={20} color={colors.muted} />
                   </View>
-                  {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+                  {errors.confirmPassword && <Text style={[styles.errorText, { textAlign: isAr ? "right" : "left" }]}>{errors.confirmPassword}</Text>}
                 </View>
 
                 <TouchableOpacity
@@ -206,7 +209,7 @@ export default function ForgotPasswordScreen() {
                   {isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={styles.submitButtonText}>إعادة تعيين كلمة المرور</Text>
+                    <Text style={styles.submitButtonText}>{isAr ? "إعادة تعيين كلمة المرور" : "Reset Password"}</Text>
                   )}
                 </TouchableOpacity>
               </>
@@ -214,9 +217,9 @@ export default function ForgotPasswordScreen() {
 
             {/* ملاحظة */}
             <View style={styles.noteBox}>
-              <Text style={styles.noteTitle}>ملاحظة</Text>
-              <Text style={styles.noteText}>
-                يجب إدخال اسم المستخدم ورقم الجوال المسجل في النظام للتحقق من هويتك قبل إعادة تعيين كلمة المرور.
+              <Text style={[styles.noteTitle, { textAlign: isAr ? "right" : "left" }]}>{isAr ? "ملاحظة" : "Note"}</Text>
+              <Text style={[styles.noteText, { textAlign: isAr ? "right" : "left" }]}>
+                {isAr ? "يجب إدخال اسم المستخدم ورقم الجوال المسجل في النظام للتحقق من هويتك قبل إعادة تعيين كلمة المرور." : "You must enter the username and registered phone number to verify your identity before resetting the password."}
               </Text>
             </View>
           </View>
@@ -275,10 +278,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#11181C",
     marginBottom: 6,
-    textAlign: "right",
   },
   inputContainer: {
-    flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -293,13 +294,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: "#11181C",
-    textAlign: "right",
   },
   errorText: {
     color: "#EF4444",
     fontSize: 11,
     marginTop: 4,
-    textAlign: "right",
   },
   submitButton: {
     backgroundColor: "#0a7ea4",
@@ -326,12 +325,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#11181C",
     marginBottom: 4,
-    textAlign: "right",
   },
   noteText: {
     fontSize: 12,
     color: "#687076",
     lineHeight: 20,
-    textAlign: "right",
   },
 });

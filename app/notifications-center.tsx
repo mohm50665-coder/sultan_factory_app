@@ -18,6 +18,7 @@ import {
   notificationService,
   Notification,
 } from "@/lib/services/notification.service";
+import { useLanguage } from "@/lib/language-context";
 
 interface NotificationGroup {
   date: string;
@@ -25,6 +26,8 @@ interface NotificationGroup {
 }
 
 export default function NotificationsCenterScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -65,7 +68,7 @@ export default function NotificationsCenterScreen() {
       await notificationService.markAsRead(notificationId);
       loadNotifications();
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث الإشعار");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث الإشعار" : "Failed to update notification");
     }
   };
 
@@ -74,7 +77,7 @@ export default function NotificationsCenterScreen() {
       await notificationService.markAllAsRead();
       loadNotifications();
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث الإشعارات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث الإشعارات" : "Failed to update notifications");
     }
   };
 
@@ -83,24 +86,24 @@ export default function NotificationsCenterScreen() {
       await notificationService.deleteNotification(notificationId);
       loadNotifications();
     } catch (error) {
-      Alert.alert("خطأ", "فشل في حذف الإشعار");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في حذف الإشعار" : "Failed to delete notification");
     }
   };
 
   const handleDeleteAllNotifications = async () => {
     Alert.alert(
-      "تأكيد",
-      "هل أنت متأكد من حذف جميع الإشعارات؟",
+      isAr ? "تأكيد" : "Confirm",
+      isAr ? "هل أنت متأكد من حذف جميع الإشعارات؟" : "Are you sure you want to delete all notifications?",
       [
-        { text: "إلغاء", onPress: () => {} },
+        { text: isAr ? "إلغاء" : "Cancel", onPress: () => {} },
         {
-          text: "حذف",
+          text: isAr ? "حذف" : "Delete",
           onPress: async () => {
             try {
               await notificationService.deleteAllNotifications();
               loadNotifications();
             } catch (error) {
-              Alert.alert("خطأ", "فشل في حذف الإشعارات");
+              Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في حذف الإشعارات" : "Failed to delete notifications");
             }
           },
         },
@@ -114,7 +117,7 @@ export default function NotificationsCenterScreen() {
       setSettings(newSettings);
       await notificationService.updateSettings(newSettings);
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث الإعدادات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث الإعدادات" : "Failed to update settings");
     }
   };
 
@@ -159,11 +162,11 @@ export default function NotificationsCenterScreen() {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (d.toDateString() === today.toDateString()) {
-      return "اليوم";
+      return isAr ? "اليوم" : "Today";
     } else if (d.toDateString() === yesterday.toDateString()) {
-      return "أمس";
+      return isAr ? "أمس" : "Yesterday";
     } else {
-      return d.toLocaleDateString("ar-SA");
+      return d.toLocaleDateString(isAr ? "ar-SA" : "en-US");
     }
   };
 
@@ -188,10 +191,10 @@ export default function NotificationsCenterScreen() {
     <TouchableOpacity
       key={notification.id}
       onPress={() => handleMarkAsRead(notification.id)}
-      style={{ flexDirection: 'row', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}
+      style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}
     >
       <View
-        style={{ width: 40, height: 40, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: getNotificationColor(notification.type) + "20", }}
+        style={{ width: 40, height: 40, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', marginRight: isAr ? 12 : 0, marginLeft: isAr ? 0 : 12, backgroundColor: getNotificationColor(notification.type) + "20", }}
       >
         <MaterialIcons
           name={getNotificationIcon(notification.type) as any}
@@ -201,19 +204,19 @@ export default function NotificationsCenterScreen() {
       </View>
 
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
+        <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: isAr ? "right" : "left" }}>
             {notification.title}
           </Text>
           {!notification.read && (
             <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: colors.primary }} />
           )}
         </View>
-        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4, textAlign: isAr ? "right" : "left" }}>
           {notification.body}
         </Text>
-        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>
-          {new Date(notification.timestamp).toLocaleTimeString("ar-SA", {
+        <Text style={{ color: colors.muted, fontSize: 12, marginTop: 8, textAlign: isAr ? "right" : "left" }}>
+          {new Date(notification.timestamp).toLocaleTimeString(isAr ? "ar-SA" : "en-US", {
             hour: "2-digit",
             minute: "2-digit",
           })}
@@ -222,7 +225,7 @@ export default function NotificationsCenterScreen() {
 
       <TouchableOpacity
         onPress={() => handleDeleteNotification(notification.id)}
-        style={{ marginLeft: 8, padding: 4 }}
+        style={{ marginLeft: isAr ? 8 : 0, marginRight: isAr ? 0 : 8, padding: 4 }}
       >
         <MaterialIcons name="close" size={18} color={colors.muted} />
       </TouchableOpacity>
@@ -232,13 +235,13 @@ export default function NotificationsCenterScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+      <View style={{ paddingHorizontal: 24, paddingVertical: 24, flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
           <BackButton />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>الإشعارات</Text>
-            <Text style={{ fontSize: 14, marginTop: 4 }}>
-              {notifications.filter((n) => !n.read).length} إشعارات جديدة
+            <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20, textAlign: isAr ? "right" : "left" }}>{isAr ? "الإشعارات" : "Notifications"}</Text>
+            <Text style={{ fontSize: 14, marginTop: 4, textAlign: isAr ? "right" : "left" }}>
+              {notifications.filter((n) => !n.read).length} {isAr ? "إشعارات جديدة" : "new notifications"}
             </Text>
           </View>
         </View>
@@ -254,17 +257,17 @@ export default function NotificationsCenterScreen() {
         // شاشة الإعدادات
         <ScrollView style={{ flex: 1 }}>
           <View style={{ padding: 24 }}>
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
-              إعدادات الإشعارات
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "إعدادات الإشعارات" : "Notification Settings"}
             </Text>
 
             {/* إعدادات أنواع الإشعارات */}
             <View style={{ backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginBottom: 24 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="task-alt" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                    إشعارات المهام المكتملة
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: isAr ? 12 : 0, marginRight: isAr ? 0 : 12, textAlign: isAr ? "right" : "left" }}>
+                    {isAr ? "إشعارات المهام المكتملة" : "Completed Tasks Notifications"}
                   </Text>
                 </View>
                 <Switch
@@ -277,11 +280,11 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="error" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                    إشعارات توقف الأجهزة
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: isAr ? 12 : 0, marginRight: isAr ? 0 : 12, textAlign: isAr ? "right" : "left" }}>
+                    {isAr ? "إشعارات توقف الأجهزة" : "Equipment Stopped Notifications"}
                   </Text>
                 </View>
                 <Switch
@@ -294,11 +297,11 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+                <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="warning" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                    إشعارات تجاوز الهدر
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: isAr ? 12 : 0, marginRight: isAr ? 0 : 12, textAlign: isAr ? "right" : "left" }}>
+                    {isAr ? "إشعارات تجاوز الهدر" : "Waste Exceeded Notifications"}
                   </Text>
                 </View>
                 <Switch
@@ -313,16 +316,16 @@ export default function NotificationsCenterScreen() {
             </View>
 
             {/* إعدادات الصوت والاهتزاز */}
-            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16 }}>
-              إعدادات الصوت والاهتزاز
+            <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, marginBottom: 16, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "إعدادات الصوت والاهتزاز" : "Sound and Vibration Settings"}
             </Text>
 
             <View style={{ backgroundColor: colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="volume-up" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                    تفعيل الصوت
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: isAr ? 12 : 0, marginRight: isAr ? 0 : 12, textAlign: isAr ? "right" : "left" }}>
+                    {isAr ? "تفعيل الصوت" : "Enable Sound"}
                   </Text>
                 </View>
                 <Switch
@@ -335,11 +338,11 @@ export default function NotificationsCenterScreen() {
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'space-between', padding: 16 }}>
+                <View style={{ flexDirection: isAr ? 'row' : 'row-reverse', alignItems: 'center', flex: 1 }}>
                   <MaterialIcons name="vibration" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: 12 }}>
-                    تفعيل الاهتزاز
+                  <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginLeft: isAr ? 12 : 0, marginRight: isAr ? 0 : 12, textAlign: isAr ? "right" : "left" }}>
+                    {isAr ? "تفعيل الاهتزاز" : "Enable Vibration"}
                   </Text>
                 </View>
                 <Switch
@@ -359,7 +362,7 @@ export default function NotificationsCenterScreen() {
               style={{ backgroundColor: colors.primary, borderRadius: 8, padding: 16, alignItems: 'center', justifyContent: 'center', marginTop: 24 }}
             >
               <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
-                العودة للإشعارات
+                {isAr ? "العودة للإشعارات" : "Back to Notifications"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -374,24 +377,24 @@ export default function NotificationsCenterScreen() {
           ) : notifications.length === 0 ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
               <MaterialIcons name="notifications-none" size={64} color={colors.muted} />
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16, marginTop: 16 }}>
-                لا توجد إشعارات
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16, marginTop: 16, textAlign: isAr ? "right" : "left" }}>
+                {isAr ? "لا توجد إشعارات" : "No notifications"}
               </Text>
-              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center' }}>
-                ستظهر الإشعارات هنا عند حدوث أحداث مهمة في النظام
+              <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: isAr ? "center" : "center" }}>
+                {isAr ? "ستظهر الإشعارات هنا عند حدوث أحداث مهمة في النظام" : "Notifications will appear here when important events occur in the system"}
               </Text>
             </View>
           ) : (
             <>
               {/* أزرار الإجراءات */}
-              <View style={{ paddingHorizontal: 24, paddingVertical: 16, flexDirection: 'row', gap: 8 }}>
+              <View style={{ paddingHorizontal: 24, paddingVertical: 16, flexDirection: isAr ? 'row' : 'row-reverse', gap: 8 }}>
                 {notifications.some((n) => !n.read) && (
                   <TouchableOpacity
                     onPress={handleMarkAllAsRead}
                     style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}
                   >
                     <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
-                      تحديد الكل كمقروء
+                      {isAr ? "تحديد الكل كمقروء" : "Mark all as read"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -400,7 +403,7 @@ export default function NotificationsCenterScreen() {
                   style={{ flex: 1, backgroundColor: colors.error + '33', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.error }}
                 >
                   <Text style={{ color: colors.error, fontWeight: '600', fontSize: 14 }}>
-                    حذف الكل
+                    {isAr ? "حذف الكل" : "Delete all"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -412,7 +415,7 @@ export default function NotificationsCenterScreen() {
                 renderItem={({ item: group }) => (
                   <View>
                     <View style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: colors.background }}>
-                      <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 12 }}>
+                      <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 12, textAlign: isAr ? "right" : "left" }}>
                         {group.date}
                       </Text>
                     </View>

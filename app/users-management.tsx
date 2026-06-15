@@ -17,15 +17,23 @@ import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { adminService } from "@/lib/services/api.service";
 import type { User } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/language-context";
 
-const ROLES = [
+const ROLES_AR = [
   { value: "admin", label: "مدير النظام" },
   { value: "manager", label: "مدير إدارة" },
   { value: "supervisor", label: "مشرف" },
   { value: "user", label: "موظف" },
 ];
 
-const ALL_SECTIONS = [
+const ROLES_EN = [
+  { value: "admin", label: "System Admin" },
+  { value: "manager", label: "Manager" },
+  { value: "supervisor", label: "Supervisor" },
+  { value: "user", label: "Employee" },
+];
+
+const ALL_SECTIONS_AR = [
   { id: "production", label: "الإنتاج" },
   { id: "manufacturing", label: "مراحل تسليم الإنتاج" },
   { id: "sales", label: "المبيعات والتحصيل" },
@@ -36,7 +44,20 @@ const ALL_SECTIONS = [
   { id: "tasks", label: "المهام" },
 ];
 
+const ALL_SECTIONS_EN = [
+  { id: "production", label: "Production" },
+  { id: "manufacturing", label: "Manufacturing Delivery Stages" },
+  { id: "sales", label: "Sales and Collection" },
+  { id: "warehouse", label: "Warehouses" },
+  { id: "maintenance", label: "Maintenance" },
+  { id: "financial", label: "Expenses" },
+  { id: "administrative", label: "Administrative Procedures" },
+  { id: "tasks", label: "Tasks" },
+];
+
 export default function UsersManagementScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const { user: currentUser } = useAuth();
@@ -63,7 +84,7 @@ export default function UsersManagementScreen() {
 
   const handleToggleActive = async (userId: number) => {
     if (userId === currentUser?.id) {
-      Alert.alert("تنبيه", "لا يمكنك تعطيل حسابك الخاص");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك تعطيل حسابك الخاص" : "You cannot disable your own account");
       return;
     }
     await adminService.toggleUserActive(userId);
@@ -72,7 +93,7 @@ export default function UsersManagementScreen() {
 
   const handleChangeRole = (user: any) => {
     if (user.id === currentUser?.id) {
-      Alert.alert("تنبيه", "لا يمكنك تغيير صلاحيتك الخاصة");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك تغيير صلاحيتك الخاصة" : "You cannot change your own role");
       return;
     }
     setEditingUser(user);
@@ -92,24 +113,24 @@ export default function UsersManagementScreen() {
       setShowEditModal(false);
       setEditingUser(null);
       loadUsers();
-      Alert.alert("نجاح", "تم حفظ التغييرات بنجاح");
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
     } catch (e) {
-      Alert.alert("خطأ", "حدث خطأ أثناء الحفظ");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
     }
   };
 
   const handleDeleteUser = (userId: number, userName: string) => {
     if (userId === currentUser?.id) {
-      Alert.alert("تنبيه", "لا يمكنك حذف حسابك الخاص");
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك حذف حسابك الخاص" : "You cannot delete your own account");
       return;
     }
     Alert.alert(
-      "تأكيد الحذف",
-      `هل أنت متأكد من حذف المستخدم "${userName}"؟`,
+      isAr ? "تأكيد الحذف" : "Confirm Deletion",
+      isAr ? `هل أنت متأكد من حذف المستخدم "${userName}"؟` : `Are you sure you want to delete user "${userName}"?`,
       [
-        { text: "إلغاء" },
+        { text: isAr ? "إلغاء" : "Cancel" },
         {
-          text: "حذف",
+          text: isAr ? "حذف" : "Delete",
           style: "destructive",
           onPress: async () => {
             await adminService.deleteUser(userId);
@@ -128,15 +149,16 @@ export default function UsersManagementScreen() {
 
   const handleSaveResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
-      Alert.alert("خطأ", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "كلمة المرور يجب أن تكون 6 أحرف على الأقل" : "Password must be at least 6 characters");
       return;
     }
     await adminService.resetUserPassword(parseInt(resetUserId), newPassword);
     setShowResetModal(false);
-    Alert.alert("نجاح", "تم إعادة تعيين كلمة المرور بنجاح");
+    Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم إعادة تعيين كلمة المرور بنجاح" : "Password reset successfully");
   };
 
   const getRoleLabel = (role: string) => {
+    const ROLES = isAr ? ROLES_AR : ROLES_EN;
     return ROLES.find((r) => r.value === role)?.label || role;
   };
 
@@ -160,7 +182,7 @@ export default function UsersManagementScreen() {
     setShowSectionsModal(false);
     setSectionsUser(null);
     loadUsers();
-    Alert.alert("نجاح", "تم تحديث الصلاحيات بنجاح");
+    Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث الصلاحيات بنجاح" : "Permissions updated successfully");
   };
 
   return (
@@ -168,7 +190,7 @@ export default function UsersManagementScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>إدارة المستخدمين</Text>
+        <Text style={styles.headerTitle}>{isAr ? "إدارة المستخدمين" : "Users Management"}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -176,19 +198,19 @@ export default function UsersManagementScreen() {
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: "#e0f2fe" }]}>
           <Text style={[styles.statNumber, { color: "#0369a1" }]}>{users.length}</Text>
-          <Text style={styles.statLabel}>إجمالي</Text>
+          <Text style={styles.statLabel}>{isAr ? "إجمالي" : "Total"}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#dcfce7" }]}>
           <Text style={[styles.statNumber, { color: "#15803d" }]}>
             {users.filter((u) => u.isActive).length}
           </Text>
-          <Text style={styles.statLabel}>نشط</Text>
+          <Text style={styles.statLabel}>{isAr ? "نشط" : "Active"}</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: "#fee2e2" }]}>
           <Text style={[styles.statNumber, { color: "#b91c1c" }]}>
             {users.filter((u) => !u.isActive).length}
           </Text>
-          <Text style={styles.statLabel}>معطل</Text>
+          <Text style={styles.statLabel}>{isAr ? "معطل" : "Disabled"}</Text>
         </View>
       </View>
 
@@ -201,9 +223,9 @@ export default function UsersManagementScreen() {
                 <View style={[styles.statusDot, { backgroundColor: u.isActive ? "#22c55e" : "#ef4444" }]} />
                 <Text style={styles.userName}>{u.name}</Text>
               </View>
-              <Text style={styles.userDetail}>@{u.username}</Text>
-              <Text style={styles.userDetail}>{u.position} | {getRoleLabel(u.role)}</Text>
-              <Text style={styles.userDetail}>{u.phone}</Text>
+              <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>@{u.username}</Text>
+              <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>{u.position} | {getRoleLabel(u.role)}</Text>
+              <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>{u.phone}</Text>
             </View>
 
             <View style={styles.actions}>
@@ -259,16 +281,16 @@ export default function UsersManagementScreen() {
       <Modal visible={showEditModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>تغيير صلاحية ومنصب: {editingUser?.name}</Text>
+            <Text style={styles.modalTitle}>{isAr ? "تغيير صلاحية ومنصب: " : "Change Role and Position: "}{editingUser?.name}</Text>
             <TextInput
-              style={[styles.modalInput, { marginBottom: 12 }]}
-              placeholder="المنصب (مثل: مشرف إنتاج)"
+              style={[styles.modalInput, { marginBottom: 12, textAlign: isAr ? "right" : "left" }]}
+              placeholder={isAr ? "المنصب (مثل: مشرف إنتاج)" : "Position (e.g., Production Supervisor)"}
               value={editPosition}
               onChangeText={setEditPosition}
             />
-            <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 8, color: '#374151' }}>الصلاحية:</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 8, color: '#374151', textAlign: isAr ? "right" : "left" }}>{isAr ? "الصلاحية:" : "Role:"}</Text>
             <View style={styles.rolesContainer}>
-              {ROLES.map((role) => (
+              {(isAr ? ROLES_AR : ROLES_EN).map((role) => (
                 <TouchableOpacity
                   key={role.value}
                   onPress={() => setEditRole(role.value)}
@@ -293,10 +315,10 @@ export default function UsersManagementScreen() {
                 onPress={() => setShowEditModal(false)}
                 style={styles.cancelBtn}
               >
-                <Text style={styles.cancelBtnText}>إلغاء</Text>
+                <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveRole} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>حفظ</Text>
+                <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -307,10 +329,10 @@ export default function UsersManagementScreen() {
       <Modal visible={showResetModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>إعادة تعيين كلمة المرور</Text>
+            <Text style={styles.modalTitle}>{isAr ? "إعادة تعيين كلمة المرور" : "Reset Password"}</Text>
             <TextInput
-              style={styles.modalInput}
-              placeholder="كلمة المرور الجديدة (6 أحرف على الأقل)"
+              style={[styles.modalInput, { textAlign: isAr ? "right" : "left" }]}
+              placeholder={isAr ? "كلمة المرور الجديدة (6 أحرف على الأقل)" : "New Password (at least 6 characters)"}
               value={newPassword}
               onChangeText={setNewPassword}
               secureTextEntry
@@ -320,10 +342,10 @@ export default function UsersManagementScreen() {
                 onPress={() => setShowResetModal(false)}
                 style={styles.cancelBtn}
               >
-                <Text style={styles.cancelBtnText}>إلغاء</Text>
+                <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveResetPassword} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>حفظ</Text>
+                <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -334,12 +356,12 @@ export default function UsersManagementScreen() {
       <Modal visible={showSectionsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: "80%" }]}>
-            <Text style={styles.modalTitle}>تحديد الأيقونات المسموحة: {sectionsUser?.name}</Text>
+            <Text style={styles.modalTitle}>{isAr ? "تحديد الأيقونات المسموحة: " : "Select Allowed Icons: "}{sectionsUser?.name}</Text>
             <Text style={{ fontSize: 12, color: "#687076", textAlign: "center", marginBottom: 12 }}>
-              اختر الأقسام التي يمكن للمستخدم الوصول إليها. إذا لم تختر شيئاً سيتم استخدام الصلاحيات الافتراضية حسب القسم.
+              {isAr ? "اختر الأقسام التي يمكن للمستخدم الوصول إليها. إذا لم تختر شيئاً سيتم استخدام الصلاحيات الافتراضية حسب القسم." : "Select the sections the user can access. If nothing is selected, default permissions based on the section will be used."}
             </Text>
             <ScrollView style={{ maxHeight: 300 }}>
-              {ALL_SECTIONS.map((section) => (
+              {(isAr ? ALL_SECTIONS_AR : ALL_SECTIONS_EN).map((section) => (
                 <TouchableOpacity
                   key={section.id}
                   onPress={() => toggleSection(section.id)}
@@ -352,7 +374,7 @@ export default function UsersManagementScreen() {
                   <Text
                     style={[
                       styles.roleOptionText,
-                      { textAlign: "right", flex: 1 },
+                      { textAlign: isAr ? "right" : "left", flex: 1 },
                       selectedSections.includes(section.id) && styles.roleOptionTextActive,
                     ]}
                   >
@@ -371,10 +393,10 @@ export default function UsersManagementScreen() {
                 onPress={() => setShowSectionsModal(false)}
                 style={styles.cancelBtn}
               >
-                <Text style={styles.cancelBtnText}>إلغاء</Text>
+                <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveSections} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>حفظ</Text>
+                <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -466,7 +488,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#687076",
     marginTop: 2,
-    textAlign: "right",
   },
   actions: {
     flexDirection: "column",
@@ -504,7 +525,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
-    textAlign: "right",
     marginBottom: 16,
   },
   rolesContainer: {

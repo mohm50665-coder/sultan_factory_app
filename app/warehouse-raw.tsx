@@ -20,8 +20,10 @@ import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
 
-const DATA_ENTRY_NAMES = ["حيدر", "شميم", "غلام"];
-const UNITS = ["طن", "كيلو", "غرام", "كرتون", "حبة"];
+const DATA_ENTRY_NAMES_AR = ["حيدر", "شميم", "غلام"];
+const DATA_ENTRY_NAMES_EN = ["Haider", "Shameem", "Ghulam"];
+const UNITS_AR = ["طن", "كيلو", "غرام", "كرتون", "حبة"];
+const UNITS_EN = ["Ton", "Kg", "Gram", "Carton", "Piece"];
 
 interface RawEntry {
   id: string;
@@ -48,6 +50,8 @@ export default function WarehouseRawScreen() {
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const [entries, setEntries] = useState<RawEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<RawEntry | null>(null);
@@ -61,7 +65,9 @@ export default function WarehouseRawScreen() {
   const [receiverName, setReceiverName] = useState("");
   const [documentAttached, setDocumentAttached] = useState(false);
   const [warehouseAttachments, setWarehouseAttachments] = useState<AttachmentFile[]>([]);
-  const { language } = useLanguage();
+
+  const DATA_ENTRY_NAMES = isAr ? DATA_ENTRY_NAMES_AR : DATA_ENTRY_NAMES_EN;
+  const UNITS = isAr ? UNITS_AR : UNITS_EN;
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -92,8 +98,8 @@ export default function WarehouseRawScreen() {
   };
 
   const handleSave = async () => {
-    if (!dataEntryName) { Alert.alert("تنبيه", "يرجى اختيار اسم مدخل البيانات"); return; }
-    if (!itemName) { Alert.alert("تنبيه", "يرجى إدخال اسم الصنف"); return; }
+    if (!dataEntryName) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار اسم مدخل البيانات" : "Please select data entry name"); return; }
+    if (!itemName) { Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال اسم الصنف" : "Please enter item name"); return; }
 
     const entry: RawEntry = {
       id: editingEntry?.id || Date.now().toString(),
@@ -102,17 +108,11 @@ export default function WarehouseRawScreen() {
       itemName,
       supplier: supplier || "-",
       quantity: quantity || "0",
-      unit: unit || "كيلو",
+      unit: unit || (isAr ? "كيلو" : "Kg"),
       receiverName: receiverName || "-",
       documentAttached,
     };
 
-    let newEntries: RawEntry[];
-    if (editingEntry) {
-      newEntries = entries.map((e) => (e.id === editingEntry.id ? entry : e));
-    } else {
-      newEntries = [entry, ...entries];
-    }
     try {
       const { id, ...entryData } = entry;
       if (editingEntry) {
@@ -123,9 +123,9 @@ export default function WarehouseRawScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert("تم بنجاح ✓", editingEntry ? "تم تعديل البيانات" : "تم حفظ البيانات");
+      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved"));
     } catch (e) {
-      Alert.alert("خطأ", "فشل حفظ البيانات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
     }
   };
 
@@ -150,13 +150,13 @@ export default function WarehouseRawScreen() {
       } catch (e) { console.log(e); }
     };
     if (Platform.OS === "web") {
-      if (confirm("هل تريد حذف هذا السجل؟")) {
+      if (confirm(isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?")) {
         doDelete();
       }
     } else {
-      Alert.alert("تأكيد الحذف", "هل تريد حذف هذا السجل؟", [
-        { text: "إلغاء", style: "cancel" },
-        { text: "حذف", style: "destructive", onPress: doDelete },
+      Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? "هل تريد حذف هذا السجل؟" : "Do you want to delete this record?", [
+        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+        { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: doDelete },
       ]);
     }
   };
@@ -165,11 +165,10 @@ export default function WarehouseRawScreen() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
       <View style={styles.formCard}>
         <Text style={styles.formTitle}>
-          {editingEntry ? "✏️ تعديل بيانات" : "➕ إدخال مواد خام"}
+          {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إدخال مواد خام" : "➕ Add Raw Material")}
         </Text>
 
-        {/* اسم مدخل البيانات */}
-        <Text style={styles.label}>اسم مدخل البيانات</Text>
+        <Text style={styles.label}>{isAr ? "اسم مدخل البيانات" : "Data Entry Name"}</Text>
         <View style={styles.chipRow}>
           {DATA_ENTRY_NAMES.map((name) => (
             <TouchableOpacity
@@ -182,8 +181,7 @@ export default function WarehouseRawScreen() {
           ))}
         </View>
 
-        {/* تاريخ الإدخال */}
-        <Text style={styles.label}>تاريخ الإدخال</Text>
+        <Text style={styles.label}>{isAr ? "تاريخ الإدخال" : "Entry Date"}</Text>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
@@ -192,28 +190,25 @@ export default function WarehouseRawScreen() {
           onChangeText={setEntryDate}
         />
 
-        {/* اسم الصنف */}
-        <Text style={styles.label}>اسم الصنف</Text>
+        <Text style={styles.label}>{isAr ? "اسم الصنف" : "Item Name"}</Text>
         <TextInput
           style={styles.input}
-          placeholder="مثال: خيوط بوليستر"
+          placeholder={isAr ? "مثال: خيوط بوليستر" : "e.g. Polyester Thread"}
           placeholderTextColor={colors.muted}
           value={itemName}
           onChangeText={setItemName}
         />
 
-        {/* المورد */}
-        <Text style={styles.label}>المورد</Text>
+        <Text style={styles.label}>{isAr ? "المورد" : "Supplier"}</Text>
         <TextInput
           style={styles.input}
-          placeholder="اسم المورد"
+          placeholder={isAr ? "اسم المورد" : "Supplier Name"}
           placeholderTextColor={colors.muted}
           value={supplier}
           onChangeText={setSupplier}
         />
 
-        {/* الكمية */}
-        <Text style={styles.label}>الكمية</Text>
+        <Text style={styles.label}>{isAr ? "الكمية" : "Quantity"}</Text>
         <TextInput
           style={styles.input}
           placeholder="0"
@@ -223,8 +218,7 @@ export default function WarehouseRawScreen() {
           keyboardType="numeric"
         />
 
-        {/* الوحدة */}
-        <Text style={styles.label}>الوحدة</Text>
+        <Text style={styles.label}>{isAr ? "الوحدة" : "Unit"}</Text>
         <View style={styles.chipRow}>
           {UNITS.map((u) => (
             <TouchableOpacity
@@ -237,48 +231,44 @@ export default function WarehouseRawScreen() {
           ))}
         </View>
 
-        {/* اسم الشخص المستلم */}
-        <Text style={styles.label}>اسم الشخص المستلم</Text>
+        <Text style={styles.label}>{isAr ? "اسم الشخص المستلم" : "Receiver Name"}</Text>
         <TextInput
           style={styles.input}
-          placeholder="اسم المستلم"
+          placeholder={isAr ? "اسم المستلم" : "Receiver"}
           placeholderTextColor={colors.muted}
           value={receiverName}
           onChangeText={setReceiverName}
         />
 
-        {/* إرفاق مستند */}
         <TouchableOpacity
           onPress={() => setDocumentAttached(!documentAttached)}
           style={[styles.attachBtn, documentAttached && styles.attachBtnActive]}
         >
           <Text style={[styles.attachText, documentAttached && { color: "white" }]}>
-            {documentAttached ? "✓ تم إرفاق المستند" : "📎 إرفاق مستند الإدخال"}
+            {documentAttached ? (isAr ? "✓ تم إرفاق المستند" : "✓ Document Attached") : (isAr ? "📎 إرفاق مستند الإدخال" : "📎 Attach Document")}
           </Text>
           <MaterialIcons name={documentAttached ? "check-circle" : "attach-file"} size={20} color={documentAttached ? "white" : "#3b82f6"} />
         </TouchableOpacity>
 
-        {/* المرفقات */}
         <AttachmentPicker
           attachments={warehouseAttachments}
           onAttachmentsChange={setWarehouseAttachments}
           language={language}
         />
 
-        {/* أزرار */}
         <View style={styles.buttonRow}>
           <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>إلغاء</Text>
+            <Text style={styles.cancelText}>{isAr ? "إلغاء" : "Cancel"}</Text>
             <MaterialIcons name="close" size={18} color="#11181C" />
           </TouchableOpacity>
           {editingEntry && (
             <TouchableOpacity onPress={handleSave} style={styles.editBtn}>
-              <Text style={styles.editBtnText}>تعديل</Text>
+              <Text style={styles.editBtnText}>{isAr ? "تعديل" : "Edit"}</Text>
               <MaterialIcons name="edit" size={18} color="white" />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-            <Text style={styles.saveBtnText}>حفظ</Text>
+            <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
             <MaterialIcons name="save" size={18} color="white" />
           </TouchableOpacity>
         </View>
@@ -293,10 +283,10 @@ export default function WarehouseRawScreen() {
           <View style={styles.emptyIcon}>
             <MaterialIcons name="inventory-2" size={48} color="#3b82f6" />
           </View>
-          <Text style={styles.emptyTitle}>مستودع المواد الخام</Text>
-          <Text style={styles.emptySubtitle}>لا توجد بيانات بعد. اضغط (+) لإضافة إدخال جديد.</Text>
+          <Text style={styles.emptyTitle}>{isAr ? "مستودع المواد الخام" : "Raw Materials Warehouse"}</Text>
+          <Text style={styles.emptySubtitle}>{isAr ? "لا توجد بيانات بعد. اضغط (+) لإضافة إدخال جديد." : "No data yet. Press (+) to add a new entry."}</Text>
           <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={[styles.addBtnEmpty, { backgroundColor: "#3b82f6" }]}>
-            <Text style={{ color: "white", fontWeight: "600" }}>إضافة إدخال</Text>
+            <Text style={{ color: "white", fontWeight: "600" }}>{isAr ? "إضافة إدخال" : "Add Entry"}</Text>
             <MaterialIcons name="add" size={20} color="white" />
           </TouchableOpacity>
         </View>
@@ -320,28 +310,28 @@ export default function WarehouseRawScreen() {
             <View style={styles.entryBody}>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.dataEntryName}</Text>
-                <Text style={styles.entryLabel}>مدخل البيانات:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "مدخل البيانات:" : "Data Entry:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.itemName}</Text>
-                <Text style={styles.entryLabel}>الصنف:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "الصنف:" : "Item:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.supplier}</Text>
-                <Text style={styles.entryLabel}>المورد:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "المورد:" : "Supplier:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.quantity} {entry.unit}</Text>
-                <Text style={styles.entryLabel}>الكمية:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "الكمية:" : "Quantity:"}</Text>
               </View>
               <View style={styles.entryRow}>
                 <Text style={styles.entryValue}>{entry.receiverName}</Text>
-                <Text style={styles.entryLabel}>المستلم:</Text>
+                <Text style={styles.entryLabel}>{isAr ? "المستلم:" : "Receiver:"}</Text>
               </View>
               {entry.documentAttached && (
                 <View style={styles.entryRow}>
-                  <Text style={[styles.entryValue, { color: "#3b82f6" }]}>✓ مرفق</Text>
-                  <Text style={styles.entryLabel}>المستند:</Text>
+                  <Text style={[styles.entryValue, { color: "#3b82f6" }]}>{isAr ? "✓ مرفق" : "✓ Attached"}</Text>
+                  <Text style={styles.entryLabel}>{isAr ? "المستند:" : "Document:"}</Text>
                 </View>
               )}
             </View>
@@ -358,8 +348,8 @@ export default function WarehouseRawScreen() {
           <MaterialIcons name="add" size={24} color="white" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle}>مستودع المواد الخام</Text>
-          <Text style={styles.headerSub}>{entries.length} سجل</Text>
+          <Text style={styles.headerTitle}>{isAr ? "مستودع المواد الخام" : "Raw Materials Warehouse"}</Text>
+          <Text style={styles.headerSub}>{entries.length} {isAr ? "سجل" : "records"}</Text>
         </View>
         <BackButton />
       </View>

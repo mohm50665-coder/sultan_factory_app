@@ -658,3 +658,21 @@
 - [x] إزالة AsyncStorage fallback من index.tsx (الصلاحيات)
 - [x] تحويل admin-tools-permissions.tsx للسيرفر
 - [x] ربط صلاحيات الظهور من اللوحة الشاملة بجميع الصفحات (عبر user.toolPermissions من السيرفر)
+
+
+## ترجمة شاملة لكل نص في التطبيق (عربي/إنجليزي) - بدون كسر أي وظيفة
+
+- [ ] ترجمة صفحة الإنتاج (production.tsx)
+- [ ] ترجمة صفحة الإجراءات الإدارية (administrative.tsx)
+- [ ] ترجمة صفحة المبيعات (sales.tsx)
+- [ ] ترجمة صفحة المستودعات (warehouse.tsx)
+- [ ] ترجمة صفحة الصيانة (maintenance.tsx)
+- [ ] ترجمة صفحة التصنيع (manufacturing.tsx)
+- [ ] ترجمة صفحة المالية (financial.tsx)
+- [ ] ترجمة صفحة المهام (tasks.tsx)
+- [ ] ترجمة صفحة الإشعارات (server-notifications.tsx)
+- [ ] ترجمة صفحة المناقصات (government-tenders.tsx)
+- [ ] ترجمة صفحة تكاليف الإنتاج (production-costs.tsx)
+- [ ] ترجمة صفحة التحصيل (collection.tsx)
+- [ ] ترجمة الصفحات الفرعية والأدوات الإضافية
+- [ ] اختبار TypeScript وحفظ ونشر

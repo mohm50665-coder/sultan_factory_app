@@ -11,8 +11,11 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { UserRole, RolePermissions } from "@/lib/services/roles.service";
+import { useLanguage } from "@/lib/language-context";
 
 export default function RoleManagementScreen() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const colors = useColors();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -34,7 +37,7 @@ export default function RoleManagementScreen() {
             padding: 14,
             borderWidth: 2,
             borderColor: isSelected ? colors.primary : colors.border,
-            flexDirection: "row",
+            flexDirection: isAr ? "row" : "row-reverse",
             justifyContent: "space-between",
             alignItems: "center",
           }}
@@ -46,13 +49,14 @@ export default function RoleManagementScreen() {
                 fontSize: 14,
                 fontWeight: "600",
                 marginBottom: 4,
+                textAlign: isAr ? "right" : "left",
               }}
             >
               {role.description}
             </Text>
             <View
               style={{
-                flexDirection: "row",
+                flexDirection: isAr ? "row" : "row-reverse",
                 alignItems: "center",
                 gap: 8,
               }}
@@ -62,12 +66,12 @@ export default function RoleManagementScreen() {
                 size={14}
                 color={colors.success}
               />
-              <Text style={{ color: colors.muted, fontSize: 11 }}>
-                {role.permissions.length} صلاحية
+              <Text style={{ color: colors.muted, fontSize: 11, textAlign: isAr ? "right" : "left" }}>
+                {role.permissions.length} {isAr ? "صلاحية" : "Permissions"}
               </Text>
             </View>
           </View>
-          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <View style={{ flexDirection: isAr ? "row" : "row-reverse", gap: 8, alignItems: "center" }}>
             <TouchableOpacity
               onPress={() => {
                 setSelectedRole(role.role);
@@ -111,25 +115,27 @@ export default function RoleManagementScreen() {
                 fontSize: 12,
                 fontWeight: "600",
                 marginBottom: 10,
+                textAlign: isAr ? "right" : "left",
               }}
             >
-              الصلاحيات المتاحة:
+              {isAr ? "الصلاحيات المتاحة:" : "Available Permissions:"}
             </Text>
             {role.permissions.map((permission) => (
               <View
                 key={permission.id}
                 style={{
-                  flexDirection: "row",
+                  flexDirection: isAr ? "row" : "row-reverse",
                   alignItems: "flex-start",
                   marginBottom: 8,
-                  paddingLeft: 8,
+                  paddingLeft: isAr ? 8 : 0,
+                  paddingRight: isAr ? 0 : 8,
                 }}
               >
                 <MaterialIcons
                   name="check"
                   size={16}
                   color={colors.success}
-                  style={{ marginRight: 8, marginTop: 2 }}
+                  style={{ marginRight: isAr ? 8 : 0, marginLeft: isAr ? 0 : 8, marginTop: 2 }}
                 />
                 <View style={{ flex: 1 }}>
                   <Text
@@ -137,6 +143,7 @@ export default function RoleManagementScreen() {
                       color: colors.foreground,
                       fontSize: 11,
                       fontWeight: "500",
+                      textAlign: isAr ? "right" : "left",
                     }}
                   >
                     {permission.name}
@@ -146,6 +153,7 @@ export default function RoleManagementScreen() {
                       color: colors.muted,
                       fontSize: 10,
                       marginTop: 2,
+                      textAlign: isAr ? "right" : "left",
                     }}
                   >
                     {permission.description}
@@ -170,12 +178,13 @@ export default function RoleManagementScreen() {
               fontSize: 24,
               fontWeight: "bold",
               marginBottom: 4,
+              textAlign: isAr ? "right" : "left",
             }}
           >
-            إدارة الأدوار والصلاحيات
+            {isAr ? "إدارة الأدوار والصلاحيات" : "Role and Permission Management"}
           </Text>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>
-            إدارة أدوار المستخدمين والصلاحيات المرتبطة بها
+          <Text style={{ color: colors.muted, fontSize: 12, textAlign: isAr ? "right" : "left" }}>
+            {isAr ? "إدارة أدوار المستخدمين والصلاحيات المرتبطة بها" : "Manage user roles and associated permissions"}
           </Text>
         </View>
 
@@ -187,9 +196,10 @@ export default function RoleManagementScreen() {
               fontSize: 13,
               fontWeight: "600",
               marginBottom: 12,
+              textAlign: isAr ? "right" : "left",
             }}
           >
-            الأدوار المتاحة ({allRoles.length})
+            {isAr ? `الأدوار المتاحة (${allRoles.length})` : `Available Roles (${allRoles.length})`}
           </Text>
 
           {allRoles.map((role) => (
@@ -204,8 +214,10 @@ export default function RoleManagementScreen() {
               backgroundColor: colors.surface,
               borderRadius: 12,
               padding: 14,
-              borderLeftWidth: 4,
-              borderLeftColor: colors.primary,
+              borderLeftWidth: isAr ? 0 : 4,
+              borderRightWidth: isAr ? 4 : 0,
+              borderLeftColor: isAr ? "transparent" : colors.primary,
+              borderRightColor: isAr ? colors.primary : "transparent",
             }}
           >
             <Text
@@ -214,13 +226,13 @@ export default function RoleManagementScreen() {
                 fontSize: 12,
                 fontWeight: "600",
                 marginBottom: 8,
+                textAlign: isAr ? "right" : "left",
               }}
             >
-              نصيحة
+              {isAr ? "نصيحة" : "Tip"}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 11, lineHeight: 16 }}>
-              يمكنك تعديل الصلاحيات لكل دور بالضغط على زر التعديل. تأكد من أن كل
-              مستخدم لديه الصلاحيات المناسبة لعمله.
+            <Text style={{ color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? "يمكنك تعديل الصلاحيات لكل دور بالضغط على زر التعديل. تأكد من أن كل مستخدم لديه الصلاحيات المناسبة لعمله." : "You can edit permissions for each role by clicking the edit button. Ensure each user has the appropriate permissions for their work."}
             </Text>
           </View>
         </View>
@@ -252,7 +264,7 @@ export default function RoleManagementScreen() {
             {/* رأس النموذج */}
             <View
               style={{
-                flexDirection: "row",
+                flexDirection: isAr ? "row" : "row-reverse",
                 justifyContent: "space-between",
                 alignItems: "center",
                 paddingHorizontal: 16,
@@ -266,9 +278,10 @@ export default function RoleManagementScreen() {
                   color: colors.foreground,
                   fontSize: 16,
                   fontWeight: "bold",
+                  textAlign: isAr ? "right" : "left",
                 }}
               >
-                تعديل الصلاحيات
+                {isAr ? "تعديل الصلاحيات" : "Edit Permissions"}
               </Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
                 <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -285,6 +298,7 @@ export default function RoleManagementScreen() {
                       fontSize: 14,
                       fontWeight: "600",
                       marginBottom: 12,
+                      textAlign: isAr ? "right" : "left",
                     }}
                   >
                     {RolesService.getRoleDescription(selectedRole)}
@@ -299,7 +313,7 @@ export default function RoleManagementScreen() {
                           borderRadius: 8,
                           padding: 12,
                           marginBottom: 8,
-                          flexDirection: "row",
+                          flexDirection: isAr ? "row" : "row-reverse",
                           alignItems: "center",
                           borderWidth: 1,
                           borderColor: colors.border,
@@ -313,7 +327,8 @@ export default function RoleManagementScreen() {
                             backgroundColor: colors.primary,
                             alignItems: "center",
                             justifyContent: "center",
-                            marginRight: 12,
+                            marginRight: isAr ? 12 : 0,
+                            marginLeft: isAr ? 0 : 12,
                           }}
                         >
                           <MaterialIcons
@@ -328,6 +343,7 @@ export default function RoleManagementScreen() {
                               color: colors.foreground,
                               fontSize: 12,
                               fontWeight: "500",
+                              textAlign: isAr ? "right" : "left",
                             }}
                           >
                             {permission.name}
@@ -337,6 +353,7 @@ export default function RoleManagementScreen() {
                               color: colors.muted,
                               fontSize: 10,
                               marginTop: 2,
+                              textAlign: isAr ? "right" : "left",
                             }}
                           >
                             {permission.description}
@@ -349,7 +366,7 @@ export default function RoleManagementScreen() {
                   {/* أزرار الإجراء */}
                   <View
                     style={{
-                      flexDirection: "row",
+                      flexDirection: isAr ? "row" : "row-reverse",
                       gap: 12,
                       marginTop: 20,
                       marginBottom: 20,
@@ -366,7 +383,7 @@ export default function RoleManagementScreen() {
                       }}
                     >
                       <Text style={{ color: "white", fontWeight: "600" }}>
-                        حفظ التغييرات
+                        {isAr ? "حفظ التغييرات" : "Save Changes"}
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -382,7 +399,7 @@ export default function RoleManagementScreen() {
                       }}
                     >
                       <Text style={{ color: colors.foreground, fontWeight: "600" }}>
-                        إلغاء
+                        {isAr ? "إلغاء" : "Cancel"}
                       </Text>
                     </TouchableOpacity>
                   </View>

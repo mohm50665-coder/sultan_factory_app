@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { adminDataService, DataSummary, activityLogService, ActivityLogEntry, alertsService, AlertEntry } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from "@/lib/language-context";
 
 interface AdminSection {
   id: string;
@@ -29,6 +30,8 @@ interface AdminSection {
 }
 
 export default function AdminControlPanel() {
+  const { language } = useLanguage();
+  const isAr = language === "ar";
   const router = useRouter();
   const colors = useColors();
   const [summary, setSummary] = useState<DataSummary | null>(null);
@@ -81,19 +84,19 @@ export default function AdminControlPanel() {
   };
 
   const sections: AdminSection[] = [
-    { id: "production", title: "الإنتاج", icon: "precision-manufacturing", color: "#3B82F6", count: summary?.production || 0 },
-    { id: "sales", title: "المبيعات", icon: "point-of-sale", color: "#10B981", count: summary?.sales || 0 },
-    { id: "expenses", title: "المصروفات", icon: "account-balance-wallet", color: "#F59E0B", count: summary?.expenses || 0 },
-    { id: "tasks", title: "المهام", icon: "assignment", color: "#8B5CF6", count: summary?.tasks || 0 },
-    { id: "users", title: "المستخدمين", icon: "people", color: "#EC4899", count: summary?.users || 0 },
-    { id: "costs", title: "التكاليف", icon: "calculate", color: "#06B6D4", count: summary?.costs || 0 },
-    { id: "collection", title: "التحصيل", icon: "payments", color: "#14B8A6", count: summary?.collection || 0 },
-    { id: "manufacturing", title: "مراحل التصنيع", icon: "factory", color: "#F97316", count: summary?.manufacturing || 0 },
-    { id: "alerts", title: "التنبيهات غير المقروءة", icon: "notifications-active", color: "#EF4444", count: summary?.unreadAlerts || 0 },
+    { id: "production", title: isAr ? "الإنتاج" : "Production", icon: "precision-manufacturing", color: "#3B82F6", count: summary?.production || 0 },
+    { id: "sales", title: isAr ? "المبيعات" : "Sales", icon: "point-of-sale", color: "#10B981", count: summary?.sales || 0 },
+    { id: "expenses", title: isAr ? "المصروفات" : "Expenses", icon: "account-balance-wallet", color: "#F59E0B", count: summary?.expenses || 0 },
+    { id: "tasks", title: isAr ? "المهام" : "Tasks", icon: "assignment", color: "#8B5CF6", count: summary?.tasks || 0 },
+    { id: "users", title: isAr ? "المستخدمين" : "Users", icon: "people", color: "#EC4899", count: summary?.users || 0 },
+    { id: "costs", title: isAr ? "التكاليف" : "Costs", icon: "calculate", color: "#06B6D4", count: summary?.costs || 0 },
+    { id: "collection", title: isAr ? "التحصيل" : "Collection", icon: "payments", color: "#14B8A6", count: summary?.collection || 0 },
+    { id: "manufacturing", title: isAr ? "مراحل التصنيع" : "Manufacturing Stages", icon: "factory", color: "#F97316", count: summary?.manufacturing || 0 },
+    { id: "alerts", title: isAr ? "التنبيهات غير المقروءة" : "Unread Alerts", icon: "notifications-active", color: "#EF4444", count: summary?.unreadAlerts || 0 },
   ];
 
   const getActionLabel = (action: string) => {
-    const labels: Record<string, string> = {
+    const labelsAr: Record<string, string> = {
       create: "إنشاء",
       update: "تعديل",
       delete: "حذف",
@@ -102,11 +105,20 @@ export default function AdminControlPanel() {
       export: "تصدير",
       backup: "نسخ احتياطي",
     };
-    return labels[action] || action;
+    const labelsEn: Record<string, string> = {
+      create: "Create",
+      update: "Update",
+      delete: "Delete",
+      login: "Login",
+      logout: "Logout",
+      export: "Export",
+      backup: "Backup",
+    };
+    return isAr ? (labelsAr[action] || action) : (labelsEn[action] || action);
   };
 
   const getEntityLabel = (entityType: string) => {
-    const labels: Record<string, string> = {
+    const labelsAr: Record<string, string> = {
       production: "إنتاج",
       sales: "مبيعات",
       expenses: "مصروفات",
@@ -119,7 +131,20 @@ export default function AdminControlPanel() {
       backups: "نسخ احتياطية",
       reports: "تقارير",
     };
-    return labels[entityType] || entityType;
+    const labelsEn: Record<string, string> = {
+      production: "Production",
+      sales: "Sales",
+      expenses: "Expenses",
+      tasks: "Tasks",
+      costs: "Costs",
+      collection: "Collection",
+      manufacturing: "Manufacturing",
+      users: "Users",
+      alerts: "Alerts",
+      backups: "Backups",
+      reports: "Reports",
+    };
+    return isAr ? (labelsAr[entityType] || entityType) : (labelsEn[entityType] || entityType);
   };
 
   const getSeverityColor = (severity: string) => {
@@ -135,7 +160,7 @@ export default function AdminControlPanel() {
       await alertsService.markAsRead(alertId);
       setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, read: 1 } : a));
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيه");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث التنبيه" : "Failed to update alert");
     }
   };
 
@@ -143,9 +168,9 @@ export default function AdminControlPanel() {
     try {
       await alertsService.markAllAsRead(userId);
       setAlerts(prev => prev.map(a => ({ ...a, read: 1 })));
-      Alert.alert("تم", "تم تحديد جميع التنبيهات كمقروءة");
+      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تحديد جميع التنبيهات كمقروءة" : "All alerts marked as read");
     } catch (error) {
-      Alert.alert("خطأ", "فشل في تحديث التنبيهات");
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تحديث التنبيهات" : "Failed to update alerts");
     }
   };
 
@@ -166,7 +191,7 @@ export default function AdminControlPanel() {
   const renderOverview = () => (
     <View style={styles.tabContent}>
       {/* Summary Cards */}
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>ملخص البيانات</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "ملخص البيانات" : "Data Summary"}</Text>
       <View style={styles.grid}>
         {sections.map((section) => (
           <TouchableOpacity
@@ -178,41 +203,41 @@ export default function AdminControlPanel() {
               <MaterialIcons name={section.icon as any} size={24} color={section.color} />
             </View>
             <Text style={[styles.cardCount, { color: colors.foreground }]}>{section.count}</Text>
-            <Text style={[styles.cardTitle, { color: colors.muted }]}>{section.title}</Text>
+            <Text style={[styles.cardTitle, { color: colors.muted, textAlign: "center" }]}>{section.title}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Quick Actions */}
-      <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24 }]}>إجراءات سريعة</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground, marginTop: 24, textAlign: isAr ? "right" : "left" }]}>{isAr ? "إجراءات سريعة" : "Quick Actions"}</Text>
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#3B82F6" }]}
           onPress={() => router.push("/board-representative-dashboard" as any)}
         >
           <MaterialIcons name="dashboard" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>لوحة مجلس الإدارة</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "لوحة مجلس الإدارة" : "Board Dashboard"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#10B981" }]}
           onPress={() => router.push("/cost-comparison-report" as any)}
         >
           <MaterialIcons name="compare-arrows" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>تقارير المقارنة</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "تقارير المقارنة" : "Comparison Reports"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#8B5CF6" }]}
           onPress={() => router.push("/backup-restore" as any)}
         >
           <MaterialIcons name="backup" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>النسخ الاحتياطية</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "النسخ الاحتياطية" : "Backups"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: "#F59E0B" }]}
           onPress={() => router.push("/share-reports" as any)}
         >
           <MaterialIcons name="picture-as-pdf" size={20} color="#fff" />
-          <Text style={styles.actionBtnText}>تصدير التقارير</Text>
+          <Text style={styles.actionBtnText}>{isAr ? "تصدير التقارير" : "Export Reports"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -220,30 +245,30 @@ export default function AdminControlPanel() {
 
   const renderActivity = () => (
     <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>سجل الأنشطة</Text>
+      <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "سجل الأنشطة" : "Activity Log"}</Text>
       {activityLog.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
           <MaterialIcons name="history" size={48} color={colors.muted} />
-          <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد أنشطة مسجلة بعد</Text>
-          <Text style={[styles.emptySubtext, { color: colors.muted }]}>ستظهر هنا جميع العمليات التي يقوم بها المستخدمون</Text>
+          <Text style={[styles.emptyText, { color: colors.muted, textAlign: "center" }]}>{isAr ? "لا توجد أنشطة مسجلة بعد" : "No activities recorded yet"}</Text>
+          <Text style={[styles.emptySubtext, { color: colors.muted, textAlign: "center" }]}>{isAr ? "ستظهر هنا جميع العمليات التي يقوم بها المستخدمون" : "All user operations will appear here"}</Text>
         </View>
       ) : (
         activityLog.map((log, index) => (
-          <View key={log.id || index} style={[styles.logItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View key={log.id || index} style={[styles.logItem, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isAr ? "row" : "row-reverse" }]}>
             <View style={styles.logIcon}>
               <MaterialIcons name="history" size={20} color={colors.primary} />
             </View>
-            <View style={styles.logContent}>
-              <Text style={[styles.logAction, { color: colors.foreground }]}>
+            <View style={[styles.logContent, { alignItems: isAr ? "flex-start" : "flex-end" }]}>
+              <Text style={[styles.logAction, { color: colors.foreground, textAlign: isAr ? "left" : "right" }]}>
                 {getActionLabel(log.action)} - {getEntityLabel(log.entityType)}
               </Text>
               {log.details && (
-                <Text style={[styles.logDetails, { color: colors.muted }]} numberOfLines={2}>
+                <Text style={[styles.logDetails, { color: colors.muted, textAlign: isAr ? "left" : "right" }]} numberOfLines={2}>
                   {typeof log.details === "string" ? log.details : JSON.stringify(log.details)}
                 </Text>
               )}
-              <Text style={[styles.logTime, { color: colors.muted }]}>
-                {log.createdAt ? new Date(log.createdAt).toLocaleString("ar-SA") : ""}
+              <Text style={[styles.logTime, { color: colors.muted, textAlign: isAr ? "left" : "right" }]}>
+                {log.createdAt ? new Date(log.createdAt).toLocaleString(isAr ? "ar-SA" : "en-US") : ""}
               </Text>
             </View>
           </View>
@@ -254,18 +279,18 @@ export default function AdminControlPanel() {
 
   const renderAlerts = () => (
     <View style={styles.tabContent}>
-      <View style={styles.alertsHeader}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>التنبيهات</Text>
+      <View style={[styles.alertsHeader, { flexDirection: isAr ? "row" : "row-reverse" }]}>
+        <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "التنبيهات" : "Alerts"}</Text>
         {alerts.filter(a => !a.read).length > 0 && (
           <TouchableOpacity onPress={handleMarkAllRead} style={[styles.markAllBtn, { backgroundColor: colors.primary }]}>
-            <Text style={styles.markAllBtnText}>تحديد الكل كمقروء</Text>
+            <Text style={styles.markAllBtnText}>{isAr ? "تحديد الكل كمقروء" : "Mark all as read"}</Text>
           </TouchableOpacity>
         )}
       </View>
       {alerts.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
           <MaterialIcons name="notifications-off" size={48} color={colors.muted} />
-          <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد تنبيهات</Text>
+          <Text style={[styles.emptyText, { color: colors.muted, textAlign: "center" }]}>{isAr ? "لا توجد تنبيهات" : "No alerts"}</Text>
         </View>
       ) : (
         alerts.map((alert, index) => (
@@ -273,8 +298,8 @@ export default function AdminControlPanel() {
             key={alert.id || index}
             style={[
               styles.alertItem,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              !alert.read && { borderRightWidth: 4, borderRightColor: getSeverityColor(alert.severity) },
+              { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isAr ? "row" : "row-reverse" },
+              !alert.read && { [isAr ? "borderRightWidth" : "borderLeftWidth"]: 4, [isAr ? "borderRightColor" : "borderLeftColor"]: getSeverityColor(alert.severity) },
             ]}
             onPress={() => alert.id && handleMarkAlertRead(alert.id)}
           >
@@ -285,11 +310,11 @@ export default function AdminControlPanel() {
                 color={getSeverityColor(alert.severity)}
               />
             </View>
-            <View style={styles.alertContent}>
-              <Text style={[styles.alertTitle, { color: colors.foreground }]}>{alert.title}</Text>
-              <Text style={[styles.alertMessage, { color: colors.muted }]} numberOfLines={2}>{alert.message}</Text>
-              <Text style={[styles.alertTime, { color: colors.muted }]}>
-                {alert.createdAt ? new Date(alert.createdAt).toLocaleString("ar-SA") : ""}
+            <View style={[styles.alertContent, { alignItems: isAr ? "flex-start" : "flex-end" }]}>
+              <Text style={[styles.alertTitle, { color: colors.foreground, textAlign: isAr ? "left" : "right" }]}>{alert.title}</Text>
+              <Text style={[styles.alertMessage, { color: colors.muted, textAlign: isAr ? "left" : "right" }]} numberOfLines={2}>{alert.message}</Text>
+              <Text style={[styles.alertTime, { color: colors.muted, textAlign: isAr ? "left" : "right" }]}>
+                {alert.createdAt ? new Date(alert.createdAt).toLocaleString(isAr ? "ar-SA" : "en-US") : ""}
               </Text>
             </View>
             {!alert.read && (
@@ -303,37 +328,37 @@ export default function AdminControlPanel() {
 
   const renderDataManagement = () => (
     <View style={styles.tabContent}>
-      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>إدارة البيانات</Text>
-      <Text style={[styles.subtitle, { color: colors.muted }]}>
-        يمكنك من هنا الوصول لجميع البيانات وتعديلها أو حذفها
+      <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "إدارة البيانات" : "Data Management"}</Text>
+      <Text style={[styles.subtitle, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>
+        {isAr ? "يمكنك من هنا الوصول لجميع البيانات وتعديلها أو حذفها" : "From here you can access, edit, or delete all data"}
       </Text>
 
       {/* Data Management Cards */}
       {[
-        { title: "إدارة الإنتاج", icon: "precision-manufacturing", color: "#3B82F6", desc: "عرض وتعديل وحذف بيانات الإنتاج", route: "/production" },
-        { title: "إدارة المبيعات", icon: "point-of-sale", color: "#10B981", desc: "عرض وتعديل وحذف بيانات المبيعات", route: "/sales" },
-        { title: "إدارة المصروفات", icon: "account-balance-wallet", color: "#F59E0B", desc: "عرض وتعديل وحذف المصروفات", route: "/expenses" },
-        { title: "إدارة المهام", icon: "assignment", color: "#8B5CF6", desc: "عرض وتعديل وحذف المهام", route: "/tasks" },
-        { title: "إدارة التكاليف", icon: "calculate", color: "#06B6D4", desc: "عرض وتعديل وحذف بيانات التكاليف", route: "/production-costs" },
-        { title: "إدارة المستخدمين", icon: "people", color: "#EC4899", desc: "إدارة حسابات المستخدمين والصلاحيات", route: "/admin-dashboard" },
-        { title: "إدارة التحصيل", icon: "payments", color: "#14B8A6", desc: "عرض وتعديل بيانات التحصيل", route: "/collection" },
-        { title: "إدارة المستودعات", icon: "warehouse", color: "#F97316", desc: "عرض وتعديل بيانات المستودعات", route: "/warehouse" },
-        { title: "إدارة الصيانة", icon: "build", color: "#6366F1", desc: "عرض وتعديل بيانات الصيانة", route: "/maintenance" },
-        { title: "الإجراءات الإدارية", icon: "admin-panel-settings", color: "#DC2626", desc: "عرض وتعديل الإجراءات الإدارية", route: "/administrative" },
+        { title: isAr ? "إدارة الإنتاج" : "Production Management", icon: "precision-manufacturing", color: "#3B82F6", desc: isAr ? "عرض وتعديل وحذف بيانات الإنتاج" : "View, edit, and delete production data", route: "/production" },
+        { title: isAr ? "إدارة المبيعات" : "Sales Management", icon: "point-of-sale", color: "#10B981", desc: isAr ? "عرض وتعديل وحذف بيانات المبيعات" : "View, edit, and delete sales data", route: "/sales" },
+        { title: isAr ? "إدارة المصروفات" : "Expenses Management", icon: "account-balance-wallet", color: "#F59E0B", desc: isAr ? "عرض وتعديل وحذف المصروفات" : "View, edit, and delete expenses", route: "/expenses" },
+        { title: isAr ? "إدارة المهام" : "Tasks Management", icon: "assignment", color: "#8B5CF6", desc: isAr ? "عرض وتعديل وحذف المهام" : "View, edit, and delete tasks", route: "/tasks" },
+        { title: isAr ? "إدارة التكاليف" : "Costs Management", icon: "calculate", color: "#06B6D4", desc: isAr ? "عرض وتعديل وحذف بيانات التكاليف" : "View, edit, and delete costs data", route: "/production-costs" },
+        { title: isAr ? "إدارة المستخدمين" : "Users Management", icon: "people", color: "#EC4899", desc: isAr ? "إدارة حسابات المستخدمين والصلاحيات" : "Manage user accounts and permissions", route: "/admin-dashboard" },
+        { title: isAr ? "إدارة التحصيل" : "Collection Management", icon: "payments", color: "#14B8A6", desc: isAr ? "عرض وتعديل بيانات التحصيل" : "View and edit collection data", route: "/collection" },
+        { title: isAr ? "إدارة المستودعات" : "Warehouse Management", icon: "warehouse", color: "#F97316", desc: isAr ? "عرض وتعديل بيانات المستودعات" : "View and edit warehouse data", route: "/warehouse" },
+        { title: isAr ? "إدارة الصيانة" : "Maintenance Management", icon: "build", color: "#6366F1", desc: isAr ? "عرض وتعديل بيانات الصيانة" : "View and edit maintenance data", route: "/maintenance" },
+        { title: isAr ? "الإجراءات الإدارية" : "Administrative Procedures", icon: "admin-panel-settings", color: "#DC2626", desc: isAr ? "عرض وتعديل الإجراءات الإدارية" : "View and edit administrative procedures", route: "/administrative" },
       ].map((item, index) => (
         <TouchableOpacity
           key={index}
-          style={[styles.dataCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[styles.dataCard, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isAr ? "row" : "row-reverse" }]}
           onPress={() => router.push(item.route as any)}
         >
           <View style={[styles.dataCardIcon, { backgroundColor: item.color + "20" }]}>
             <MaterialIcons name={item.icon as any} size={28} color={item.color} />
           </View>
-          <View style={styles.dataCardContent}>
-            <Text style={[styles.dataCardTitle, { color: colors.foreground }]}>{item.title}</Text>
-            <Text style={[styles.dataCardDesc, { color: colors.muted }]}>{item.desc}</Text>
+          <View style={[styles.dataCardContent, { alignItems: isAr ? "flex-start" : "flex-end" }]}>
+            <Text style={[styles.dataCardTitle, { color: colors.foreground, textAlign: isAr ? "left" : "right" }]}>{item.title}</Text>
+            <Text style={[styles.dataCardDesc, { color: colors.muted, textAlign: isAr ? "left" : "right" }]}>{item.desc}</Text>
           </View>
-          <MaterialIcons name="chevron-right" size={24} color={colors.muted} />
+          <MaterialIcons name={isAr ? "chevron-left" : "chevron-right"} size={24} color={colors.muted} />
         </TouchableOpacity>
       ))}
     </View>
@@ -343,7 +368,7 @@ export default function AdminControlPanel() {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.muted }]}>جاري تحميل البيانات...</Text>
+        <Text style={[styles.loadingText, { color: colors.muted, textAlign: "center" }]}>{isAr ? "جاري تحميل البيانات..." : "Loading data..."}</Text>
       </ScreenContainer>
     );
   }
@@ -355,13 +380,13 @@ export default function AdminControlPanel() {
         contentContainerStyle={styles.container}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { flexDirection: isAr ? "row" : "row-reverse" }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
+            <MaterialIcons name={isAr ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>لوحة تحكم المدير</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>إدارة شاملة لجميع البيانات</Text>
+          <View style={[styles.headerContent, { alignItems: isAr ? "flex-start" : "flex-end" }]}>
+            <Text style={[styles.headerTitle, { color: colors.foreground, textAlign: isAr ? "left" : "right" }]}>{isAr ? "لوحة تحكم المدير" : "Admin Control Panel"}</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.muted, textAlign: isAr ? "left" : "right" }]}>{isAr ? "إدارة شاملة لجميع البيانات" : "Comprehensive management of all data"}</Text>
           </View>
           <View style={[styles.adminBadge, { backgroundColor: colors.primary }]}>
             <MaterialIcons name="admin-panel-settings" size={20} color="#fff" />
@@ -369,12 +394,12 @@ export default function AdminControlPanel() {
         </View>
 
         {/* Tabs */}
-        <View style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isAr ? "row" : "row-reverse" }]}>
           {[
-            { id: "overview", label: "نظرة عامة", icon: "dashboard" },
-            { id: "activity", label: "الأنشطة", icon: "history" },
-            { id: "alerts", label: "التنبيهات", icon: "notifications" },
-            { id: "data", label: "البيانات", icon: "storage" },
+            { id: "overview", label: isAr ? "نظرة عامة" : "Overview", icon: "dashboard" },
+            { id: "activity", label: isAr ? "الأنشطة" : "Activity", icon: "history" },
+            { id: "alerts", label: isAr ? "التنبيهات" : "Alerts", icon: "notifications" },
+            { id: "data", label: isAr ? "البيانات" : "Data", icon: "storage" },
           ].map((tab) => (
             <TouchableOpacity
               key={tab.id}
@@ -385,11 +410,11 @@ export default function AdminControlPanel() {
               onPress={() => setActiveTab(tab.id as any)}
             >
               <MaterialIcons name={tab.icon as any} size={18} color={activeTab === tab.id ? colors.primary : colors.muted} />
-              <Text style={[styles.tabLabel, { color: activeTab === tab.id ? colors.primary : colors.muted }]}>
+              <Text style={[styles.tabLabel, { color: activeTab === tab.id ? colors.primary : colors.muted, textAlign: "center" }]}>
                 {tab.label}
               </Text>
               {tab.id === "alerts" && (summary?.unreadAlerts || 0) > 0 && (
-                <View style={styles.badge}>
+                <View style={[styles.badge, isAr ? { right: 8 } : { left: 8 }]}>
                   <Text style={styles.badgeText}>{summary?.unreadAlerts}</Text>
                 </View>
               )}
@@ -418,7 +443,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: "row", marginHorizontal: 16, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
   tab: { flex: 1, alignItems: "center", paddingVertical: 10, gap: 2, position: "relative" },
   tabLabel: { fontSize: 11, fontWeight: "600" },
-  badge: { position: "absolute", top: 4, right: 8, backgroundColor: "#EF4444", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: 4, backgroundColor: "#EF4444", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center" },
   badgeText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
   tabContent: { padding: 16 },
   sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 12 },

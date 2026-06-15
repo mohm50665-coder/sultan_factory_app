@@ -20,26 +20,48 @@ import { administrativeService, AdministrativeData } from "@/lib/services/data.s
 import { administrativeExportService } from "@/lib/services/administrative-export";
 import { notificationsService } from "@/lib/services/notifications.service";
 
-const REQUEST_TYPES = [
-  { label: "\u0637\u0644\u0628 \u0625\u062c\u0627\u0632\u0629", value: "leave_request" },
-  { label: "\u0637\u0644\u0628 \u0627\u0633\u062a\u062f\u0639\u0627\u0621", value: "recall_request" },
-  { label: "\u0637\u0644\u0628 \u0633\u0644\u0641\u0629", value: "advance_request" },
-  { label: "\u0637\u0644\u0628 \u0627\u0633\u062a\u0642\u0627\u0644\u0629", value: "resignation_request" },
-  { label: "\u0637\u0644\u0628 \u0646\u0642\u0644 \u0643\u0641\u0627\u0644\u0629", value: "sponsorship_transfer" },
-  { label: "\u0637\u0644\u0628 \u062a\u0642\u062f\u0645 \u0631\u0627\u062a\u0628", value: "advance_salary" },
-  { label: "\u0637\u0644\u0628 \u062a\u062f\u0631\u064a\u0628", value: "training_request" },
-  { label: "\u0637\u0644\u0628 \u0646\u0642\u0644", value: "transfer_request" },
+const REQUEST_TYPES_AR = [
+  { label: "طلب إجازة", value: "leave_request" },
+  { label: "طلب استدعاء", value: "recall_request" },
+  { label: "طلب سلفة", value: "advance_request" },
+  { label: "طلب استقالة", value: "resignation_request" },
+  { label: "طلب نقل كفالة", value: "sponsorship_transfer" },
+  { label: "طلب تقدم راتب", value: "advance_salary" },
+  { label: "طلب تدريب", value: "training_request" },
+  { label: "طلب نقل", value: "transfer_request" },
 ];
 
-const DEPARTMENTS = [
-  { label: "\u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "production" },
-  { label: "\u0645\u0631\u0627\u062d\u0644 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0625\u0646\u062a\u0627\u062c", value: "manufacturing" },
-  { label: "\u0627\u0644\u0645\u0628\u064a\u0639\u0627\u062a \u0648\u0627\u0644\u062a\u062d\u0635\u064a\u0644", value: "sales" },
-  { label: "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639\u0627\u062a", value: "warehouse" },
-  { label: "\u0627\u0644\u0635\u064a\u0627\u0646\u0629", value: "maintenance" },
-  { label: "\u0627\u0644\u0645\u0635\u0631\u0648\u0641\u0627\u062a", value: "financial" },
-  { label: "\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629", value: "administrative" },
-  { label: "\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629", value: "board_representative" },
+const REQUEST_TYPES_EN = [
+  { label: "Leave Request", value: "leave_request" },
+  { label: "Recall Request", value: "recall_request" },
+  { label: "Advance Request", value: "advance_request" },
+  { label: "Resignation Request", value: "resignation_request" },
+  { label: "Sponsorship Transfer", value: "sponsorship_transfer" },
+  { label: "Salary Advance", value: "advance_salary" },
+  { label: "Training Request", value: "training_request" },
+  { label: "Transfer Request", value: "transfer_request" },
+];
+
+const DEPARTMENTS_AR = [
+  { label: "الإنتاج", value: "production" },
+  { label: "مراحل تسليم الإنتاج", value: "manufacturing" },
+  { label: "المبيعات والتحصيل", value: "sales" },
+  { label: "المستودعات", value: "warehouse" },
+  { label: "الصيانة", value: "maintenance" },
+  { label: "المصروفات", value: "financial" },
+  { label: "الإجراءات الإدارية", value: "administrative" },
+  { label: "ممثل مجلس الإدارة", value: "board_representative" },
+];
+
+const DEPARTMENTS_EN = [
+  { label: "Production", value: "production" },
+  { label: "Production Delivery Stages", value: "manufacturing" },
+  { label: "Sales & Collection", value: "sales" },
+  { label: "Warehouses", value: "warehouse" },
+  { label: "Maintenance", value: "maintenance" },
+  { label: "Expenses", value: "financial" },
+  { label: "Administrative Procedures", value: "administrative" },
+  { label: "Board Representative", value: "board_representative" },
 ];
 
 const emptyFormData = (): AdministrativeData => ({
@@ -65,6 +87,8 @@ const emptyFormData = (): AdministrativeData => ({
 export default function AdministrativeScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
+  const REQUEST_TYPES = isAr ? REQUEST_TYPES_AR : REQUEST_TYPES_EN;
+  const DEPARTMENTS = isAr ? DEPARTMENTS_AR : DEPARTMENTS_EN;
   const router = useRouter();
   const colors = useColors();
   const [requests, setRequests] = useState<AdministrativeData[]>([]);
@@ -109,7 +133,7 @@ export default function AdministrativeScreen() {
   const handleSave = async () => {
     if (!formData.employeeName || !formData.requestDetails) {
       if (Platform.OS === "web") {
-        window.alert("\u064a\u0631\u062c\u0649 \u0645\u0644\u0621 \u062c\u0645\u064a\u0639 \u0627\u0644\u062d\u0642\u0648\u0644 \u0627\u0644\u0645\u0637\u0644\u0648\u0628\u0629 (\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641 \u0648\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0637\u0644\u0628)");
+        window.alert(isAr ? "يرجى ملء جميع الحقول المطلوبة (اسم الموظف وتفاصيل الطلب)" : "Please fill all required fields (employee name and request details)");
       }
       return;
     }
@@ -153,7 +177,7 @@ export default function AdministrativeScreen() {
 
   const handleDelete = (id: number) => {
     if (Platform.OS === "web") {
-      if (window.confirm("\u0647\u0644 \u0623\u0646\u062a \u0645\u062a\u0623\u0643\u062f \u0645\u0646 \u062d\u0630\u0641 \u0647\u0630\u0627 \u0627\u0644\u0637\u0644\u0628\u061f")) {
+      if (window.confirm(isAr ? "هل أنت متأكد من حذف هذا الطلب؟" : "Are you sure you want to delete this request?")) {
         performDelete(id);
       }
     } else {
@@ -219,11 +243,11 @@ export default function AdministrativeScreen() {
   };
 
   const getRequestTypeLabel = (type: string) => {
-    return REQUEST_TYPES.find((t) => t.value === type)?.label || type;
+    return (isAr ? REQUEST_TYPES_AR : REQUEST_TYPES_EN).find((t) => t.value === type)?.label || type;
   };
 
   const getDepartmentLabel = (dept: string) => {
-    return DEPARTMENTS.find((d) => d.value === dept)?.label || dept || "\u063a\u064a\u0631 \u0645\u062d\u062f\u062f";
+    return (isAr ? DEPARTMENTS_AR : DEPARTMENTS_EN).find((d) => d.value === dept)?.label || dept || (isAr ? "غير محدد" : "Not specified");
   };
 
   const getStatusLabel = (request: AdministrativeData) => {
@@ -231,7 +255,7 @@ export default function AdministrativeScreen() {
     if (status === "approved") return isAr ? "موافق" : "Approved";
     if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
     if (request.approvedByBoardRep || request.approvedByDirectManager || request.approvedByGeneralManager) return isAr ? "قيد المراجعة" : "Under Review";
-    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
+    return isAr ? "قيد الانتظار" : "Pending";
   };
 
   const getStatusColor = (request: AdministrativeData) => {
@@ -245,7 +269,7 @@ export default function AdministrativeScreen() {
   const getApproverStatusLabel = (status: string) => {
     if (status === "approved") return isAr ? "موافق" : "Approved";
     if (status === "rejected") return isAr ? "مرفوض" : "Rejected";
-    return isAr ? isAr ? "قيد الانتظار" : "Pending" : "Pending";
+    return isAr ? "قيد الانتظار" : "Pending";
   };
 
   const formatDate = (dateStr?: string) => {
@@ -327,7 +351,7 @@ Approvals:
           <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{item.employeeName}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
             {item.employeeNumber ? (
-              <Text style={{ color: colors.muted, fontSize: 12 }}>{"\u0631\u0642\u0645 \u0648\u0638\u064a\u0641\u064a: "}{item.employeeNumber}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "رقم وظيفي: " : "Employee #: "}{item.employeeNumber}</Text>
             ) : null}
             {item.department ? (
               <Text style={{ color: colors.muted, fontSize: 12 }}>| {getDepartmentLabel(item.department)}</Text>
@@ -363,7 +387,7 @@ Approvals:
         <View style={{ marginBottom: 12, backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
             <MaterialIcons name="attach-file" size={14} color={colors.muted} />
-            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "600" }}>{"\u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062a"} ({item.attachments.length})</Text>
+            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "600" }}>{isAr ? "المرفقات" : "Attachments"} ({item.attachments.length})</Text>
           </View>
           {item.attachments.map((att, idx) => (
             <Text key={idx} style={{ color: colors.primary, fontSize: 11, marginLeft: 16 }}>{"\u2022"} {att}</Text>
@@ -373,7 +397,7 @@ Approvals:
 
       {/* Approvals with per-approver status */}
       <View style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12 }}>
-        <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "700", marginBottom: 10, textAlign: "right" }}>{"\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0627\u062a"}</Text>
+        <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "700", marginBottom: 10, textAlign: isAr ? "right" : "left" }}>{isAr ? "الموافقات" : "Approvals"}</Text>
         
         {/* \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 */}
         <View style={{ marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
@@ -383,14 +407,14 @@ Approvals:
                 {getApproverStatusLabel(item.directManagerStatus || (item.approvedByDirectManager ? "approved" : "pending"))}
               </Text>
             </View>
-            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}</Text>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{isAr ? "المدير المباشر" : "Direct Manager"}</Text>
           </View>
           {item.directManagerActionDate ? (
             <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.directManagerActionDate)}</Text>
           ) : null}
         </View>
         {item.directManagerRejectionReason ? (
-          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.directManagerRejectionReason}</Text>
+          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: isAr ? "right" : "left", paddingHorizontal: 10 }}>{isAr ? "سبب الرفض: " : "Rejection reason: "}{item.directManagerRejectionReason}</Text>
         ) : null}
 
         {/* \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645 */}
@@ -401,14 +425,14 @@ Approvals:
                 {getApproverStatusLabel(item.generalManagerStatus || (item.approvedByGeneralManager ? "approved" : "pending"))}
               </Text>
             </View>
-            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}</Text>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{isAr ? "المدير العام" : "General Manager"}</Text>
           </View>
           {item.generalManagerActionDate ? (
             <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.generalManagerActionDate)}</Text>
           ) : null}
         </View>
         {item.generalManagerRejectionReason ? (
-          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.generalManagerRejectionReason}</Text>
+          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 8, marginTop: -4, textAlign: isAr ? "right" : "left", paddingHorizontal: 10 }}>{isAr ? "سبب الرفض: " : "Rejection reason: "}{item.generalManagerRejectionReason}</Text>
         ) : null}
 
         {/* \u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629 */}
@@ -419,14 +443,14 @@ Approvals:
                 {getApproverStatusLabel(item.boardRepStatus || (item.approvedByBoardRep ? "approved" : "pending"))}
               </Text>
             </View>
-            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{"\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"}</Text>
+            <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "500" }}>{isAr ? "ممثل مجلس الإدارة" : "Board Representative"}</Text>
           </View>
           {item.boardRepActionDate ? (
             <Text style={{ color: colors.muted, fontSize: 9, textAlign: "left", marginTop: 4 }}>{formatDate(item.boardRepActionDate)}</Text>
           ) : null}
         </View>
         {item.boardRepRejectionReason ? (
-          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 4, marginTop: 0, textAlign: "right", paddingHorizontal: 10 }}>{"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636: "}{item.boardRepRejectionReason}</Text>
+          <Text style={{ color: colors.error, fontSize: 10, marginBottom: 4, marginTop: 0, textAlign: isAr ? "right" : "left", paddingHorizontal: 10 }}>{isAr ? "سبب الرفض: " : "Rejection reason: "}{item.boardRepRejectionReason}</Text>
         ) : null}
       </View>
 
@@ -436,7 +460,7 @@ Approvals:
         style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.primary + "12", borderRadius: 10, borderWidth: 1, borderColor: colors.primary + "30" }}
       >
         <MaterialIcons name="print" size={20} color={colors.primary} />
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{"\u0637\u0628\u0627\u0639\u0629 / \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u0637\u0644\u0628"}</Text>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{isAr ? "طباعة / مشاركة الطلب" : "Print / Share Request"}</Text>
         <MaterialIcons name="share" size={18} color={colors.primary} />
       </TouchableOpacity>
     </View>
@@ -454,14 +478,14 @@ Approvals:
           {/* Form Header */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border }}>
             <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }}>
-              <Text style={{ color: colors.error, fontWeight: "600", fontSize: 16 }}>{"\u0625\u0644\u063a\u0627\u0621"}</Text>
+              <Text style={{ color: colors.error, fontWeight: "600", fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
             </TouchableOpacity>
             <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 18 }}>
-              {editingId ? "\u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0637\u0644\u0628" : "\u0625\u0636\u0627\u0641\u0629 \u0637\u0644\u0628 \u062c\u062f\u064a\u062f"}
+              {editingId ? (isAr ? "تعديل الطلب" : "Edit Request") : (isAr ? "إضافة طلب جديد" : "Add New Request")}
             </Text>
             <TouchableOpacity onPress={handleSave} disabled={isLoading}>
               <Text style={{ color: isLoading ? colors.muted : colors.primary, fontWeight: "700", fontSize: 16 }}>
-                {isLoading ? "\u062c\u0627\u0631\u064a..." : "\u062d\u0641\u0638"}
+                {isLoading ? (isAr ? "جاري..." : "Saving...") : (isAr ? "حفظ" : "Save")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -472,16 +496,16 @@ Approvals:
             <View style={{ marginBottom: 24 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <MaterialIcons name="person" size={20} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{"\u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0623\u0633\u0627\u0633\u064a\u0629"}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{isAr ? "البيانات الأساسية" : "Basic Information"}</Text>
               </View>
 
               {/* \u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641 */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641"} <Text style={{ color: colors.error }}>*</Text></Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "اسم الموظف" : "Employee Name"} <Text style={{ color: colors.error }}>*</Text></Text>
                 <TextInput
                   value={formData.employeeName}
                   onChangeText={(text) => setFormData({ ...formData, employeeName: text })}
-                  placeholder={"\u0623\u062f\u062e\u0644 \u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641"}
+                  placeholder={isAr ? "أدخل اسم الموظف" : "Enter employee name"}
                   placeholderTextColor={colors.muted}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
                 />
@@ -489,11 +513,11 @@ Approvals:
 
               {/* \u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0648\u0638\u064a\u0641\u064a */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0648\u0638\u064a\u0641\u064a"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "الرقم الوظيفي" : "Employee Number"}</Text>
                 <TextInput
                   value={formData.employeeNumber}
                   onChangeText={(text) => setFormData({ ...formData, employeeNumber: text })}
-                  placeholder={"\u0623\u062f\u062e\u0644 \u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0648\u0638\u064a\u0641\u064a"}
+                  placeholder={isAr ? "أدخل الرقم الوظيفي" : "Enter employee number"}
                   placeholderTextColor={colors.muted}
                   keyboardType="numeric"
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
@@ -502,14 +526,14 @@ Approvals:
 
               {/* \u0627\u0644\u0625\u062f\u0627\u0631\u0629 / \u0627\u0644\u0642\u0633\u0645 */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0627\u0644\u0625\u062f\u0627\u0631\u0629 / \u0627\u0644\u0642\u0633\u0645"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "الإدارة / القسم" : "Department / Section"}</Text>
                 <TouchableOpacity
                   onPress={() => setShowDepartmentDropdown(!showDepartmentDropdown)}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, backgroundColor: colors.surface, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
                 >
                   <MaterialIcons name={showDepartmentDropdown ? "expand-less" : "expand-more"} size={20} color={colors.muted} />
                   <Text style={{ color: formData.department ? colors.foreground : colors.muted, fontSize: 14 }}>
-                    {formData.department ? getDepartmentLabel(formData.department) : "\u0627\u062e\u062a\u0631 \u0627\u0644\u0642\u0633\u0645"}
+                    {formData.department ? getDepartmentLabel(formData.department) : (isAr ? "اختر القسم" : "Select Department")}
                   </Text>
                 </TouchableOpacity>
                 {showDepartmentDropdown && (
@@ -531,7 +555,7 @@ Approvals:
 
               {/* \u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628 */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628"} <Text style={{ color: colors.error }}>*</Text></Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "نوع الطلب" : "Request Type"} <Text style={{ color: colors.error }}>*</Text></Text>
                 <TouchableOpacity
                   onPress={() => setShowRequestTypeDropdown(!showRequestTypeDropdown)}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, backgroundColor: colors.surface, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
@@ -562,11 +586,11 @@ Approvals:
 
               {/* \u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0637\u0644\u0628 */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: "right" }}>{"\u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0637\u0644\u0628"} <Text style={{ color: colors.error }}>*</Text></Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "تفاصيل الطلب" : "Request Details"} <Text style={{ color: colors.error }}>*</Text></Text>
                 <TextInput
                   value={formData.requestDetails}
                   onChangeText={(text) => setFormData({ ...formData, requestDetails: text })}
-                  placeholder={"\u0623\u062f\u062e\u0644 \u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0637\u0644\u0628"}
+                  placeholder={isAr ? "أدخل تفاصيل الطلب" : "Enter request details"}
                   placeholderTextColor={colors.muted}
                   multiline
                   numberOfLines={4}
@@ -579,7 +603,7 @@ Approvals:
             <View style={{ marginBottom: 24 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <MaterialIcons name="attach-file" size={20} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{"\u0625\u0631\u0641\u0627\u0642 \u0646\u0645\u0627\u0630\u062c \u0648\u0645\u0633\u062a\u0646\u062f\u0627\u062a"}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{isAr ? "إرفاق نماذج ومستندات" : "Attach Forms & Documents"}</Text>
               </View>
 
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -592,7 +616,7 @@ Approvals:
                 <TextInput
                   value={attachmentInput}
                   onChangeText={setAttachmentInput}
-                  placeholder={"\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u0646\u062f \u0623\u0648 \u0631\u0627\u0628\u0637 \u0627\u0644\u0645\u0631\u0641\u0642"}
+                  placeholder={isAr ? "اسم المستند أو رابط المرفق" : "Document name or attachment link"}
                   placeholderTextColor={colors.muted}
                   onSubmitEditing={addAttachment}
                   style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, fontSize: 14, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
@@ -621,17 +645,17 @@ Approvals:
             <View style={{ marginBottom: 24 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <MaterialIcons name="verified" size={20} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{"\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0627\u062a"}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{isAr ? "الموافقات" : "Approvals"}</Text>
               </View>
 
               {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631 */}
               <View style={{ marginBottom: 16, backgroundColor: colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: "right", marginBottom: 10 }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0645\u0628\u0627\u0634\u0631"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: isAr ? "right" : "left", marginBottom: 10 }}>{isAr ? "المدير المباشر" : "Direct Manager"}</Text>
                 <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", marginBottom: 8 }}>
                   {[
-                    { label: "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631", value: "pending" as const, color: colors.muted },
-                    { label: "\u0645\u0648\u0627\u0641\u0642", value: "approved" as const, color: colors.success },
-                    { label: "\u0645\u0631\u0641\u0648\u0636", value: "rejected" as const, color: colors.error },
+                    { label: isAr ? "قيد الانتظار" : "Pending", value: "pending" as const, color: colors.muted },
+                    { label: isAr ? "موافق" : "Approved", value: "approved" as const, color: colors.success },
+                    { label: isAr ? "مرفوض" : "Rejected", value: "rejected" as const, color: colors.error },
                   ].map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
@@ -646,21 +670,21 @@ Approvals:
                   <TextInput
                     value={formData.directManagerRejectionReason}
                     onChangeText={(text) => setFormData({ ...formData, directManagerRejectionReason: text })}
-                    placeholder={"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}
+                    placeholder={isAr ? "سبب الرفض" : "Rejection reason"}
                     placeholderTextColor={colors.muted}
-                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: "right" }}
+                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: isAr ? "right" : "left" }}
                   />
                 )}
               </View>
 
-              {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645 */}
+              {/* موافقة المدير العام */}
               <View style={{ marginBottom: 16, backgroundColor: colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: "right", marginBottom: 10 }}>{"\u0627\u0644\u0645\u062f\u064a\u0631 \u0627\u0644\u0639\u0627\u0645"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: isAr ? "right" : "left", marginBottom: 10 }}>{isAr ? "المدير العام" : "General Manager"}</Text>
                 <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", marginBottom: 8 }}>
                   {[
-                    { label: "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631", value: "pending" as const, color: colors.muted },
-                    { label: "\u0645\u0648\u0627\u0641\u0642", value: "approved" as const, color: colors.success },
-                    { label: "\u0645\u0631\u0641\u0648\u0636", value: "rejected" as const, color: colors.error },
+                    { label: isAr ? "قيد الانتظار" : "Pending", value: "pending" as const, color: colors.muted },
+                    { label: isAr ? "موافق" : "Approved", value: "approved" as const, color: colors.success },
+                    { label: isAr ? "مرفوض" : "Rejected", value: "rejected" as const, color: colors.error },
                   ].map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
@@ -675,21 +699,21 @@ Approvals:
                   <TextInput
                     value={formData.generalManagerRejectionReason}
                     onChangeText={(text) => setFormData({ ...formData, generalManagerRejectionReason: text })}
-                    placeholder={"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}
+                    placeholder={isAr ? "سبب الرفض" : "Rejection reason"}
                     placeholderTextColor={colors.muted}
-                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: "right" }}
+                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: isAr ? "right" : "left" }}
                   />
                 )}
               </View>
 
-              {/* \u0645\u0648\u0627\u0641\u0642\u0629 \u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629 */}
+              {/* موافقة ممثل مجلس الإدارة */}
               <View style={{ marginBottom: 16, backgroundColor: colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: "right", marginBottom: 10 }}>{"\u0645\u0645\u062b\u0644 \u0645\u062c\u0644\u0633 \u0627\u0644\u0625\u062f\u0627\u0631\u0629"}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", textAlign: isAr ? "right" : "left", marginBottom: 10 }}>{isAr ? "ممثل مجلس الإدارة" : "Board Representative"}</Text>
                 <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", marginBottom: 8 }}>
                   {[
-                    { label: "\u0642\u064a\u062f \u0627\u0644\u0627\u0646\u062a\u0638\u0627\u0631", value: "pending" as const, color: colors.muted },
-                    { label: "\u0645\u0648\u0627\u0641\u0642", value: "approved" as const, color: colors.success },
-                    { label: "\u0645\u0631\u0641\u0648\u0636", value: "rejected" as const, color: colors.error },
+                    { label: isAr ? "قيد الانتظار" : "Pending", value: "pending" as const, color: colors.muted },
+                    { label: isAr ? "موافق" : "Approved", value: "approved" as const, color: colors.success },
+                    { label: isAr ? "مرفوض" : "Rejected", value: "rejected" as const, color: colors.error },
                   ].map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
@@ -704,9 +728,9 @@ Approvals:
                   <TextInput
                     value={formData.boardRepRejectionReason}
                     onChangeText={(text) => setFormData({ ...formData, boardRepRejectionReason: text })}
-                    placeholder={"\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636"}
+                    placeholder={isAr ? "سبب الرفض" : "Rejection reason"}
                     placeholderTextColor={colors.muted}
-                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: "right" }}
+                    style={{ borderWidth: 1, borderColor: colors.error + "40", borderRadius: 8, padding: 10, fontSize: 13, color: colors.foreground, backgroundColor: colors.error + "08", textAlign: isAr ? "right" : "left" }}
                   />
                 )}
               </View>
@@ -743,8 +767,8 @@ Approvals:
         </View>
         {/* \u0627\u0644\u0639\u0646\u0648\u0627\u0646 */}
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{"\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629"}</Text>
-          <Text style={{ fontSize: 14, marginTop: 4 }}>{requests.length} {"\u0637\u0644\u0628"}</Text>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "الإجراءات الإدارية" : "Administrative Procedures"}</Text>
+          <Text style={{ fontSize: 14, marginTop: 4, color: '#ffffff' }}>{requests.length} {isAr ? "طلب" : "requests"}</Text>
         </View>
         {/* \u0632\u0631 \u0627\u0644\u0631\u062c\u0648\u0639 */}
         <BackButton />
@@ -759,7 +783,7 @@ Approvals:
               onPress={() => setFilterType("all")}
               style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: filterType === "all" ? colors.primary : colors.surface, borderWidth: 1, borderColor: filterType === "all" ? colors.primary : colors.border }}
             >
-              <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === "all" ? "#fff" : colors.muted }}>{"\u0627\u0644\u0643\u0644"}</Text>
+              <Text style={{ fontSize: 11, fontWeight: "600", color: filterType === "all" ? "#fff" : colors.muted }}>{isAr ? "الكل" : "All"}</Text>
             </TouchableOpacity>
             {REQUEST_TYPES.map((t) => (
               <TouchableOpacity
@@ -795,7 +819,7 @@ Approvals:
             </ScrollView>
           </View>
           {filteredRequests.length !== requests.length && (
-            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 6, textAlign: "right" }}>{"\u0639\u0631\u0636"} {filteredRequests.length} {"\u0645\u0646"} {requests.length} {"\u0637\u0644\u0628"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? `عرض ${filteredRequests.length} من ${requests.length} طلب` : `Showing ${filteredRequests.length} of ${requests.length} requests`}</Text>
           )}
         </View>
       )}
@@ -816,16 +840,16 @@ Approvals:
               <View style={{ backgroundColor: colors.primary + "15", borderRadius: 40, padding: 20 }}>
                 <MaterialIcons name="description" size={48} color={colors.primary} />
               </View>
-              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: "700" }}>{"\u0627\u0644\u0625\u062c\u0631\u0627\u0621\u0627\u062a \u0627\u0644\u0625\u062f\u0627\u0631\u064a\u0629"}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: "700" }}>{isAr ? "الإجراءات الإدارية" : "Administrative Procedures"}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: "center", paddingHorizontal: 32 }}>
-                {"\u0644\u0627 \u062a\u0648\u062c\u062f \u0637\u0644\u0628\u0627\u062a \u0625\u062f\u0627\u0631\u064a\u0629 \u0628\u0639\u062f.\n\u0627\u0636\u063a\u0637 \u0639\u0644\u0649 \u0632\u0631 (+) \u0644\u0625\u0636\u0627\u0641\u0629 \u0637\u0644\u0628 \u062c\u062f\u064a\u062f."}
+                {isAr ? "لا توجد طلبات إدارية بعد.\nاضغط على زر (+) لإضافة طلب جديد." : "No administrative requests yet.\nPress (+) to add a new request."}
               </Text>
               <TouchableOpacity
                 onPress={() => { resetForm(); setShowForm(true); }}
                 style={{ backgroundColor: colors.primary, marginTop: 24, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 12 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Text style={{ color: "white", fontWeight: "600" }}>{"\u0625\u0636\u0627\u0641\u0629 \u0637\u0644\u0628"}</Text>
+                  <Text style={{ color: "white", fontWeight: "600" }}>{isAr ? "إضافة طلب" : "Add Request"}</Text>
                   <MaterialIcons name="add" size={20} color="white" />
                 </View>
               </TouchableOpacity>
