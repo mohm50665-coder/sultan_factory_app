@@ -18,8 +18,9 @@ import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { trpc } from "@/lib/trpc";
+import { trpcCall } from "@/lib/services/api.service";
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 type GoalType = "production" | "sales" | "quality" | "efficiency" | "safety" | "custom";
 type KpiType = "production" | "quality" | "efficiency" | "safety" | "financial" | "custom";
@@ -107,16 +108,15 @@ export default function AdminGoalsKpisScreen() {
     notes: "",
   });
 
-  // Fetch goals using tRPC
+  // Fetch goals using tRPC query
   const { data: goalsData, isLoading: goalsLoading, refetch: refetchGoals } = useQuery({
     queryKey: ["goals", currentMonth, selectedDepartment],
     queryFn: async () => {
       try {
-        const result = await trpc.goalsAndKpis.getMonthlyGoals.useQuery({
-          month: currentMonth,
-          department: selectedDepartment,
-        });
-        return result.data || [];
+        const input: any = { month: currentMonth };
+        if (selectedDepartment) input.department = selectedDepartment;
+        const result = await trpcCall("goalsAndKpis.getMonthlyGoals", input, "query");
+        return result || [];
       } catch (error) {
         console.error("Error fetching goals:", error);
         return [];
@@ -124,16 +124,15 @@ export default function AdminGoalsKpisScreen() {
     },
   });
 
-  // Fetch KPIs using tRPC
+  // Fetch KPIs using tRPC query
   const { data: kpisData, isLoading: kpisLoading, refetch: refetchKpis } = useQuery({
     queryKey: ["kpis", currentMonth, selectedDepartment],
     queryFn: async () => {
       try {
-        const result = await trpc.goalsAndKpis.getKpis.useQuery({
-          month: currentMonth,
-          department: selectedDepartment,
-        });
-        return result.data || [];
+        const input: any = { month: currentMonth };
+        if (selectedDepartment) input.department = selectedDepartment;
+        const result = await trpcCall("goalsAndKpis.getKpis", input, "query");
+        return result || [];
       } catch (error) {
         console.error("Error fetching KPIs:", error);
         return [];

@@ -20,7 +20,9 @@ import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
 
 // Helper function to check tool permissions
-const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | undefined): boolean => {
+const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | null | undefined, userRole?: string): boolean => {
+  // Admin always has access to all tools
+  if (userRole === "admin") return true;
   if (!userPermissions) return false;
   return userPermissions[toolId] === true;
 };
@@ -512,14 +514,14 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Extra Tools */}
-        {user?.toolPermissions && Object.values(user.toolPermissions).some(v => v === true) && (
+        {/* Extra Tools - تظهر دائماً للأدمن، وللمستخدمين حسب صلاحياتهم */}
+        {(user?.role === "admin" || (user?.toolPermissions && Object.values(user.toolPermissions).some(v => v === true))) && (
           <>
             <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
               {t("extra_tools")}
             </Text>
             <View style={styles.toolsGrid}>
-              {canAccessTool('reports', user?.toolPermissions) && (
+              {canAccessTool('reports', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports")}
                   style={styles.toolItem}
@@ -531,7 +533,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('notifications_center', user?.toolPermissions) && (
+              {canAccessTool('notifications_center', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/notifications-center")}
                   style={styles.toolItem}
@@ -543,7 +545,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('export_data', user?.toolPermissions) && (
+              {canAccessTool('export_data', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/export-data")}
                   style={styles.toolItem}
@@ -555,7 +557,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('activity_log', user?.toolPermissions) && (
+              {canAccessTool('activity_log', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/activity-log-viewer")}
                   style={styles.toolItem}
@@ -567,7 +569,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('production_export', user?.toolPermissions) && (
+              {canAccessTool('production_export', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/production-export")}
                   style={styles.toolItem}
@@ -579,7 +581,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('waste_alerts', user?.toolPermissions) && (
+              {canAccessTool('waste_alerts', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/waste-alerts")}
                   style={styles.toolItem}
@@ -591,7 +593,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('reports_analytics', user?.toolPermissions) && (
+              {canAccessTool('reports_analytics', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports-analytics")}
                   style={styles.toolItem}
@@ -603,7 +605,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('section_reports', user?.toolPermissions) && (
+              {canAccessTool('section_reports', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/section-reports")}
                   style={styles.toolItem}
@@ -615,7 +617,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('users_management', user?.toolPermissions) && (
+              {user?.role === "admin" && canAccessTool('users_management', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/users-management")}
                   style={styles.toolItem}
@@ -627,7 +629,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('employee_performance', user?.toolPermissions) && (
+              {user?.role === "admin" && canAccessTool('employee_performance', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/employee-performance")}
                   style={styles.toolItem}
@@ -639,7 +641,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('backup_restore', user?.toolPermissions) && (
+              {user?.role === "admin" && canAccessTool('backup_restore', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/backup-restore")}
                   style={styles.toolItem}
@@ -651,7 +653,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('machines_comparison', user?.toolPermissions) && (
+              {canAccessTool('machines_comparison', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/machines-comparison")}
                   style={styles.toolItem}
@@ -663,7 +665,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('share_reports', user?.toolPermissions) && (
+              {canAccessTool('share_reports', user?.toolPermissions, user?.role) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/share-reports")}
                   style={styles.toolItem}

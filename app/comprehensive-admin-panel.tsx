@@ -40,14 +40,19 @@ type ActiveSection = "stages" | "permissions" | "board" | "settings";
 
 // ===== AVAILABLE TOOLS (for permissions) =====
 const AVAILABLE_TOOLS = [
-  { id: "advanced_analytics", labelAr: "التحليلات المتقدمة", labelEn: "Advanced Analytics", icon: "insights", color: "#0891b2" },
-  { id: "export_reports", labelAr: "تصدير التقارير PDF", labelEn: "Export Reports PDF", icon: "picture-as-pdf", color: "#dc2626" },
-  { id: "cost_comparison", labelAr: "تقرير مقارنة التكاليف", labelEn: "Cost Comparison Report", icon: "trending-down", color: "#f97316" },
-  { id: "product_cost_calculator", labelAr: "حساب تكاليف منتج جديد", labelEn: "Product Cost Calculator", icon: "calculate", color: "#8b5cf6" },
-  { id: "activity_log", labelAr: "سجل التعديلات", labelEn: "Activity Log", icon: "history", color: "#6366f1" },
-  { id: "global_search", labelAr: "البحث الشامل", labelEn: "Global Search", icon: "search", color: "#06b6d4" },
-  { id: "data_backup", labelAr: "النسخ الاحتياطي", labelEn: "Data Backup", icon: "backup", color: "#14b8a6" },
-  { id: "user_management", labelAr: "إدارة المستخدمين", labelEn: "User Management", icon: "people", color: "#f59e0b" },
+  { id: "reports", labelAr: "التقارير", labelEn: "Reports", icon: "bar-chart", color: "#059669" },
+  { id: "notifications_center", labelAr: "مركز الإشعارات", labelEn: "Notifications Center", icon: "notifications", color: "#d97706" },
+  { id: "export_data", labelAr: "تصدير البيانات", labelEn: "Export Data", icon: "file-download", color: "#6366f1" },
+  { id: "activity_log", labelAr: "سجل النشاط", labelEn: "Activity Log", icon: "history", color: "#0891b2" },
+  { id: "production_export", labelAr: "تصدير الإنتاج", labelEn: "Production Export", icon: "inventory", color: "#16a34a" },
+  { id: "waste_alerts", labelAr: "تنبيهات الهدر", labelEn: "Waste Alerts", icon: "warning", color: "#dc2626" },
+  { id: "reports_analytics", labelAr: "تحليلات التقارير", labelEn: "Reports Analytics", icon: "insights", color: "#7c3aed" },
+  { id: "section_reports", labelAr: "تقارير الأقسام", labelEn: "Section Reports", icon: "assessment", color: "#0284c7" },
+  { id: "users_management", labelAr: "إدارة المستخدمين", labelEn: "Users Management", icon: "people", color: "#f59e0b" },
+  { id: "employee_performance", labelAr: "أداء الموظفين", labelEn: "Employee Performance", icon: "trending-up", color: "#10b981" },
+  { id: "backup_restore", labelAr: "النسخ الاحتياطي", labelEn: "Backup & Restore", icon: "backup", color: "#14b8a6" },
+  { id: "machines_comparison", labelAr: "مقارنة المكائن", labelEn: "Machines Comparison", icon: "precision-manufacturing", color: "#8b5cf6" },
+  { id: "share_reports", labelAr: "مشاركة التقارير", labelEn: "Share Reports", icon: "share", color: "#06b6d4" },
 ];
 
 // ===== DEFAULT STAGES =====
