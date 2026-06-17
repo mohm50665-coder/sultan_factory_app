@@ -55,6 +55,39 @@ const ALL_SECTIONS_EN = [
   { id: "tasks", label: "Tasks" },
 ];
 
+// الأدوات الإضافية
+const EXTRA_TOOLS_AR = [
+  { id: "reports", label: "التقارير" },
+  { id: "notifications_center", label: "مركز الإشعارات" },
+  { id: "export_data", label: "تصدير البيانات" },
+  { id: "activity_log", label: "سجل النشاط" },
+  { id: "production_export", label: "تصدير الإنتاج" },
+  { id: "waste_alerts", label: "تنبيهات الهدر" },
+  { id: "reports_analytics", label: "تحليلات التقارير" },
+  { id: "section_reports", label: "تقارير الأقسام" },
+  { id: "users_management", label: "إدارة المستخدمين" },
+  { id: "employee_performance", label: "أداء الموظفين" },
+  { id: "backup_restore", label: "النسخ الاحتياطي" },
+  { id: "machines_comparison", label: "مقارنة المكائن" },
+  { id: "share_reports", label: "مشاركة التقارير" },
+];
+
+const EXTRA_TOOLS_EN = [
+  { id: "reports", label: "Reports" },
+  { id: "notifications_center", label: "Notifications Center" },
+  { id: "export_data", label: "Export Data" },
+  { id: "activity_log", label: "Activity Log" },
+  { id: "production_export", label: "Production Export" },
+  { id: "waste_alerts", label: "Waste Alerts" },
+  { id: "reports_analytics", label: "Reports Analytics" },
+  { id: "section_reports", label: "Section Reports" },
+  { id: "users_management", label: "Users Management" },
+  { id: "employee_performance", label: "Employee Performance" },
+  { id: "backup_restore", label: "Backup & Restore" },
+  { id: "machines_comparison", label: "Machines Comparison" },
+  { id: "share_reports", label: "Share Reports" },
+];
+
 export default function UsersManagementScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
@@ -72,6 +105,9 @@ export default function UsersManagementScreen() {
   const [sectionsUser, setSectionsUser] = useState<User | null>(null);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [editPosition, setEditPosition] = useState("");
+  const [showToolsModal, setShowToolsModal] = useState(false);
+  const [toolsUser, setToolsUser] = useState<User | null>(null);
+  const [selectedTools, setSelectedTools] = useState<Record<string, boolean>>({});
 
   const loadUsers = useCallback(async () => {
     const allUsers = await adminService.getAllUsers();
@@ -185,6 +221,33 @@ export default function UsersManagementScreen() {
     Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث الصلاحيات بنجاح" : "Permissions updated successfully");
   };
 
+  const handleManageTools = (u: User) => {
+    setToolsUser(u);
+    const currentPerms: Record<string, boolean> = {};
+    EXTRA_TOOLS_AR.forEach((t) => {
+      currentPerms[t.id] = (u as any).toolPermissions?.[t.id] ?? true;
+    });
+    setSelectedTools(currentPerms);
+    setShowToolsModal(true);
+  };
+
+  const toggleTool = (toolId: string) => {
+    setSelectedTools((prev) => ({ ...prev, [toolId]: !prev[toolId] }));
+  };
+
+  const handleSaveTools = async () => {
+    if (!toolsUser) return;
+    try {
+      await adminService.updateToolPermissions(toolsUser.id, selectedTools);
+      setShowToolsModal(false);
+      setToolsUser(null);
+      loadUsers();
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث صلاحيات الأدوات" : "Tool permissions updated");
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ الصلاحيات" : "Failed to save permissions");
+    }
+  };
+
   return (
     <ScreenContainer>
       {/* Header */}
@@ -237,12 +300,20 @@ export default function UsersManagementScreen() {
                 <MaterialIcons name="admin-panel-settings" size={18} color="#0369a1" />
               </TouchableOpacity>
 
-              {/* تحديد الأيقونات/الصلاحيات */}
+              {/* تحديد الأقسام */}
               <TouchableOpacity
                 onPress={() => handleManageSections(u)}
                 style={[styles.actionBtn, { backgroundColor: "#f0fdf4" }]}
               >
                 <MaterialIcons name="apps" size={18} color="#16a34a" />
+              </TouchableOpacity>
+
+              {/* صلاحيات الأدوات الإضافية */}
+              <TouchableOpacity
+                onPress={() => handleManageTools(u)}
+                style={[styles.actionBtn, { backgroundColor: "#ede9fe" }]}
+              >
+                <MaterialIcons name="build" size={18} color="#7c3aed" />
               </TouchableOpacity>
 
               {/* تفعيل/تعطيل */}
@@ -396,6 +467,57 @@ export default function UsersManagementScreen() {
                 <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveSections} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal صلاحيات الأدوات الإضافية */}
+      <Modal visible={showToolsModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>{isAr ? "صلاحيات الأدوات الإضافية: " : "Extra Tools Permissions: "}{toolsUser?.name}</Text>
+            <Text style={{ fontSize: 12, color: "#687076", textAlign: "center", marginBottom: 12 }}>
+              {isAr ? "اختر الأدوات الإضافية التي يمكن للمستخدم الوصول إليها" : "Select extra tools the user can access"}
+            </Text>
+            <ScrollView style={{ maxHeight: 350 }}>
+              {(isAr ? EXTRA_TOOLS_AR : EXTRA_TOOLS_EN).map((tool) => (
+                <TouchableOpacity
+                  key={tool.id}
+                  onPress={() => toggleTool(tool.id)}
+                  style={[
+                    styles.roleOption,
+                    { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+                    selectedTools[tool.id] && styles.roleOptionActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.roleOptionText,
+                      { textAlign: isAr ? "right" : "left", flex: 1 },
+                      selectedTools[tool.id] && styles.roleOptionTextActive,
+                    ]}
+                  >
+                    {tool.label}
+                  </Text>
+                  <MaterialIcons
+                    name={selectedTools[tool.id] ? "check-box" : "check-box-outline-blank"}
+                    size={22}
+                    color={selectedTools[tool.id] ? "#7c3aed" : "#9ca3af"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={[styles.modalActions, { marginTop: 16 }]}>
+              <TouchableOpacity
+                onPress={() => setShowToolsModal(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveTools} style={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text>
               </TouchableOpacity>
             </View>

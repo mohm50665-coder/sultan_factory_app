@@ -1559,7 +1559,12 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const result = await db.insert(monthlyGoalsTable).values(input);
+        const goalData = {
+          ...input,
+          weight: input.weight ?? 1,
+          status: "active" as const,
+        };
+        const result = await db.insert(monthlyGoalsTable).values(goalData);
         return { success: true, id: result[0].insertId };
       }),
 
