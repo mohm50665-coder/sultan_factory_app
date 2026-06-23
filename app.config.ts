@@ -50,9 +50,12 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+      NSCameraUsageDescription: "السماح لـ مصنع السلطان باستخدام الكاميرا لالتقاط الصور",
+      NSPhotoLibraryUsageDescription: "السماح لـ مصنع السلطان بالوصول إلى صورك",
+      NSPhotoLibraryAddUsageDescription: "السماح لـ مصنع السلطان بحفظ الصور",
+    },
   },
   android: {
     adaptiveIcon: {
@@ -64,7 +67,14 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "CAMERA",
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE",
+      "READ_MEDIA_IMAGES",
+      "READ_MEDIA_VIDEO",
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -110,6 +120,16 @@ const config: ExpoConfig = {
           backgroundColor: "#000000",
         },
       },
+    ],
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "السماح لـ $(PRODUCT_NAME) بالوصول إلى صورك",
+        cameraPermission: "السماح لـ $(PRODUCT_NAME) باستخدام الكاميرا",
+      },
+    ],
+    [
+      "expo-document-picker",
     ],
     [
       "expo-build-properties",
