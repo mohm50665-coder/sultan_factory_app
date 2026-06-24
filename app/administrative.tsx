@@ -230,7 +230,6 @@ export default function AdministrativeScreen() {
   const handleAttachmentsChange = (attachments: any[]) => {
     setFormData({ ...formData, attachments });
   };
-  };
 
   const removeAttachment = (index: number) => {
     const newAttachments = [...(formData.attachments || [])];
@@ -597,7 +596,7 @@ Approvals:
 
             {/* المرفقات */}
             <AttachmentPicker
-              attachments={formData.attachments || []}
+              attachments={(formData.attachments as any) || []}
               onAttachmentsChange={handleAttachmentsChange}
               language={isAr ? "ar" : "en"}
               maxAttachments={10}
