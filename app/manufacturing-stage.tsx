@@ -146,6 +146,8 @@ export default function ManufacturingStageScreen() {
 
   const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
   const isStageWorker = user?.department && MANUFACTURING_STAGE_IDS.includes(user.department) && user.department === stage;
+  // إذا كان العامل في هذه المرحلة، يرى اسمه فقط
+  const workerNameDisplay = isStageWorker ? (user?.name || "") : "";
 
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -477,31 +479,41 @@ export default function ManufacturingStageScreen() {
               {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إدخال بيانات جديدة" : "➕ Enter New Data")}
             </Text>
 
-            {/* اختيار {isAr ? "اسم العامل" : "Worker Name"} */}
+            {/* اختيار اسم العامل */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
                 {isAr ? "اسم العامل" : "Worker Name"}
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                {stageWorkers.map((worker) => (
-                  <TouchableOpacity
-                    key={worker}
-                    onPress={() => setSelectedWorker(worker)}
-                    style={{
-                      backgroundColor: selectedWorker === worker ? config.color : "transparent",
-                      borderColor: config.color,
-                      borderWidth: 1.5,
-                      borderRadius: 22,
-                      paddingHorizontal: 18,
-                      paddingVertical: 10,
-                    }}
-                  >
-                    <Text style={{ color: selectedWorker === worker ? "white" : config.color, fontWeight: "700", fontSize: 14 }}>
-                      {worker}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              {isStageWorker ? (
+                // إذا كان العامل في هذه المرحلة، يرى اسمه فقط (بدون خيارات)
+                <View style={{ backgroundColor: config.color + "20", borderRadius: 12, padding: 16, borderWidth: 1.5, borderColor: config.color }}>
+                  <Text style={{ color: config.color, fontWeight: "700", fontSize: 16, textAlign: isAr ? "right" : "left" }}>
+                    {user?.name || ""}
+                  </Text>
+                </View>
+              ) : (
+                // الأدمن يرى جميع الخيارات
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+                  {stageWorkers.map((worker) => (
+                    <TouchableOpacity
+                      key={worker}
+                      onPress={() => setSelectedWorker(worker)}
+                      style={{
+                        backgroundColor: selectedWorker === worker ? config.color : "transparent",
+                        borderColor: config.color,
+                        borderWidth: 1.5,
+                        borderRadius: 22,
+                        paddingHorizontal: 18,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: selectedWorker === worker ? "white" : config.color, fontWeight: "700", fontSize: 14 }}>
+                        {worker}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* {isAr ? "التاريخ" : "Date"} */}
