@@ -252,7 +252,10 @@ export default function ManufacturingStageScreen() {
 
   // حفظ البيانات
   const handleSave = async () => {
-    if (!selectedWorker) {
+    // استخدام اسم العامل التلقائي إذا كان العامل في مرحلته
+    const workerName = isStageWorker ? (user?.name || "") : selectedWorker;
+    
+    if (!workerName) {
       Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى اختيار اسم العامل" : "Please select a worker name");
       return;
     }
@@ -281,7 +284,7 @@ export default function ManufacturingStageScreen() {
         // التخزين - إدخال واحد
         const apiData = {
           stageName: stage,
-          workerName: selectedWorker,
+          workerName: workerName,
           quantityDozen: parseInt(finishedDozen) || 0,
           quantityPair: parseInt(finishedPairs) || 0,
           productType: notes || "",
@@ -307,7 +310,7 @@ export default function ManufacturingStageScreen() {
         for (const product of validProducts) {
           const apiData = {
             stageName: stage,
-            workerName: selectedWorker,
+            workerName: workerName,
             quantityDozen: parseInt(product.quantityDozen) || 0,
             quantityPair: parseInt(product.quantityPairs) || 0,
             productType: notes || "",
