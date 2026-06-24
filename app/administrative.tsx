@@ -17,6 +17,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { administrativeService, AdministrativeData } from "@/lib/services/data.service";
+import { AttachmentPicker } from "@/components/attachment-picker";
 import { administrativeExportService } from "@/lib/services/administrative-export";
 import { notificationsService } from "@/lib/services/notifications.service";
 
@@ -226,14 +227,9 @@ export default function AdministrativeScreen() {
     setAttachmentInput("");
   };
 
-  const addAttachment = () => {
-    if (attachmentInput.trim()) {
-      setFormData({
-        ...formData,
-        attachments: [...(formData.attachments || []), attachmentInput.trim()],
-      });
-      setAttachmentInput("");
-    }
+  const handleAttachmentsChange = (attachments: any[]) => {
+    setFormData({ ...formData, attachments });
+  };
   };
 
   const removeAttachment = (index: number) => {
@@ -599,47 +595,13 @@ Approvals:
               </View>
             </View>
 
-            {/* \u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062a */}
-            <View style={{ marginBottom: 24 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <MaterialIcons name="attach-file" size={20} color={colors.primary} />
-                <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 16 }}>{isAr ? "إرفاق نماذج ومستندات" : "Attach Forms & Documents"}</Text>
-              </View>
-
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <TouchableOpacity
-                  onPress={addAttachment}
-                  style={{ backgroundColor: colors.primary, borderRadius: 10, padding: 10 }}
-                >
-                  <MaterialIcons name="add" size={20} color="white" />
-                </TouchableOpacity>
-                <TextInput
-                  value={attachmentInput}
-                  onChangeText={setAttachmentInput}
-                  placeholder={isAr ? "اسم المستند أو رابط المرفق" : "Document name or attachment link"}
-                  placeholderTextColor={colors.muted}
-                  onSubmitEditing={addAttachment}
-                  style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, fontSize: 14, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
-                />
-              </View>
-
-              {/* \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062a */}
-              {formData.attachments && formData.attachments.length > 0 && (
-                <View style={{ backgroundColor: colors.surface, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                  {formData.attachments.map((att, idx) => (
-                    <View key={idx} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: idx < formData.attachments.length - 1 ? 1 : 0, borderBottomColor: colors.border }}>
-                      <TouchableOpacity onPress={() => removeAttachment(idx)}>
-                        <MaterialIcons name="close" size={18} color={colors.error} />
-                      </TouchableOpacity>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end" }}>
-                        <Text style={{ color: colors.foreground, fontSize: 13 }}>{att}</Text>
-                        <MaterialIcons name="description" size={16} color={colors.primary} />
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
+            {/* المرفقات */}
+            <AttachmentPicker
+              attachments={formData.attachments || []}
+              onAttachmentsChange={handleAttachmentsChange}
+              language={isAr ? "ar" : "en"}
+              maxAttachments={10}
+            />
 
             {/* \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0627\u062a */}
             <View style={{ marginBottom: 24 }}>
