@@ -8,13 +8,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { costsService, reportsService } from "@/lib/services/server-data.service";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { costsService } from "@/lib/services/server-data.service";
+import { productionService, salesService, expensesService } from "@/lib/services/api.service";
 import { useLanguage } from "@/lib/language-context";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -33,6 +34,7 @@ export default function AdvancedAnalytics() {
   const router = useRouter();
   const colors = useColors();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeSection, setActiveSection] = useState<"production" | "costs" | "sales" | "comparison">("production");
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     production: [],
@@ -41,45 +43,102 @@ export default function AdvancedAnalytics() {
     efficiency: 0,
     trend: "stable",
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadAnalytics();
   }, []);
 
   const loadAnalytics = async () => {
-    setLoading(true);
     try {
-      const costs = await costsService.getAll();
+      setError(null);
       
+      // Load production data
+      let productions = [];
+      try {
+        productions = await productionService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات الإنتاج:", e);
+        productions = [];
+      }
+
+      // Load costs data
+      let costs: any[] = [];
+      try {
+        costs = await costsService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات التكاليف:", e);
+        costs = [];
+      }
+
+      // Load sales data
+      let sales = [];
+      try {
+        sales = await salesService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المبيعات:", e);
+        sales = [];
+      }
+
       // Process data for analytics
       const monthsAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو"];
       const monthsEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
       const months = isAr ? monthsAr : monthsEn;
-      const productionData = months.map((month, i) => ({
-        month,
-        value: Math.floor(Math.random() * 500) + 300,
-      }));
-      const costsData = months.map((month, i) => ({
-        month,
-        value: costs.length > 0 ? (costs[i]?.totalCost || Math.floor(Math.random() * 50000) + 20000) : Math.floor(Math.random() * 50000) + 20000,
-      }));
-      const salesData = months.map((month, i) => ({
-        month,
-        value: Math.floor(Math.random() * 80000) + 40000,
-      }));
+
+      // Calculate production data
+      const productionData = months.map((month, i) => {
+        const monthProductions = productions.filter((p: any) => {
+          const prodDate = new Date(p.createdAt || p.date);
+          return prodDate.getMonth() === i;
+        });
+        const value = monthProductions.reduce((sum: number, p: any) => sum + (parseFloat(p.productionDozen) || 0), 0);
+        return { month, value: value || 0 };
+      });
+
+      // Calculate costs data
+      const costsData = months.map((month, i) => {
+        const monthCosts = (costs as any[]).filter((c: any) => {
+          const costDate = new Date(c.date);
+          return costDate.getMonth() === i;
+        });
+        const value = monthCosts.reduce((sum: number, c: any) => sum + (parseFloat(c.totalCost) || 0), 0);
+        return { month, value: value || 0 };
+      });
+
+      // Calculate sales data
+      const salesData = months.map((month, i) => {
+        const monthSales = sales.filter((s: any) => {
+          const saleDate = new Date(s.createdAt || s.invoiceDate);
+          return saleDate.getMonth() === i;
+        });
+        const value = monthSales.reduce((sum: number, s: any) => sum + (parseFloat(s.amount) || 0), 0);
+        return { month, value: value || 0 };
+      });
+
+      // Calculate efficiency
+      const totalProduction = productionData.reduce((sum, p) => sum + p.value, 0);
+      const totalCosts = costsData.reduce((sum, c) => sum + c.value, 0);
+      const efficiency = totalProduction > 0 ? Math.min(100, Math.round((totalProduction / (totalCosts || 1)) * 100)) : 0;
 
       setAnalyticsData({
         production: productionData,
         costs: costsData,
         sales: salesData,
-        efficiency: 87,
-        trend: "up",
+        efficiency: Math.max(0, Math.min(100, efficiency)),
+        trend: efficiency > 80 ? "up" : efficiency > 60 ? "stable" : "down",
       });
     } catch (error) {
-      console.error("Error loading analytics:", error);
+      console.error("خطأ في تحميل التحليلات:", error);
+      setError(isAr ? "حدث خطأ في تحميل البيانات" : "Error loading data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadAnalytics();
   };
 
   const renderBarChart = (data: { month: string; value: number }[], color: string, unit: string) => {
@@ -169,16 +228,30 @@ export default function AdvancedAnalytics() {
 
   if (loading) {
     return (
-      <ScreenContainer className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري تحميل التحليلات..." : "Loading analytics..."}</Text>
+      <ScreenContainer style={{ backgroundColor: colors.background }}>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.muted, marginTop: 12 }}>{isAr ? "جاري تحميل التحليلات..." : "Loading analytics..."}</Text>
+        </View>
       </ScreenContainer>
     );
   }
 
   return (
-    <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.container}>
+    <ScreenContainer style={{ backgroundColor: colors.background }}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* رسالة الخطأ */}
+        {error && (
+          <View style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 12, backgroundColor: colors.error + "15", borderRadius: 8, padding: 12, borderLeftWidth: 4, borderLeftColor: colors.error }}>
+            <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
+
         {/* Header */}
         <View style={[styles.header, { flexDirection: isAr ? "row-reverse" : "row" }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -260,37 +333,173 @@ export default function AdvancedAnalytics() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 100 },
-  header: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12 },
-  backBtn: { padding: 8 },
-  headerContent: { flex: 1 },
-  headerTitle: { fontSize: 22, fontWeight: "bold" },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
-  tabsScroll: { paddingHorizontal: 16, marginBottom: 16 },
-  tabs: { flexDirection: "row", gap: 8 },
-  tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  tabText: { fontSize: 13, fontWeight: "600" },
-  sectionTitle: { fontSize: 17, fontWeight: "bold", paddingHorizontal: 16, marginBottom: 12 },
-  kpiGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, gap: 8 },
-  kpiCard: { width: "47%", padding: 14, borderRadius: 12, borderWidth: 1 },
-  kpiIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  kpiTitle: { fontSize: 11, marginBottom: 4 },
-  kpiValue: { fontSize: 18, fontWeight: "bold" },
-  kpiTrend: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  chartContainer: { marginHorizontal: 16, padding: 16, borderRadius: 12 },
-  chartBody: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-around", height: 200 },
-  barGroup: { alignItems: "center", gap: 4 },
-  bar: { borderRadius: 4, minHeight: 4 },
-  barValue: { fontSize: 10 },
-  barLabel: { fontSize: 10 },
-  chartUnit: { textAlign: "center", marginTop: 8, fontSize: 11 },
-  tableContainer: { marginHorizontal: 16, borderRadius: 12, borderWidth: 1, overflow: "hidden" },
-  tableHeader: { flexDirection: "row", padding: 10 },
-  tableHeaderText: { flex: 1, color: "#fff", fontSize: 12, fontWeight: "bold", textAlign: "center" },
-  tableRow: { flexDirection: "row", padding: 10, borderBottomWidth: 0.5, borderBottomColor: "#e5e7eb" },
-  tableCell: { flex: 1, fontSize: 12, textAlign: "center" },
-  insights: { paddingHorizontal: 16, gap: 10 },
-  insightCard: { flexDirection: "row", alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
-  insightIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  insightText: { flex: 1, fontSize: 13, lineHeight: 20 },
+  container: {
+    paddingBottom: 24,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    alignItems: "center",
+    gap: 12,
+  },
+  backBtn: {
+    padding: 8,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+  },
+  tabsScroll: {
+    marginVertical: 12,
+    paddingHorizontal: 16,
+  },
+  tabs: {
+    gap: 8,
+  },
+  tab: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 6,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  kpiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
+  },
+  kpiCard: {
+    width: "48%",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  kpiIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  kpiTitle: {
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  kpiValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  kpiTrend: {
+    alignItems: "center",
+    gap: 4,
+  },
+  chartContainer: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    paddingVertical: 16,
+  },
+  chartBody: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-around",
+    height: 200,
+    marginBottom: 12,
+  },
+  barGroup: {
+    alignItems: "center",
+    flex: 1,
+  },
+  barValue: {
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  bar: {
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  barLabel: {
+    fontSize: 10,
+  },
+  chartUnit: {
+    fontSize: 11,
+    textAlign: "center",
+  },
+  tableContainer: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  tableHeader: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+  },
+  tableHeaderText: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  tableRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  tableCell: {
+    flex: 1,
+    fontSize: 11,
+    textAlign: "center",
+  },
+  insights: {
+    marginHorizontal: 16,
+    gap: 12,
+  },
+  insightCard: {
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 12,
+  },
+  insightIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  insightText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+  },
 });

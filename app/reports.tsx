@@ -5,6 +5,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -27,6 +28,8 @@ export default function ReportsScreen() {
   const [dateFilter, setDateFilter] = useState("month");
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRealData();
@@ -34,8 +37,16 @@ export default function ReportsScreen() {
 
   const loadRealData = async () => {
     try {
+      setError(null);
+      
       // تحميل بيانات الإنتاج من السيرفر
-      const productions = await productionService.getAll() || [];
+      let productions = [];
+      try {
+        productions = await productionService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات الإنتاج:", e);
+        productions = [];
+      }
 
       let totalProduction = 0;
       let totalYarnWeight = 0;
@@ -53,17 +64,35 @@ export default function ReportsScreen() {
       const wastePercent = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
 
       // تحميل بيانات المبيعات من السيرفر
-      const sales = await salesService.getAll() || [];
+      let sales = [];
+      try {
+        sales = await salesService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المبيعات:", e);
+        sales = [];
+      }
       let totalSales = 0;
-      sales.forEach((s: any) => { totalSales += parseFloat(s.quantity) || 0; });
+      sales.forEach((s: any) => { totalSales += parseFloat(s.quantityPair) || 0; });
 
       // تحميل بيانات التحصيل من السيرفر
-      const collections = await collectionService.getAll() || [];
+      let collections = [];
+      try {
+        collections = await collectionService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات التحصيل:", e);
+        collections = [];
+      }
       let totalCollection = 0;
       collections.forEach((c: any) => { totalCollection += parseFloat(c.amount) || 0; });
 
       // تحميل بيانات المصروفات من السيرفر
-      const expenses = await expensesService.getAll() || [];
+      let expenses = [];
+      try {
+        expenses = await expensesService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المصروفات:", e);
+        expenses = [];
+      }
       let totalExpenses = 0;
       expenses.forEach((e: any) => { totalExpenses += parseFloat(e.amount) || 0; });
 
@@ -75,17 +104,29 @@ export default function ReportsScreen() {
         totalExpenses,
       });
     } catch (e) {
-      console.log(e);
+      console.error("خطأ في تحميل البيانات:", e);
+      setError(isAr ? "حدث خطأ في تحميل البيانات" : "Error loading data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadRealData();
   };
 
   const hasData = kpiData && (kpiData.totalProduction > 0 || kpiData.totalSales > 0 || kpiData.totalCollection > 0 || kpiData.totalExpenses > 0);
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* رأس الصفحة */}
         <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flex: 1 }}>
@@ -98,6 +139,13 @@ export default function ReportsScreen() {
           </View>
           <BackButton />
         </View>
+
+        {/* رسالة الخطأ */}
+        {error && (
+          <View style={{ marginHorizontal: 16, marginBottom: 12, backgroundColor: colors.error + "15", borderRadius: 8, padding: 12, borderLeftWidth: 4, borderLeftColor: colors.error }}>
+            <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
 
         {loading ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 }}>
@@ -116,7 +164,7 @@ export default function ReportsScreen() {
             </Text>
           </View>
         ) : (
-          <View style={{ paddingHorizontal: 16 }}>
+          <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
             {/* بطاقات المؤشرات */}
             <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
               {isAr ? "ملخص الأداء" : "Performance Summary"}

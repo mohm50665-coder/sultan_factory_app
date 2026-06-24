@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -30,20 +31,30 @@ interface MonthlyData {
 export default function MonthlyReportsScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { language, isRtl } = useLanguage();
+  const { language } = useLanguage();
   const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthlyData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRealData();
   }, []);
 
   const loadRealData = async () => {
-    setIsLoading(true);
     try {
+      setError(null);
+      
       // Load production data from server
-      const prodEntries = await productionService.getAll() || [];
+      let prodEntries = [];
+      try {
+        prodEntries = await productionService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات الإنتاج:", e);
+        prodEntries = [];
+      }
+      
       let totalProduction = 0;
       let totalWaste = 0;
       prodEntries.forEach((item: any) => {
@@ -52,22 +63,48 @@ export default function MonthlyReportsScreen() {
       });
 
       // Load sales data from server
-      const salesEntries = await salesService.getAll() || [];
+      let salesEntries = [];
+      try {
+        salesEntries = await salesService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المبيعات:", e);
+        salesEntries = [];
+      }
       const totalSales = salesEntries.length;
 
       // Load expenses data from server
-      const expEntries = await expensesService.getAll() || [];
+      let expEntries = [];
+      try {
+        expEntries = await expensesService.getAll() || [];
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المصروفات:", e);
+        expEntries = [];
+      }
       const totalExpenses = expEntries.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
 
       // Load maintenance data from server
-      const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
-      const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
-      const maintenanceCount = periodic.length + emergency.length;
+      let maintenanceCount = 0;
+      try {
+        const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
+        const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
+        maintenanceCount = periodic.length + emergency.length;
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات الصيانة:", e);
+        maintenanceCount = 0;
+      }
 
       // Load tasks data from server
-      const tasksEntries = await taskService.getAll() || [];
-      const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
-      const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
+      let tasksCompleted = 0;
+      let tasksPending = 0;
+      try {
+        const tasksEntries = await taskService.getAll() || [];
+        tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
+        tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
+      } catch (e) {
+        console.warn("خطأ في تحميل بيانات المهام:", e);
+        tasksCompleted = 0;
+        tasksPending = 0;
+      }
 
       const wastePercentage = totalProduction > 0 ? (totalWaste / totalProduction) * 100 : 0;
 
@@ -88,10 +125,18 @@ export default function MonthlyReportsScreen() {
         tasksPending,
       });
     } catch (error) {
+      console.error("خطأ في تحميل البيانات الشهرية:", error);
+      setError(isAr ? "حدث خطأ في تحميل البيانات" : "Error loading data");
       setMonthlyData(null);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadRealData();
   };
 
   const StatCard = ({
@@ -156,153 +201,186 @@ export default function MonthlyReportsScreen() {
     </View>
   );
 
-  const hasData = monthlyData && (
-    monthlyData.totalProduction > 0 ||
-    monthlyData.totalSales > 0 ||
-    monthlyData.totalExpenses > 0 ||
-    monthlyData.maintenanceCount > 0 ||
-    monthlyData.tasksCompleted > 0 ||
-    monthlyData.tasksPending > 0
-  );
-
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
-      {/* Header */}
-      <View style={{ backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 }}>
-        <BackButton />
-        <Text style={{ fontSize: 18, fontWeight: "bold", color: "white" }}>
-          {isAr ? "التقارير الشهرية" : "Monthly Reports"}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.muted, marginTop: 12 }}>
-            {isAr ? "جارٍ تحميل البيانات..." : "Loading data..."}
-          </Text>
-        </View>
-      ) : !hasData ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32 }}>
-          <MaterialIcons name="analytics" size={64} color="#d1d5db" />
-          <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", marginTop: 16, textAlign: "center" }}>
-            {isAr ? "لا توجد بيانات بعد" : "No data available yet"}
-          </Text>
-          <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: "center" }}>
-            {isAr ? "ابدأ بإدخال البيانات في أقسام التطبيق المختلفة لعرض التقرير الشهري" : "Start entering data in the app sections to view monthly reports"}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16 }}>
-          {/* عنوان الشهر */}
-          <View style={{ backgroundColor: `${colors.primary}15`, borderRadius: 12, padding: 16, marginBottom: 20, alignItems: "center" }}>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "bold" }}>
-              {monthlyData!.month}
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* رأس الصفحة */}
+        <View
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                color: colors.foreground,
+                fontSize: 24,
+                fontWeight: "bold",
+                marginBottom: 4,
+                textAlign: isAr ? "right" : "left",
+              }}
+            >
+              {isAr ? "التقارير الشهرية" : "Monthly Reports"}
             </Text>
-            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
-              {isAr ? "ملخص الأداء الشهري" : "Monthly Performance Summary"}
+            <Text
+              style={{
+                color: colors.muted,
+                fontSize: 12,
+                textAlign: isAr ? "right" : "left",
+              }}
+            >
+              {isAr ? "ملخص الأداء الشهري" : "Monthly performance summary"}
             </Text>
           </View>
+          <BackButton />
+        </View>
 
-          {/* الإنتاج */}
-          {monthlyData!.totalProduction > 0 && (
-            <>
-              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12 }}>
-                {isAr ? "الإنتاج" : "Production"}
-              </Text>
-              <StatCard
-                label={isAr ? "إجمالي الإنتاج" : "Total Production"}
-                value={monthlyData!.totalProduction.toLocaleString()}
-                unit={isAr ? "درزن" : "dozen"}
-                icon="factory"
-                color={colors.primary}
-              />
-              <StatCard
-                label={isAr ? "إجمالي الهدر" : "Total Waste"}
-                value={monthlyData!.totalWaste.toLocaleString()}
-                unit={isAr ? "جرام" : "g"}
-                icon="warning"
-                color="#FF9800"
-              />
-              <StatCard
-                label={isAr ? "نسبة الهدر" : "Waste %"}
-                value={monthlyData!.wastePercentage.toFixed(1)}
-                unit="%"
-                icon="pie-chart"
-                color="#ef4444"
-              />
-            </>
-          )}
+        {/* رسالة الخطأ */}
+        {error && (
+          <View style={{ marginHorizontal: 16, marginBottom: 12, backgroundColor: colors.error + "15", borderRadius: 8, padding: 12, borderLeftWidth: 4, borderLeftColor: colors.error }}>
+            <Text style={{ color: colors.error, fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
 
-          {/* المبيعات */}
-          {monthlyData!.totalSales > 0 && (
-            <>
-              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
-                {isAr ? "المبيعات" : "Sales"}
-              </Text>
-              <StatCard
-                label={isAr ? "عمليات البيع" : "Sales Operations"}
-                value={monthlyData!.totalSales}
-                icon="shopping-cart"
-                color="#10b981"
-              />
-            </>
-          )}
+        {isLoading ? (
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 60,
+            }}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ color: colors.muted, fontSize: 14, marginTop: 12 }}>
+              {isAr ? "جاري تحميل البيانات..." : "Loading data..."}
+            </Text>
+          </View>
+        ) : !monthlyData ? (
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingVertical: 60,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.primary + "15",
+                borderRadius: 40,
+                padding: 20,
+                marginBottom: 16,
+              }}
+            >
+              <MaterialIcons name="calendar-month" size={48} color={colors.primary} />
+            </View>
+            <Text
+              style={{
+                color: colors.foreground,
+                fontSize: 18,
+                fontWeight: "bold",
+                marginBottom: 8,
+              }}
+            >
+              {isAr ? "لا توجد بيانات" : "No data"}
+            </Text>
+            <Text
+              style={{
+                color: colors.muted,
+                fontSize: 13,
+                textAlign: "center",
+                paddingHorizontal: 40,
+                lineHeight: 20,
+              }}
+            >
+              {isAr
+                ? "ستظهر التقارير الشهرية هنا بعد إدخال البيانات"
+                : "Monthly reports will appear here after data entry"}
+            </Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+            {/* شهر التقرير */}
+            <Text
+              style={{
+                color: colors.foreground,
+                fontSize: 14,
+                fontWeight: "600",
+                marginBottom: 12,
+                textAlign: isAr ? "right" : "left",
+              }}
+            >
+              {monthlyData.month}
+            </Text>
 
-          {/* المصروفات */}
-          {monthlyData!.totalExpenses > 0 && (
-            <>
-              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
-                {isAr ? "المصروفات" : "Expenses"}
-              </Text>
-              <StatCard
-                label={isAr ? "إجمالي المصروفات" : "Total Expenses"}
-                value={monthlyData!.totalExpenses.toLocaleString()}
-                unit={isAr ? "ريال" : "SAR"}
-                icon="payments"
-                color="#6366f1"
-              />
-            </>
-          )}
+            {/* الإنتاج والهدر */}
+            <StatCard
+              label={isAr ? "إجمالي الإنتاج" : "Total Production"}
+              value={monthlyData.totalProduction}
+              unit={isAr ? "درزن" : "Dozen"}
+              icon="precision-manufacturing"
+              color="#3B82F6"
+            />
 
-          {/* الصيانة */}
-          {monthlyData!.maintenanceCount > 0 && (
-            <>
-              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
-                {isAr ? "الصيانة" : "Maintenance"}
-              </Text>
-              <StatCard
-                label={isAr ? "عمليات الصيانة" : "Maintenance Ops"}
-                value={monthlyData!.maintenanceCount}
-                icon="build"
-                color="#ef4444"
-              />
-            </>
-          )}
+            <StatCard
+              label={isAr ? "نسبة الهدر" : "Waste Percentage"}
+              value={monthlyData.wastePercentage.toFixed(2)}
+              unit="%"
+              icon="warning"
+              color="#EF4444"
+            />
 
-          {/* المهام */}
-          {(monthlyData!.tasksCompleted > 0 || monthlyData!.tasksPending > 0) && (
-            <>
-              <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", marginBottom: 12, marginTop: 16 }}>
-                {isAr ? "المهام" : "Tasks"}
-              </Text>
-              <StatCard
-                label={isAr ? "مهام مكتملة" : "Completed Tasks"}
-                value={monthlyData!.tasksCompleted}
-                icon="check-circle"
-                color="#10b981"
-              />
-              <StatCard
-                label={isAr ? "مهام معلقة" : "Pending Tasks"}
-                value={monthlyData!.tasksPending}
-                icon="pending"
-                color="#f59e0b"
-              />
-            </>
-          )}
-        </ScrollView>
-      )}
+            {/* المبيعات والمصروفات */}
+            <StatCard
+              label={isAr ? "عدد المبيعات" : "Sales Count"}
+              value={monthlyData.totalSales}
+              icon="shopping-cart"
+              color="#10B981"
+            />
+
+            <StatCard
+              label={isAr ? "إجمالي المصروفات" : "Total Expenses"}
+              value={monthlyData.totalExpenses.toLocaleString()}
+              unit={isAr ? "ريال" : "SAR"}
+              icon="receipt-long"
+              color="#8B5CF6"
+            />
+
+            {/* الصيانة والمهام */}
+            <StatCard
+              label={isAr ? "عمليات الصيانة" : "Maintenance"}
+              value={monthlyData.maintenanceCount}
+              icon="build"
+              color="#F59E0B"
+            />
+
+            <StatCard
+              label={isAr ? "المهام المكتملة" : "Completed Tasks"}
+              value={monthlyData.tasksCompleted}
+              icon="check-circle"
+              color="#06B6D4"
+            />
+
+            <StatCard
+              label={isAr ? "المهام المعلقة" : "Pending Tasks"}
+              value={monthlyData.tasksPending}
+              icon="schedule"
+              color="#EC4899"
+            />
+          </View>
+        )}
+      </ScrollView>
     </ScreenContainer>
   );
 }
