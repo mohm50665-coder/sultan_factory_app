@@ -1,5 +1,5 @@
-import { useColorScheme as useSystemColorScheme } from "react-native";
+import { useThemeContext } from "@/lib/theme-provider";
 
 export function useColorScheme() {
-  return useSystemColorScheme() ?? "light";
+  return useThemeContext().colorScheme;
 }

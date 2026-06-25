@@ -28,11 +28,11 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "مصنع السلطان",
+  appName: "{{project_title}}",
   appSlug: "sultan_factory_app",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663396423140/PAoTpRZYv26mjfaeASDQLQ/icon-5ZELJwzhNmnzHAeykK5T6w.png",
+  logoUrl: "",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -46,16 +46,13 @@ const config: ExpoConfig = {
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
-  newArchEnabled: false,
+  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    infoPlist: {
-      ITSAppUsesNonExemptEncryption: false,
-      NSCameraUsageDescription: "السماح لـ مصنع السلطان باستخدام الكاميرا لالتقاط الصور",
-      NSPhotoLibraryUsageDescription: "السماح لـ مصنع السلطان بالوصول إلى صورك",
-      NSPhotoLibraryAddUsageDescription: "السماح لـ مصنع السلطان بحفظ الصور",
-    },
+    "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
   },
   android: {
     adaptiveIcon: {
@@ -67,14 +64,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: [
-      "POST_NOTIFICATIONS",
-      "CAMERA",
-      "READ_EXTERNAL_STORAGE",
-      "WRITE_EXTERNAL_STORAGE",
-      "READ_MEDIA_IMAGES",
-      "READ_MEDIA_VIDEO",
-    ],
+    permissions: ["POST_NOTIFICATIONS"],
     intentFilters: [
       {
         action: "VIEW",
@@ -122,16 +112,6 @@ const config: ExpoConfig = {
       },
     ],
     [
-      "expo-image-picker",
-      {
-        photosPermission: "السماح لـ $(PRODUCT_NAME) بالوصول إلى صورك",
-        cameraPermission: "السماح لـ $(PRODUCT_NAME) باستخدام الكاميرا",
-      },
-    ],
-    [
-      "expo-document-picker",
-    ],
-    [
       "expo-build-properties",
       {
         android: {
@@ -143,7 +123,7 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
-    reactCompiler: false,
+    reactCompiler: true,
   },
 };
 

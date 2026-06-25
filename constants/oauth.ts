@@ -45,8 +45,8 @@ export function getApiBaseUrl(): string {
     }
   }
 
-  // Fallback to deployed server URL for native apps
-  return "https://8081-ikrh9i4a4zc2z8m1n9g46-452d16e6.sg1.manus.computer";
+  // Fallback to empty (will use relative URL)
+  return "";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";

@@ -1,8 +1,8 @@
 {
   "build_command": "pnpm run build",
   "capabilities": [
-    "db",
     "server",
+    "db",
     "user"
   ],
   "dev_command": "pnpm run dev",
@@ -14,11 +14,10 @@
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663396423140/PAoTpRZYv26mjfaeASDQLQ",
-    "access_key_id": "ASIAZV3A2ECZIXZ6W2RO",
-    "secret_access_key": "KnkQ/PgIvWV0UQEXYrzVbRWW8O++yYd7ma9kCpMs",
-    "session_token": "IQoJb3JpZ2luX2VjEHoaCXVzLWVhc3QtMSJGMEQCIFh1Rq9XxQ7jJo1DTm3UXhH+KIbpMONy5YEMpuHZUql0AiB77XxHuV3BVHOvwep5Cs9lus+TLioouM8bpDxQbLXkcCr2AwhDEAQaDDY2NTM4NjA5ODg2NiIMC5sRhrixq5jSnHZrKtMDSFGinzY17yO2eMhy4i/cZFeuWUM3kzeS0iCnyApZ0l1c6p5seqQxpz3V/49jUFmz9tONkn9xpFcqpXKg/9790TdjHVZmyVeWs1arl4h2estnNah2KdiD5wHgbz1JoFL6/3G5aJXkwkxNDuzWhWHidJzAA0Q2svLyUQgCd2djjzdVVW/SXI9aMvrFG145xb6iT3he6u0GrJmcEHgI5aViqlt3IDaWKXmkFROy4eATd0gA7PPuYlHgHDRCqv8CGZB/VH5lfiBaoK8LRjz01rSBOQNnnnlrQvnimqex4UNTL6KJhzPQ0gnlF4gMnko/5rBacYTncnlD6HSiFAH8BxXdt1JStT0u7wHjaB7dS4EBh4wsJPpHtOXlOcrt6IJeOAhU21RfQN8fidBUHy89Wwh6YP05VV4i6VYMVDAgdnjgq26BFGxiUlHdtm1Kwq4+9Lj9PhwReungI2Pcibpll2QN4//jhKcKEbSw4jE1pu41r1gR7GpBfFvdLW/uFCZxlvBjybuXtkcTJF4J5qUqEntDrhxTq3XmtiLgtqKDQe1eP8WFqpsUXkBBP4iVenCeABARKdYW1aJaAIb5CwQuHOo0K0aF1i7Rjphi4+vjhw/DUxbqqggwro3y0QY6ngERUY799tJTn7W3NA+17PZabPWFFF66hoEtBlmr0tcW8uehjn7EKKOXiOx2bSXvHAgXtSRjIYENM2XYnMnk9YnzAi+0bydKmbFzsfOtK6Q1Y5Kj3wbi+hwvVdjRTpSJddtDpsLOoIPDVnqesRIuPoCRas4hIKcOpzN+lus8tBI7PqK6iFlKG938NGfwHTYSIlLWqNDnj5PJQhUzqTJuCQ==",
-    "expiration": "2026-06-25T13:38:54.000Z",
-    "backend": "GIT_BACKEND_S3"
+    "access_key_id": "ASIAZV3A2ECZEMMM3SNN",
+    "secret_access_key": "vJ/f7MoZ6/aAUOmxQYJdjY1ffkircUYPnluThy7a",
+    "session_token": "IQoJb3JpZ2luX2VjEDIaCXVzLWVhc3QtMSJHMEUCIDj6UDRdTw8+J0bleAkeUQ9fU5yj7AHSElS4SUmc20xFAiEAuHLTXNwXVogoPpeCPAe5OtU699JpLRr+ESLzcdBtZxEq/wMI+///////////ARAEGgw2NjUzODYwOTg4NjYiDKQb+xJJhUJ3ngem+yrTAxWuH8nVbAAF3YMwSLGmks2PhyoLMEfOD198EcGn/VOX3EmWrlm59IRbT/aHTj3nJO9q4/Cs3ZibiKRrqiq77r7CVuM/xKVYlUEu6Ykaui00jk+RX9o5dNXgcGmbv2eNCcMd8pnLNAZ6fciJC15iRsTJl4x1up0D1bLtWmiHihLvQLBivZIQKPgUyV//GsoNgUASLye9BmGXPO6yKAGtelJ4N80FRZQ7vEv9a+X27R7HtY9FVnKP5/fTdfmEZBm7opsNX9rS8FdTGuXGLXAN3xgciRnH8uWThxeJU0DCz15Xpr02lbDi25UFOf6VtoPnX4Udo28AXji7qQ/Z62/xB4CkKWYjghfykmViem6E8tS3ypkBEIcHqgEgOVH8NUOxDQZ2vnAq60RJ5NW2m7BnHYzVUQkDVaVutzqGEpaGYHDnFhCxgfVOxZl//vhkE3cFc93SiR4KFun6y+Mf3rGaEhkZfIHetrUTSRO+4Ku8+4/siF42Bzz+/DrUtO28rnmISRMbPS5L3auFF4eWbmtz+m74q0UAd1lSy/HyDD6hFbHqpbdCWUolwP64RucPGLYbSuMe7ZglzA8MOEyzCxeaHXgnOAOkLe4AIFgcjcShQU0oB2ZrMP3AudAGOp0Bo+MzZcGp5+Bn/JWhlB0P8glPCrtREjhTJx/8/kEKbEoG5gll9k1ZKJ68TjM6419cagkctPU9Qpt5OECZO4WH1yGO1FgaIJxcDmZKngAEUttZzjhSbfbc1mayPrIf2eH2KOcmolL+9qRpxkUBskHzRrmMi6ljkEZk8ms4xw87QglYm34H1R1MavY7rnW3p1XJSX0ZXuzD7ojRk+4ibA==",
+    "expiration": "2026-05-21T13:31:41.000Z"
   },
   "name": "sultan_factory_app",
   "path": "/home/ubuntu/sultan_factory_app",
