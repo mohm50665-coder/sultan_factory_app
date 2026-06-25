@@ -1,5 +1,5 @@
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+
 import { ScreenContainer } from "@/components/screen-container";
 
 /**
@@ -15,13 +15,6 @@ import { ScreenContainer } from "@/components/screen-container";
  * - Custom colors defined in tailwind.config.js
  */
 export default function HomeScreen() {
-  const router = useRouter();
-  
-  const handleGetStarted = () => {
-    // يمكن إضافة أي صفحة هنا
-    console.log('Get Started clicked');
-  };
-  
   return (
     <ScreenContainer className="p-6">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
@@ -44,10 +37,7 @@ export default function HomeScreen() {
 
           {/* Example Button */}
           <View className="items-center">
-            <TouchableOpacity 
-              onPress={handleGetStarted}
-              className="bg-primary px-6 py-3 rounded-full active:opacity-80"
-            >
+            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
               <Text className="text-background font-semibold">Get Started</Text>
             </TouchableOpacity>
           </View>
