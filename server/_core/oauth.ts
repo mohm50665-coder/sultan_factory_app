@@ -130,6 +130,45 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
+  // Username/password login endpoint
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        res.status(400).json({ error: "Username and password are required" });
+        return;
+      }
+
+      // For now, accept any username/password (demo mode)
+      // In production, validate against database
+      const openId = `user_${username}`;
+      const sessionToken = await sdk.createSessionToken(openId, {
+        name: username,
+        expiresInMs: ONE_YEAR_MS,
+      });
+
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+      res.json({
+        success: true,
+        app_session_id: sessionToken,
+        user: {
+          id: 1,
+          openId: openId,
+          name: username,
+          email: `${username}@example.com`,
+          loginMethod: "username",
+          lastSignedIn: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error("[Auth] Login failed:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   app.post("/api/auth/logout", (req: Request, res: Response) => {
     const cookieOptions = getSessionCookieOptions(req);
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

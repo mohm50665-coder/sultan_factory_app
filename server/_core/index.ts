@@ -120,6 +120,71 @@ async function startServer() {
     }
   });
 
+  // Web login endpoint (for web-based login forms)
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        res.status(400).json({ error: "Username and password are required" });
+        return;
+      }
+
+      // Import getDb and users table
+      const { getDb } = await import("../db.js");
+      const { users: usersTable } = await import("../../drizzle/schema.js");
+      const { eq } = await import("drizzle-orm");
+      const { getSessionCookieOptions } = await import("./cookies.js");
+
+      const db = await getDb();
+      if (!db) {
+        res.status(500).json({ error: "Database unavailable" });
+        return;
+      }
+
+      const result = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.username, username))
+        .limit(1);
+
+      const user = result[0];
+
+      if (!user || user.password !== password) {
+        res.status(401).json({ error: "Invalid username or password" });
+        return;
+      }
+
+      if (!user.isActive) {
+        res.status(403).json({ error: "Account is not activated" });
+        return;
+      }
+
+      // Set session cookie
+      const cookieOptions = getSessionCookieOptions(req);
+      res.cookie("session_id", user.id.toString(), cookieOptions);
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          position: user.position,
+          department: user.department,
+          role: user.role,
+          isActive: user.isActive,
+          allowedSections: user.allowedSections,
+          toolPermissions: user.toolPermissions,
+        },
+      });
+    } catch (error) {
+      console.error("[Web Auth] Login failed:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   app.use(
     "/api/trpc",
     createExpressMiddleware({

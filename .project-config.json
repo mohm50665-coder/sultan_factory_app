@@ -14,10 +14,11 @@
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663396423140/PAoTpRZYv26mjfaeASDQLQ",
-    "access_key_id": "ASIAZV3A2ECZLXIBMHYN",
-    "secret_access_key": "DoFjfpNWHQy2QT35XCZSP+4KhzIdv4esz4eF0sJs",
-    "session_token": "IQoJb3JpZ2luX2VjENf//////////wEaCXVzLWVhc3QtMSJHMEUCIDgZfCxjxVaW41fbkm08KAYl/mc7vHQGV1u8Wy9/JSXjAiEAlz+0wPaUjrI+G1J6tpzPhAdQJoepA8z+6nTu+YY9CzAq/wMIn///////////ARAEGgw2NjUzODYwOTg4NjYiDM5jYDIEmQlITuFVwirTA5y060HidB/SKiOzXn52/GvNNz0ZbxgPF/OlPQGXKWX14yMBfRXspqfH1LYsc/v3Hw4ciX8TbDSFcjGnzGp20Y230tgMpK4FaCRfbvnUhJ0f9BLlLouK+ZCxODuyNYa06GtdeSvwn29WzPSH9jccjxDL/fUXWdU5CR2pjmFvh8ssda1iIG/mMUaafKm2IYnp8jNRbpXe7j6UAliBu8K4AsylmJHfcNYH/Yl0xWwZMfWnAv1KE4oV4P3ggaEkzPk6ykhh0YrX5mVRyjfy5hbfBLBHAfEi+Jo7GhEFi9ErOhs1o/mQh43P76BnDgMPWTFJpEiejjS9DwdQWTULVWJ1RwtYUaU3D7xi7oAlIbtW+iC9XAsKxUHV3GAWMIvh1SKraIEuPB09W38UAF0cql45dz7VeATtAb3LIaSvaHsbafD6MjaXxlLvmr2sSpmspcntLKRX1j+/8EwgFTLXOo9fGHl5RoxQDTwpeKcLGwyCFjYvKUXlLE8aXaOBYDrsGqC9m7GfsfBHWeGpVMrNn49wWwf9NefnD6e528ivn78hUiLnOdDPpJrvm5T7V3DLQH6gdP7xy2D6AOnI97bwjrrJPHa1Lz+O6o+XmrNjard5VY2JpylsMJL4ldEGOp0BL5FkmPKh1pYIJLAsM3N+B95TNfg/QVPJMUPByZHxUSZc+eOD3o69Up5jDVtg0q0N3rirZ/CNLGQZNEhnsSHjAAX0xCxfYwMLN5xudhpHYlxfzZvC/NMtb6pet3RS91MRsRZLtF8t/hvNKXIIjWNF3bGGlpxjrfmALv7kaYRz5EGR6wDDmupI+s8UfN73XaC3E/SVRXEld29ky4x7aw==",
-    "expiration": "2026-06-08T02:11:30.000Z"
+    "access_key_id": "ASIAZV3A2ECZIXZ6W2RO",
+    "secret_access_key": "KnkQ/PgIvWV0UQEXYrzVbRWW8O++yYd7ma9kCpMs",
+    "session_token": "IQoJb3JpZ2luX2VjEHoaCXVzLWVhc3QtMSJGMEQCIFh1Rq9XxQ7jJo1DTm3UXhH+KIbpMONy5YEMpuHZUql0AiB77XxHuV3BVHOvwep5Cs9lus+TLioouM8bpDxQbLXkcCr2AwhDEAQaDDY2NTM4NjA5ODg2NiIMC5sRhrixq5jSnHZrKtMDSFGinzY17yO2eMhy4i/cZFeuWUM3kzeS0iCnyApZ0l1c6p5seqQxpz3V/49jUFmz9tONkn9xpFcqpXKg/9790TdjHVZmyVeWs1arl4h2estnNah2KdiD5wHgbz1JoFL6/3G5aJXkwkxNDuzWhWHidJzAA0Q2svLyUQgCd2djjzdVVW/SXI9aMvrFG145xb6iT3he6u0GrJmcEHgI5aViqlt3IDaWKXmkFROy4eATd0gA7PPuYlHgHDRCqv8CGZB/VH5lfiBaoK8LRjz01rSBOQNnnnlrQvnimqex4UNTL6KJhzPQ0gnlF4gMnko/5rBacYTncnlD6HSiFAH8BxXdt1JStT0u7wHjaB7dS4EBh4wsJPpHtOXlOcrt6IJeOAhU21RfQN8fidBUHy89Wwh6YP05VV4i6VYMVDAgdnjgq26BFGxiUlHdtm1Kwq4+9Lj9PhwReungI2Pcibpll2QN4//jhKcKEbSw4jE1pu41r1gR7GpBfFvdLW/uFCZxlvBjybuXtkcTJF4J5qUqEntDrhxTq3XmtiLgtqKDQe1eP8WFqpsUXkBBP4iVenCeABARKdYW1aJaAIb5CwQuHOo0K0aF1i7Rjphi4+vjhw/DUxbqqggwro3y0QY6ngERUY799tJTn7W3NA+17PZabPWFFF66hoEtBlmr0tcW8uehjn7EKKOXiOx2bSXvHAgXtSRjIYENM2XYnMnk9YnzAi+0bydKmbFzsfOtK6Q1Y5Kj3wbi+hwvVdjRTpSJddtDpsLOoIPDVnqesRIuPoCRas4hIKcOpzN+lus8tBI7PqK6iFlKG938NGfwHTYSIlLWqNDnj5PJQhUzqTJuCQ==",
+    "expiration": "2026-06-25T13:38:54.000Z",
+    "backend": "GIT_BACKEND_S3"
   },
   "name": "sultan_factory_app",
   "path": "/home/ubuntu/sultan_factory_app",

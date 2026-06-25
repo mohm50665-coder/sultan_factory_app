@@ -14,14 +14,14 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApiBaseUrl } from "@/constants/oauth";
 
-export default function LoginScreen() {
+export default function WebLoginScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { login } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
   const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(false);
@@ -49,31 +49,23 @@ export default function LoginScreen() {
     if (!validateForm()) return;
     setIsLoading(true);
     try {
-      // On web, use direct API endpoint instead of tRPC
-      if (Platform.OS === "web") {
-        const { getApiBaseUrl } = await import("@/constants/oauth");
-        const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-        const baseUrl = getApiBaseUrl();
-        const response = await fetch(`${baseUrl}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-          credentials: "include",
-        });
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+        credentials: "include",
+      });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Login failed");
-        }
+      const data = await response.json();
 
-        if (data.user) {
-          await AsyncStorage.setItem("sultan_current_user", JSON.stringify(data.user));
-          await AsyncStorage.setItem("sultan_session_id", data.user.id.toString());
-          router.replace("/(tabs)");
-        }
-      } else {
-        // On mobile, use tRPC
-        await login(formData.username, formData.password);
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
+      if (data.user) {
+        await AsyncStorage.setItem("sultan_current_user", JSON.stringify(data.user));
+        await AsyncStorage.setItem("sultan_session_id", data.user.id.toString());
         router.replace("/(tabs)");
       }
     } catch (error) {
@@ -83,7 +75,6 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
-
 
   const textAlign = isRtl ? "right" : "left";
 
@@ -123,18 +114,14 @@ export default function LoginScreen() {
                   <TextInput
                     style={[styles.input, { textAlign }]}
                     placeholder={t("enter_username")}
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={colors.muted}
                     value={formData.username}
                     onChangeText={(text) => {
                       setFormData({ ...formData, username: text });
                       if (errors.username) setErrors({ ...errors, username: "" });
                     }}
-                    autoCapitalize="none"
-                    autoCorrect={false}
                     editable={!isLoading}
-                    returnKeyType="next"
                   />
-                  <MaterialIcons name="person-outline" size={20} color="#9ca3af" />
                 </View>
                 {errors.username && (
                   <Text style={[styles.errorText, { textAlign }]}>{errors.username}</Text>
@@ -145,28 +132,28 @@ export default function LoginScreen() {
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { textAlign }]}>{t("password")}</Text>
                 <View style={[styles.inputContainer, errors.password ? styles.inputError : null]}>
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <MaterialIcons
-                      name={showPassword ? "visibility" : "visibility-off"}
-                      size={20}
-                      color="#9ca3af"
-                    />
-                  </TouchableOpacity>
                   <TextInput
                     style={[styles.input, { textAlign }]}
                     placeholder={t("enter_password")}
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showPassword}
                     value={formData.password}
                     onChangeText={(text) => {
                       setFormData({ ...formData, password: text });
                       if (errors.password) setErrors({ ...errors, password: "" });
                     }}
-                    secureTextEntry={!showPassword}
                     editable={!isLoading}
-                    returnKeyType="done"
-                    onSubmitEditing={handleLogin}
                   />
-                  <MaterialIcons name="lock-outline" size={20} color="#9ca3af" />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <MaterialIcons
+                      name={showPassword ? "visibility" : "visibility-off"}
+                      size={20}
+                      color={colors.muted}
+                    />
+                  </TouchableOpacity>
                 </View>
                 {errors.password && (
                   <Text style={[styles.errorText, { textAlign }]}>{errors.password}</Text>
@@ -175,43 +162,45 @@ export default function LoginScreen() {
 
               {/* Login Button */}
               <TouchableOpacity
+                style={[styles.loginBtn, { backgroundColor: colors.primary }]}
                 onPress={handleLogin}
                 disabled={isLoading}
-                style={[styles.loginButton, isLoading && { opacity: 0.6 }]}
               >
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.loginButtonText}>{t("login")}</Text>
+                  <Text style={styles.loginBtnText}>{t("login")}</Text>
                 )}
               </TouchableOpacity>
 
-
               {/* Forgot Password */}
-              <TouchableOpacity
-                onPress={() => router.push("/forgot-password")}
-                style={styles.forgotPassword}
-              >
-                <Text style={styles.forgotPasswordText}>{t("forgot_password")}</Text>
+              <TouchableOpacity style={styles.forgotBtn}>
+                <Text style={[styles.forgotBtnText, { color: colors.primary }]}>
+                  {t("forgot_password")}
+                </Text>
               </TouchableOpacity>
 
               {/* Divider */}
               <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>{isAr ? "أو" : "or"}</Text>
-                <View style={styles.dividerLine} />
+                <View style={[styles.line, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.muted }]}>
+                  {isAr ? "أو" : "or"}
+                </Text>
+                <View style={[styles.line, { backgroundColor: colors.border }]} />
               </View>
 
-              {/* Register Link */}
-              <View style={styles.registerRow}>
-                <Text style={styles.registerLabel}>{t("no_account")} </Text>
-                <TouchableOpacity onPress={() => router.push("/register")}>
-                  <Text style={styles.registerLink}>{t("register")}</Text>
+              {/* Sign Up */}
+              <View style={styles.signupContainer}>
+                <Text style={[styles.signupText, { color: colors.muted }]}>
+                  {isAr ? "ليس لديك حساب؟" : "Don't have an account?"}
+                </Text>
+                <TouchableOpacity>
+                  <Text style={[styles.signupLink, { color: colors.primary }]}>
+                    {isAr ? "إنشاء حساب جديد" : "Create new account"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
-
-
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -221,21 +210,19 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   langRow: {
-    position: "absolute",
-    top: 12,
-    left: 16,
-    zIndex: 10,
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   langBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
   },
   langBtnText: {
     color: "white",
@@ -245,139 +232,124 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-    backgroundColor: "#0a7ea4",
-
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 32,
   },
   logoSection: {
     alignItems: "center",
-    marginBottom: 36,
+    marginBottom: 32,
   },
   logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    alignItems: "center",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "white",
     justifyContent: "center",
+    alignItems: "center",
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
   },
   logoTitle: {
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   logoSubtitle: {
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
   },
   formCard: {
+    width: "100%",
+    maxWidth: 400,
     backgroundColor: "white",
     borderRadius: 20,
     padding: 24,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1f2937",
     marginBottom: 8,
+    color: "#333",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#e5e7eb",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
     borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    backgroundColor: "#f9fafb",
+    paddingHorizontal: 12,
+    backgroundColor: "#f9f9f9",
   },
   inputError: {
     borderColor: "#ef4444",
-    backgroundColor: "#fef2f2",
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: "#1f2937",
-    marginHorizontal: 8,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#333",
+  },
+  eyeIcon: {
+    padding: 8,
   },
   errorText: {
-    color: "#ef4444",
     fontSize: 12,
+    color: "#ef4444",
     marginTop: 4,
   },
-  loginButton: {
-    backgroundColor: "#0a7ea4",
+  loginBtn: {
+    paddingVertical: 14,
     borderRadius: 12,
-    paddingVertical: 15,
-    marginTop: 4,
-    marginBottom: 12,
-    shadowColor: "#0a7ea4",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
   },
-  loginButtonText: {
+  loginBtnText: {
     color: "white",
-    fontWeight: "700",
     fontSize: 16,
-    textAlign: "center",
-  },
-
-  forgotPassword: {
-    marginBottom: 16,
-  },
-  forgotPasswordText: {
-    color: "#0a7ea4",
     fontWeight: "600",
-    fontSize: 13,
-    textAlign: "center",
+  },
+  forgotBtn: {
+    alignItems: "center",
+    marginTop: 12,
+  },
+  forgotBtnText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginVertical: 20,
   },
-  dividerLine: {
+  line: {
     flex: 1,
     height: 1,
-    backgroundColor: "#e5e7eb",
   },
   dividerText: {
-    color: "#9ca3af",
+    marginHorizontal: 8,
     fontSize: 12,
-    marginHorizontal: 12,
   },
-  registerRow: {
+  signupContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    gap: 4,
+    flexWrap: "wrap",
   },
-  registerLabel: {
-    color: "#6b7280",
-    fontSize: 13,
+  signupText: {
+    fontSize: 14,
   },
-  registerLink: {
-    color: "#0a7ea4",
-    fontWeight: "700",
-    fontSize: 13,
+  signupLink: {
+    fontSize: 14,
+    fontWeight: "600",
   },
-
 });
