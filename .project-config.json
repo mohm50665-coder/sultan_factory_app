@@ -7,17 +7,19 @@
   ],
   "dev_command": "pnpm run dev",
   "env_vars": {
-    "DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}"
+    "DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}",
+    "DRIZZLE_DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}"
   },
   "experiments": [
     "no_db_push"
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663396423140/PAoTpRZYv26mjfaeASDQLQ",
-    "access_key_id": "ASIAZV3A2ECZEMMM3SNN",
-    "secret_access_key": "vJ/f7MoZ6/aAUOmxQYJdjY1ffkircUYPnluThy7a",
-    "session_token": "IQoJb3JpZ2luX2VjEDIaCXVzLWVhc3QtMSJHMEUCIDj6UDRdTw8+J0bleAkeUQ9fU5yj7AHSElS4SUmc20xFAiEAuHLTXNwXVogoPpeCPAe5OtU699JpLRr+ESLzcdBtZxEq/wMI+///////////ARAEGgw2NjUzODYwOTg4NjYiDKQb+xJJhUJ3ngem+yrTAxWuH8nVbAAF3YMwSLGmks2PhyoLMEfOD198EcGn/VOX3EmWrlm59IRbT/aHTj3nJO9q4/Cs3ZibiKRrqiq77r7CVuM/xKVYlUEu6Ykaui00jk+RX9o5dNXgcGmbv2eNCcMd8pnLNAZ6fciJC15iRsTJl4x1up0D1bLtWmiHihLvQLBivZIQKPgUyV//GsoNgUASLye9BmGXPO6yKAGtelJ4N80FRZQ7vEv9a+X27R7HtY9FVnKP5/fTdfmEZBm7opsNX9rS8FdTGuXGLXAN3xgciRnH8uWThxeJU0DCz15Xpr02lbDi25UFOf6VtoPnX4Udo28AXji7qQ/Z62/xB4CkKWYjghfykmViem6E8tS3ypkBEIcHqgEgOVH8NUOxDQZ2vnAq60RJ5NW2m7BnHYzVUQkDVaVutzqGEpaGYHDnFhCxgfVOxZl//vhkE3cFc93SiR4KFun6y+Mf3rGaEhkZfIHetrUTSRO+4Ku8+4/siF42Bzz+/DrUtO28rnmISRMbPS5L3auFF4eWbmtz+m74q0UAd1lSy/HyDD6hFbHqpbdCWUolwP64RucPGLYbSuMe7ZglzA8MOEyzCxeaHXgnOAOkLe4AIFgcjcShQU0oB2ZrMP3AudAGOp0Bo+MzZcGp5+Bn/JWhlB0P8glPCrtREjhTJx/8/kEKbEoG5gll9k1ZKJ68TjM6419cagkctPU9Qpt5OECZO4WH1yGO1FgaIJxcDmZKngAEUttZzjhSbfbc1mayPrIf2eH2KOcmolL+9qRpxkUBskHzRrmMi6ljkEZk8ms4xw87QglYm34H1R1MavY7rnW3p1XJSX0ZXuzD7ojRk+4ibA==",
-    "expiration": "2026-05-21T13:31:41.000Z"
+    "access_key_id": "ASIAZV3A2ECZJMCCFZ32",
+    "secret_access_key": "OSuH8p5SBR3qjnFR4JtSYo0S8VJCgQUjEkz+9tZG",
+    "session_token": "IQoJb3JpZ2luX2VjEKD//////////wEaCXVzLWVhc3QtMSJHMEUCIGdxl+PJZ1ZNLKsO10PJ/esVjrXVHdhLhP7yufzFTySkAiEA7fQf99LJc1XtCTKg/jDJkGTerlHgxPNLv6PNtcZjk8Uq9gMIaRAEGgw2NjUzODYwOTg4NjYiDGt9ZAECJm96JscouyrTA/5yMMPAqQFwEjWv66+jO0H6mpm/mU2x1JReAFoRLIhw21GcPQBOx/6Apq7KV6gkprBAMSTIfZd0DrqVYsB3VoXQWxXqnR9X0wHix1Edlpt/lE8mDd42sJ+uJcE+CNYhBGr3cCuAuEJGPMvenXYVm1wFpRlJiDQjXhsL2ndSdlhILn10jkGvcGsCsVwPk67OEbERVwGIs16ch/LxPHYPHreBjlAq8TzRCidWq6aSDRHiRmB89i8Ets69ebHSgKdhZl0lE+p+TKUsKSPKW0AD7AElOufK///c1TO4b5J+2uGFf9hxH8cTLYz5s02EjTztniusUllGV8A9TQWp+iMPmkMpZI6YbkhKXBGD893iQMcnrBYEJ/RX3DunPpOvnAabIiCt69bm+PsMpUe/0EPLyTtP5vfbRjhtlWYoS6+V0wudcV9tcR7eGQ5Yghw8lru1xXp8PVpq0fzOE4ZtS+nTKtx3PxvsrsE1oL6/qbyIVLvLgs9YyrSxMmZdg4dLapqqyEj4f1kMtqry/+aHZa7UXDdbEwLr4FW/uGKaDbqBMcNGgi14jg5MN05vWoFv68uKfVt+NjYk02eovqqZNrZEN2My5e1meBM2R7gzL1dpjuQAHOGwMO69+tEGOp0B031F4eMTG3obU46ElZnKgTzI0vCOURRpo9Hd9StojmuXc6kIwzoOveUBBqgxK+U6tmAG78Im0sY/4pdEKlxGZfC9xfNgwryhehVbwAzbpKgyisHTG0hiJZhXM9hQqF0nDAV+jLd8uNxuaG0+qNv2lVwpw46g5LNFYXSSR22SaOla4Ism4egIwlbmd3CB5DdNHC7aT3XIX6PvIDuS3w==",
+    "expiration": "2026-06-27T03:46:54.000Z",
+    "backend": "GIT_BACKEND_S3"
   },
   "name": "sultan_factory_app",
   "path": "/home/ubuntu/sultan_factory_app",
@@ -32,6 +34,10 @@
     "EXPO_PUBLIC_OAUTH_SERVER_URL": "https://api.manus.im",
     "EXPO_PUBLIC_OWNER_NAME": "محمد المغربي",
     "EXPO_PUBLIC_OWNER_OPEN_ID": "Ar58c2XRSoYAKZUe4mWxTD",
+    "GOOGLE_PLAY_EMAIL": "mohm50665@gmail.com",
+    "GOOGLE_PLAY_PACKAGE_ID": "com.alsultanfactory",
+    "GOOGLE_PLAY_SHA1_FINGERPRINT": "E7:EE:84:1B:D2:AC:AF:57:27:BF:6B:34:A9:B3:B7:BF:AB:E9:E8:A8:4C:93:1D:BA:9F:DB:3A:14:89:D9:30:7B",
+    "GOOGLE_PLAY_SHA256_FINGERPRINT": "F1:C9:6E:69:63:A7:37:59:42:3C:54:6E:22:03:A2:0A",
     "JWT_SECRET": "hjqk9badF6dF5awyAtBxNn",
     "OAUTH_SERVER_URL": "https://api.manus.im",
     "OWNER_NAME": "محمد المغربي",
@@ -40,8 +46,8 @@
     "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
     "VITE_ANALYTICS_WEBSITE_ID": "993141ea-28f6-424d-9b70-e839018315f4",
     "VITE_APP_ID": "PAoTpRZYv26mjfaeASDQLQ",
-    "VITE_APP_LOGO": "",
-    "VITE_APP_TITLE": "تطبيق متابعة أداء مصنع السلطان",
+    "VITE_APP_LOGO": "https://d2xsxph8kpxj0f.cloudfront.net/310519663396423140/PAoTpRZYv26mjfaeASDQLQ/icon-5ZELJwzhNmnzHAeykK5T6w.png",
+    "VITE_APP_TITLE": "مصنع السلطان",
     "VITE_FRONTEND_FORGE_API_KEY": "eHk34NfiQatfY6CMjpbiho",
     "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
     "VITE_OAUTH_PORTAL_URL": "https://manus.im"
