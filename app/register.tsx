@@ -260,24 +260,29 @@ export default function RegisterScreen() {
 
               {/* Terms */}
               <View style={styles.termsContainer}>
-                <Pressable
-                  onPress={() => setAgreedToTerms(!agreedToTerms)}
-                  style={({ pressed }) => [styles.checkboxRow, pressed && { opacity: 0.7 }]}
-                >
-                  <MaterialIcons
-                    name={agreedToTerms ? "check-box" : "check-box-outline-blank"}
-                    size={22}
-                    color={agreedToTerms ? "#0a7ea4" : "#9ca3af"}
-                  />
+                <View style={styles.checkboxRow}>
+                  <Pressable
+                    onPress={() => {
+                      setAgreedToTerms(!agreedToTerms);
+                      if (errors.terms) setErrors({ ...errors, terms: "" });
+                    }}
+                    style={({ pressed }) => [{ padding: 8, marginRight: 4 }, pressed && { opacity: 0.6 }]}
+                  >
+                    <MaterialIcons
+                      name={agreedToTerms ? "check-box" : "check-box-outline-blank"}
+                      size={24}
+                      color={agreedToTerms ? "#0a7ea4" : "#9ca3af"}
+                    />
+                  </Pressable>
                   <Text style={styles.termsText}>
                     {isAr ? "أوافق على " : "I agree to "}
                   </Text>
-                  <Pressable onPress={() => setShowTerms(true)} style={{ padding: 2 }}>
+                  <Pressable onPress={() => setShowTerms(true)} style={({ pressed }) => [{ padding: 4 }, pressed && { opacity: 0.6 }]}>
                     <Text style={styles.termsLink}>
                       {isAr ? "الشروط والأحكام" : "Terms & Conditions"}
                     </Text>
                   </Pressable>
-                </Pressable>
+                </View>
                 {errors.terms && <Text style={[styles.errorText, { textAlign }]}>{errors.terms}</Text>}
               </View>
 

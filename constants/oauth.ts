@@ -30,12 +30,7 @@ export const API_BASE_URL = env.apiBaseUrl;
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set, use it
-  if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
-  }
-
-  // On web, derive from current hostname
+  // On web, always use current origin (same server serves web + API)
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
     const { protocol, hostname, port } = window.location;
     // Dev mode: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
@@ -45,6 +40,11 @@ export function getApiBaseUrl(): string {
     }
     // Production: web is served from same server, use same origin
     return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+  }
+
+  // Native apps: use API_BASE_URL if set, otherwise fallback
+  if (API_BASE_URL) {
+    return API_BASE_URL.replace(/\/$/, "");
   }
 
   // Fallback to deployed server URL for native apps
