@@ -130,8 +130,15 @@ async function startServer() {
     }),
   );
 
-  // Serve static web files from web-dist folder
-  const webDistPath = path.resolve(process.cwd(), "web-dist");
+  // Serve static web files - check multiple locations
+  const fs = await import('fs');
+  const candidates = [
+    path.resolve(process.cwd(), "dist", "web"),
+    path.resolve(process.cwd(), "web-dist"),
+    path.resolve(new URL('.', import.meta.url).pathname, "web"),
+    path.resolve(new URL('.', import.meta.url).pathname, '..', "web-dist"),
+  ];
+  const webDistPath = candidates.find(p => fs.existsSync(p)) || candidates[0];
   app.use(express.static(webDistPath));
 
   // For any non-API route, serve index.html (SPA fallback)
