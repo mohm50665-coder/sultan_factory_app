@@ -150,7 +150,8 @@ export default function ManufacturingStageScreen() {
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
-  const [selectedWorker, setSelectedWorker] = useState(isStageWorker ? (user?.name || "") : "");
+  // العامل يُحدد تلقائياً من حساب المستخدم المسجل دخول
+  const [selectedWorker, setSelectedWorker] = useState(user?.name || "");
   // منتجات (حتى 5)
   const [products, setProducts] = useState<ProductItem[]>([
     { productName: "", quantityDozen: "", quantityPairs: "" },
@@ -176,7 +177,11 @@ export default function ManufacturingStageScreen() {
     try {
       const data = await manufacturingStageService.getAll();
       if (data) {
-        const filtered = data.filter((d: any) => d.stageName === stage);
+        let filtered = data.filter((d: any) => d.stageName === stage);
+        // العامل يشوف بياناته فقط، الأدمن يشوف الكل
+        if (user?.role !== 'admin') {
+          filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name);
+        }
         // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)
         const grouped: Record<string, WorkerEntry> = {};
         filtered.forEach((d: any) => {
@@ -210,7 +215,7 @@ export default function ManufacturingStageScreen() {
   };
 
   const resetForm = () => {
-    setSelectedWorker("");
+    setSelectedWorker(user?.name || "");
     setProducts([{ productName: "", quantityDozen: "", quantityPairs: "" }]);
     setDurationHours("");
     setDurationMinutes("");
@@ -250,8 +255,10 @@ export default function ManufacturingStageScreen() {
 
   // حفظ البيانات
   const handleSave = async () => {
-    if (!selectedWorker) {
-      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى اختيار اسم العامل" : "Please select a worker name");
+    // اسم العامل يؤخذ تلقائياً من حساب المستخدم
+    const workerName = user?.name || selectedWorker;
+    if (!workerName) {
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى تسجيل الدخول أولاً" : "Please login first");
       return;
     }
 
@@ -279,7 +286,7 @@ export default function ManufacturingStageScreen() {
         // التخزين - إدخال واحد
         const apiData = {
           stageName: stage,
-          workerName: selectedWorker,
+          workerName: workerName,
           quantityDozen: parseInt(finishedDozen) || 0,
           quantityPair: parseInt(finishedPairs) || 0,
           productType: notes || "",
@@ -305,7 +312,7 @@ export default function ManufacturingStageScreen() {
         for (const product of validProducts) {
           const apiData = {
             stageName: stage,
-            workerName: selectedWorker,
+            workerName: workerName,
             quantityDozen: parseInt(product.quantityDozen) || 0,
             quantityPair: parseInt(product.quantityPairs) || 0,
             productType: notes || "",
@@ -477,30 +484,15 @@ export default function ManufacturingStageScreen() {
               {editingEntry ? (isAr ? "✏️ تعديل بيانات" : "✏️ Edit Data") : (isAr ? "➕ إدخال بيانات جديدة" : "➕ Enter New Data")}
             </Text>
 
-            {/* اختيار {isAr ? "اسم العامل" : "Worker Name"} */}
+            {/* اسم العامل - يظهر تلقائياً من حساب المستخدم */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
                 {isAr ? "اسم العامل" : "Worker Name"}
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                {stageWorkers.map((worker) => (
-                  <TouchableOpacity
-                    key={worker}
-                    onPress={() => setSelectedWorker(worker)}
-                    style={{
-                      backgroundColor: selectedWorker === worker ? config.color : "transparent",
-                      borderColor: config.color,
-                      borderWidth: 1.5,
-                      borderRadius: 22,
-                      paddingHorizontal: 18,
-                      paddingVertical: 10,
-                    }}
-                  >
-                    <Text style={{ color: selectedWorker === worker ? "white" : config.color, fontWeight: "700", fontSize: 14 }}>
-                      {worker}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={{ backgroundColor: `${config.color}15`, borderColor: config.color, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, alignItems: 'center' }}>
+                <Text style={{ color: config.color, fontWeight: "700", fontSize: 16 }}>
+                  {user?.name || (isAr ? "غير معروف" : "Unknown")}
+                </Text>
               </View>
             </View>
 
@@ -747,14 +739,10 @@ export default function ManufacturingStageScreen() {
               </Text>
               <View style={{ marginTop: 20, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
-                  {isAr ? "العمال في هذه المرحلة:" : "Workers in this stage:"}
+                  {isAr ? "مسجل الدخول باسم:" : "Logged in as:"}
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-                  {stageWorkers.map((worker) => (
-                    <View key={worker} style={{ backgroundColor: `${config.color}15`, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 }}>
-                      <Text style={{ color: config.color, fontWeight: "600", fontSize: 13 }}>{worker}</Text>
-                    </View>
-                  ))}
+                <View style={{ backgroundColor: `${config.color}15`, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-end' }}>
+                  <Text style={{ color: config.color, fontWeight: "700", fontSize: 15 }}>{user?.name || ""}</Text>
                 </View>
               </View>
               {!isViewOnly && (
