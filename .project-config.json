@@ -47,5 +47,6 @@
     "VITE_OAUTH_PORTAL_URL": "https://manus.im"
   },
   "template_id": "app",
+  "platform": "web+mobile",
   "test_command": "pnpm test"
 }
