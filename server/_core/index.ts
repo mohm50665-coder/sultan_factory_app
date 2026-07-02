@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
+import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -128,6 +130,25 @@ async function startServer() {
     }),
   );
 
+  // Serve static web files from web-dist folder
+  const webDistPath = path.resolve(process.cwd(), "web-dist");
+  app.use(express.static(webDistPath));
+
+  // For any non-API route, serve index.html (SPA fallback)
+  app.get("*", (req, res) => {
+    // Skip API routes
+    if (req.path.startsWith("/api/")) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    const indexPath = path.join(webDistPath, "index.html");
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        res.status(404).send("Page not found");
+      }
+    });
+  });
+
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
@@ -137,6 +158,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
+    console.log(`[web] serving static files from ${webDistPath}`);
   });
 }
 
