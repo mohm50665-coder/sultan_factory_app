@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService } from "@/lib/services/api.service";
+import { productionService, appSettingsService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
@@ -50,6 +50,12 @@ interface ShiftData {
   yarnCotton: string;
   yarnBamboo: string;
   yarnSpan: string;
+  yarnWeightPerPair: string; // وزن الخيط لكل زوج (جرام) - يُحفظ تلقائياً لكل منتج
+}
+
+// نوع بيانات أوزان المنتجات المحفوظة
+interface ProductYarnWeights {
+  [productName: string]: string; // اسم المنتج -> وزن الخيط لكل زوج
 }
 
 interface MachineShifts {
@@ -82,6 +88,7 @@ const emptyShiftData = (shiftNum: number): ShiftData => ({
   yarnCotton: "",
   yarnBamboo: "",
   yarnSpan: "",
+  yarnWeightPerPair: "",
 });
 
 const formatDate = (d: Date): string => {
@@ -107,10 +114,46 @@ export default function ProductionScreen() {
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [machinesData, setMachinesData] = useState<{ [key: string]: MachineShifts }>({});
   const [activeMachines, setActiveMachines] = useState<string[]>([]);
+  const [savedYarnWeights, setSavedYarnWeights] = useState<ProductYarnWeights>({});
+  const [productSuggestions, setProductSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number} | null>(null);
 
   useEffect(() => {
     loadEntries();
+    loadSavedYarnWeights();
   }, []);
+
+  // تحميل أوزان الخيوط المحفوظة لكل منتج
+  const loadSavedYarnWeights = async () => {
+    try {
+      const result = await appSettingsService.get("product_yarn_weights");
+      if (result && result.value) {
+        const parsed = JSON.parse(result.value);
+        setSavedYarnWeights(parsed);
+      }
+    } catch (e) {
+      console.log("Error loading yarn weights:", e);
+    }
+  };
+
+  // حفظ وزن خيط جديد لمنتج
+  const saveYarnWeightForProduct = async (productName: string, weight: string) => {
+    if (!productName.trim() || !weight.trim()) return;
+    const updated = { ...savedYarnWeights, [productName.trim()]: weight };
+    setSavedYarnWeights(updated);
+    try {
+      await appSettingsService.set("product_yarn_weights", JSON.stringify(updated));
+    } catch (e) {
+      console.log("Error saving yarn weight:", e);
+    }
+  };
+
+  // البحث عن اقتراحات المنتجات
+  const getProductSuggestions = (text: string): string[] => {
+    if (!text.trim()) return [];
+    const allProducts = Object.keys(savedYarnWeights);
+    return allProducts.filter(p => p.includes(text.trim()));
+  };
 
   const loadEntries = async () => {
     try {
@@ -142,6 +185,7 @@ export default function ProductionScreen() {
           yarnCotton: String(row.yarnCotton || 0),
           yarnBamboo: String(row.yarnBamboo || 0),
           yarnSpan: String(row.yarnSpan || 0),
+          yarnWeightPerPair: String(row.yarnWeightPerPair || ""),
         });
       }
       const loadedEntries: ProductionEntry[] = Object.keys(grouped)
@@ -249,7 +293,45 @@ export default function ProductionScreen() {
     const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
     const newShifts = [...current.shifts];
     newShifts[shiftIndex] = { ...newShifts[shiftIndex], [field]: value };
+
+    // عند تغيير اسم المنتج - البحث عن وزن محفوظ وإظهار اقتراحات
+    if (field === "productName") {
+      const suggestions = getProductSuggestions(value);
+      setProductSuggestions(suggestions);
+      if (value.trim()) {
+        setShowSuggestions({ machine, shiftIndex });
+      } else {
+        setShowSuggestions(null);
+      }
+      // إذا كان الاسم مطابق تماماً لمنتج محفوظ - ملء الوزن تلقائياً
+      if (savedYarnWeights[value.trim()]) {
+        newShifts[shiftIndex] = { ...newShifts[shiftIndex], yarnWeightPerPair: savedYarnWeights[value.trim()] };
+      }
+    }
+
+    // عند تغيير وزن الخيط - حفظه للمنتج
+    if (field === "yarnWeightPerPair" && value.trim()) {
+      const productName = newShifts[shiftIndex].productName;
+      if (productName.trim()) {
+        saveYarnWeightForProduct(productName, value);
+      }
+    }
+
     setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+  };
+
+  // اختيار منتج من الاقتراحات
+  const selectProductSuggestion = (machine: string, shiftIndex: number, productName: string) => {
+    const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+    const newShifts = [...current.shifts];
+    newShifts[shiftIndex] = {
+      ...newShifts[shiftIndex],
+      productName,
+      yarnWeightPerPair: savedYarnWeights[productName] || "",
+    };
+    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+    setShowSuggestions(null);
+    setProductSuggestions([]);
   };
 
   const handleSave = async () => {
@@ -270,6 +352,21 @@ export default function ProductionScreen() {
     });
 
     try {
+      // حفظ أوزان الخيوط لكل منتج جديد
+      const updatedWeights = { ...savedYarnWeights };
+      activeMachines.forEach((machine) => {
+        const mData = machinesData[machine] || { shifts: [] };
+        mData.shifts.forEach((shift) => {
+          if (shift.productName.trim() && shift.yarnWeightPerPair.trim()) {
+            updatedWeights[shift.productName.trim()] = shift.yarnWeightPerPair.trim();
+          }
+        });
+      });
+      if (JSON.stringify(updatedWeights) !== JSON.stringify(savedYarnWeights)) {
+        setSavedYarnWeights(updatedWeights);
+        await appSettingsService.set("product_yarn_weights", JSON.stringify(updatedWeights));
+      }
+
       await saveToServer(entry, !!editingEntry);
       await loadEntries();
       resetForm();
@@ -333,6 +430,7 @@ export default function ProductionScreen() {
     let totalHours = 0, totalMinutes = 0;
     let totalYarnRubber = 0, totalYarnSpandex = 0, totalYarnNylon = 0;
     let totalYarnCotton = 0, totalYarnBamboo = 0, totalYarnSpan = 0;
+    let totalYarnByPairs = 0; // إجمالي وزن الخيوط (وزن الخيط × عدد الأزواج)
 
     Object.values(entry.machines).forEach((machineShifts) => {
       machineShifts.shifts.forEach((s) => {
@@ -351,6 +449,10 @@ export default function ProductionScreen() {
         totalYarnCotton += parseFloat(s.yarnCotton) || 0;
         totalYarnBamboo += parseFloat(s.yarnBamboo) || 0;
         totalYarnSpan += parseFloat(s.yarnSpan) || 0;
+        // حساب إجمالي وزن الخيوط لكل نوع
+        const yarnPerPair = parseFloat(s.yarnWeightPerPair) || 0;
+        const pairs = parseInt(s.productionPairs) || 0;
+        totalYarnByPairs += yarnPerPair * pairs;
       });
     });
 
@@ -365,7 +467,7 @@ export default function ProductionScreen() {
       totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondDozen, totalSecondPairs, totalNeedles,
       totalHours, totalMinutes,
       totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
-      totalYarnWeight, totalWasteAll, wastePercentage,
+      totalYarnWeight, totalWasteAll, wastePercentage, totalYarnByPairs,
     };
   };
 
@@ -439,6 +541,13 @@ export default function ProductionScreen() {
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "نسبة الهدر" : "Waste %"}</Text>
             <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 14 }}>{totals.wastePercentage}%</Text>
           </View>
+          {totals.totalYarnByPairs > 0 && (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "وزن الخيوط" : "Yarn Wt"}</Text>
+              <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 14 }}>{totals.totalYarnByPairs.toLocaleString()}</Text>
+              <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "جرام" : "g"}</Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -465,7 +574,7 @@ export default function ProductionScreen() {
       </View>
 
       {/* اسم المنتج */}
-      <View style={{ marginBottom: 12 }}>
+      <View style={{ marginBottom: 12, zIndex: 10 }}>
         <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسم المنتج" : "Product Name"}</Text>
         <TextInput
           style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
@@ -473,7 +582,62 @@ export default function ProductionScreen() {
           placeholderTextColor={colors.muted}
           value={shift.productName}
           onChangeText={(v) => updateShiftField(machine, shiftIndex, "productName", v)}
+          onBlur={() => setTimeout(() => setShowSuggestions(null), 200)}
         />
+        {/* اقتراحات المنتجات المحفوظة */}
+        {showSuggestions?.machine === machine && showSuggestions?.shiftIndex === shiftIndex && productSuggestions.length > 0 && (
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, borderRadius: 8, marginTop: 4, maxHeight: 120, overflow: 'hidden' }}>
+            <ScrollView nestedScrollEnabled style={{ maxHeight: 120 }}>
+              {productSuggestions.map((suggestion, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => selectProductSuggestion(machine, shiftIndex, suggestion)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: idx < productSuggestions.length - 1 ? 1 : 0, borderColor: colors.border }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: colors.muted, fontSize: 11 }}>{savedYarnWeights[suggestion]} {isAr ? "جرام/زوج" : "g/pair"}</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 13, textAlign: 'right' }}>{suggestion}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
+      {/* وزن الخيط لكل زوج + عدد الأزواج لحساب الإجمالي */}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        <View style={{ flex: 1, backgroundColor: '#f0fdf4', borderRadius: 8, padding: 8, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#16a34a', fontSize: 10, marginBottom: 2 }}>{isAr ? "إجمالي وزن الخيوط" : "Total Yarn Weight"}</Text>
+          <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 16 }}>
+            {(() => {
+              const weight = parseFloat(shift.yarnWeightPerPair) || 0;
+              const pairs = parseInt(shift.productionPairs) || 0;
+              const total = weight * pairs;
+              return total > 0 ? `${total.toLocaleString()} ${isAr ? 'جرام' : 'g'}` : '---';
+            })()}
+          </Text>
+          <Text style={{ color: '#16a34a', fontSize: 9, marginTop: 1 }}>
+            {(() => {
+              const pairs = parseInt(shift.productionPairs) || 0;
+              return pairs > 0 ? `${pairs} ${isAr ? 'زوج' : 'pairs'}` : '';
+            })()}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "وزن الخيط/زوج (جرام)" : "Yarn/Pair (g)"}</Text>
+          <TextInput
+            style={{ backgroundColor: shift.yarnWeightPerPair ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: shift.yarnWeightPerPair ? '#16a34a' : colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            placeholder={isAr ? "وزن الخيط" : "Weight"}
+            placeholderTextColor={colors.muted}
+            value={shift.yarnWeightPerPair}
+            onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnWeightPerPair", v)}
+            keyboardType="numeric"
+          />
+          {shift.yarnWeightPerPair && savedYarnWeights[shift.productName?.trim()] && (
+            <Text style={{ color: '#16a34a', fontSize: 9, marginTop: 2, textAlign: 'right' }}>{isAr ? '✓ محفوظ تلقائياً' : '✓ Auto-saved'}</Text>
+          )}
+        </View>
       </View>
 
       {/* وقت بداية ونهاية الوردية */}
