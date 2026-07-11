@@ -854,12 +854,22 @@ export default function ProductionScreen() {
 
   // فورم الإدخال الرئيسي
   const renderForm = () => (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* قائمة المكائن الثابتة في الأعلى */}
-      <View style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingVertical: 12, zIndex: 100, elevation: 5 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 13, marginBottom: 10, textAlign: 'right' }}>{isAr ? "اختر المكائن" : "Select Machines"}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ justifyContent: 'flex-end' }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      {/* التاريخ */}
+      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
+        <TextInput
+          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+          value={selectedDate}
+          onChangeText={setSelectedDate}
+          placeholder="2026-01-01"
+          placeholderTextColor={colors.muted}
+        />
+
+        {/* اختيار المكائن */}
+        <View style={{ marginTop: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اختر المكائن" : "Select Machines"}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
             {MACHINES.map((machine) => (
               <TouchableOpacity
                 key={machine}
@@ -881,25 +891,11 @@ export default function ProductionScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </ScrollView>
+        </View>
       </View>
 
-      {/* ScrollView للمحتوى */}
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {/* التاريخ */}
-        <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
-            value={selectedDate}
-            onChangeText={setSelectedDate}
-            placeholder="2026-01-01"
-            placeholderTextColor={colors.muted}
-          />
-        </View>
-
-        {/* حقول الإدخال لكل مكينة مفعلة */}
-        {activeMachines.map((machine) => {
+      {/* حقول الإدخال لكل مكينة مفعلة */}
+      {activeMachines.map((machine) => {
         const machineShifts = machinesData[machine] || { shifts: [emptyShiftData(1)] };
         return (
           <View key={machine} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
@@ -924,37 +920,36 @@ export default function ProductionScreen() {
             {machineShifts.shifts.map((shift, idx) => renderShiftForm(machine, shift, idx, machineShifts.shifts.length))}
           </View>
         );
-        })}
+      })}
 
-        {/* أزرار الحفظ */}
-        {activeMachines.length > 0 && (
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
-            {/* المرفقات */}
-            <AttachmentPicker
-              attachments={productionAttachments}
-              onAttachmentsChange={setProductionAttachments}
-              language={language}
-            />
+      {/* أزرار الحفظ */}
+      {activeMachines.length > 0 && (
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
+          {/* المرفقات */}
+          <AttachmentPicker
+            attachments={productionAttachments}
+            onAttachmentsChange={setProductionAttachments}
+            language={language}
+          />
 
-            <TouchableOpacity
-              onPress={() => { setShowForm(false); resetForm(); }}
-              style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
-            >
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
-              <MaterialIcons name="close" size={18} color={colors.foreground} />
-            </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setShowForm(false); resetForm(); }}
+            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+          >
+            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+            <MaterialIcons name="close" size={18} color={colors.foreground} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleSave}
-              style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
-            >
-              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
-              <MaterialIcons name="save" size={18} color="white" />
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+          >
+            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
+            <MaterialIcons name="save" size={18} color="white" />
+          </TouchableOpacity>
+        </View>
+      )}
+    </ScrollView>
   );
 
   return (
