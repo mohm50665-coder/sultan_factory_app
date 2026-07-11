@@ -854,47 +854,48 @@ export default function ProductionScreen() {
 
   // فورم الإدخال الرئيسي
   const renderForm = () => (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-      {/* التاريخ */}
-      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
-        <TextInput
-          style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
-          value={selectedDate}
-          onChangeText={setSelectedDate}
-          placeholder="2026-01-01"
-          placeholderTextColor={colors.muted}
-        />
-
-        {/* اختيار المكائن */}
-        <View style={{ marginTop: 16 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: 'right' }}>{isAr ? "اختر المكائن" : "Select Machines"}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-            {MACHINES.map((machine) => (
-              <TouchableOpacity
-                key={machine}
-                onPress={() => toggleMachine(machine)}
-                style={{
-                  backgroundColor: activeMachines.includes(machine) ? "#16a34a" : "transparent",
-                  borderColor: "#16a34a",
-                  borderWidth: 1.5,
-                  borderRadius: 22,
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  minWidth: 52,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: activeMachines.includes(machine) ? "white" : "#16a34a", fontWeight: "700", fontSize: 11 }}>
-                  {machine}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+    <View style={{ flex: 1 }}>
+      {/* قائمة المكائن الثابتة في الأعلى - لا تتحرك مع السكرول */}
+      <View style={{ backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingHorizontal: 4 }}>
+          {MACHINES.map((machine) => (
+            <TouchableOpacity
+              key={machine}
+              onPress={() => toggleMachine(machine)}
+              style={{
+                backgroundColor: activeMachines.includes(machine) ? "#16a34a" : "transparent",
+                borderColor: "#16a34a",
+                borderWidth: 1.5,
+                borderRadius: 22,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                minWidth: 48,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: activeMachines.includes(machine) ? "white" : "#16a34a", fontWeight: "700", fontSize: 11 }}>
+                {machine}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      {/* حقول الإدخال لكل مكينة مفعلة */}
+      {/* المحتوى القابل للتمرير - التاريخ وبيانات الإدخال */}
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        {/* التاريخ */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            value={selectedDate}
+            onChangeText={setSelectedDate}
+            placeholder="2026-01-01"
+            placeholderTextColor={colors.muted}
+          />
+        </View>
+
+        {/* حقول الإدخال لكل مكينة مفعلة */}
       {activeMachines.map((machine) => {
         const machineShifts = machinesData[machine] || { shifts: [emptyShiftData(1)] };
         return (
@@ -949,7 +950,8 @@ export default function ProductionScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 
   return (
