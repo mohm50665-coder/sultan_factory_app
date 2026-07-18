@@ -224,6 +224,65 @@ export default function OrdersVisitsScreen() {
     }
   };
 
+  const handleApproval = async (entry: OrderVisitEntry, decision: "approved" | "rejected") => {
+    try {
+      await maintenanceEntriesService.update(Number(entry.id), {
+        ...entry,
+        approvalStatus: decision,
+      });
+      await notificationsService.add({
+        type: "admin",
+        title: isAr ? "تعميد طلب" : "Order Approval",
+        message: isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} طلب العميل: ${entry.customerName}` : `Order ${decision} for: ${entry.customerName}`,
+        data: { section: SECTION_KEY, orderId: entry.id },
+      });
+      loadEntries();
+      Alert.alert(isAr ? "تم" : "Done", isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} الطلب` : `Order ${decision}`);
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ" : "An error occurred");
+    }
+  };
+
+  const handleWarehouseResponse = (entry: OrderVisitEntry, status: "done" | "not_done" | "partial") => {
+    if (status === "done") {
+      // أنجز - حفظ مباشر
+      saveWarehouseResponse(entry, status, "");
+    } else {
+      // لم ينجز أو جزئي - طلب السبب/النواقص
+      Alert.prompt(
+        isAr ? (status === "not_done" ? "سبب عدم الإنجاز" : "النواقص والسبب") : (status === "not_done" ? "Reason for not completing" : "Shortages and reason"),
+        isAr ? (status === "not_done" ? "أدخل سبب عدم الإنجاز" : "أدخل الأصناف الناقصة والسبب") : (status === "not_done" ? "Enter reason" : "Enter missing items and reason"),
+        [
+          { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+          {
+            text: isAr ? "حفظ" : "Save",
+            onPress: (notes?: string) => saveWarehouseResponse(entry, status, notes || ""),
+          },
+        ],
+        "plain-text"
+      );
+    }
+  };
+
+  const saveWarehouseResponse = async (entry: OrderVisitEntry, status: string, notes: string) => {
+    try {
+      await maintenanceEntriesService.update(Number(entry.id), {
+        ...entry,
+        warehouseStatus: status,
+        warehouseNotes: notes,
+      });
+      await notificationsService.add({
+        type: "admin",
+        title: isAr ? "إفادة مستودع" : "Warehouse Response",
+        message: isAr ? `إفادة المستودع لطلب ${entry.customerName}: ${status === "done" ? "أنجز" : status === "not_done" ? "لم ينجز" : "جزئياً"}` : `Warehouse response for ${entry.customerName}: ${status}`,
+        data: { section: SECTION_KEY, orderId: entry.id },
+      });
+      loadEntries();
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ" : "An error occurred");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "approved": return "#16a34a";
@@ -279,6 +338,80 @@ export default function OrdersVisitsScreen() {
           </Text>
         )}
         <Text style={{ color: "#9BA1A6", fontSize: 11, textAlign: "right", marginTop: 4 }}>{item.date}</Text>
+      </View>
+
+      {/* تعميد مدير المبيعات والتسويق */}
+      <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: "#E5E7EB", paddingTop: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {(user?.role === "admin" || user?.role === "manager" || user?.department === "sales") && item.approvalStatus === "pending" && (
+              <>
+                <TouchableOpacity
+                  onPress={() => handleApproval(item, "approved")}
+                  style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}
+                >
+                  <MaterialIcons name="check" size={14} color="white" />
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "اعتماد" : "Approve"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleApproval(item, "rejected")}
+                  style={{ backgroundColor: "#ef4444", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}
+                >
+                  <MaterialIcons name="close" size={14} color="white" />
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "رفض" : "Reject"}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+          <Text style={{ color: "#0a7ea4", fontWeight: "bold", fontSize: 12, textAlign: "right" }}>
+            {isAr ? "تعميد مدير المبيعات" : "Sales Manager Approval"}
+          </Text>
+        </View>
+        {item.approvalStatus !== "pending" && (
+          <Text style={{ color: getStatusColor(item.approvalStatus), fontSize: 12, textAlign: "right", marginTop: 4 }}>
+            {isAr ? "القرار: " : "Decision: "}{getStatusLabel(item.approvalStatus)}
+          </Text>
+        )}
+      </View>
+
+      {/* إفادة المستودعات */}
+      <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: "#E5E7EB", paddingTop: 10 }}>
+        <Text style={{ color: "#8b5cf6", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 6 }}>
+          {isAr ? "إفادة المستودعات" : "Warehouse Response"}
+        </Text>
+        {item.warehouseStatus ? (
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+              <Text style={{ color: item.warehouseStatus === "done" ? "#16a34a" : item.warehouseStatus === "not_done" ? "#ef4444" : "#f59e0b", fontSize: 12, fontWeight: "600" }}>
+                {isAr ? (item.warehouseStatus === "done" ? "أنجز" : item.warehouseStatus === "not_done" ? "لم ينجز" : "أنجز جزئياً") : (item.warehouseStatus === "done" ? "Completed" : item.warehouseStatus === "not_done" ? "Not Completed" : "Partially Completed")}
+              </Text>
+              <MaterialIcons name={item.warehouseStatus === "done" ? "check-circle" : item.warehouseStatus === "not_done" ? "cancel" : "warning"} size={16} color={item.warehouseStatus === "done" ? "#16a34a" : item.warehouseStatus === "not_done" ? "#ef4444" : "#f59e0b"} />
+            </View>
+            {item.warehouseNotes ? (
+              <Text style={{ color: "#687076", fontSize: 11, textAlign: "right" }}>{item.warehouseNotes}</Text>
+            ) : null}
+          </View>
+        ) : (
+          (user?.role === "admin" || user?.role === "manager" || user?.department === "warehouse") && item.approvalStatus === "approved" ? (
+            <View style={{ gap: 6 }}>
+              <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <TouchableOpacity onPress={() => handleWarehouseResponse(item, "done")} style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "أنجز" : "Done"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleWarehouseResponse(item, "not_done")} style={{ backgroundColor: "#ef4444", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "لم ينجز" : "Not Done"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleWarehouseResponse(item, "partial")} style={{ backgroundColor: "#f59e0b", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "جزئياً" : "Partial"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ color: "#9BA1A6", fontSize: 11, textAlign: "right" }}>
+              {item.approvalStatus !== "approved" ? (isAr ? "بانتظار اعتماد المدير" : "Waiting for manager approval") : (isAr ? "بانتظار إفادة المستودعات" : "Waiting for warehouse response")}
+            </Text>
+          )
+        )}
       </View>
     </View>
   );
