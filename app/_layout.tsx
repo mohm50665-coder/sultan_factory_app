@@ -149,6 +149,9 @@ function NavigationContent() {
       <Stack.Screen name="admin-goals-kpis" />
       <Stack.Screen name="comprehensive-admin-panel" />
       <Stack.Screen name="board-monthly-report" />
+      <Stack.Screen name="orders-visits" />
+      <Stack.Screen name="production-requests" />
+      <Stack.Screen name="custom-manufacturing" />
     </Stack>
   );
 }

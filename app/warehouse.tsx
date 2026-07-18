@@ -65,6 +65,22 @@ export default function WarehouseScreen() {
       route: "/warehouse-out",
       description: isAr ? "إخراج من مستودع الإنتاج التام أو المواد الخام" : "Output from finished goods or raw materials warehouse",
     },
+    {
+      id: "production_requests",
+      label: isAr ? "طلبات الإنتاج" : "Production Requests",
+      icon: "assignment",
+      color: "#8b5cf6",
+      route: "/production-requests",
+      description: isAr ? "طلبات إنتاج من المستودعات - مربوطة بالإنتاج" : "Production requests from warehouse - linked to production",
+    },
+    {
+      id: "customer_orders",
+      label: isAr ? "طلبات العملاء" : "Customer Orders",
+      icon: "shopping-bag",
+      color: "#0a7ea4",
+      route: "/orders-visits",
+      description: isAr ? "عرض طلبات العملاء وحالة التجهيز" : "View customer orders and preparation status",
+    },
   ];
 
   return (

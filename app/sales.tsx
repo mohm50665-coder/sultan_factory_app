@@ -1023,6 +1023,24 @@ export default function SalesScreen() {
       {/* بطاقة الإجراءات الإدارية */}
       <AdminCard />
 
+      {/* أزرار الطلبات */}
+      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#f8fafc' }}>
+        <TouchableOpacity
+          onPress={() => router.push('/orders-visits' as any)}
+          style={{ flex: 1, backgroundColor: '#0a7ea4', borderRadius: 12, paddingVertical: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+        >
+          <Text style={{ color: 'white', fontWeight: '600', fontSize: 12 }}>{isAr ? 'الطلبات والزيارات' : 'Orders & Visits'}</Text>
+          <MaterialIcons name="assignment" size={16} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push('/custom-manufacturing' as any)}
+          style={{ flex: 1, backgroundColor: '#ec4899', borderRadius: 12, paddingVertical: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
+        >
+          <Text style={{ color: 'white', fontWeight: '600', fontSize: 12 }}>{isAr ? 'التصنيع الخاص' : 'Custom Mfg'}</Text>
+          <MaterialIcons name="design-services" size={16} color="white" />
+        </TouchableOpacity>
+      </View>
+
       {/* التبويبات */}
       <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderColor: colors.border }}>
         <TouchableOpacity
