@@ -152,6 +152,7 @@ function NavigationContent() {
       <Stack.Screen name="orders-visits" />
       <Stack.Screen name="production-requests" />
       <Stack.Screen name="custom-manufacturing" />
+      <Stack.Screen name="tracking" />
     </Stack>
   );
 }

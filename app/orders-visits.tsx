@@ -49,11 +49,17 @@ interface OrderVisitEntry {
   // بيانات المندوب (تلقائية)
   salesRepName: string;
   salesRepPhone: string;
+  // تواريخ
+  orderDate: string;
+  deliveryDate: string;
   // حالة الاعتماد
   approvalStatus: string; // "pending" | "approved" | "rejected"
   // حالة التجهيز من المستودع
   warehouseStatus: string; // "" | "ready" | "not_ready" | "partial"
   warehouseNotes: string;
+  // توقيت التنفيذ
+  approvalTime: string;
+  warehouseTime: string;
   date: string;
 }
 
@@ -77,6 +83,9 @@ export default function OrdersVisitsScreen() {
   const [visitReport, setVisitReport] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([{ productName: "", quantity: "", unit: "dozen" }]);
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  // تواريخ
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deliveryDate, setDeliveryDate] = useState("");
   // بيانات العميل الجديد
   const [commercialRegister, setCommercialRegister] = useState("");
   const [nationalAddress, setNationalAddress] = useState("");
@@ -113,6 +122,8 @@ export default function OrdersVisitsScreen() {
     setVisitReport("");
     setOrderItems([{ productName: "", quantity: "", unit: "dozen" }]);
     setAttachments([]);
+    setOrderDate(new Date().toISOString().split("T")[0]);
+    setDeliveryDate("");
     setCommercialRegister("");
     setNationalAddress("");
     setShopLicense("");
@@ -137,6 +148,8 @@ export default function OrdersVisitsScreen() {
       visitReport,
       orderItems: orderItems.filter(i => i.productName.trim()),
       attachments,
+      orderDate,
+      deliveryDate,
       commercialRegister,
       nationalAddress,
       shopLicense,
@@ -147,6 +160,9 @@ export default function OrdersVisitsScreen() {
       approvalStatus: "pending",
       warehouseStatus: "",
       warehouseNotes: "",
+      approvalTime: "",
+      warehouseTime: "",
+      createdAt: new Date().toISOString(),
     };
 
     try {
@@ -181,6 +197,8 @@ export default function OrdersVisitsScreen() {
     setVisitReport(entry.visitReport || "");
     setOrderItems(entry.orderItems?.length ? entry.orderItems : [{ productName: "", quantity: "", unit: "dozen" }]);
     setAttachments(entry.attachments || []);
+    setOrderDate(entry.orderDate || new Date().toISOString().split("T")[0]);
+    setDeliveryDate(entry.deliveryDate || "");
     setCommercialRegister(entry.commercialRegister || "");
     setNationalAddress(entry.nationalAddress || "");
     setShopLicense(entry.shopLicense || "");
@@ -229,6 +247,7 @@ export default function OrdersVisitsScreen() {
       await maintenanceEntriesService.update(Number(entry.id), {
         ...entry,
         approvalStatus: decision,
+        approvalTime: new Date().toISOString(),
       });
       await notificationsService.add({
         type: "admin",
@@ -270,6 +289,7 @@ export default function OrdersVisitsScreen() {
         ...entry,
         warehouseStatus: status,
         warehouseNotes: notes,
+        warehouseTime: new Date().toISOString(),
       });
       await notificationsService.add({
         type: "admin",
@@ -335,6 +355,16 @@ export default function OrdersVisitsScreen() {
         {item.orderItems?.length > 0 && (
           <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>
             {isAr ? "الأصناف: " : "Items: "}{item.orderItems.map(i => `${i.productName} (${i.quantity} ${i.unit === "dozen" ? (isAr ? "درزن" : "dz") : (isAr ? "زوج" : "pr")})`).join(", ")}
+          </Text>
+        )}
+        {item.orderDate && (
+          <Text style={{ color: "#3b82f6", fontSize: 12, textAlign: "right", marginTop: 2 }}>
+            {isAr ? "تاريخ الطلب: " : "Order Date: "}{item.orderDate}
+          </Text>
+        )}
+        {item.deliveryDate && (
+          <Text style={{ color: "#16a34a", fontSize: 12, textAlign: "right" }}>
+            {isAr ? "تاريخ التسليم: " : "Delivery Date: "}{item.deliveryDate}
           </Text>
         )}
         <Text style={{ color: "#9BA1A6", fontSize: 11, textAlign: "right", marginTop: 4 }}>{item.date}</Text>
@@ -426,6 +456,28 @@ export default function OrdersVisitsScreen() {
         <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>
           {user?.name || "-"} | {user?.phone || "-"}
         </Text>
+      </View>
+
+      {/* تاريخ الطلب وتاريخ التسليم */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ التسليم" : "Delivery Date"}</Text>
+          <TextInput
+            value={deliveryDate}
+            onChangeText={setDeliveryDate}
+            placeholder="YYYY-MM-DD"
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ الطلب" : "Order Date"}</Text>
+          <TextInput
+            value={orderDate}
+            onChangeText={setOrderDate}
+            placeholder="YYYY-MM-DD"
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
+          />
+        </View>
       </View>
 
       {/* اسم العميل */}

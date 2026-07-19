@@ -39,9 +39,14 @@ interface CustomManufacturingEntry {
   notes: string;
   requestedBy: string;
   status: string; // "pending" | "approved" | "in_progress" | "completed"
+  orderDate: string;
+  deliveryDate: string;
   approvalStatus: string; // "pending" | "approved" | "rejected"
   warehouseStatus: string; // "" | "done" | "not_done" | "partial"
   warehouseNotes: string;
+  approvalTime: string;
+  warehouseTime: string;
+  createdAt: string;
   date: string;
 }
 
@@ -63,6 +68,8 @@ export default function CustomManufacturingScreen() {
   const [unit, setUnit] = useState<"dozen" | "pair">("dozen");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deliveryDate, setDeliveryDate] = useState("");
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [notes, setNotes] = useState("");
 
@@ -94,6 +101,8 @@ export default function CustomManufacturingScreen() {
     setUnit("dozen");
     setDateFrom("");
     setDateTo("");
+    setOrderDate(new Date().toISOString().split("T")[0]);
+    setDeliveryDate("");
     setAttachments([]);
     setNotes("");
     setEditingEntry(null);
@@ -114,12 +123,20 @@ export default function CustomManufacturingScreen() {
       unit,
       dateFrom,
       dateTo,
+      orderDate,
+      deliveryDate,
       attachments,
       manufacturingForm: "",
       designFile: "",
       notes,
       requestedBy: user?.name || "",
       status: "pending",
+      approvalStatus: "pending",
+      warehouseStatus: "",
+      warehouseNotes: "",
+      approvalTime: "",
+      warehouseTime: "",
+      createdAt: new Date().toISOString(),
     };
 
     try {
@@ -153,6 +170,8 @@ export default function CustomManufacturingScreen() {
     setUnit((entry.unit as any) || "dozen");
     setDateFrom(entry.dateFrom || "");
     setDateTo(entry.dateTo || "");
+    setOrderDate(entry.orderDate || new Date().toISOString().split("T")[0]);
+    setDeliveryDate(entry.deliveryDate || "");
     setAttachments(entry.attachments || []);
     setNotes(entry.notes || "");
     setEditingEntry(entry);
@@ -204,6 +223,7 @@ export default function CustomManufacturingScreen() {
         ...entry,
         approvalStatus: decision,
         status: decision === "approved" ? "approved" : "pending",
+        approvalTime: new Date().toISOString(),
       });
       await notificationsService.add({
         type: "admin",
@@ -239,6 +259,7 @@ export default function CustomManufacturingScreen() {
       await maintenanceEntriesService.update(Number(entry.id), {
         ...entry,
         warehouseStatus: status,
+        warehouseTime: new Date().toISOString(),
         warehouseNotes: notes,
       });
       await notificationsService.add({
@@ -391,6 +412,28 @@ export default function CustomManufacturingScreen() {
 
   const renderForm = () => (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+      {/* تاريخ الطلب وتاريخ التسليم */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ التسليم" : "Delivery Date"}</Text>
+          <TextInput
+            value={deliveryDate}
+            onChangeText={setDeliveryDate}
+            placeholder="YYYY-MM-DD"
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ الطلب" : "Order Date"}</Text>
+          <TextInput
+            value={orderDate}
+            onChangeText={setOrderDate}
+            placeholder="YYYY-MM-DD"
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
+          />
+        </View>
+      </View>
+
       {/* اسم الصنف */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "اسم الصنف *" : "Product Name *"}</Text>
       <TextInput
