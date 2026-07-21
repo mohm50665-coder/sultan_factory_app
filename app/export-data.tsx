@@ -14,6 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { exportService } from "@/lib/services/export.service";
+import * as Sharing from "expo-sharing";
 import { useLanguage } from "@/lib/language-context";
 
 interface ExportSection {
@@ -127,10 +128,18 @@ export default function ExportDataScreen() {
         }
       );
 
-      Alert.alert(
-        isAr ? "نجاح" : "Success",
-        isAr ? `تم تصدير البيانات بنجاح.\nالملف محفوظ في: ${fileUri}` : `Data exported successfully.\nFile saved at: ${fileUri}`
-      );
+      // Share the file directly
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: exportFormat === "json" ? "application/json" : "text/html",
+          dialogTitle: isAr ? "تصدير البيانات" : "Export Data",
+        });
+      } else {
+        Alert.alert(
+          isAr ? "نجاح" : "Success",
+          isAr ? `تم تصدير البيانات بنجاح.\nالملف محفوظ في: ${fileUri}` : `Data exported successfully.\nFile saved at: ${fileUri}`
+        );
+      }
     } catch (error) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل في تصدير البيانات" : "Failed to export data");
       console.error(error);

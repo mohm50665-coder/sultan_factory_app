@@ -1,5 +1,7 @@
 import { Platform, Share } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
 export interface PDFReportData {
   title: string;
@@ -141,7 +143,7 @@ function generateTextSection(section: PDFSection): string {
  */
 export async function exportReportAsPDF(report: PDFReportData): Promise<string> {
   const html = generateHTMLReport(report);
-  const fileName = `${report.title.replace(/\s+/g, "_")}_${Date.now()}.html`;
+  const fileName = `${report.title.replace(/\s+/g, "_")}_${Date.now()}`;
 
   if (Platform.OS === "web") {
     // Web: download as HTML file
@@ -149,22 +151,52 @@ export async function exportReportAsPDF(report: PDFReportData): Promise<string> 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = fileName;
+    a.download = `${fileName}.html`;
     a.click();
     URL.revokeObjectURL(url);
-    return fileName;
+    return `${fileName}.html`;
   } else {
-    // Mobile: save to file system and share
-    const filePath = `${FileSystem.documentDirectory}${fileName}`;
-    await FileSystem.writeAsStringAsync(filePath, html, { encoding: FileSystem.EncodingType.UTF8 });
+    // Mobile: Generate actual PDF file using expo-print
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
 
-    await Share.share({
-      url: filePath,
-      title: report.title,
-      message: `تقرير: ${report.title}`,
-    });
+      // Move to a readable location with proper name
+      const pdfPath = `${FileSystem.documentDirectory}${fileName}.pdf`;
+      await FileSystem.moveAsync({ from: uri, to: pdfPath });
 
-    return filePath;
+      // Share the PDF file using expo-sharing (sends actual file, not just text)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(pdfPath, {
+          mimeType: "application/pdf",
+          dialogTitle: report.title,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        // Fallback to Share API for iOS
+        await Share.share({
+          url: pdfPath,
+          title: report.title,
+        });
+      }
+
+      return pdfPath;
+    } catch (error) {
+      // Fallback: save as HTML and share
+      const htmlPath = `${FileSystem.documentDirectory}${fileName}.html`;
+      await FileSystem.writeAsStringAsync(htmlPath, html, { encoding: FileSystem.EncodingType.UTF8 });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(htmlPath, {
+          mimeType: "text/html",
+          dialogTitle: report.title,
+        });
+      }
+
+      return htmlPath;
+    }
   }
 }
 

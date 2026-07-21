@@ -16,6 +16,9 @@ import { useColors } from "@/hooks/use-colors";
 import { productionService, salesService, expensesService, taskService } from "@/lib/services/api.service";
 import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
 import { useLanguage } from "@/lib/language-context";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 
 interface ReportOption {
   id: string;
@@ -113,30 +116,78 @@ export default function ShareReportsScreen() {
     return text;
   };
 
-  const shareViaWhatsApp = (reportId: string) => {
+  const shareAsPDF = async (reportId: string) => {
     if (reportData.length === 0 && !selectedReport) {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات لمشاركتها" : "No data to share");
       return;
     }
-    const text = encodeURIComponent(generateReportText(reportId));
-    const url = `https://wa.me/?text=${text}`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح واتساب" : "Could not open WhatsApp");
-    });
+
+    const report = REPORT_OPTIONS.find((r) => r.id === reportId);
+    const reportTitle = isAr ? report?.titleAr || "تقرير" : report?.titleEn || "Report";
+    const reportText = generateReportText(reportId);
+    const today = new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US");
+
+    // Generate HTML for PDF
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, Tahoma, sans-serif; direction: rtl; padding: 30px; background: #fff; color: #1a1a1a; }
+    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0a7ea4; }
+    .header h1 { font-size: 22px; color: #0a7ea4; margin-bottom: 8px; }
+    .header .date { font-size: 13px; color: #999; }
+    .content { white-space: pre-wrap; font-size: 14px; line-height: 2; }
+    .footer { margin-top: 40px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>مصنع السلطان - ${reportTitle}</h1>
+    <div class="date">${today}</div>
+  </div>
+  <div class="content">${reportText.replace(/\n/g, "<br>")}</div>
+  <div class="footer">تم إنشاء هذا التقرير من تطبيق مصنع السلطان</div>
+</body>
+</html>`;
+
+    if (Platform.OS === "web") {
+      // Web: download as HTML
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${reportTitle}_${Date.now()}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      // Mobile: Generate PDF and share as file
+      try {
+        const { uri } = await Print.printToFileAsync({ html, base64: false });
+        const pdfPath = `${FileSystem.documentDirectory}${reportTitle}_${Date.now()}.pdf`;
+        await FileSystem.moveAsync({ from: uri, to: pdfPath });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(pdfPath, {
+            mimeType: "application/pdf",
+            dialogTitle: reportTitle,
+            UTI: "com.adobe.pdf",
+          });
+        }
+      } catch (error) {
+        Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر إنشاء الملف" : "Could not create file");
+      }
+    }
+  };
+
+  const shareViaWhatsApp = (reportId: string) => {
+    // Share as PDF file via WhatsApp (using system share sheet)
+    shareAsPDF(reportId);
   };
 
   const shareViaEmail = (reportId: string) => {
-    if (reportData.length === 0 && !selectedReport) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات لمشاركتها" : "No data to share");
-      return;
-    }
-    const report = REPORT_OPTIONS.find((r) => r.id === reportId);
-    const subject = encodeURIComponent(isAr ? `${report?.titleAr || "تقرير"} - مصنع السلطان` : `${report?.titleEn || "Report"} - Sultan Factory`);
-    const body = encodeURIComponent(generateReportText(reportId));
-    const url = `mailto:?subject=${subject}&body=${body}`;
-    Linking.openURL(url).catch(() => {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "تعذر فتح البريد الإلكتروني" : "Could not open Email");
-    });
+    // Share as PDF file via Email (using system share sheet)
+    shareAsPDF(reportId);
   };
 
   const handleSelectReport = async (report: ReportOption) => {
