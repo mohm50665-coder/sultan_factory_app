@@ -37,6 +37,13 @@ interface ProductionEntry {
   machines: { [key: string]: MachineData };
 }
 
+// ملاحظة 1: تحويل النخب الثاني من زوج لدرزن
+const convertPairsToDozens = (totalPairs: number): { dozens: number; remainingPairs: number } => {
+  const dozens = Math.floor(totalPairs / 12);
+  const remainingPairs = totalPairs % 12;
+  return { dozens, remainingPairs };
+};
+
 export default function ProductionTotalsScreen() {
   const colors = useColors();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
@@ -51,14 +58,13 @@ export default function ProductionTotalsScreen() {
     try {
       const data = await productionService.getAll();
       if (data && data.length > 0) {
-        // Group by date and reconstruct machines structure (machine+shift as key)
         const grouped: { [date: string]: { [key: string]: MachineData } } = {};
         data.forEach((item: any) => {
           const date = item.date || item.entryDate || "unknown";
           if (!grouped[date]) grouped[date] = {};
           const machine = item.machineNumber || "unknown";
           const shift = item.shiftNumber || "1";
-          const key = `${machine}_S${shift}`;
+          const key = `${machine}_S${shift}_${item.productName || ""}`;
           grouped[date][key] = {
             productionDozen: String(item.productionDozen || "0"),
             productionPairs: String(item.productionPairs || "0"),
@@ -105,7 +111,6 @@ export default function ProductionTotalsScreen() {
   let grandHours = 0;
   let grandMinutes = 0;
 
-  // تفاصيل الخيوط حسب النوع
   let totalRubber = 0;
   let totalSpandex = 0;
   let totalNylon = 0;
@@ -147,6 +152,10 @@ export default function ProductionTotalsScreen() {
   grandHours += Math.floor(grandMinutes / 60);
   grandMinutes = grandMinutes % 60;
 
+  // ملاحظة 1: تحويل النخب الثاني - تجميع كل الأزواج ثم التحويل
+  const totalSecondPairsAll = grandSecondPairs + (grandSecondDozen * 12);
+  const secondConverted = convertPairsToDozens(totalSecondPairsAll);
+
   const grandWasteAll = grandWasteThread + grandWasteSocks;
   const grandWastePercent = grandYarnWeight > 0 ? ((grandWasteAll / grandYarnWeight) * 100) : 0;
   const wasteColor = grandWastePercent > 5 ? "#ef4444" : "#22c55e";
@@ -159,7 +168,7 @@ export default function ProductionTotalsScreen() {
           <View style={{ width: 40 }} />
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "إجمالي بيانات المكائن" : "Total Machines Data"}</Text>
-            <Text style={{ fontSize: 14, marginTop: 4 }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
+            <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
           </View>
           <BackButton />
         </View>
@@ -198,7 +207,7 @@ export default function ProductionTotalsScreen() {
               </View>
             </View>
 
-            {/* النخب الثاني */}
+            {/* النخب الثاني - ملاحظة 1: تحويل من زوج لدرزن */}
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
                 <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{isAr ? "كمية النخب الثاني" : "Second Grade Quantity"}</Text>
@@ -208,14 +217,19 @@ export default function ProductionTotalsScreen() {
               </View>
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 24 }}>
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ color: "#f59e0b", fontWeight: "bold", fontSize: 22 }}>{grandSecondDozen}</Text>
+                  <Text style={{ color: "#f59e0b", fontWeight: "bold", fontSize: 22 }}>{secondConverted.dozens}</Text>
                   <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "درزن" : "Dozen"}</Text>
                 </View>
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ color: "#f59e0b", fontWeight: "bold", fontSize: 22 }}>{grandSecondPairs}</Text>
+                  <Text style={{ color: "#f59e0b", fontWeight: "bold", fontSize: 22 }}>{secondConverted.remainingPairs}</Text>
                   <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "زوج" : "Pair"}</Text>
                 </View>
               </View>
+              {totalSecondPairsAll > 0 && (
+                <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'right', marginTop: 8 }}>
+                  {isAr ? `(إجمالي: ${totalSecondPairsAll} زوج = ${secondConverted.dozens} درزن و ${secondConverted.remainingPairs} زوج)` : `(Total: ${totalSecondPairsAll} pairs = ${secondConverted.dozens} dozen & ${secondConverted.remainingPairs} pairs)`}
+                </Text>
+              )}
             </View>
 
             {/* كمية وزن الهدر */}
@@ -314,7 +328,7 @@ export default function ProductionTotalsScreen() {
             {/* مدة الإنتاج الإجمالية */}
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginBottom: 12 }}>
-                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{isAr ? "إجمالي مدة الإنتاج" : "Total Production Duration"}</Text>
+                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{isAr ? "مدة الإنتاج الإجمالية" : "Total Production Time"}</Text>
                 <View style={{ backgroundColor: "#8b5cf620", borderRadius: 14, padding: 5 }}>
                   <MaterialIcons name="timer" size={20} color="#8b5cf6" />
                 </View>
@@ -325,12 +339,12 @@ export default function ProductionTotalsScreen() {
               </View>
             </View>
 
-            {/* ملخص حسب المنتج */}
+            {/* ملاحظة 2: ملخص حسب المنتج - تجميع المنتجات المتكررة */}
             {(() => {
               const productSummary: Record<string, { dozen: number; pairs: number }> = {};
               entries.forEach(entry => {
                 Object.values(entry.machines).forEach(m => {
-                  const name = m.productName || (isAr ? "بدون اسم" : "Unnamed");
+                  const name = (m.productName || "").trim() || (isAr ? "بدون اسم" : "Unnamed");
                   if (!productSummary[name]) productSummary[name] = { dozen: 0, pairs: 0 };
                   productSummary[name].dozen += parseFloat(m.productionDozen) || 0;
                   productSummary[name].pairs += parseFloat(m.productionPairs) || 0;
@@ -349,8 +363,13 @@ export default function ProductionTotalsScreen() {
                   <View style={{ gap: 8 }}>
                     {products.map(([name, data]) => (
                       <View key={name} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
-                        <Text style={{ color: "#14b8a6", fontWeight: 'bold', fontSize: 16 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
-                        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{name}</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Text style={{ color: "#14b8a6", fontWeight: 'bold', fontSize: 16 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
+                          {data.pairs > 0 && (
+                            <Text style={{ color: colors.muted, fontSize: 13 }}>+ {data.pairs} {isAr ? "زوج" : "pr"}</Text>
+                          )}
+                        </View>
+                        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', flex: 1, marginLeft: 8 }}>{name}</Text>
                       </View>
                     ))}
                   </View>
