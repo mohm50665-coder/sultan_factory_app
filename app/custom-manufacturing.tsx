@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   FlatList,
+  Platform,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -21,10 +22,16 @@ import { notificationsService } from "@/lib/services/notifications.service";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 
+
 const SECTION_KEY = "custom_manufacturing";
 
 interface CustomManufacturingEntry {
   id: string;
+  // بيانات العميل التجاري
+  clientCommercialName: string;
+  clientContactName: string;
+  clientPhone: string;
+  // بيانات المنتج
   productName: string;
   color: string;
   size: string;
@@ -33,19 +40,24 @@ interface CustomManufacturingEntry {
   unit: string;
   dateFrom: string;
   dateTo: string;
+  // المرفقات المطلوبة
   attachments: AttachmentFile[];
-  manufacturingForm: string;
-  designFile: string;
+  manufacturingFormAttachment: AttachmentFile[];
+  commercialRegAttachment: AttachmentFile[];
+  taxNumberAttachment: AttachmentFile[];
+  nationalAddressAttachment: AttachmentFile[];
+  designFileAttachment: AttachmentFile[];
   notes: string;
   requestedBy: string;
-  status: string; // "pending" | "approved" | "in_progress" | "completed"
+  status: string; // "pending" | "approved_sales" | "approved_production" | "in_progress" | "completed"
   orderDate: string;
   deliveryDate: string;
-  approvalStatus: string; // "pending" | "approved" | "rejected"
-  warehouseStatus: string; // "" | "done" | "not_done" | "partial"
-  warehouseNotes: string;
-  approvalTime: string;
-  warehouseTime: string;
+  // سير العمل: مدير المبيعات → مدير الإنتاج
+  salesApprovalStatus: string; // "pending" | "approved" | "rejected"
+  salesApprovalTime: string;
+  productionApprovalStatus: string; // "" | "received" | "in_progress" | "completed"
+  productionApprovalTime: string;
+  productionNotes: string;
   createdAt: string;
   date: string;
 }
@@ -60,6 +72,10 @@ export default function CustomManufacturingScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<CustomManufacturingEntry | null>(null);
 
+  // حقول النموذج
+  const [clientCommercialName, setClientCommercialName] = useState("");
+  const [clientContactName, setClientContactName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [productName, setProductName] = useState("");
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
@@ -71,6 +87,11 @@ export default function CustomManufacturingScreen() {
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const [manufacturingFormAttachment, setManufacturingFormAttachment] = useState<AttachmentFile[]>([]);
+  const [commercialRegAttachment, setCommercialRegAttachment] = useState<AttachmentFile[]>([]);
+  const [taxNumberAttachment, setTaxNumberAttachment] = useState<AttachmentFile[]>([]);
+  const [nationalAddressAttachment, setNationalAddressAttachment] = useState<AttachmentFile[]>([]);
+  const [designFileAttachment, setDesignFileAttachment] = useState<AttachmentFile[]>([]);
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -93,6 +114,9 @@ export default function CustomManufacturingScreen() {
   };
 
   const resetForm = () => {
+    setClientCommercialName("");
+    setClientContactName("");
+    setClientPhone("");
     setProductName("");
     setColor("");
     setSize("");
@@ -104,6 +128,11 @@ export default function CustomManufacturingScreen() {
     setOrderDate(new Date().toISOString().split("T")[0]);
     setDeliveryDate("");
     setAttachments([]);
+    setManufacturingFormAttachment([]);
+    setCommercialRegAttachment([]);
+    setTaxNumberAttachment([]);
+    setNationalAddressAttachment([]);
+    setDesignFileAttachment([]);
     setNotes("");
     setEditingEntry(null);
   };
@@ -113,8 +142,15 @@ export default function CustomManufacturingScreen() {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال اسم الصنف والكمية" : "Please enter product name and quantity");
       return;
     }
+    if (!clientCommercialName.trim()) {
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى إدخال اسم العميل التجاري" : "Please enter client commercial name");
+      return;
+    }
 
     const entryData = {
+      clientCommercialName,
+      clientContactName,
+      clientPhone,
       productName,
       color,
       size,
@@ -126,16 +162,19 @@ export default function CustomManufacturingScreen() {
       orderDate,
       deliveryDate,
       attachments,
-      manufacturingForm: "",
-      designFile: "",
+      manufacturingFormAttachment,
+      commercialRegAttachment,
+      taxNumberAttachment,
+      nationalAddressAttachment,
+      designFileAttachment,
       notes,
       requestedBy: user?.name || "",
       status: "pending",
-      approvalStatus: "pending",
-      warehouseStatus: "",
-      warehouseNotes: "",
-      approvalTime: "",
-      warehouseTime: "",
+      salesApprovalStatus: "pending",
+      salesApprovalTime: "",
+      productionApprovalStatus: "",
+      productionApprovalTime: "",
+      productionNotes: "",
       createdAt: new Date().toISOString(),
     };
 
@@ -144,24 +183,27 @@ export default function CustomManufacturingScreen() {
         await maintenanceEntriesService.update(Number(editingEntry.id), entryData);
       } else {
         await maintenanceEntriesService.create(SECTION_KEY, entryData, user?.name, undefined, user?.id ? Number(user.id) : undefined);
-        // إشعار لمدير الإنتاج
+        // إشعار لمدير المبيعات لاعتماد الطلب
         await notificationsService.add({
-          type: "production",
-          title: isAr ? "طلب تصنيع خاص جديد" : "New Custom Manufacturing Request",
-          message: isAr ? `طلب تصنيع خاص: ${productName} - ${orderType === "sample" ? "عينة" : "منتج"} - ${quantity} ${unit === "dozen" ? "درزن" : "زوج"}` : `Custom manufacturing: ${productName} - ${orderType} - ${quantity} ${unit}`,
-          data: { section: SECTION_KEY, productName, orderType },
+          type: "admin",
+          title: isAr ? "طلب تصنيع خاص جديد - بانتظار الاعتماد" : "New Custom Manufacturing - Pending Approval",
+          message: isAr ? `طلب تصنيع خاص من العميل: ${clientCommercialName} - ${productName} (${quantity} ${unit === "dozen" ? "درزن" : "زوج"})` : `Custom manufacturing from: ${clientCommercialName} - ${productName} (${quantity} ${unit})`,
+          data: { section: SECTION_KEY, productName, clientCommercialName },
         });
       }
       resetForm();
       setShowForm(false);
       loadEntries();
-      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ طلب التصنيع بنجاح" : "Custom manufacturing request saved");
+      Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حفظ طلب التصنيع بنجاح وتم رفعه لمدير المبيعات للاعتماد" : "Custom manufacturing request saved and sent to Sales Manager for approval");
     } catch (e) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ أثناء الحفظ" : "Error saving");
     }
   };
 
   const handleEdit = (entry: CustomManufacturingEntry) => {
+    setClientCommercialName(entry.clientCommercialName || "");
+    setClientContactName(entry.clientContactName || "");
+    setClientPhone(entry.clientPhone || "");
     setProductName(entry.productName || "");
     setColor(entry.color || "");
     setSize(entry.size || "");
@@ -173,6 +215,11 @@ export default function CustomManufacturingScreen() {
     setOrderDate(entry.orderDate || new Date().toISOString().split("T")[0]);
     setDeliveryDate(entry.deliveryDate || "");
     setAttachments(entry.attachments || []);
+    setManufacturingFormAttachment(entry.manufacturingFormAttachment || []);
+    setCommercialRegAttachment(entry.commercialRegAttachment || []);
+    setTaxNumberAttachment(entry.taxNumberAttachment || []);
+    setNationalAddressAttachment(entry.nationalAddressAttachment || []);
+    setDesignFileAttachment(entry.designFileAttachment || []);
     setNotes(entry.notes || "");
     setEditingEntry(entry);
     setShowForm(true);
@@ -196,41 +243,36 @@ export default function CustomManufacturingScreen() {
     );
   };
 
-  const handleConvertToProduct = async (entry: CustomManufacturingEntry) => {
-    Alert.alert(
-      isAr ? "تحويل لمنتج" : "Convert to Product",
-      isAr ? "هل تريد تحويل هذه العينة إلى منتج؟" : "Convert this sample to a product?",
-      [
-        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
-        {
-          text: isAr ? "تحويل" : "Convert",
-          onPress: async () => {
-            const updatedData = { ...entry, orderType: "product" };
-            delete (updatedData as any).id;
-            delete (updatedData as any).date;
-            await maintenanceEntriesService.update(Number(entry.id), updatedData);
-            loadEntries();
-            Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تحويل العينة إلى منتج" : "Sample converted to product");
-          },
-        },
-      ]
-    );
-  };
-
-  const handleApproval = async (entry: CustomManufacturingEntry, decision: "approved" | "rejected") => {
+  // اعتماد مدير المبيعات
+  const handleSalesApproval = async (entry: CustomManufacturingEntry, decision: "approved" | "rejected") => {
     try {
-      await maintenanceEntriesService.update(Number(entry.id), {
+      const updatedData = {
         ...entry,
-        approvalStatus: decision,
-        status: decision === "approved" ? "approved" : "pending",
-        approvalTime: new Date().toISOString(),
-      });
+        salesApprovalStatus: decision,
+        salesApprovalTime: new Date().toISOString(),
+        status: decision === "approved" ? "approved_sales" : "pending",
+      };
+      delete (updatedData as any).id;
+      delete (updatedData as any).date;
+      await maintenanceEntriesService.update(Number(entry.id), updatedData);
+
+      if (decision === "approved") {
+        // بعد اعتماد مدير المبيعات → إشعار لمدير الإنتاج (وليس المستودعات)
+        await notificationsService.add({
+          type: "production",
+          title: isAr ? "طلب تصنيع خاص معتمد - بانتظار مدير الإنتاج" : "Approved Custom Manufacturing - Pending Production Manager",
+          message: isAr ? `تم اعتماد طلب تصنيع خاص من العميل: ${entry.clientCommercialName || ""} - ${entry.productName} وتحويله لمدير الإنتاج` : `Approved custom manufacturing from: ${entry.clientCommercialName || ""} - ${entry.productName} - forwarded to Production Manager`,
+          data: { section: SECTION_KEY, id: entry.id, productName: entry.productName },
+        });
+      }
+
       await notificationsService.add({
         type: "admin",
-        title: isAr ? "تعميد طلب تصنيع" : "Manufacturing Approval",
-        message: isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} طلب تصنيع: ${entry.productName}` : `Manufacturing request ${decision}: ${entry.productName}`,
+        title: isAr ? "قرار تعميد تصنيع خاص" : "Custom Manufacturing Approval Decision",
+        message: isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} طلب تصنيع: ${entry.productName} من العميل: ${entry.clientCommercialName || ""}` : `Manufacturing request ${decision}: ${entry.productName} from: ${entry.clientCommercialName || ""}`,
         data: { section: SECTION_KEY, id: entry.id },
       });
+
       loadEntries();
       Alert.alert(isAr ? "تم" : "Done", isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} الطلب` : `Request ${decision}`);
     } catch (e) {
@@ -238,36 +280,27 @@ export default function CustomManufacturingScreen() {
     }
   };
 
-  const handleWarehouseResponse = (entry: CustomManufacturingEntry, status: "done" | "not_done" | "partial") => {
-    if (status === "done") {
-      saveWarehouseResponse(entry, status, "");
-    } else {
-      Alert.prompt(
-        isAr ? (status === "not_done" ? "سبب عدم الإنجاز" : "النواقص والسبب") : (status === "not_done" ? "Reason" : "Shortages & reason"),
-        isAr ? "أدخل التفاصيل" : "Enter details",
-        [
-          { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
-          { text: isAr ? "حفظ" : "Save", onPress: (notes?: string) => saveWarehouseResponse(entry, status, notes || "") },
-        ],
-        "plain-text"
-      );
-    }
-  };
-
-  const saveWarehouseResponse = async (entry: CustomManufacturingEntry, status: string, notes: string) => {
+  // استلام مدير الإنتاج
+  const handleProductionResponse = async (entry: CustomManufacturingEntry, status: "received" | "in_progress" | "completed", pNotes?: string) => {
     try {
-      await maintenanceEntriesService.update(Number(entry.id), {
+      const updatedData = {
         ...entry,
-        warehouseStatus: status,
-        warehouseTime: new Date().toISOString(),
-        warehouseNotes: notes,
-      });
+        productionApprovalStatus: status,
+        productionApprovalTime: new Date().toISOString(),
+        productionNotes: pNotes || entry.productionNotes || "",
+        status: status === "completed" ? "completed" : status === "in_progress" ? "in_progress" : "approved_sales",
+      };
+      delete (updatedData as any).id;
+      delete (updatedData as any).date;
+      await maintenanceEntriesService.update(Number(entry.id), updatedData);
+
       await notificationsService.add({
         type: "admin",
-        title: isAr ? "إفادة مستودع" : "Warehouse Response",
-        message: isAr ? `إفادة المستودع لطلب تصنيع: ${entry.productName}` : `Warehouse response for: ${entry.productName}`,
+        title: isAr ? "تحديث من مدير الإنتاج" : "Production Manager Update",
+        message: isAr ? `طلب تصنيع ${entry.productName}: ${status === "received" ? "تم الاستلام" : status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}` : `Manufacturing ${entry.productName}: ${status}`,
         data: { section: SECTION_KEY, id: entry.id },
       });
+
       loadEntries();
     } catch (e) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ" : "An error occurred");
@@ -276,7 +309,8 @@ export default function CustomManufacturingScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "approved": return "#3b82f6";
+      case "approved_sales": return "#3b82f6";
+      case "approved_production": return "#8b5cf6";
       case "in_progress": return "#f59e0b";
       case "completed": return "#16a34a";
       default: return "#9ca3af";
@@ -286,22 +320,23 @@ export default function CustomManufacturingScreen() {
   const getStatusLabel = (status: string) => {
     if (isAr) {
       switch (status) {
-        case "approved": return "معتمد";
+        case "approved_sales": return "معتمد من المبيعات";
         case "in_progress": return "قيد التنفيذ";
         case "completed": return "مكتمل";
-        default: return "معلق";
+        default: return "بانتظار الاعتماد";
       }
     }
     switch (status) {
-      case "approved": return "Approved";
+      case "approved_sales": return "Sales Approved";
       case "in_progress": return "In Progress";
       case "completed": return "Completed";
-      default: return "Pending";
+      default: return "Pending Approval";
     }
   };
 
   const renderEntry = ({ item }: { item: CustomManufacturingEntry }) => (
     <View style={{ backgroundColor: "white", borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: "#E5E7EB" }}>
+      {/* رأس الطلب */}
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TouchableOpacity onPress={() => handleEdit(item)} style={{ padding: 6 }}>
@@ -310,11 +345,6 @@ export default function CustomManufacturingScreen() {
           <TouchableOpacity onPress={() => handleDelete(item)} style={{ padding: 6 }}>
             <MaterialIcons name="delete" size={18} color="#ef4444" />
           </TouchableOpacity>
-          {item.orderType === "sample" && (
-            <TouchableOpacity onPress={() => handleConvertToProduct(item)} style={{ padding: 6 }}>
-              <MaterialIcons name="swap-horiz" size={18} color="#8b5cf6" />
-            </TouchableOpacity>
-          )}
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ fontWeight: "bold", fontSize: 16, color: "#11181C" }}>{item.productName}</Text>
@@ -325,17 +355,38 @@ export default function CustomManufacturingScreen() {
           </View>
         </View>
       </View>
+
+      {/* بيانات العميل التجاري */}
+      <View style={{ backgroundColor: "#f0f9ff", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+        <Text style={{ color: "#0369a1", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 4 }}>
+          {isAr ? "بيانات العميل" : "Client Info"}
+        </Text>
+        {item.clientCommercialName && (
+          <Text style={{ color: "#0c4a6e", fontSize: 13, textAlign: "right" }}>
+            {isAr ? "الاسم التجاري: " : "Commercial Name: "}{item.clientCommercialName}
+          </Text>
+        )}
+        {item.clientContactName && (
+          <Text style={{ color: "#0c4a6e", fontSize: 13, textAlign: "right" }}>
+            {isAr ? "المسئول: " : "Contact: "}{item.clientContactName}
+          </Text>
+        )}
+        {item.clientPhone && (
+          <Text style={{ color: "#0c4a6e", fontSize: 13, textAlign: "right" }}>
+            {isAr ? "الجوال: " : "Phone: "}{item.clientPhone}
+          </Text>
+        )}
+      </View>
+
+      {/* تفاصيل المنتج */}
       <View style={{ gap: 4 }}>
         {item.color && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "اللون: " : "Color: "}{item.color}</Text>}
         {item.size && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "المقاس: " : "Size: "}{item.size}</Text>}
         <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>
           {isAr ? "الكمية: " : "Qty: "}{item.quantity} {item.unit === "dozen" ? (isAr ? "درزن" : "dozen") : (isAr ? "زوج" : "pairs")}
         </Text>
-        {(item.dateFrom || item.dateTo) && (
-          <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>
-            {isAr ? "المدة: " : "Period: "}{item.dateFrom || "?"} → {item.dateTo || "?"}
-          </Text>
-        )}
+        {item.orderDate && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "تاريخ الطلب: " : "Order Date: "}{item.orderDate}</Text>}
+        {item.deliveryDate && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "تاريخ التسليم: " : "Delivery: "}{item.deliveryDate}</Text>}
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
           <View style={{ backgroundColor: getStatusColor(item.status) + "20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
             <Text style={{ color: getStatusColor(item.status), fontSize: 11, fontWeight: "600" }}>{getStatusLabel(item.status)}</Text>
@@ -344,17 +395,17 @@ export default function CustomManufacturingScreen() {
         </View>
       </View>
 
-      {/* تعميد مدير المبيعات والتسويق */}
+      {/* تعميد مدير المبيعات */}
       <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: "#E5E7EB", paddingTop: 10 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View style={{ flexDirection: "row", gap: 6 }}>
-            {(user?.role === "admin" || user?.role === "manager" || user?.department === "sales") && (!item.approvalStatus || item.approvalStatus === "pending") && (
+            {(user?.role === "admin" || user?.role === "manager" || user?.department === "sales") && (!item.salesApprovalStatus || item.salesApprovalStatus === "pending") && (
               <>
-                <TouchableOpacity onPress={() => handleApproval(item, "approved")} style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <TouchableOpacity onPress={() => handleSalesApproval(item, "approved")} style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
                   <MaterialIcons name="check" size={14} color="white" />
                   <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "اعتماد" : "Approve"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleApproval(item, "rejected")} style={{ backgroundColor: "#ef4444", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <TouchableOpacity onPress={() => handleSalesApproval(item, "rejected")} style={{ backgroundColor: "#ef4444", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
                   <MaterialIcons name="close" size={14} color="white" />
                   <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "رفض" : "Reject"}</Text>
                 </TouchableOpacity>
@@ -365,53 +416,98 @@ export default function CustomManufacturingScreen() {
             {isAr ? "تعميد مدير المبيعات" : "Sales Manager Approval"}
           </Text>
         </View>
-        {item.approvalStatus && item.approvalStatus !== "pending" && (
-          <Text style={{ color: item.approvalStatus === "approved" ? "#16a34a" : "#ef4444", fontSize: 12, textAlign: "right", marginTop: 4 }}>
-            {isAr ? "القرار: " : "Decision: "}{item.approvalStatus === "approved" ? (isAr ? "معتمد" : "Approved") : (isAr ? "مرفوض" : "Rejected")}
+        {item.salesApprovalStatus && item.salesApprovalStatus !== "pending" && (
+          <Text style={{ color: item.salesApprovalStatus === "approved" ? "#16a34a" : "#ef4444", fontSize: 12, textAlign: "right", marginTop: 4 }}>
+            {isAr ? "القرار: " : "Decision: "}{item.salesApprovalStatus === "approved" ? (isAr ? "معتمد ✓" : "Approved ✓") : (isAr ? "مرفوض ✗" : "Rejected ✗")}
+            {item.salesApprovalTime ? ` (${new Date(item.salesApprovalTime).toLocaleDateString("ar-SA")})` : ""}
           </Text>
         )}
       </View>
 
-      {/* إفادة المستودعات */}
-      <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: "#E5E7EB", paddingTop: 10 }}>
-        <Text style={{ color: "#8b5cf6", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 6 }}>
-          {isAr ? "إفادة المستودعات" : "Warehouse Response"}
-        </Text>
-        {item.warehouseStatus ? (
-          <View style={{ gap: 4 }}>
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
-              <Text style={{ color: item.warehouseStatus === "done" ? "#16a34a" : item.warehouseStatus === "not_done" ? "#ef4444" : "#f59e0b", fontSize: 12, fontWeight: "600" }}>
-                {isAr ? (item.warehouseStatus === "done" ? "أنجز" : item.warehouseStatus === "not_done" ? "لم ينجز" : "أنجز جزئياً") : (item.warehouseStatus === "done" ? "Done" : item.warehouseStatus === "not_done" ? "Not Done" : "Partial")}
-              </Text>
-              <MaterialIcons name={item.warehouseStatus === "done" ? "check-circle" : item.warehouseStatus === "not_done" ? "cancel" : "warning"} size={16} color={item.warehouseStatus === "done" ? "#16a34a" : item.warehouseStatus === "not_done" ? "#ef4444" : "#f59e0b"} />
-            </View>
-            {item.warehouseNotes ? <Text style={{ color: "#687076", fontSize: 11, textAlign: "right" }}>{item.warehouseNotes}</Text> : null}
-          </View>
-        ) : (
-          (user?.role === "admin" || user?.role === "manager" || user?.department === "warehouse") && item.approvalStatus === "approved" ? (
-            <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <TouchableOpacity onPress={() => handleWarehouseResponse(item, "done")} style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "أنجز" : "Done"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleWarehouseResponse(item, "not_done")} style={{ backgroundColor: "#ef4444", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "لم ينجز" : "Not Done"}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleWarehouseResponse(item, "partial")} style={{ backgroundColor: "#f59e0b", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
-                <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "جزئياً" : "Partial"}</Text>
-              </TouchableOpacity>
+      {/* مدير الإنتاج (بعد اعتماد مدير المبيعات) */}
+      {item.salesApprovalStatus === "approved" && (
+        <View style={{ marginTop: 10, borderTopWidth: 1, borderColor: "#E5E7EB", paddingTop: 10 }}>
+          <Text style={{ color: "#8b5cf6", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 6 }}>
+            {isAr ? "مدير الإنتاج" : "Production Manager"}
+          </Text>
+          {item.productionApprovalStatus ? (
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+                <Text style={{ color: item.productionApprovalStatus === "completed" ? "#16a34a" : item.productionApprovalStatus === "in_progress" ? "#f59e0b" : "#3b82f6", fontSize: 12, fontWeight: "600" }}>
+                  {isAr ? (item.productionApprovalStatus === "completed" ? "مكتمل" : item.productionApprovalStatus === "in_progress" ? "قيد التنفيذ" : "تم الاستلام") : (item.productionApprovalStatus === "completed" ? "Completed" : item.productionApprovalStatus === "in_progress" ? "In Progress" : "Received")}
+                </Text>
+                <MaterialIcons name={item.productionApprovalStatus === "completed" ? "check-circle" : item.productionApprovalStatus === "in_progress" ? "autorenew" : "inbox"} size={16} color={item.productionApprovalStatus === "completed" ? "#16a34a" : item.productionApprovalStatus === "in_progress" ? "#f59e0b" : "#3b82f6"} />
+              </View>
+              {item.productionNotes ? <Text style={{ color: "#687076", fontSize: 11, textAlign: "right" }}>{item.productionNotes}</Text> : null}
+              {/* أزرار تحديث الحالة لمدير الإنتاج */}
+              {(user?.role === "admin" || user?.role === "manager" || user?.department === "production") && item.productionApprovalStatus !== "completed" && (
+                <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
+                  {item.productionApprovalStatus === "received" && (
+                    <TouchableOpacity onPress={() => handleProductionResponse(item, "in_progress")} style={{ backgroundColor: "#f59e0b", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                      <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "بدء التنفيذ" : "Start"}</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => handleProductionResponse(item, "completed")} style={{ backgroundColor: "#16a34a", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                    <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "مكتمل" : "Complete"}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : (
-            <Text style={{ color: "#9BA1A6", fontSize: 11, textAlign: "right" }}>
-              {(!item.approvalStatus || item.approvalStatus !== "approved") ? (isAr ? "بانتظار اعتماد المدير" : "Waiting for approval") : (isAr ? "بانتظار إفادة المستودع" : "Waiting for warehouse")}
-            </Text>
-          )
-        )}
-      </View>
+            (user?.role === "admin" || user?.role === "manager" || user?.department === "production") ? (
+              <View style={{ flexDirection: "row", gap: 6, justifyContent: "flex-end" }}>
+                <TouchableOpacity onPress={() => handleProductionResponse(item, "received")} style={{ backgroundColor: "#3b82f6", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "استلام الطلب" : "Receive"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleProductionResponse(item, "in_progress")} style={{ backgroundColor: "#f59e0b", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                  <Text style={{ color: "white", fontSize: 11, fontWeight: "600" }}>{isAr ? "بدء التنفيذ" : "Start"}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={{ color: "#9BA1A6", fontSize: 11, textAlign: "right" }}>
+                {isAr ? "بانتظار استلام مدير الإنتاج" : "Waiting for Production Manager"}
+              </Text>
+            )
+          )}
+        </View>
+      )}
     </View>
   );
 
   const renderForm = () => (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+      {/* بيانات العميل التجاري */}
+      <View style={{ backgroundColor: "#f0f9ff", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: "#bae6fd" }}>
+        <Text style={{ color: "#0369a1", fontWeight: "bold", fontSize: 14, textAlign: "right", marginBottom: 10 }}>
+          {isAr ? "بيانات العميل التجاري" : "Client Commercial Info"}
+        </Text>
+
+        <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "اسم العميل التجاري *" : "Commercial Name *"}</Text>
+        <TextInput
+          value={clientCommercialName}
+          onChangeText={setClientCommercialName}
+          placeholder={isAr ? "أدخل اسم العميل التجاري" : "Enter commercial name"}
+          style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
+        />
+
+        <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "اسم المسئول" : "Contact Person"}</Text>
+        <TextInput
+          value={clientContactName}
+          onChangeText={setClientContactName}
+          placeholder={isAr ? "أدخل اسم المسئول" : "Enter contact name"}
+          style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
+        />
+
+        <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "رقم الجوال" : "Phone Number"}</Text>
+        <TextInput
+          value={clientPhone}
+          onChangeText={setClientPhone}
+          placeholder={isAr ? "05XXXXXXXX" : "05XXXXXXXX"}
+          keyboardType="phone-pad"
+          style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
+        />
+      </View>
+
       {/* تاريخ الطلب وتاريخ التسليم */}
       <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
         <View style={{ flex: 1 }}>
@@ -443,23 +539,27 @@ export default function CustomManufacturingScreen() {
         style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
       />
 
-      {/* اللون */}
-      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "اللون" : "Color"}</Text>
-      <TextInput
-        value={color}
-        onChangeText={setColor}
-        placeholder={isAr ? "أدخل اللون" : "Enter color"}
-        style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
-      />
-
-      {/* المقاس */}
-      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "المقاس" : "Size"}</Text>
-      <TextInput
-        value={size}
-        onChangeText={setSize}
-        placeholder={isAr ? "أدخل المقاس" : "Enter size"}
-        style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
-      />
+      {/* اللون والمقاس */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "المقاس" : "Size"}</Text>
+          <TextInput
+            value={size}
+            onChangeText={setSize}
+            placeholder={isAr ? "المقاس" : "Size"}
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "اللون" : "Color"}</Text>
+          <TextInput
+            value={color}
+            onChangeText={setColor}
+            placeholder={isAr ? "اللون" : "Color"}
+            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
+          />
+        </View>
+      </View>
 
       {/* نوع الطلب */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "نوع الطلب" : "Order Type"}</Text>
@@ -508,7 +608,7 @@ export default function CustomManufacturingScreen() {
 
       {/* مدة الإنتاج */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "مدة الإنتاج المطلوبة" : "Required Production Period"}</Text>
-      <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
         <TextInput
           value={dateTo}
           onChangeText={setDateTo}
@@ -523,23 +623,80 @@ export default function CustomManufacturingScreen() {
         />
       </View>
 
-      {/* المرفقات */}
-      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "المرفقات (صورة / كاميرا / PDF)" : "Attachments (Image / Camera / PDF)"}</Text>
+      {/* المرفقات المطلوبة */}
+      <View style={{ backgroundColor: "#fef3c7", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: "#fbbf24" }}>
+        <Text style={{ color: "#92400e", fontWeight: "bold", fontSize: 14, textAlign: "right", marginBottom: 10 }}>
+          {isAr ? "المرفقات المطلوبة" : "Required Attachments"}
+        </Text>
+
+        {/* نموذج التصنيع */}
+        <Text style={{ fontWeight: "600", color: "#92400e", textAlign: "right", marginBottom: 6, fontSize: 13 }}>
+          {isAr ? "1. نموذج التصنيع" : "1. Manufacturing Form"}
+        </Text>
+        <AttachmentPicker
+          attachments={manufacturingFormAttachment}
+          onAttachmentsChange={setManufacturingFormAttachment}
+          maxAttachments={3}
+        />
+
+        {/* السجل التجاري */}
+        <Text style={{ fontWeight: "600", color: "#92400e", textAlign: "right", marginBottom: 6, marginTop: 10, fontSize: 13 }}>
+          {isAr ? "2. السجل التجاري" : "2. Commercial Registration"}
+        </Text>
+        <AttachmentPicker
+          attachments={commercialRegAttachment}
+          onAttachmentsChange={setCommercialRegAttachment}
+          maxAttachments={3}
+        />
+
+        {/* الرقم الضريبي */}
+        <Text style={{ fontWeight: "600", color: "#92400e", textAlign: "right", marginBottom: 6, marginTop: 10, fontSize: 13 }}>
+          {isAr ? "3. الرقم الضريبي" : "3. Tax Number"}
+        </Text>
+        <AttachmentPicker
+          attachments={taxNumberAttachment}
+          onAttachmentsChange={setTaxNumberAttachment}
+          maxAttachments={3}
+        />
+
+        {/* العنوان الوطني */}
+        <Text style={{ fontWeight: "600", color: "#92400e", textAlign: "right", marginBottom: 6, marginTop: 10, fontSize: 13 }}>
+          {isAr ? "4. العنوان الوطني" : "4. National Address"}
+        </Text>
+        <AttachmentPicker
+          attachments={nationalAddressAttachment}
+          onAttachmentsChange={setNationalAddressAttachment}
+          maxAttachments={3}
+        />
+
+        {/* ملف التصميم */}
+        <Text style={{ fontWeight: "600", color: "#92400e", textAlign: "right", marginBottom: 6, marginTop: 10, fontSize: 13 }}>
+          {isAr ? "5. ملف التصميم" : "5. Design File"}
+        </Text>
+        <AttachmentPicker
+          attachments={designFileAttachment}
+          onAttachmentsChange={setDesignFileAttachment}
+          maxAttachments={5}
+        />
+      </View>
+
+      {/* مرفقات إضافية */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "مرفقات إضافية (اختياري)" : "Additional Attachments (Optional)"}</Text>
       <AttachmentPicker
         attachments={attachments}
         onAttachmentsChange={setAttachments}
         maxAttachments={10}
       />
 
-      {/* ملاحظة */}
-      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6, marginTop: 12 }}>{isAr ? "ملاحظات (نموذج التصنيع / ملف التصميم)" : "Notes (Manufacturing Form / Design File)"}</Text>
+      {/* ملاحظات */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6, marginTop: 12 }}>{isAr ? "ملاحظات" : "Notes"}</Text>
       <TextInput
         value={notes}
         onChangeText={setNotes}
-        placeholder={isAr ? "أدخل ملاحظات أو وصف نموذج التصنيع الخاص وملف التصميم" : "Enter notes or describe manufacturing form and design file"}
+        placeholder={isAr ? "أدخل أي ملاحظات إضافية" : "Enter any additional notes"}
         multiline
         numberOfLines={4}
-        style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12, minHeight: 100, textAlignVertical: "top" }}
+        style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12, minHeight: 80, textAlignVertical: "top" }}
       />
 
       {/* أزرار */}
@@ -555,7 +712,7 @@ export default function CustomManufacturingScreen() {
           style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#ec4899", alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
         >
           <MaterialIcons name="save" size={18} color="white" />
-          <Text style={{ color: "white", fontWeight: "600" }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
+          <Text style={{ color: "white", fontWeight: "600" }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ ورفع للاعتماد" : "Save & Submit")}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -579,6 +736,18 @@ export default function CustomManufacturingScreen() {
         </View>
         <BackButton />
       </View>
+
+      {/* توضيح سير العمل */}
+      {!showForm && (
+        <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: "#faf5ff", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#d8b4fe" }}>
+          <Text style={{ color: "#7c3aed", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 6 }}>
+            {isAr ? "سير العمل:" : "Workflow:"}
+          </Text>
+          <Text style={{ color: "#6b21a8", fontSize: 11, textAlign: "right", lineHeight: 18 }}>
+            {isAr ? "1. إنشاء الطلب → 2. اعتماد مدير المبيعات → 3. تحويل لمدير الإنتاج → 4. تنفيذ" : "1. Create → 2. Sales Approval → 3. Forward to Production → 4. Execute"}
+          </Text>
+        </View>
+      )}
 
       <AdminCard />
 
