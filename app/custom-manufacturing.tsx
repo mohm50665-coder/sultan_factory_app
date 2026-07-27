@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList,
   Platform,
+  Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -58,6 +59,7 @@ interface CustomManufacturingEntry {
   productionApprovalStatus: string; // "" | "received" | "in_progress" | "completed"
   productionApprovalTime: string;
   productionNotes: string;
+  productionProgress: number; // 0 | 25 | 50 | 75 | 100
   createdAt: string;
   date: string;
 }
@@ -93,6 +95,7 @@ export default function CustomManufacturingScreen() {
   const [nationalAddressAttachment, setNationalAddressAttachment] = useState<AttachmentFile[]>([]);
   const [designFileAttachment, setDesignFileAttachment] = useState<AttachmentFile[]>([]);
   const [notes, setNotes] = useState("");
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     loadEntries();
@@ -175,6 +178,7 @@ export default function CustomManufacturingScreen() {
       productionApprovalStatus: "",
       productionApprovalTime: "",
       productionNotes: "",
+      productionProgress: 0,
       createdAt: new Date().toISOString(),
     };
 
@@ -243,6 +247,20 @@ export default function CustomManufacturingScreen() {
     );
   };
 
+  // إرسال رسالة واتساب للعميل
+  const sendWhatsAppToClient = (phone: string, message: string) => {
+    if (!phone) return;
+    // تنسيق الرقم: إزالة الصفر الأول وإضافة 966
+    let formattedPhone = phone.replace(/\s+/g, "").replace(/^0/, "966");
+    if (!formattedPhone.startsWith("966") && !formattedPhone.startsWith("+")) {
+      formattedPhone = "966" + formattedPhone;
+    }
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "لا يمكن فتح الواتساب" : "Cannot open WhatsApp");
+    });
+  };
+
   // اعتماد مدير المبيعات
   const handleSalesApproval = async (entry: CustomManufacturingEntry, decision: "approved" | "rejected") => {
     try {
@@ -274,6 +292,19 @@ export default function CustomManufacturingScreen() {
       });
 
       loadEntries();
+
+      // إرسال رسالة واتساب للعميل
+      if (entry.clientPhone) {
+        const whatsMsg = decision === "approved"
+          ? isAr
+            ? `مرحباً ${entry.clientContactName || entry.clientCommercialName}،\nنفيدكم بأنه تم اعتماد طلب التصنيع الخاص الخاص بكم (${entry.productName}).\nسيتم البدء في التنفيذ قريباً.\nمصنع السلطان`
+            : `Hello ${entry.clientContactName || entry.clientCommercialName},\nYour custom manufacturing request (${entry.productName}) has been approved.\nProduction will begin soon.\nSultan Factory`
+          : isAr
+            ? `مرحباً ${entry.clientContactName || entry.clientCommercialName}،\nنأسف لإبلاغكم بأنه تم رفض طلب التصنيع الخاص (${entry.productName}).\nيرجى التواصل معنا لمزيد من التفاصيل.\nمصنع السلطان`
+            : `Hello ${entry.clientContactName || entry.clientCommercialName},\nWe regret to inform you that your custom manufacturing request (${entry.productName}) has been rejected.\nPlease contact us for details.\nSultan Factory`;
+        sendWhatsAppToClient(entry.clientPhone, whatsMsg);
+      }
+
       Alert.alert(isAr ? "تم" : "Done", isAr ? `تم ${decision === "approved" ? "اعتماد" : "رفض"} الطلب` : `Request ${decision}`);
     } catch (e) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ" : "An error occurred");
@@ -283,11 +314,13 @@ export default function CustomManufacturingScreen() {
   // استلام مدير الإنتاج
   const handleProductionResponse = async (entry: CustomManufacturingEntry, status: "received" | "in_progress" | "completed", pNotes?: string) => {
     try {
+      const progressMap = { received: 25, in_progress: 50, completed: 100 };
       const updatedData = {
         ...entry,
         productionApprovalStatus: status,
         productionApprovalTime: new Date().toISOString(),
         productionNotes: pNotes || entry.productionNotes || "",
+        productionProgress: progressMap[status] || 0,
         status: status === "completed" ? "completed" : status === "in_progress" ? "in_progress" : "approved_sales",
       };
       delete (updatedData as any).id;
@@ -297,9 +330,52 @@ export default function CustomManufacturingScreen() {
       await notificationsService.add({
         type: "admin",
         title: isAr ? "تحديث من مدير الإنتاج" : "Production Manager Update",
-        message: isAr ? `طلب تصنيع ${entry.productName}: ${status === "received" ? "تم الاستلام" : status === "in_progress" ? "قيد التنفيذ" : "مكتمل"}` : `Manufacturing ${entry.productName}: ${status}`,
+        message: isAr ? `طلب تصنيع ${entry.productName}: ${status === "received" ? "تم الاستلام (25%)" : status === "in_progress" ? "قيد التنفيذ (50%)" : "مكتمل (100%)"}` : `Manufacturing ${entry.productName}: ${status} (${progressMap[status]}%)`,
         data: { section: SECTION_KEY, id: entry.id },
       });
+
+      // إرسال واتساب للعميل عند اكتمال الطلب
+      if (status === "completed" && entry.clientPhone) {
+        const msg = isAr
+          ? `مرحباً ${entry.clientContactName || entry.clientCommercialName}،\nيسعدنا إبلاغكم بأن طلب التصنيع الخاص (${entry.productName}) قد اكتمل.\nيمكنكم استلام الطلب.\nمصنع السلطان`
+          : `Hello ${entry.clientContactName || entry.clientCommercialName},\nWe are pleased to inform you that your custom manufacturing order (${entry.productName}) is now complete.\nYou may collect your order.\nSultan Factory`;
+        sendWhatsAppToClient(entry.clientPhone, msg);
+      }
+
+      loadEntries();
+    } catch (e) {
+      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ" : "An error occurred");
+    }
+  };
+
+  // تحديث نسبة التقدم
+  const handleUpdateProgress = async (entry: CustomManufacturingEntry, progress: number) => {
+    try {
+      const updatedData = {
+        ...entry,
+        productionProgress: progress,
+        productionApprovalStatus: progress === 100 ? "completed" : progress >= 50 ? "in_progress" : "received",
+        status: progress === 100 ? "completed" : "in_progress",
+        productionApprovalTime: new Date().toISOString(),
+      };
+      delete (updatedData as any).id;
+      delete (updatedData as any).date;
+      await maintenanceEntriesService.update(Number(entry.id), updatedData);
+
+      await notificationsService.add({
+        type: "admin",
+        title: isAr ? "تحديث نسبة الإنجاز" : "Progress Update",
+        message: isAr ? `طلب تصنيع ${entry.productName}: ${progress}%` : `Manufacturing ${entry.productName}: ${progress}%`,
+        data: { section: SECTION_KEY, id: entry.id },
+      });
+
+      // إرسال واتساب عند الاكتمال
+      if (progress === 100 && entry.clientPhone) {
+        const msg = isAr
+          ? `مرحباً ${entry.clientContactName || entry.clientCommercialName}،\nيسعدنا إبلاغكم بأن طلب التصنيع الخاص (${entry.productName}) قد اكتمل.\nيمكنكم استلام الطلب.\nمصنع السلطان`
+          : `Hello ${entry.clientContactName || entry.clientCommercialName},\nYour custom manufacturing order (${entry.productName}) is now complete.\nYou may collect your order.\nSultan Factory`;
+        sendWhatsAppToClient(entry.clientPhone, msg);
+      }
 
       loadEntries();
     } catch (e) {
@@ -430,6 +506,34 @@ export default function CustomManufacturingScreen() {
           <Text style={{ color: "#8b5cf6", fontWeight: "bold", fontSize: 12, textAlign: "right", marginBottom: 6 }}>
             {isAr ? "مدير الإنتاج" : "Production Manager"}
           </Text>
+
+          {/* شريط النسبة المئوية */}
+          {item.productionApprovalStatus && (
+            <View style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                <Text style={{ fontSize: 11, color: "#8b5cf6", fontWeight: "bold" }}>{item.productionProgress || 0}%</Text>
+                <Text style={{ fontSize: 11, color: "#687076" }}>{isAr ? "نسبة الإنجاز" : "Progress"}</Text>
+              </View>
+              <View style={{ height: 8, backgroundColor: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
+                <View style={{ height: 8, backgroundColor: (item.productionProgress || 0) === 100 ? "#16a34a" : (item.productionProgress || 0) >= 50 ? "#f59e0b" : "#3b82f6", borderRadius: 4, width: `${item.productionProgress || 0}%` }} />
+              </View>
+              {/* أزرار النسب المئوية لمدير الإنتاج */}
+              {(user?.role === "admin" || user?.role === "manager" || user?.department === "production") && (item.productionProgress || 0) < 100 && (
+                <View style={{ flexDirection: "row", gap: 4, justifyContent: "flex-end", marginTop: 6, flexWrap: "wrap" }}>
+                  {[25, 50, 75, 100].map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      onPress={() => handleUpdateProgress(item, p)}
+                      style={{ backgroundColor: (item.productionProgress || 0) >= p ? "#d1d5db" : p === 100 ? "#16a34a" : "#8b5cf6", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, opacity: (item.productionProgress || 0) >= p ? 0.5 : 1 }}
+                    >
+                      <Text style={{ color: "white", fontSize: 10, fontWeight: "600" }}>{p}%</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           {item.productionApprovalStatus ? (
             <View style={{ gap: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
@@ -751,7 +855,83 @@ export default function CustomManufacturingScreen() {
 
       <AdminCard />
 
+      {/* زر التقرير الشهري */}
+      {!showForm && entries.length > 0 && (
+        <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowReport(!showReport)}
+            style={{ backgroundColor: "#7c3aed", paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            <MaterialIcons name={showReport ? "close" : "assessment"} size={18} color="white" />
+            <Text style={{ color: "white", fontWeight: "600", fontSize: 13 }}>
+              {showReport ? (isAr ? "إغلاق التقرير" : "Close Report") : (isAr ? "التقرير الشهري" : "Monthly Report")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* التقرير الشهري */}
+      {showReport && !showForm && (() => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const monthEntries = entries.filter((e) => {
+          const d = new Date(e.createdAt || e.date);
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
+        const totalRequests = monthEntries.length;
+        const approved = monthEntries.filter((e) => e.salesApprovalStatus === "approved").length;
+        const rejected = monthEntries.filter((e) => e.salesApprovalStatus === "rejected").length;
+        const pending = monthEntries.filter((e) => !e.salesApprovalStatus || e.salesApprovalStatus === "pending").length;
+        const completed = monthEntries.filter((e) => e.status === "completed").length;
+        const inProgress = monthEntries.filter((e) => e.status === "in_progress").length;
+
+        return (
+          <View style={{ marginHorizontal: 16, marginTop: 10, backgroundColor: "#f5f3ff", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#c4b5fd" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12 }}>
+              <MaterialIcons name="assessment" size={20} color="#7c3aed" />
+              <Text style={{ color: "#7c3aed", fontWeight: "bold", fontSize: 15 }}>
+                {isAr ? `تقرير شهر ${now.toLocaleDateString("ar-SA", { month: "long", year: "numeric" })}` : `Report for ${now.toLocaleDateString("en", { month: "long", year: "numeric" })}`}
+              </Text>
+            </View>
+
+            {/* إحصائيات */}
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "white", borderRadius: 10, padding: 12 }}>
+                <Text style={{ color: "#7c3aed", fontWeight: "bold", fontSize: 18 }}>{totalRequests}</Text>
+                <Text style={{ color: "#374151", fontWeight: "600", fontSize: 13 }}>{isAr ? "إجمالي الطلبات" : "Total Requests"}</Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1, backgroundColor: "#dcfce7", borderRadius: 10, padding: 10, alignItems: "center" }}>
+                  <Text style={{ color: "#16a34a", fontWeight: "bold", fontSize: 16 }}>{approved}</Text>
+                  <Text style={{ color: "#16a34a", fontSize: 10, marginTop: 2 }}>{isAr ? "معتمدة" : "Approved"}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#fee2e2", borderRadius: 10, padding: 10, alignItems: "center" }}>
+                  <Text style={{ color: "#ef4444", fontWeight: "bold", fontSize: 16 }}>{rejected}</Text>
+                  <Text style={{ color: "#ef4444", fontSize: 10, marginTop: 2 }}>{isAr ? "مرفوضة" : "Rejected"}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#fef3c7", borderRadius: 10, padding: 10, alignItems: "center" }}>
+                  <Text style={{ color: "#f59e0b", fontWeight: "bold", fontSize: 16 }}>{pending}</Text>
+                  <Text style={{ color: "#f59e0b", fontSize: 10, marginTop: 2 }}>{isAr ? "بانتظار" : "Pending"}</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1, backgroundColor: "#dbeafe", borderRadius: 10, padding: 10, alignItems: "center" }}>
+                  <Text style={{ color: "#3b82f6", fontWeight: "bold", fontSize: 16 }}>{inProgress}</Text>
+                  <Text style={{ color: "#3b82f6", fontSize: 10, marginTop: 2 }}>{isAr ? "قيد التنفيذ" : "In Progress"}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#d1fae5", borderRadius: 10, padding: 10, alignItems: "center" }}>
+                  <Text style={{ color: "#059669", fontWeight: "bold", fontSize: 16 }}>{completed}</Text>
+                  <Text style={{ color: "#059669", fontSize: 10, marginTop: 2 }}>{isAr ? "مكتملة" : "Completed"}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        );
+      })()}
+
       {showForm ? renderForm() : (
+        !showReport && (
         <FlatList
           data={entries}
           keyExtractor={(item) => item.id}
@@ -778,6 +958,7 @@ export default function CustomManufacturingScreen() {
             </View>
           }
         />
+        )
       )}
     </ScreenContainer>
   );
