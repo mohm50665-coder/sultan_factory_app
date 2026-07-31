@@ -268,17 +268,17 @@ export default function OrdersVisitsScreen() {
       saveWarehouseResponse(entry, status, "");
     } else {
       // لم ينجز أو جزئي - طلب السبب/النواقص
-      Alert.prompt(
+      // Use Alert.alert instead of Alert.prompt (iOS-only, crashes Android)
+      Alert.alert(
         isAr ? (status === "not_done" ? "سبب عدم الإنجاز" : "النواقص والسبب") : (status === "not_done" ? "Reason for not completing" : "Shortages and reason"),
-        isAr ? (status === "not_done" ? "أدخل سبب عدم الإنجاز" : "أدخل الأصناف الناقصة والسبب") : (status === "not_done" ? "Enter reason" : "Enter missing items and reason"),
+        isAr ? "يرجى إدخال السبب في حقل الملاحظات" : "Please enter reason in notes field",
         [
           { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
           {
             text: isAr ? "حفظ" : "Save",
-            onPress: (notes?: string) => saveWarehouseResponse(entry, status, notes || ""),
+            onPress: () => saveWarehouseResponse(entry, status, ""),
           },
-        ],
-        "plain-text"
+        ]
       );
     }
   };

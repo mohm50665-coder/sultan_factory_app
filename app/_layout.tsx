@@ -2,6 +2,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Platform, View, Text, LogBox } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
 
 // Prevent auto-hide splash screen to give time for initialization
@@ -219,7 +220,7 @@ function RootLayoutContent() {
   const [trpcClient] = useState(() => createTRPCClient());
 
   const content = (
-    <View style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
@@ -230,7 +231,7 @@ function RootLayoutContent() {
           </LanguageProvider>
         </QueryClientProvider>
       </trpc.Provider>
-    </View>
+    </GestureHandlerRootView>
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";

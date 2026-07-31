@@ -224,12 +224,9 @@ export default function MeetingRequestScreen() {
   };
 
   const addAttachment = () => {
-    Alert.prompt ? Alert.prompt(isAr ? "إضافة مرفق" : "Add Attachment", isAr ? "أدخل اسم المرفق/النموذج" : "Enter attachment/form name", (name) => {
-      if (name) setForm(prev => ({ ...prev, attachmentNames: [...prev.attachmentNames, name] }));
-    }) : (() => {
-      const name = isAr ? "مرفق " : "Attachment " + (form.attachmentNames.length + 1);
-      setForm(prev => ({ ...prev, attachmentNames: [...prev.attachmentNames, name] }));
-    })();
+    // Alert.prompt is iOS-only, use simple approach for cross-platform
+    const name = (isAr ? "مرفق " : "Attachment ") + (form.attachmentNames.length + 1);
+    setForm(prev => ({ ...prev, attachmentNames: [...prev.attachmentNames, name] }));
   };
 
   const getMethodLabel = (method: string) => {
