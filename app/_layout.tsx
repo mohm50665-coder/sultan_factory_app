@@ -1,15 +1,7 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, View, Text, LogBox } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import * as SplashScreen from "expo-splash-screen";
-
-// Prevent auto-hide splash screen to give time for initialization
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
-// Suppress non-critical warnings that may cause issues
-LogBox.ignoreLogs(["Warning:", "shadow", "pointerEvents"]);
+import { Platform, View, Text } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 
@@ -166,7 +158,6 @@ function NavigationContent() {
 }
 
 function RootLayoutContent() {
-  const [appReady, setAppReady] = useState(false);
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
@@ -175,12 +166,6 @@ function RootLayoutContent() {
 
   useEffect(() => {
     initManusRuntime();
-    // Give the app time to initialize before hiding splash
-    const timer = setTimeout(() => {
-      setAppReady(true);
-      SplashScreen.hideAsync().catch(() => {});
-    }, 500);
-    return () => clearTimeout(timer);
   }, []);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
@@ -220,7 +205,7 @@ function RootLayoutContent() {
   const [trpcClient] = useState(() => createTRPCClient());
 
   const content = (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
@@ -231,7 +216,7 @@ function RootLayoutContent() {
           </LanguageProvider>
         </QueryClientProvider>
       </trpc.Provider>
-    </GestureHandlerRootView>
+    </View>
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";

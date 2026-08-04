@@ -118,14 +118,12 @@ const config: ExpoConfig = {
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
-          enableProguardInReleaseBuilds: false,
-          largeHeap: true,
         },
       },
     ],
   ],
   experiments: {
-    typedRoutes: false,
+    typedRoutes: true,
     reactCompiler: false,
   },
 };
