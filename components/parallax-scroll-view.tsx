@@ -1,5 +1,11 @@
 import type { PropsWithChildren, ReactElement } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
+import Animated, {
+  interpolate,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useScrollOffset,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/use-colors";
@@ -12,7 +18,8 @@ type Props = PropsWithChildren<{
 }>;
 
 /**
- * A scroll view with header (simplified without animations).
+ * A scroll view with parallax header effect.
+ * Note: Animated components require style objects for dynamic animations.
  */
 export default function ParallaxScrollView({
   children,
@@ -21,11 +28,29 @@ export default function ParallaxScrollView({
 }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollOffset(scrollRef);
 
   const headerHeight = HEADER_HEIGHT + insets.top;
 
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          scrollOffset.value,
+          [-headerHeight, 0, headerHeight],
+          [-headerHeight / 2, 0, headerHeight * 0.75],
+        ),
+      },
+      {
+        scale: interpolate(scrollOffset.value, [-headerHeight, 0, headerHeight], [2, 1, 1]),
+      },
+    ],
+  }));
+
   return (
-    <ScrollView
+    <Animated.ScrollView
+      ref={scrollRef}
       style={{ backgroundColor: colors.background, flex: 1 }}
       contentContainerStyle={{
         paddingBottom: insets.bottom,
@@ -34,19 +59,22 @@ export default function ParallaxScrollView({
       }}
       scrollEventThrottle={16}
     >
-      <View
-        style={{
-          overflow: "hidden",
-          backgroundColor: headerBackgroundColor ?? colors.primary,
-          height: headerHeight,
-          paddingTop: insets.top,
-        }}
+      <Animated.View
+        style={[
+          {
+            overflow: "hidden",
+            backgroundColor: headerBackgroundColor ?? colors.primary,
+            height: headerHeight,
+            paddingTop: insets.top,
+          },
+          headerAnimatedStyle,
+        ]}
       >
         {headerImage}
-      </View>
-      <View style={{ flex: 1, padding: 32, gap: 16, overflow: 'hidden', backgroundColor: colors.background }}>
+      </Animated.View>
+      <View className="flex-1 p-8 gap-4 overflow-hidden bg-background">
         {children}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }

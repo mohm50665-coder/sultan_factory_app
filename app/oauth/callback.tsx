@@ -6,10 +6,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useColors } from "@/hooks/use-colors";
 
 export default function OAuthCallback() {
-  const colors = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{
     code?: string;
@@ -237,32 +235,32 @@ export default function OAuthCallback() {
   }, [params.code, params.state, params.error, params.sessionToken, params.user, router]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
-      <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 20 }}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom", "left", "right"]}>
+      <ThemedView className="flex-1 items-center justify-center gap-4 p-5">
         {status === "processing" && (
           <>
             <ActivityIndicator size="large" />
-            <Text style={{ marginTop: 16, fontSize: 16, textAlign: 'center', color: colors.foreground }}>
+            <Text className="mt-4 text-base leading-6 text-center text-foreground">
               Completing authentication...
             </Text>
           </>
         )}
         {status === "success" && (
           <>
-            <Text style={{ fontSize: 16, textAlign: 'center', color: colors.foreground }}>
+            <Text className="text-base leading-6 text-center text-foreground">
               Authentication successful!
             </Text>
-            <Text style={{ fontSize: 16, textAlign: 'center', color: colors.foreground }}>
+            <Text className="text-base leading-6 text-center text-foreground">
               Redirecting...
             </Text>
           </>
         )}
         {status === "error" && (
           <>
-            <Text style={{ marginBottom: 8, fontSize: 20, fontWeight: 'bold', color: colors.error }}>
+            <Text className="mb-2 text-xl font-bold leading-7 text-error">
               Authentication failed
             </Text>
-            <Text style={{ fontSize: 16, textAlign: 'center', color: colors.foreground }}>
+            <Text className="text-base leading-6 text-center text-foreground">
               {errorMessage}
             </Text>
           </>

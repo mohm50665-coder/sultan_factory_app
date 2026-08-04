@@ -30,10 +30,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: Partial<InsertUser> = {
+    const values: InsertUser = {
       openId: user.openId,
-      name: user.name,
-      email: user.email,
     };
     const updateSet: Record<string, unknown> = {};
 
@@ -44,7 +42,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       const value = user[field];
       if (value === undefined) return;
       const normalized = value ?? null;
-      (values as Record<string, unknown>)[field] = normalized;
+      values[field] = normalized;
       updateSet[field] = normalized;
     };
 
@@ -70,7 +68,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values as InsertUser).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onDuplicateKeyUpdate({
       set: updateSet,
     });
   } catch (error) {
