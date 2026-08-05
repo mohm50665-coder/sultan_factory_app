@@ -1,23 +1,10 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user) {
-      router.replace("/login");
-    }
-  }, [user, router]);
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <ScreenContainer className="p-6">
@@ -37,16 +24,6 @@ export default function HomeScreen() {
             <Text className="text-sm text-muted leading-relaxed">
               استخدم الأيقونات في أسفل الشاشة للتنقل بين الأقسام المختلفة.
             </Text>
-          </View>
-
-          {/* Logout Button */}
-          <View className="items-center">
-            <TouchableOpacity 
-              className="bg-error px-6 py-3 rounded-full active:opacity-80"
-              onPress={() => router.replace("/login")}
-            >
-              <Text className="text-background font-semibold">تسجيل الخروج</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
