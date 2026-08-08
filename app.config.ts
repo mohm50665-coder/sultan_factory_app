@@ -42,9 +42,6 @@ const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
   version: "1.1.2",
-  runtimeVersion: {
-    policy: "appVersion"
-  },
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -59,14 +56,12 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-    versionCode: 112,
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
-    edgeToEdgeEnabled: true,
-    predictiveBackGestureEnabled: false,
+    versionCode: 112,
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS"],
     intentFilters: [
@@ -90,19 +85,6 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    [
-      "expo-audio",
-      {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
-      },
-    ],
-    [
-      "expo-video",
-      {
-        supportsBackgroundPlayback: true,
-        supportsPictureInPicture: true,
-      },
-    ],
     [
       "expo-splash-screen",
       {
