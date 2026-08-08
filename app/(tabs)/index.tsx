@@ -324,6 +324,8 @@ export default function HomeScreen() {
     if (user?.allowedSections && user.allowedSections.length > 0) {
       return user.allowedSections.includes(item.id);
     }
+    // No specific sections assigned - show all sections by default
+    return true;
     // Manufacturing stage workers: see manufacturing section + shared
     if (isManufacturingWorker) {
       return item.id === "manufacturing" || item.isShared;
