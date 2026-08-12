@@ -22,9 +22,12 @@ import { AdminCard } from "@/components/admin-card";
 import { notificationsService } from "@/lib/services/notifications.service";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
+import { exportReportAsPDF } from "@/lib/services/pdf-export.service";
+import { getCustomManufacturingWorkflowStatus, isCustomManufacturingEntryOverdue } from "@/lib/services/custom-manufacturing.utils";
 
 
 const SECTION_KEY = "custom_manufacturing";
+const overdueNotificationsSent = new Set<string>();
 
 interface CustomManufacturingEntry {
   id: string;
@@ -96,25 +99,118 @@ export default function CustomManufacturingScreen() {
   const [designFileAttachment, setDesignFileAttachment] = useState<AttachmentFile[]>([]);
   const [notes, setNotes] = useState("");
   const [showReport, setShowReport] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "in_progress" | "completed" | "rejected">("all");
+  const [isExportingReport, setIsExportingReport] = useState(false);
 
   useEffect(() => {
     loadEntries();
   }, []);
 
+  const getEntryWorkflowStatus = (entry: CustomManufacturingEntry) => getCustomManufacturingWorkflowStatus(entry);
+  const isEntryOverdue = (entry: CustomManufacturingEntry) => isCustomManufacturingEntryOverdue(entry);
+
+  const getEntryStatusLabel = (status: string) => {
+    const labels: Record<string, string> = isAr
+      ? { all: "كل الحالات", pending: "بانتظار الاعتماد", approved: "معتمدة", in_progress: "قيد التنفيذ", completed: "مكتملة", rejected: "مرفوضة" }
+      : { all: "All Statuses", pending: "Pending", approved: "Approved", in_progress: "In Progress", completed: "Completed", rejected: "Rejected" };
+    return labels[status] || labels.pending;
+  };
+
+  const getCurrentMonthEntries = () => {
+    const now = new Date();
+    return entries.filter((entry) => {
+      const date = new Date(entry.createdAt || entry.date);
+      return !Number.isNaN(date.getTime()) && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    });
+  };
+
+  const handleExportMonthlyReport = async () => {
+    const monthEntries = getCurrentMonthEntries();
+    if (monthEntries.length === 0) {
+      Alert.alert(isAr ? "لا توجد بيانات" : "No Data", isAr ? "لا توجد طلبات في الشهر الحالي لتصديرها" : "There are no requests in the current month to export");
+      return;
+    }
+    setIsExportingReport(true);
+    try {
+      const reportDate = new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US", { month: "long", year: "numeric" });
+      await exportReportAsPDF({
+        title: isAr ? "تقرير طلبات التصنيع الخاص" : "Custom Manufacturing Report",
+        subtitle: reportDate,
+        date: new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US"),
+        sections: [
+          {
+            title: isAr ? "ملخص الحالات" : "Status Summary",
+            type: "summary",
+            data: [
+              { label: isAr ? "الإجمالي" : "Total", value: monthEntries.length },
+              { label: isAr ? "المعتمدة" : "Approved", value: monthEntries.filter((e) => getEntryWorkflowStatus(e) === "approved").length },
+              { label: isAr ? "قيد التنفيذ" : "In Progress", value: monthEntries.filter((e) => getEntryWorkflowStatus(e) === "in_progress").length },
+              { label: isAr ? "المكتملة" : "Completed", value: monthEntries.filter((e) => getEntryWorkflowStatus(e) === "completed").length },
+              { label: isAr ? "المتأخرة" : "Overdue", value: monthEntries.filter(isEntryOverdue).length },
+            ],
+          },
+          {
+            title: isAr ? "تفاصيل الطلبات" : "Request Details",
+            type: "table",
+            data: {
+              headers: isAr ? ["العميل", "الصنف", "الحالة", "التسليم"] : ["Client", "Product", "Status", "Delivery"],
+              rows: monthEntries.map((entry) => [entry.clientCommercialName || "-", entry.productName || "-", getEntryStatusLabel(getEntryWorkflowStatus(entry)), entry.deliveryDate || "-"]),
+            },
+          },
+        ],
+        footer: isAr ? "تقرير آلي من نظام مصنع السلطان" : "Automated report from Sultan Factory system",
+      });
+      Alert.alert(isAr ? "تم التصدير" : "Exported", isAr ? "تم تجهيز التقرير للمشاركة أو التنزيل" : "The report is ready to download or share");
+    } catch (error) {
+      console.error("Monthly report export failed:", error);
+      Alert.alert(isAr ? "تعذر التصدير" : "Export Failed", isAr ? "تعذر تجهيز التقرير حالياً" : "The report could not be generated");
+    } finally {
+      setIsExportingReport(false);
+    }
+  };
+
+  const handleShareMonthlyReport = () => {
+    const monthEntries = getCurrentMonthEntries();
+    if (monthEntries.length === 0) {
+      Alert.alert(isAr ? "لا توجد بيانات" : "No Data", isAr ? "لا توجد طلبات في الشهر الحالي للمشاركة" : "There are no requests in the current month to share");
+      return;
+    }
+    const summary = isAr
+      ? `تقرير طلبات التصنيع الخاص - ${new Date().toLocaleDateString("ar-SA", { month: "long", year: "numeric" })}\nالإجمالي: ${monthEntries.length}\nالمعتمدة: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "approved").length}\nقيد التنفيذ: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "in_progress").length}\nالمكتملة: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "completed").length}\nالمتأخرة: ${monthEntries.filter(isEntryOverdue).length}`
+      : `Custom Manufacturing Report - ${new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}\nTotal: ${monthEntries.length}\nApproved: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "approved").length}\nIn Progress: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "in_progress").length}\nCompleted: ${monthEntries.filter((e) => getEntryWorkflowStatus(e) === "completed").length}\nOverdue: ${monthEntries.filter(isEntryOverdue).length}`;
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(summary)}`).catch(() => Alert.alert(isAr ? "خطأ" : "Error", isAr ? "لا يمكن فتح واتساب" : "Cannot open WhatsApp"));
+  };
+
   const loadEntries = async () => {
     try {
       const data = await maintenanceEntriesService.getBySection(SECTION_KEY);
-      if (data && data.length > 0) {
-        setEntries(data.map((d: any) => ({
-          id: String(d.id),
-          ...d.data,
-          date: d.date || d.createdAt ? new Date(d.date || d.createdAt).toLocaleDateString("ar-SA") : "",
-        })));
-      }
+      const normalizedEntries: CustomManufacturingEntry[] = Array.isArray(data)
+        ? data.map((d: any) => ({
+            id: String(d.id),
+            ...d.data,
+            date: d.date || d.createdAt ? new Date(d.date || d.createdAt).toLocaleDateString("ar-SA") : "",
+          }))
+        : [];
+      setEntries(normalizedEntries);
+      normalizedEntries.filter(isEntryOverdue).forEach((entry) => {
+        const notificationKey = `${entry.id}:${entry.deliveryDate}`;
+        if (!overdueNotificationsSent.has(notificationKey)) {
+          overdueNotificationsSent.add(notificationKey);
+          void notificationsService.add({
+            type: "admin",
+            title: isAr ? "تنبيه: طلب تصنيع متأخر" : "Alert: Overdue Manufacturing Request",
+            message: isAr ? `تجاوز طلب ${entry.productName} للعميل ${entry.clientCommercialName || ""} تاريخ التسليم المحدد` : `${entry.productName} for ${entry.clientCommercialName || ""} is past its delivery date`,
+            data: { section: SECTION_KEY, id: entry.id, overdue: true },
+          });
+        }
+      });
     } catch (e) {
       console.log("Error loading custom manufacturing:", e);
+      setEntries([]);
     }
   };
+
+  const filteredEntries = statusFilter === "all" ? entries : entries.filter((entry) => getEntryWorkflowStatus(entry) === statusFilter);
 
   const resetForm = () => {
     setClientCommercialName("");
@@ -462,7 +558,7 @@ export default function CustomManufacturingScreen() {
           {isAr ? "الكمية: " : "Qty: "}{item.quantity} {item.unit === "dozen" ? (isAr ? "درزن" : "dozen") : (isAr ? "زوج" : "pairs")}
         </Text>
         {item.orderDate && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "تاريخ الطلب: " : "Order Date: "}{item.orderDate}</Text>}
-        {item.deliveryDate && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "تاريخ التسليم: " : "Delivery: "}{item.deliveryDate}</Text>}
+        {item.deliveryDate && <Text style={{ color: isEntryOverdue(item) ? "#dc2626" : "#687076", fontSize: 13, textAlign: "right", fontWeight: isEntryOverdue(item) ? "700" : "400" }}>{isAr ? "تاريخ التسليم: " : "Delivery: "}{item.deliveryDate}{isEntryOverdue(item) ? (isAr ? " - متأخر" : " - Overdue") : ""}</Text>}
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
           <View style={{ backgroundColor: getStatusColor(item.status) + "20", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
             <Text style={{ color: getStatusColor(item.status), fontSize: 11, fontWeight: "600" }}>{getStatusLabel(item.status)}</Text>
@@ -855,18 +951,48 @@ export default function CustomManufacturingScreen() {
 
       <AdminCard />
 
-      {/* زر التقرير الشهري */}
+      {/* أدوات التقرير والفلترة */}
       {!showForm && entries.length > 0 && (
-        <View style={{ marginHorizontal: 16, marginTop: 8 }}>
-          <TouchableOpacity
-            onPress={() => setShowReport(!showReport)}
-            style={{ backgroundColor: "#7c3aed", paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
-          >
-            <MaterialIcons name={showReport ? "close" : "assessment"} size={18} color="white" />
-            <Text style={{ color: "white", fontWeight: "600", fontSize: 13 }}>
-              {showReport ? (isAr ? "إغلاق التقرير" : "Close Report") : (isAr ? "التقرير الشهري" : "Monthly Report")}
-            </Text>
-          </TouchableOpacity>
+        <View style={{ marginHorizontal: 16, marginTop: 8, gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => setShowReport(!showReport)}
+              style={{ flex: 1, backgroundColor: "#7c3aed", paddingVertical: 10, paddingHorizontal: 10, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              <MaterialIcons name={showReport ? "close" : "assessment"} size={18} color="white" />
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 12 }}>
+                {showReport ? (isAr ? "إغلاق التقرير" : "Close Report") : (isAr ? "التقرير الشهري" : "Monthly Report")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleExportMonthlyReport}
+              disabled={isExportingReport}
+              style={{ flex: 1, backgroundColor: "#0a7ea4", paddingVertical: 10, paddingHorizontal: 10, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, opacity: isExportingReport ? 0.6 : 1 }}
+            >
+              <MaterialIcons name="file-download" size={18} color="white" />
+              <Text style={{ color: "white", fontWeight: "600", fontSize: 12 }}>{isExportingReport ? (isAr ? "جارٍ التصدير" : "Exporting") : (isAr ? "تصدير التقرير" : "Export Report")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleShareMonthlyReport}
+              style={{ width: 44, backgroundColor: "#16a34a", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+            >
+              <MaterialIcons name="chat" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", gap: 6 }}>
+            {(["all", "pending", "approved", "in_progress", "completed", "rejected"] as const).map((status) => (
+              <TouchableOpacity
+                key={status}
+                onPress={() => setStatusFilter(status)}
+                style={{ backgroundColor: statusFilter === status ? "#7c3aed" : "#f3f4f6", borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: statusFilter === status ? "#7c3aed" : "#e5e7eb" }}
+              >
+                <Text style={{ color: statusFilter === status ? "white" : "#4b5563", fontSize: 11, fontWeight: "600" }}>{getEntryStatusLabel(status)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {filteredEntries.length !== entries.length && (
+            <Text style={{ color: colors.muted, fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? `عرض ${filteredEntries.length} من ${entries.length} طلب` : `Showing ${filteredEntries.length} of ${entries.length} requests`}</Text>
+          )}
         </View>
       )}
 
@@ -933,7 +1059,7 @@ export default function CustomManufacturingScreen() {
       {showForm ? renderForm() : (
         !showReport && (
         <FlatList
-          data={entries}
+          data={filteredEntries}
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
@@ -944,7 +1070,9 @@ export default function CustomManufacturingScreen() {
               </View>
               <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: "bold" }}>{isAr ? "طلبات التصنيع الخاصة" : "Custom Manufacturing"}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: "center", paddingHorizontal: 32 }}>
-                {isAr ? "لا توجد طلبات تصنيع خاصة بعد.\nاضغط على زر (+) لإضافة طلب جديد." : "No custom manufacturing requests yet.\nPress (+) to add a new request."}
+                {filteredEntries.length !== entries.length
+                  ? (isAr ? "لا توجد طلبات بهذه الحالة." : "No requests match this status.")
+                  : (isAr ? "لا توجد طلبات تصنيع خاصة بعد.\nاضغط على زر (+) لإضافة طلب جديد." : "No custom manufacturing requests yet.\nPress (+) to add a new request.")}
               </Text>
               <TouchableOpacity
                 onPress={() => { resetForm(); setShowForm(true); }}

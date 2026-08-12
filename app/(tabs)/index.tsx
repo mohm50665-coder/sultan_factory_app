@@ -18,6 +18,8 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
+import { productionService, salesService, collectionService } from "@/lib/services/api.service";
+import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
 
 // Helper function to check tool permissions
 const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | undefined): boolean => {
@@ -249,6 +251,13 @@ export default function HomeScreen() {
   const userRole = (user?.role || "user") as UserRole;
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingUsersCount, setPendingUsersCount] = useState(0);
+  const [dailyStats, setDailyStats] = useState<{
+    production: number;
+    sales: number;
+    requests: number;
+    collections: number;
+    overdue: number;
+  } | null>(null);
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -274,6 +283,59 @@ export default function HomeScreen() {
     };
     loadPendingUsers();
   }, [user?.role]);
+
+  // Load daily operational statistics from server data; no placeholder values are used.
+  useEffect(() => {
+    const sameDay = (value: unknown, today: Date) => {
+      if (!value) return false;
+      const date = new Date(String(value));
+      return !Number.isNaN(date.getTime()) && date.toDateString() === today.toDateString();
+    };
+
+    const loadDailyStats = async () => {
+      const today = new Date();
+      try {
+        const [production, sales, collections, requests, customRows] = await Promise.all([
+          productionService.getAll().catch(() => []),
+          salesService.getAll().catch(() => []),
+          collectionService.getAll().catch(() => []),
+          administrativeService.getAll().catch(() => []),
+          maintenanceEntriesService.getBySection("custom_manufacturing").catch(() => []),
+        ]);
+        const todayProduction = (Array.isArray(production) ? production : []).filter((item: any) =>
+          sameDay(item.date || item.createdAt || item.entryDate, today),
+        );
+        const todaySales = (Array.isArray(sales) ? sales : []).filter((item: any) =>
+          sameDay(item.date || item.createdAt || item.saleDate, today),
+        );
+        const todayCollections = (Array.isArray(collections) ? collections : []).filter((item: any) =>
+          sameDay(item.date || item.createdAt || item.collectionDate, today),
+        );
+        const todayRequests = (Array.isArray(requests) ? requests : []).filter((item: any) =>
+          sameDay(item.date || item.createdAt || item.submissionDate, today),
+        );
+        const overdue = (Array.isArray(customRows) ? customRows : []).filter((row: any) => {
+          const data = row?.data || row || {};
+          if (!data.deliveryDate || data.status === "completed" || data.salesApprovalStatus === "rejected") return false;
+          const deadline = new Date(`${data.deliveryDate}T23:59:59`);
+          return !Number.isNaN(deadline.getTime()) && deadline.getTime() < Date.now();
+        });
+        const collectionTotal = todayCollections.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+        setDailyStats({
+          production: todayProduction.length,
+          sales: todaySales.length,
+          requests: todayRequests.length,
+          collections: collectionTotal,
+          overdue: overdue.length,
+        });
+      } catch (error) {
+        console.error("Error loading daily statistics:", error);
+        setDailyStats(null);
+      }
+    };
+
+    loadDailyStats();
+  }, []);
 
   // Manufacturing stage departments that map to production
   const MANUFACTURING_STAGES = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
@@ -484,6 +546,40 @@ export default function HomeScreen() {
               <MaterialIcons name="trending-up" size={20} color="#06b6d4" />
             </View>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Daily operational statistics */}
+      {dailyStats && (
+        <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 15 }}>{isAr ? "ملخص اليوم" : "Today's Summary"}</Text>
+            <MaterialIcons name="today" size={20} color={colors.primary} />
+          </View>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {[
+              { label: isAr ? "الإنتاج" : "Production", value: dailyStats.production, icon: "factory", color: "#2563eb" },
+              { label: isAr ? "المبيعات" : "Sales", value: dailyStats.sales, icon: "shopping-cart", color: "#db2777" },
+              { label: isAr ? "الطلبات" : "Requests", value: dailyStats.requests, icon: "assignment", color: "#7c3aed" },
+              { label: isAr ? "التحصيل" : "Collection", value: dailyStats.collections ? `${dailyStats.collections.toLocaleString()} ر.س` : "0", icon: "payments", color: "#059669" },
+            ].map((stat) => (
+              <View key={stat.label} style={{ flex: 1, backgroundColor: `${stat.color}12`, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 4, alignItems: "center" }}>
+                <MaterialIcons name={stat.icon as any} size={18} color={stat.color} />
+                <Text style={{ color: stat.color, fontWeight: "800", fontSize: 15, marginTop: 4, textAlign: "center" }}>{stat.value}</Text>
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: "center" }}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+          {dailyStats.overdue > 0 && (
+            <TouchableOpacity
+              onPress={() => handleNavigate("/custom-manufacturing")}
+              style={{ marginTop: 10, backgroundColor: "#fef2f2", borderColor: "#fecaca", borderWidth: 1, borderRadius: 10, padding: 10, flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <MaterialIcons name="warning-amber" size={20} color="#dc2626" />
+              <Text style={{ flex: 1, color: "#b91c1c", fontSize: 12, fontWeight: "700", textAlign: isRtl ? "right" : "left", marginHorizontal: 8 }}>{isAr ? `يوجد ${dailyStats.overdue} طلب تصنيع متأخر عن موعد التسليم` : `${dailyStats.overdue} custom manufacturing request(s) are overdue`}</Text>
+              <MaterialIcons name={isRtl ? "chevron-left" : "chevron-right"} size={18} color="#dc2626" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

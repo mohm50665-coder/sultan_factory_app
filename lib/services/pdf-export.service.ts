@@ -144,7 +144,19 @@ export async function exportReportAsPDF(report: PDFReportData): Promise<string> 
   const fileName = `${report.title.replace(/\s+/g, "_")}_${Date.now()}.html`;
 
   if (Platform.OS === "web") {
-    // Web: download as HTML file
+    // Web: open the browser print dialog so the user can save a real PDF.
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      window.setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 250);
+      return `${fileName.replace(/\.html$/, "")}.pdf`;
+    }
+    // Fallback when pop-ups are blocked: download the generated report as HTML.
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
