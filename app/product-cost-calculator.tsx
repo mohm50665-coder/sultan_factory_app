@@ -127,8 +127,10 @@ export default function ProductCostCalculatorScreen() {
 
       await savedProductCostsService.create({
         productName: newEntry.productName,
+        date: newEntry.date || new Date().toISOString().split('T')[0],
+        threadData: newEntry.threads,
         totalCost: newEntry.totalCost,
-        details: JSON.stringify(newEntry),
+        notes: newEntry.notes || "",
       });
 
       showAlert(

@@ -30,11 +30,11 @@ const MACHINES = [
   "LT1", "LT2",
 ];
 
-interface ShiftData {
-  productName: string;
-  shiftNumber: number;
-  shiftStart: string;
-  shiftEnd: string;
+// ملاحظة 6: اسم المنتج = اسم الصنف + المقاس + اللون
+interface ProductItem {
+  itemName: string;       // اسم الصنف
+  itemSize: string;       // المقاس
+  itemColor: string;      // اللون
   productionDozen: string;
   productionPairs: string;
   wasteThreadGrams: string;
@@ -50,12 +50,29 @@ interface ShiftData {
   yarnCotton: string;
   yarnBamboo: string;
   yarnSpan: string;
-  yarnWeightPerPair: string; // وزن الخيط لكل زوج (جرام) - يُحفظ تلقائياً لكل منتج
+  yarnWeightPerPair: string;
 }
 
-// نوع بيانات أوزان المنتجات المحفوظة
-interface ProductYarnWeights {
-  [productName: string]: string; // اسم المنتج -> وزن الخيط لكل زوج
+// ملاحظة 3: كل مكينة تتحمل 5 منتجات أو أكثر
+interface ShiftData {
+  shiftNumber: number;
+  shiftStart: string;
+  shiftEnd: string;
+  products: ProductItem[]; // مصفوفة منتجات بدل منتج واحد
+}
+
+// بيانات المنتج المحفوظة تلقائياً (ملاحظة 5)
+interface SavedProductData {
+  itemName: string;
+  itemSize: string;
+  itemColor: string;
+  yarnWeightPerPair: string;
+  yarnRubber: string;
+  yarnSpandex: string;
+  yarnNylon: string;
+  yarnCotton: string;
+  yarnBamboo: string;
+  yarnSpan: string;
 }
 
 interface MachineShifts {
@@ -68,11 +85,10 @@ interface ProductionEntry {
   machines: { [key: string]: MachineShifts };
 }
 
-const emptyShiftData = (shiftNum: number): ShiftData => ({
-  productName: "",
-  shiftNumber: shiftNum,
-  shiftStart: "",
-  shiftEnd: "",
+const emptyProduct = (): ProductItem => ({
+  itemName: "",
+  itemSize: "",
+  itemColor: "",
   productionDozen: "",
   productionPairs: "",
   wasteThreadGrams: "",
@@ -91,11 +107,31 @@ const emptyShiftData = (shiftNum: number): ShiftData => ({
   yarnWeightPerPair: "",
 });
 
+const emptyShiftData = (shiftNum: number): ShiftData => ({
+  shiftNumber: shiftNum,
+  shiftStart: "",
+  shiftEnd: "",
+  products: [emptyProduct()],
+});
+
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+// دالة تحويل النخب الثاني من زوج لدرزن (ملاحظة 1)
+const convertPairsToDozens = (totalPairs: number): { dozens: number; remainingPairs: number } => {
+  const dozens = Math.floor(totalPairs / 12);
+  const remainingPairs = totalPairs % 12;
+  return { dozens, remainingPairs };
+};
+
+// دالة الحصول على اسم المنتج الكامل
+const getFullProductName = (product: ProductItem): string => {
+  const parts = [product.itemName, product.itemSize, product.itemColor].filter(p => p.trim());
+  return parts.join(" - ") || "";
 };
 
 export default function ProductionScreen() {
@@ -114,45 +150,71 @@ export default function ProductionScreen() {
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [machinesData, setMachinesData] = useState<{ [key: string]: MachineShifts }>({});
   const [activeMachines, setActiveMachines] = useState<string[]>([]);
-  const [savedYarnWeights, setSavedYarnWeights] = useState<ProductYarnWeights>({});
-  const [productSuggestions, setProductSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number} | null>(null);
+  const [savedProducts, setSavedProducts] = useState<SavedProductData[]>([]);
+  const [productSuggestions, setProductSuggestions] = useState<SavedProductData[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number; productIndex: number} | null>(null);
 
   useEffect(() => {
     loadEntries();
-    loadSavedYarnWeights();
+    loadSavedProducts();
   }, []);
 
-  // تحميل أوزان الخيوط المحفوظة لكل منتج
-  const loadSavedYarnWeights = async () => {
+  // تحميل بيانات المنتجات المحفوظة (ملاحظة 5)
+  const loadSavedProducts = async () => {
     try {
-      const result = await appSettingsService.get("product_yarn_weights");
+      const result = await appSettingsService.get("saved_products_data");
       if (result && result.value) {
         const parsed = JSON.parse(result.value);
-        setSavedYarnWeights(parsed);
+        setSavedProducts(parsed);
       }
     } catch (e) {
-      console.log("Error loading yarn weights:", e);
+      console.log("Error loading saved products:", e);
     }
   };
 
-  // حفظ وزن خيط جديد لمنتج
-  const saveYarnWeightForProduct = async (productName: string, weight: string) => {
-    if (!productName.trim() || !weight.trim()) return;
-    const updated = { ...savedYarnWeights, [productName.trim()]: weight };
-    setSavedYarnWeights(updated);
+  // حفظ بيانات منتج جديد (ملاحظة 5)
+  const saveProductData = async (product: ProductItem) => {
+    if (!product.itemName.trim()) return;
+    const key = `${product.itemName.trim()}_${product.itemSize.trim()}_${product.itemColor.trim()}`;
+    const newSaved: SavedProductData = {
+      itemName: product.itemName.trim(),
+      itemSize: product.itemSize.trim(),
+      itemColor: product.itemColor.trim(),
+      yarnWeightPerPair: product.yarnWeightPerPair,
+      yarnRubber: product.yarnRubber,
+      yarnSpandex: product.yarnSpandex,
+      yarnNylon: product.yarnNylon,
+      yarnCotton: product.yarnCotton,
+      yarnBamboo: product.yarnBamboo,
+      yarnSpan: product.yarnSpan,
+    };
+    // تحديث أو إضافة
+    const existing = savedProducts.findIndex(p =>
+      `${p.itemName.trim()}_${p.itemSize.trim()}_${p.itemColor.trim()}` === key
+    );
+    let updated: SavedProductData[];
+    if (existing >= 0) {
+      updated = [...savedProducts];
+      updated[existing] = newSaved;
+    } else {
+      updated = [...savedProducts, newSaved];
+    }
+    setSavedProducts(updated);
     try {
-      await appSettingsService.set("product_yarn_weights", JSON.stringify(updated));
+      await appSettingsService.set("saved_products_data", JSON.stringify(updated));
     } catch (e) {
-      console.log("Error saving yarn weight:", e);
+      console.log("Error saving product data:", e);
     }
   };
 
-  // البحث عن اقتراحات المنتجات
-  const getProductSuggestions = (text: string): string[] => {
+  // البحث عن اقتراحات المنتجات (ملاحظة 5)
+  const getProductSuggestions = (text: string): SavedProductData[] => {
     if (!text.trim()) return [];
-    const allProducts = Object.keys(savedYarnWeights);
-    return allProducts.filter(p => p.includes(text.trim()));
+    return savedProducts.filter(p =>
+      p.itemName.includes(text.trim()) ||
+      p.itemColor.includes(text.trim()) ||
+      p.itemSize.includes(text.trim())
+    );
   };
 
   const loadEntries = async () => {
@@ -160,16 +222,31 @@ export default function ProductionScreen() {
       setIsLoading(true);
       const rows = await productionService.getAll() || [];
       // تجميع حسب التاريخ ثم المكينة ثم الورديات
-      const grouped: { [date: string]: { [machine: string]: ShiftData[] } } = {};
+      const grouped: { [date: string]: { [machine: string]: { [shift: number]: ProductItem[] } } } = {};
       for (const row of rows) {
         const d = row.date || "";
         if (!grouped[d]) grouped[d] = {};
-        if (!grouped[d][row.machineNumber]) grouped[d][row.machineNumber] = [];
-        grouped[d][row.machineNumber].push({
-          productName: row.productName || "",
-          shiftNumber: row.shiftNumber || 1,
-          shiftStart: row.shiftStart || "",
-          shiftEnd: row.shiftEnd || "",
+        const machine = row.machineNumber || "unknown";
+        if (!grouped[d][machine]) grouped[d][machine] = {};
+        const shiftNum = row.shiftNumber || 1;
+        if (!grouped[d][machine][shiftNum]) grouped[d][machine][shiftNum] = [];
+
+        // تحليل اسم المنتج القديم (قد يكون "صنف - مقاس - لون" أو نص واحد)
+        const rawName = row.productName || "";
+        let itemName = rawName;
+        let itemSize = "";
+        let itemColor = "";
+        if (rawName.includes(" - ")) {
+          const parts = rawName.split(" - ");
+          itemName = parts[0] || "";
+          itemSize = parts[1] || "";
+          itemColor = parts[2] || "";
+        }
+
+        grouped[d][machine][shiftNum].push({
+          itemName,
+          itemSize,
+          itemColor,
           productionDozen: String(row.productionDozen || 0),
           productionPairs: String(row.productionPairs || 0),
           wasteThreadGrams: String(row.wasteThreadGrams || 0),
@@ -188,6 +265,7 @@ export default function ProductionScreen() {
           yarnWeightPerPair: String(row.yarnWeightPerPair || ""),
         });
       }
+
       const loadedEntries: ProductionEntry[] = Object.keys(grouped)
         .sort((a, b) => b.localeCompare(a))
         .map((date) => ({
@@ -196,7 +274,16 @@ export default function ProductionScreen() {
           machines: Object.fromEntries(
             Object.entries(grouped[date]).map(([machine, shifts]) => [
               machine,
-              { shifts: shifts.sort((a, b) => a.shiftNumber - b.shiftNumber) },
+              {
+                shifts: Object.entries(shifts)
+                  .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                  .map(([shiftNum, products]) => ({
+                    shiftNumber: parseInt(shiftNum),
+                    shiftStart: "",
+                    shiftEnd: "",
+                    products,
+                  })),
+              },
             ])
           ),
         }));
@@ -217,29 +304,34 @@ export default function ProductionScreen() {
       const batchEntries: any[] = [];
       Object.entries(entry.machines).forEach(([machine, machineShifts]) => {
         machineShifts.shifts.forEach((shift) => {
-          batchEntries.push({
-            date: entry.date,
-            machineNumber: machine,
-            productName: shift.productName || "",
-            shiftNumber: shift.shiftNumber || 1,
-            shiftStart: shift.shiftStart || "",
-            shiftEnd: shift.shiftEnd || "",
-            productionDozen: parseInt(shift.productionDozen) || 0,
-            productionPairs: parseInt(shift.productionPairs) || 0,
-            wasteThreadGrams: parseInt(shift.wasteThreadGrams) || 0,
-            wasteSocksGrams: parseInt(shift.wasteSocksGrams) || 0,
-            secondGradeDozen: parseInt(shift.secondGradeDozen) || 0,
-            secondGradePairs: parseInt(shift.secondGradePairs) || 0,
-            wasteNeedles: parseInt(shift.wasteNeedles) || 0,
-            productionHours: parseInt(shift.productionHours) || 0,
-            productionMinutes: parseInt(shift.productionMinutes) || 0,
-            yarnRubber: parseInt(shift.yarnRubber) || 0,
-            yarnSpandex: parseInt(shift.yarnSpandex) || 0,
-            yarnNylon: parseInt(shift.yarnNylon) || 0,
-            yarnCotton: parseInt(shift.yarnCotton) || 0,
-            yarnBamboo: parseInt(shift.yarnBamboo) || 0,
-            yarnSpan: parseInt(shift.yarnSpan) || 0,
-            userId,
+          shift.products.forEach((product) => {
+            // اسم المنتج = صنف - مقاس - لون
+            const productName = getFullProductName(product);
+            if (!productName && !product.productionDozen && !product.productionPairs) return; // تخطي المنتجات الفارغة
+            batchEntries.push({
+              date: entry.date,
+              machineNumber: machine,
+              productName: productName,
+              shiftNumber: shift.shiftNumber || 1,
+              shiftStart: shift.shiftStart || "",
+              shiftEnd: shift.shiftEnd || "",
+              productionDozen: parseInt(product.productionDozen) || 0,
+              productionPairs: parseInt(product.productionPairs) || 0,
+              wasteThreadGrams: parseInt(product.wasteThreadGrams) || 0,
+              wasteSocksGrams: parseInt(product.wasteSocksGrams) || 0,
+              secondGradeDozen: parseInt(product.secondGradeDozen) || 0,
+              secondGradePairs: parseInt(product.secondGradePairs) || 0,
+              wasteNeedles: parseInt(product.wasteNeedles) || 0,
+              productionHours: parseInt(product.productionHours) || 0,
+              productionMinutes: parseInt(product.productionMinutes) || 0,
+              yarnRubber: parseInt(product.yarnRubber) || 0,
+              yarnSpandex: parseInt(product.yarnSpandex) || 0,
+              yarnNylon: parseInt(product.yarnNylon) || 0,
+              yarnCotton: parseInt(product.yarnCotton) || 0,
+              yarnBamboo: parseInt(product.yarnBamboo) || 0,
+              yarnSpan: parseInt(product.yarnSpan) || 0,
+              userId,
+            });
           });
         });
       });
@@ -284,51 +376,84 @@ export default function ProductionScreen() {
     const current = machinesData[machine];
     if (!current || current.shifts.length <= 1) return;
     const newShifts = current.shifts.filter((_, i) => i !== shiftIndex);
-    // إعادة ترقيم
     newShifts.forEach((s, i) => { s.shiftNumber = i + 1; });
     setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
   };
 
-  const updateShiftField = (machine: string, shiftIndex: number, field: keyof ShiftData, value: string) => {
-    const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
-    const newShifts = [...current.shifts];
-    newShifts[shiftIndex] = { ...newShifts[shiftIndex], [field]: value };
-
-    // عند تغيير اسم المنتج - البحث عن وزن محفوظ وإظهار اقتراحات
-    if (field === "productName") {
-      const suggestions = getProductSuggestions(value);
-      setProductSuggestions(suggestions);
-      if (value.trim()) {
-        setShowSuggestions({ machine, shiftIndex });
-      } else {
-        setShowSuggestions(null);
-      }
-      // إذا كان الاسم مطابق تماماً لمنتج محفوظ - ملء الوزن تلقائياً
-      if (savedYarnWeights[value.trim()]) {
-        newShifts[shiftIndex] = { ...newShifts[shiftIndex], yarnWeightPerPair: savedYarnWeights[value.trim()] };
-      }
-    }
-
-    // عند تغيير وزن الخيط - حفظه للمنتج
-    if (field === "yarnWeightPerPair" && value.trim()) {
-      const productName = newShifts[shiftIndex].productName;
-      if (productName.trim()) {
-        saveYarnWeightForProduct(productName, value);
-      }
-    }
-
-    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
-  };
-
-  // اختيار منتج من الاقتراحات
-  const selectProductSuggestion = (machine: string, shiftIndex: number, productName: string) => {
+  // ملاحظة 3: إضافة منتج جديد في الوردية
+  const addProduct = (machine: string, shiftIndex: number) => {
     const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
     const newShifts = [...current.shifts];
     newShifts[shiftIndex] = {
       ...newShifts[shiftIndex],
-      productName,
-      yarnWeightPerPair: savedYarnWeights[productName] || "",
+      products: [...newShifts[shiftIndex].products, emptyProduct()],
     };
+    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+  };
+
+  // حذف منتج من الوردية
+  const removeProduct = (machine: string, shiftIndex: number, productIndex: number) => {
+    const current = machinesData[machine];
+    if (!current) return;
+    const products = current.shifts[shiftIndex].products;
+    if (products.length <= 1) return;
+    const newShifts = [...current.shifts];
+    newShifts[shiftIndex] = {
+      ...newShifts[shiftIndex],
+      products: products.filter((_, i) => i !== productIndex),
+    };
+    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+  };
+
+  const updateShiftField = (machine: string, shiftIndex: number, field: "shiftStart" | "shiftEnd", value: string) => {
+    const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+    const newShifts = [...current.shifts];
+    newShifts[shiftIndex] = { ...newShifts[shiftIndex], [field]: value };
+    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+  };
+
+  const updateProductField = (machine: string, shiftIndex: number, productIndex: number, field: keyof ProductItem, value: string) => {
+    const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+    const newShifts = [...current.shifts];
+    const newProducts = [...newShifts[shiftIndex].products];
+    newProducts[productIndex] = { ...newProducts[productIndex], [field]: value };
+
+    // ملاحظة 5: عند تغيير اسم الصنف - إظهار اقتراحات
+    if (field === "itemName") {
+      const suggestions = getProductSuggestions(value);
+      setProductSuggestions(suggestions);
+      if (value.trim()) {
+        setShowSuggestions({ machine, shiftIndex, productIndex });
+      } else {
+        setShowSuggestions(null);
+      }
+    }
+
+    newShifts[shiftIndex] = { ...newShifts[shiftIndex], products: newProducts };
+    setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
+  };
+
+  // اختيار منتج من الاقتراحات (ملاحظة 5)
+  const selectProductSuggestion = (machine: string, shiftIndex: number, productIndex: number, saved: SavedProductData) => {
+    const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+    const newShifts = [...current.shifts];
+    const newProducts = [...newShifts[shiftIndex].products];
+    // تعبئة تلقائية لكل البيانات ماعدا الكمية والهدر والنخب الثاني والوقت
+    newProducts[productIndex] = {
+      ...newProducts[productIndex],
+      itemName: saved.itemName,
+      itemSize: saved.itemSize,
+      itemColor: saved.itemColor,
+      yarnWeightPerPair: saved.yarnWeightPerPair,
+      yarnRubber: saved.yarnRubber,
+      yarnSpandex: saved.yarnSpandex,
+      yarnNylon: saved.yarnNylon,
+      yarnCotton: saved.yarnCotton,
+      yarnBamboo: saved.yarnBamboo,
+      yarnSpan: saved.yarnSpan,
+      // لا نعبئ: productionDozen, productionPairs, wasteThreadGrams, wasteSocksGrams, secondGradeDozen, secondGradePairs, wasteNeedles, productionHours, productionMinutes
+    };
+    newShifts[shiftIndex] = { ...newShifts[shiftIndex], products: newProducts };
     setMachinesData({ ...machinesData, [machine]: { shifts: newShifts } });
     setShowSuggestions(null);
     setProductSuggestions([]);
@@ -352,20 +477,17 @@ export default function ProductionScreen() {
     });
 
     try {
-      // حفظ أوزان الخيوط لكل منتج جديد
-      const updatedWeights = { ...savedYarnWeights };
+      // حفظ بيانات المنتجات تلقائياً (ملاحظة 5)
       activeMachines.forEach((machine) => {
         const mData = machinesData[machine] || { shifts: [] };
         mData.shifts.forEach((shift) => {
-          if (shift.productName.trim() && shift.yarnWeightPerPair.trim()) {
-            updatedWeights[shift.productName.trim()] = shift.yarnWeightPerPair.trim();
-          }
+          shift.products.forEach((product) => {
+            if (product.itemName.trim()) {
+              saveProductData(product);
+            }
+          });
         });
       });
-      if (JSON.stringify(updatedWeights) !== JSON.stringify(savedYarnWeights)) {
-        setSavedYarnWeights(updatedWeights);
-        await appSettingsService.set("product_yarn_weights", JSON.stringify(updatedWeights));
-      }
 
       await saveToServer(entry, !!editingEntry);
       await loadEntries();
@@ -411,15 +533,15 @@ export default function ProductionScreen() {
     }
   };
 
-  // حساب إجمالي وزن الخيوط لوردية واحدة
-  const getShiftTotalYarn = (s: ShiftData): number => {
+  // حساب إجمالي وزن الخيوط لمنتج واحد
+  const getProductTotalYarn = (p: ProductItem): number => {
     return (
-      (parseFloat(s.yarnRubber) || 0) +
-      (parseFloat(s.yarnSpandex) || 0) +
-      (parseFloat(s.yarnNylon) || 0) +
-      (parseFloat(s.yarnCotton) || 0) +
-      (parseFloat(s.yarnBamboo) || 0) +
-      (parseFloat(s.yarnSpan) || 0)
+      (parseFloat(p.yarnRubber) || 0) +
+      (parseFloat(p.yarnSpandex) || 0) +
+      (parseFloat(p.yarnNylon) || 0) +
+      (parseFloat(p.yarnCotton) || 0) +
+      (parseFloat(p.yarnBamboo) || 0) +
+      (parseFloat(p.yarnSpan) || 0)
     );
   };
 
@@ -430,29 +552,30 @@ export default function ProductionScreen() {
     let totalHours = 0, totalMinutes = 0;
     let totalYarnRubber = 0, totalYarnSpandex = 0, totalYarnNylon = 0;
     let totalYarnCotton = 0, totalYarnBamboo = 0, totalYarnSpan = 0;
-    let totalYarnByPairs = 0; // إجمالي وزن الخيوط (وزن الخيط × عدد الأزواج)
+    let totalYarnByPairs = 0;
 
     Object.values(entry.machines).forEach((machineShifts) => {
-      machineShifts.shifts.forEach((s) => {
-        totalDozen += parseFloat(s.productionDozen) || 0;
-        totalPairs += parseFloat(s.productionPairs) || 0;
-        totalWasteThread += parseFloat(s.wasteThreadGrams) || 0;
-        totalWasteSocks += parseFloat(s.wasteSocksGrams) || 0;
-        totalSecondDozen += parseFloat(s.secondGradeDozen) || 0;
-        totalSecondPairs += parseFloat(s.secondGradePairs) || 0;
-        totalNeedles += parseFloat(s.wasteNeedles) || 0;
-        totalHours += parseFloat(s.productionHours) || 0;
-        totalMinutes += parseFloat(s.productionMinutes) || 0;
-        totalYarnRubber += parseFloat(s.yarnRubber) || 0;
-        totalYarnSpandex += parseFloat(s.yarnSpandex) || 0;
-        totalYarnNylon += parseFloat(s.yarnNylon) || 0;
-        totalYarnCotton += parseFloat(s.yarnCotton) || 0;
-        totalYarnBamboo += parseFloat(s.yarnBamboo) || 0;
-        totalYarnSpan += parseFloat(s.yarnSpan) || 0;
-        // حساب إجمالي وزن الخيوط لكل نوع
-        const yarnPerPair = parseFloat(s.yarnWeightPerPair) || 0;
-        const pairs = parseInt(s.productionPairs) || 0;
-        totalYarnByPairs += yarnPerPair * pairs;
+      machineShifts.shifts.forEach((shift) => {
+        shift.products.forEach((p) => {
+          totalDozen += parseFloat(p.productionDozen) || 0;
+          totalPairs += parseFloat(p.productionPairs) || 0;
+          totalWasteThread += parseFloat(p.wasteThreadGrams) || 0;
+          totalWasteSocks += parseFloat(p.wasteSocksGrams) || 0;
+          totalSecondDozen += parseFloat(p.secondGradeDozen) || 0;
+          totalSecondPairs += parseFloat(p.secondGradePairs) || 0;
+          totalNeedles += parseFloat(p.wasteNeedles) || 0;
+          totalHours += parseFloat(p.productionHours) || 0;
+          totalMinutes += parseFloat(p.productionMinutes) || 0;
+          totalYarnRubber += parseFloat(p.yarnRubber) || 0;
+          totalYarnSpandex += parseFloat(p.yarnSpandex) || 0;
+          totalYarnNylon += parseFloat(p.yarnNylon) || 0;
+          totalYarnCotton += parseFloat(p.yarnCotton) || 0;
+          totalYarnBamboo += parseFloat(p.yarnBamboo) || 0;
+          totalYarnSpan += parseFloat(p.yarnSpan) || 0;
+          const yarnPerPair = parseFloat(p.yarnWeightPerPair) || 0;
+          const pairs = parseInt(p.productionPairs) || 0;
+          totalYarnByPairs += yarnPerPair * pairs;
+        });
       });
     });
 
@@ -463,9 +586,14 @@ export default function ProductionScreen() {
     const totalWasteAll = totalWasteThread + totalWasteSocks;
     const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
 
+    // ملاحظة 1: تحويل النخب الثاني
+    const totalSecondPairsAll = totalSecondPairs + (totalSecondDozen * 12);
+    const secondConverted = convertPairsToDozens(totalSecondPairsAll);
+
     return {
-      totalDozen, totalPairs, totalWasteThread, totalWasteSocks, totalSecondDozen, totalSecondPairs, totalNeedles,
-      totalHours, totalMinutes,
+      totalDozen, totalPairs, totalWasteThread, totalWasteSocks,
+      totalSecondDozen: secondConverted.dozens, totalSecondPairs: secondConverted.remainingPairs,
+      totalNeedles, totalHours, totalMinutes,
       totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
       totalYarnWeight, totalWasteAll, wastePercentage, totalYarnByPairs,
     };
@@ -507,21 +635,13 @@ export default function ProductionScreen() {
         {machineKeys.map((machine) => (
           <View key={machine} style={{ marginBottom: 8, paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.border }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: colors.muted, fontSize: 12 }}>
-                {entry.machines[machine].shifts.map(s => s.productName || (isAr ? "بدون اسم" : "No name")).join(" | ")}
+              <Text style={{ color: colors.muted, fontSize: 12, flex: 1 }}>
+                {entry.machines[machine].shifts.map(s =>
+                  s.products.map(p => getFullProductName(p) || (isAr ? "بدون اسم" : "No name")).join(", ")
+                ).join(" | ")}
               </Text>
-              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14 }}>{machine}</Text>
+              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14, marginLeft: 8 }}>{machine}</Text>
             </View>
-            {entry.machines[machine].shifts.map((shift, idx) => (
-              <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingRight: 8 }}>
-                <Text style={{ color: colors.muted, fontSize: 11 }}>
-                  {shift.shiftStart && shift.shiftEnd ? `${shift.shiftStart} - ${shift.shiftEnd}` : ""}
-                </Text>
-                <Text style={{ color: colors.foreground, fontSize: 11 }}>
-                  {isAr ? `وردية ${shift.shiftNumber}` : `Shift ${shift.shiftNumber}`}: {shift.productionDozen || 0} {isAr ? "درزن" : "dz"}
-                </Text>
-              </View>
-            ))}
           </View>
         ))}
 
@@ -533,6 +653,12 @@ export default function ProductionScreen() {
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "درزن" : "dozen"}</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
+            <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "نخب ثاني" : "2nd Grade"}</Text>
+            <Text style={{ color: "#f59e0b", fontWeight: 'bold', fontSize: 14 }}>
+              {totals.totalSecondDozen > 0 ? `${totals.totalSecondDozen} ${isAr ? "د" : "dz"}` : ""}{totals.totalSecondPairs > 0 ? ` ${totals.totalSecondPairs} ${isAr ? "ز" : "pr"}` : "0"}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'center' }}>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "هدر" : "Waste"}</Text>
             <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 14 }}>{totals.totalWasteAll}</Text>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "جم" : "g"}</Text>
@@ -541,17 +667,290 @@ export default function ProductionScreen() {
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "نسبة الهدر" : "Waste %"}</Text>
             <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 14 }}>{totals.wastePercentage}%</Text>
           </View>
-          {totals.totalYarnByPairs > 0 && (
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "وزن الخيوط" : "Yarn Wt"}</Text>
-              <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 14 }}>{totals.totalYarnByPairs.toLocaleString()}</Text>
-              <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "جرام" : "g"}</Text>
-            </View>
-          )}
         </View>
       </View>
     );
   };
+
+  // فورم إدخال منتج واحد
+  const renderProductForm = (machine: string, shiftIndex: number, product: ProductItem, productIndex: number, totalProducts: number) => (
+    <View key={`${machine}-s${shiftIndex}-p${productIndex}`} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
+      {/* رأس المنتج */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {totalProducts > 1 && (
+            <TouchableOpacity onPress={() => removeProduct(machine, shiftIndex, productIndex)} style={{ backgroundColor: "#ef444415", borderRadius: 14, padding: 3 }}>
+              <MaterialIcons name="remove-circle" size={18} color="#ef4444" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 12 }}>
+          {isAr ? `منتج ${productIndex + 1}` : `Product ${productIndex + 1}`}
+        </Text>
+      </View>
+
+      {/* ملاحظة 6: اسم الصنف + المقاس + اللون */}
+      <View style={{ marginBottom: 8, zIndex: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "اللون" : "Color"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              placeholder={isAr ? "اللون" : "Color"}
+              placeholderTextColor={colors.muted}
+              value={product.itemColor}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemColor", v)}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "المقاس" : "Size"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              placeholder={isAr ? "المقاس" : "Size"}
+              placeholderTextColor={colors.muted}
+              value={product.itemSize}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemSize", v)}
+            />
+          </View>
+          <View style={{ flex: 2 }}>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "اسم الصنف" : "Item Name"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              placeholder={isAr ? "اسم الصنف" : "Item name"}
+              placeholderTextColor={colors.muted}
+              value={product.itemName}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemName", v)}
+              onBlur={() => setTimeout(() => setShowSuggestions(null), 200)}
+            />
+          </View>
+        </View>
+        {/* اقتراحات المنتجات المحفوظة */}
+        {showSuggestions?.machine === machine && showSuggestions?.shiftIndex === shiftIndex && showSuggestions?.productIndex === productIndex && productSuggestions.length > 0 && (
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, borderRadius: 8, marginTop: 2, maxHeight: 120, overflow: 'hidden' }}>
+            <ScrollView nestedScrollEnabled style={{ maxHeight: 120 }}>
+              {productSuggestions.map((suggestion, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => selectProductSuggestion(machine, shiftIndex, productIndex, suggestion)}
+                  style={{ paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: idx < productSuggestions.length - 1 ? 1 : 0, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground, fontSize: 12, textAlign: 'right' }}>
+                    {suggestion.itemName} - {suggestion.itemSize} - {suggestion.itemColor}
+                  </Text>
+                  <Text style={{ color: colors.muted, fontSize: 10, textAlign: 'right' }}>
+                    {isAr ? "وزن الخيط:" : "Yarn:"} {suggestion.yarnWeightPerPair} {isAr ? "جم/زوج" : "g/pair"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
+      {/* وزن الخيط لكل زوج + إجمالي */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flex: 1, backgroundColor: '#f0fdf4', borderRadius: 6, padding: 6, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#16a34a', fontSize: 9 }}>{isAr ? "إجمالي وزن الخيوط" : "Total Yarn"}</Text>
+          <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 14 }}>
+            {(() => {
+              const weight = parseFloat(product.yarnWeightPerPair) || 0;
+              const pairs = parseInt(product.productionPairs) || 0;
+              const total = weight * pairs;
+              return total > 0 ? `${total.toLocaleString()} ${isAr ? 'جم' : 'g'}` : '---';
+            })()}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "وزن الخيط/زوج" : "Yarn/Pair"}</Text>
+          <TextInput
+            style={{ backgroundColor: product.yarnWeightPerPair ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: product.yarnWeightPerPair ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0"
+            placeholderTextColor={colors.muted}
+            value={product.yarnWeightPerPair}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnWeightPerPair", v)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* كمية الإنتاج */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "إنتاج (زوج)" : "Pairs"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.productionPairs}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionPairs", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "إنتاج (درزن)" : "Dozen"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.productionDozen}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionDozen", v)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* الهدر */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر جوارب (جم)" : "Socks (g)"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.wasteSocksGrams}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteSocksGrams", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر خيوط (جم)" : "Thread (g)"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.wasteThreadGrams}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteThreadGrams", v)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* النخب الثاني وهدر الإبر */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.wasteNeedles}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteNeedles", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "نخب ثاني (زوج)" : "2nd (Pairs)"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.secondGradePairs}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "secondGradePairs", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "نخب ثاني (درزن)" : "2nd (Dz)"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.secondGradeDozen}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "secondGradeDozen", v)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* مدة الإنتاج */}
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "دقيقة" : "Min"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.productionMinutes}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionMinutes", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "ساعة" : "Hour"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.productionHours}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionHours", v)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* وزن الخيوط */}
+      <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 8, marginTop: 4 }}>
+        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 11, marginBottom: 6, textAlign: 'right' }}>{isAr ? "وزن الخيوط (جرام)" : "Yarn Weight (g)"}</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "اسباندكس" : "Spandex"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnSpandex}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpandex", v)}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "مطاط" : "Rubber"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnRubber}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnRubber", v)}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "قطن" : "Cotton"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnCotton}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnCotton", v)}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "نايلون" : "Nylon"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnNylon}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnNylon", v)}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "اسبان" : "Span"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnSpan}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpan", v)}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "بامبو" : "Bamboo"}</Text>
+            <TextInput
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+              placeholder="0" placeholderTextColor={colors.muted}
+              value={product.yarnBamboo}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnBamboo", v)}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 
   // فورم إدخال الوردية
   const renderShiftForm = (machine: string, shift: ShiftData, shiftIndex: number, totalShifts: number) => (
@@ -570,73 +969,6 @@ export default function ProductionScreen() {
             {isAr ? `الوردية ${shift.shiftNumber}` : `Shift ${shift.shiftNumber}`}
           </Text>
           <MaterialIcons name="schedule" size={16} color={colors.primary} />
-        </View>
-      </View>
-
-      {/* اسم المنتج */}
-      <View style={{ marginBottom: 12, zIndex: 10 }}>
-        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسم المنتج" : "Product Name"}</Text>
-        <TextInput
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-          placeholder={isAr ? "مثال: جوارب رجالي قطن" : "e.g. Men's cotton socks"}
-          placeholderTextColor={colors.muted}
-          value={shift.productName}
-          onChangeText={(v) => updateShiftField(machine, shiftIndex, "productName", v)}
-          onBlur={() => setTimeout(() => setShowSuggestions(null), 200)}
-        />
-        {/* اقتراحات المنتجات المحفوظة */}
-        {showSuggestions?.machine === machine && showSuggestions?.shiftIndex === shiftIndex && productSuggestions.length > 0 && (
-          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, borderRadius: 8, marginTop: 4, maxHeight: 120, overflow: 'hidden' }}>
-            <ScrollView nestedScrollEnabled style={{ maxHeight: 120 }}>
-              {productSuggestions.map((suggestion, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => selectProductSuggestion(machine, shiftIndex, suggestion)}
-                  style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: idx < productSuggestions.length - 1 ? 1 : 0, borderColor: colors.border }}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: colors.muted, fontSize: 11 }}>{savedYarnWeights[suggestion]} {isAr ? "جرام/زوج" : "g/pair"}</Text>
-                    <Text style={{ color: colors.foreground, fontSize: 13, textAlign: 'right' }}>{suggestion}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-
-      {/* وزن الخيط لكل زوج + عدد الأزواج لحساب الإجمالي */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <View style={{ flex: 1, backgroundColor: '#f0fdf4', borderRadius: 8, padding: 8, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: '#16a34a', fontSize: 10, marginBottom: 2 }}>{isAr ? "إجمالي وزن الخيوط" : "Total Yarn Weight"}</Text>
-          <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 16 }}>
-            {(() => {
-              const weight = parseFloat(shift.yarnWeightPerPair) || 0;
-              const pairs = parseInt(shift.productionPairs) || 0;
-              const total = weight * pairs;
-              return total > 0 ? `${total.toLocaleString()} ${isAr ? 'جرام' : 'g'}` : '---';
-            })()}
-          </Text>
-          <Text style={{ color: '#16a34a', fontSize: 9, marginTop: 1 }}>
-            {(() => {
-              const pairs = parseInt(shift.productionPairs) || 0;
-              return pairs > 0 ? `${pairs} ${isAr ? 'زوج' : 'pairs'}` : '';
-            })()}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "وزن الخيط/زوج (جرام)" : "Yarn/Pair (g)"}</Text>
-          <TextInput
-            style={{ backgroundColor: shift.yarnWeightPerPair ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: shift.yarnWeightPerPair ? '#16a34a' : colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder={isAr ? "وزن الخيط" : "Weight"}
-            placeholderTextColor={colors.muted}
-            value={shift.yarnWeightPerPair}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnWeightPerPair", v)}
-            keyboardType="numeric"
-          />
-          {shift.yarnWeightPerPair && savedYarnWeights[shift.productName?.trim()] && (
-            <Text style={{ color: '#16a34a', fontSize: 9, marginTop: 2, textAlign: 'right' }}>{isAr ? '✓ محفوظ تلقائياً' : '✓ Auto-saved'}</Text>
-          )}
         </View>
       </View>
 
@@ -664,198 +996,24 @@ export default function ProductionScreen() {
         </View>
       </View>
 
-      {/* كمية الإنتاج */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (زوج)" : "Production (Pairs)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.productionPairs}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "productionPairs", v)}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "إنتاج (درزن)" : "Production (Dozen)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.productionDozen}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "productionDozen", v)}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
+      {/* المنتجات */}
+      {shift.products.map((product, pIdx) => renderProductForm(machine, shiftIndex, product, pIdx, shift.products.length))}
 
-      {/* هدر الخيوط وهدر الجوارب */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر جوارب (جم)" : "Socks Waste (g)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.wasteSocksGrams}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "wasteSocksGrams", v)}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر خيوط (جم)" : "Thread Waste (g)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.wasteThreadGrams}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "wasteThreadGrams", v)}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
-
-      {/* النخب الثاني وهدر الإبر */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.wasteNeedles}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "wasteNeedles", v)}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (زوج)" : "2nd Grade (Pairs)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.secondGradePairs}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "secondGradePairs", v)}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نخب ثاني (درزن)" : "2nd Grade (Dz)"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.secondGradeDozen}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "secondGradeDozen", v)}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
-
-      {/* مدة الإنتاج */}
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "دقيقة" : "Minutes"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.productionMinutes}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "productionMinutes", v)}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "ساعة" : "Hours"}</Text>
-          <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
-            placeholder="0"
-            placeholderTextColor={colors.muted}
-            value={shift.productionHours}
-            onChangeText={(v) => updateShiftField(machine, shiftIndex, "productionHours", v)}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
-
-      {/* وزن الخيوط */}
-      <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 12, marginTop: 4 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 12, marginBottom: 8, textAlign: 'right' }}>{isAr ? "وزن الخيوط (جرام)" : "Yarn Weight (g)"}</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسباندكس" : "Spandex"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnSpandex}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnSpandex", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "مطاط" : "Rubber"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnRubber}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnRubber", v)}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "قطن" : "Cotton"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnCotton}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnCotton", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نايلون" : "Nylon"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnNylon}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnNylon", v)}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "اسبان" : "Span"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnSpan}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnSpan", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بامبو" : "Bamboo"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={shift.yarnBamboo}
-              onChangeText={(v) => updateShiftField(machine, shiftIndex, "yarnBamboo", v)}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-      </View>
+      {/* زر إضافة منتج */}
+      <TouchableOpacity
+        onPress={() => addProduct(machine, shiftIndex)}
+        style={{ backgroundColor: "#0a7ea415", borderRadius: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 }}
+      >
+        <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة منتج" : "Add Product"}</Text>
+        <MaterialIcons name="add" size={16} color="#0a7ea4" />
+      </TouchableOpacity>
     </View>
   );
 
   // فورم الإدخال الرئيسي
   const renderForm = () => (
     <View style={{ flex: 1 }}>
-      {/* قائمة المكائن الثابتة في الأعلى - لا تتحرك مع السكرول */}
+      {/* قائمة المكائن الثابتة في الأعلى */}
       <View style={{ backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingHorizontal: 4 }}>
           {MACHINES.map((machine) => (
@@ -881,7 +1039,7 @@ export default function ProductionScreen() {
         </ScrollView>
       </View>
 
-      {/* المحتوى القابل للتمرير - التاريخ وبيانات الإدخال */}
+      {/* المحتوى القابل للتمرير */}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         {/* التاريخ */}
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
@@ -896,60 +1054,59 @@ export default function ProductionScreen() {
         </View>
 
         {/* حقول الإدخال لكل مكينة مفعلة */}
-      {activeMachines.map((machine) => {
-        const machineShifts = machinesData[machine] || { shifts: [emptyShiftData(1)] };
-        return (
-          <View key={machine} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
-            {/* رأس المكينة */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <TouchableOpacity
-                onPress={() => addShift(machine)}
-                style={{ backgroundColor: "#0a7ea420", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة وردية" : "Add Shift"}</Text>
-                <MaterialIcons name="add" size={16} color="#0a7ea4" />
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{machine}</Text>
-                <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
-                  <MaterialIcons name="precision-manufacturing" size={16} color="#16a34a" />
+        {activeMachines.map((machine) => {
+          const machineShifts = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+          return (
+            <View key={machine} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
+              {/* رأس المكينة */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => addShift(machine)}
+                  style={{ backgroundColor: "#0a7ea420", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة وردية" : "Add Shift"}</Text>
+                  <MaterialIcons name="add" size={16} color="#0a7ea4" />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }}>{machine}</Text>
+                  <View style={{ backgroundColor: "#16a34a20", borderRadius: 14, padding: 5 }}>
+                    <MaterialIcons name="precision-manufacturing" size={16} color="#16a34a" />
+                  </View>
                 </View>
               </View>
+
+              {/* ورديات المكينة */}
+              {machineShifts.shifts.map((shift, idx) => renderShiftForm(machine, shift, idx, machineShifts.shifts.length))}
             </View>
+          );
+        })}
 
-            {/* ورديات المكينة */}
-            {machineShifts.shifts.map((shift, idx) => renderShiftForm(machine, shift, idx, machineShifts.shifts.length))}
+        {/* أزرار الحفظ */}
+        {activeMachines.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
+            <AttachmentPicker
+              attachments={productionAttachments}
+              onAttachmentsChange={setProductionAttachments}
+              language={language}
+            />
+
+            <TouchableOpacity
+              onPress={() => { setShowForm(false); resetForm(); }}
+              style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+            >
+              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+              <MaterialIcons name="close" size={18} color={colors.foreground} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleSave}
+              style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+            >
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
+              <MaterialIcons name="save" size={18} color="white" />
+            </TouchableOpacity>
           </View>
-        );
-      })}
-
-      {/* أزرار الحفظ */}
-      {activeMachines.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
-          {/* المرفقات */}
-          <AttachmentPicker
-            attachments={productionAttachments}
-            onAttachmentsChange={setProductionAttachments}
-            language={language}
-          />
-
-          <TouchableOpacity
-            onPress={() => { setShowForm(false); resetForm(); }}
-            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
-          >
-            <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
-            <MaterialIcons name="close" size={18} color={colors.foreground} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleSave}
-            style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
-          >
-            <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
-            <MaterialIcons name="save" size={18} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
       </ScrollView>
     </View>
   );
@@ -999,10 +1156,12 @@ export default function ProductionScreen() {
         let sumYarnWeight = 0, sumWasteThread = 0, sumWasteSocks = 0;
         allEntries.forEach(entry => {
           Object.values(entry.machines).forEach(machineShifts => {
-            machineShifts.shifts.forEach(s => {
-              sumYarnWeight += getShiftTotalYarn(s);
-              sumWasteThread += parseFloat(s.wasteThreadGrams) || 0;
-              sumWasteSocks += parseFloat(s.wasteSocksGrams) || 0;
+            machineShifts.shifts.forEach(shift => {
+              shift.products.forEach(p => {
+                sumYarnWeight += getProductTotalYarn(p);
+                sumWasteThread += parseFloat(p.wasteThreadGrams) || 0;
+                sumWasteSocks += parseFloat(p.wasteSocksGrams) || 0;
+              });
             });
           });
         });
