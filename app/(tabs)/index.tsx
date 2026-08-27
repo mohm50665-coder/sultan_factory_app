@@ -263,6 +263,7 @@ export default function HomeScreen() {
     totalCollections: number;
   } | null>(null);
   const [statsUnavailable, setStatsUnavailable] = useState<string[]>([]);
+  const [showDailySummary, setShowDailySummary] = useState(false);
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -565,9 +566,22 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Daily operational statistics */}
+      {/* Daily operational statistics: compact trigger on mobile */}
       {dailyStats && (
-        <View style={{ marginHorizontal: 10, marginTop: 8, backgroundColor: colors.surface, borderRadius: 12, padding: 9, borderWidth: 1, borderColor: colors.border }}>
+        <>
+          <TouchableOpacity
+            onPress={() => setShowDailySummary((visible) => !visible)}
+            style={[styles.summaryIconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            activeOpacity={0.75}
+          >
+            <MaterialIcons name="insights" size={18} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 12, flex: 1, textAlign: isRtl ? "right" : "left" }}>
+              {isAr ? "ملخص اليوم" : "Today's Summary"}
+            </Text>
+            <MaterialIcons name={showDailySummary ? "expand-less" : "expand-more"} size={19} color={colors.muted} />
+          </TouchableOpacity>
+          {showDailySummary && (
+        <View style={{ marginHorizontal: 10, marginTop: 6, backgroundColor: colors.surface, borderRadius: 12, padding: 8, borderWidth: 1, borderColor: colors.border }}>
           <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 13 }}>{isAr ? "ملخص اليوم" : "Today's Summary"}</Text>
@@ -601,6 +615,8 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+          )}
+        </>
       )}
 
       {/* Grid */}
@@ -837,6 +853,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  summaryIconButton: {
+    marginHorizontal: 10,
+    marginTop: 7,
+    minHeight: 38,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderWidth: 1,
   },
   adminButtonText: {
     color: "#f59e0b",
