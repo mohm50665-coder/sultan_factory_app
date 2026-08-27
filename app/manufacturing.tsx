@@ -118,6 +118,18 @@ export default function ManufacturingScreen() {
         <BackButton />
       </View>
 
+      {/* أدوات التصنيع المختصرة */}
+      <View style={{ marginHorizontal: 16, marginTop: 12, flexDirection: "row", justifyContent: "flex-end", alignItems: "center" }}>
+        <TouchableOpacity
+          onPress={() => router.push("/product-tracking" as any)}
+          accessibilityLabel={isAr ? "تتبع المنتجات" : "Product tracking"}
+          style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: "#e0f2fe", borderWidth: 1, borderColor: "#0284c7", alignItems: "center", justifyContent: "center" }}
+        >
+          <MaterialIcons name="timeline" size={26} color="#0284c7" />
+        </TouchableOpacity>
+        <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "700", marginRight: 8 }}>{isAr ? "تتبع المنتجات" : "Product tracking"}</Text>
+      </View>
+
       {/* بطاقة الإجراءات الإدارية - كبيرة وواضحة */}
       <AdminCard />
 

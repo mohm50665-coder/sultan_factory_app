@@ -93,6 +93,12 @@ export const manufacturingService = {
   delete: (id: number) => trpcCall("manufacturing.delete", { id }),
 };
 
+// ===== Product Tracking =====
+export const productTrackingService = {
+  list: () => trpcCall("productTracking.list", undefined, "query"),
+  create: (data: any) => trpcCall("productTracking.create", data),
+};
+
 // ===== Sales =====
 export const salesService = {
   getAll: () => trpcCall("sales.getAll", undefined, "query"),

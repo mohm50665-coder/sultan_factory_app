@@ -756,3 +756,29 @@ export const appSettings = mysqlTable("appSettings", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type AppSetting = typeof appSettings.$inferSelect;
+
+// جدول تتبع المنتجات وسجل التسليم والاستلام بين مراحل التصنيع
+export const productTracking = mysqlTable("productTracking", {
+  id: int("id").autoincrement().primaryKey(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  productSize: varchar("productSize", { length: 100 }),
+  productColor: varchar("productColor", { length: 100 }),
+  trackingDate: varchar("trackingDate", { length: 20 }).notNull(),
+  totalWeightGrams: int("totalWeightGrams").default(0),
+  yarnDetails: json("yarnDetails"),
+  quantityDozen: int("quantityDozen").default(0),
+  quantityPairs: int("quantityPairs").default(0),
+  machineNumbers: json("machineNumbers"),
+  currentStage: varchar("currentStage", { length: 100 }).notNull(),
+  previousStage: varchar("previousStage", { length: 100 }),
+  deliveredBy: varchar("deliveredBy", { length: 255 }),
+  receivedBy: varchar("receivedBy", { length: 255 }),
+  handoverStatus: mysqlEnum("handoverStatus", ["pending", "delivered", "received", "rejected"]).default("pending").notNull(),
+  handoverDate: timestamp("handoverDate"),
+  notes: text("notes"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProductTracking = typeof productTracking.$inferSelect;
+export type InsertProductTracking = typeof productTracking.$inferInsert;

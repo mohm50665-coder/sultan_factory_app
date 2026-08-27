@@ -47,6 +47,7 @@ import {
   wasteThresholds as wasteThresholdsTable,
   wasteAlerts as wasteAlertsTable,
   appSettings as appSettingsTable,
+  productTracking as productTrackingTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -605,6 +606,40 @@ export const appRouter = router({
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         await db.delete(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id));
         return { success: true };
+      }),
+  }),
+
+  // ===== PRODUCT TRACKING ROUTER =====
+  productTracking: router({
+    list: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(productTrackingTable).orderBy(desc(productTrackingTable.trackingDate), desc(productTrackingTable.createdAt));
+    }),
+    create: publicProcedure
+      .input(z.object({
+        productName: z.string().min(1),
+        productSize: z.string().optional(),
+        productColor: z.string().optional(),
+        trackingDate: z.string().min(1),
+        totalWeightGrams: z.number().optional(),
+        yarnDetails: z.any().optional(),
+        quantityDozen: z.number().optional(),
+        quantityPairs: z.number().optional(),
+        machineNumbers: z.any().optional(),
+        currentStage: z.string().min(1),
+        previousStage: z.string().optional(),
+        deliveredBy: z.string().optional(),
+        receivedBy: z.string().optional(),
+        handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
+        notes: z.string().optional(),
+        userId: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(productTrackingTable).values({ ...input, handoverDate: input.handoverStatus === "received" ? new Date() : null });
+        return { success: true, id: result[0].insertId };
       }),
   }),
 
