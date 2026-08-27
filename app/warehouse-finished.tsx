@@ -405,9 +405,14 @@ export default function WarehouseFinishedScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       <View style={[styles.header, { backgroundColor: "#16a34a" }]}>
-        <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn}>
-          <MaterialIcons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity onPress={() => router.push("/barcode-labels")} style={styles.headerBtn} accessibilityLabel={isAr ? "ملصقات الباركود" : "Barcode labels"}>
+            <MaterialIcons name="qr-code-2" size={22} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { resetForm(); setShowForm(true); }} style={styles.headerBtn} accessibilityLabel={isAr ? "إضافة إدخال" : "Add entry"}>
+            <MaterialIcons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
         <View style={{ flex: 1, alignItems: "center" }}>
           <Text style={styles.headerTitle}>{isAr ? "مستودع الإنتاج التام" : "Finished Products Warehouse"}</Text>
           <Text style={styles.headerSub}>{entries.length} {isAr ? "سجل" : "records"}</Text>
