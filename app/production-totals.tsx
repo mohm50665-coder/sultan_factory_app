@@ -341,13 +341,14 @@ export default function ProductionTotalsScreen() {
 
             {/* ملاحظة 2: ملخص حسب المنتج - تجميع المنتجات المتكررة */}
             {(() => {
-              const productSummary: Record<string, { dozen: number; pairs: number }> = {};
+              const productSummary: Record<string, { dozen: number; pairs: number; machines: string[] }> = {};
               entries.forEach(entry => {
-                Object.values(entry.machines).forEach(m => {
+                Object.entries(entry.machines).forEach(([machine, m]) => {
                   const name = (m.productName || "").trim() || (isAr ? "بدون اسم" : "Unnamed");
-                  if (!productSummary[name]) productSummary[name] = { dozen: 0, pairs: 0 };
+                  if (!productSummary[name]) productSummary[name] = { dozen: 0, pairs: 0, machines: [] };
                   productSummary[name].dozen += parseFloat(m.productionDozen) || 0;
                   productSummary[name].pairs += parseFloat(m.productionPairs) || 0;
+                  if (!productSummary[name].machines.includes(machine)) productSummary[name].machines.push(machine);
                 });
               });
               const products = Object.entries(productSummary);
@@ -362,14 +363,17 @@ export default function ProductionTotalsScreen() {
                   </View>
                   <View style={{ gap: 8 }}>
                     {products.map(([name, data]) => (
-                      <View key={name} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <Text style={{ color: "#14b8a6", fontWeight: 'bold', fontSize: 16 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
-                          {data.pairs > 0 && (
-                            <Text style={{ color: colors.muted, fontSize: 13 }}>+ {data.pairs} {isAr ? "زوج" : "pr"}</Text>
-                          )}
+                      <View key={name} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <Text style={{ color: "#14b8a6", fontWeight: 'bold', fontSize: 15 }}>{data.dozen} {isAr ? "درزن" : "dz"}</Text>
+                            {data.pairs > 0 && <Text style={{ color: colors.muted, fontSize: 12 }}>+ {data.pairs} {isAr ? "زوج" : "pr"}</Text>}
+                          </View>
+                          <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 14, textAlign: 'right', flex: 1, marginLeft: 8 }}>{name}</Text>
                         </View>
-                        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, textAlign: 'right', flex: 1, marginLeft: 8 }}>{name}</Text>
+                        <Text style={{ color: colors.muted, fontSize: 11, textAlign: 'right', marginTop: 5 }}>
+                          {isAr ? `المكائن: ${data.machines.join("، ")}` : `Machines: ${data.machines.join(", ")}`}
+                        </Text>
                       </View>
                     ))}
                   </View>

@@ -348,6 +348,18 @@ export default function BoardRepresentativeScreen() {
       {/* Reports Tab */}
       {activeTab === "reports" && (
         <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            onPress={() => router.push("/board-monthly-report" as any)}
+            style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: "#ede9fe", borderWidth: 1, borderColor: "#8B5CF6", borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+            accessibilityLabel={isAr ? "فتح التقرير الشامل لمجلس الإدارة" : "Open comprehensive board report"}
+          >
+            <MaterialIcons name="chevron-left" size={22} color="#8B5CF6" />
+            <View style={{ flex: 1, alignItems: "flex-end", marginHorizontal: 8 }}>
+              <Text style={{ color: "#6D28D9", fontSize: 14, fontWeight: "700" }}>{isAr ? "التقرير الشامل لممثل مجلس الإدارة" : "Comprehensive Board Report"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2, textAlign: "right" }}>{isAr ? "الإنتاج والمبيعات والمصروفات والصيانة والمهام والتحصيل" : "Production, sales, expenses, maintenance, tasks, and collection"}</Text>
+            </View>
+            <MaterialIcons name="assessment" size={24} color="#8B5CF6" />
+          </TouchableOpacity>
           <FlatList
             data={boardData.filter(d => d.dataType === "report")}
             renderItem={renderDataCard}

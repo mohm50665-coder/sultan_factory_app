@@ -17,7 +17,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { productionService, appSettingsService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
-import { AdminCard } from "@/components/admin-card";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 
@@ -1168,62 +1167,93 @@ export default function ProductionScreen() {
 
         const sumWasteAll = sumWasteThread + sumWasteSocks;
         const wastePercent = sumYarnWeight > 0 ? ((sumWasteAll / sumYarnWeight) * 100).toFixed(2) : "0";
+        const groupedProducts: Record<string, { dozen: number; pairs: number; machines: string[] }> = {};
+        allEntries.forEach(entry => {
+          Object.entries(entry.machines).forEach(([machine, machineShifts]) => {
+            machineShifts.shifts.forEach(shift => {
+              shift.products.forEach(product => {
+                const productName = getFullProductName(product) || (isAr ? "بدون اسم" : "Unnamed");
+                if (!groupedProducts[productName]) groupedProducts[productName] = { dozen: 0, pairs: 0, machines: [] };
+                groupedProducts[productName].dozen += parseFloat(product.productionDozen) || 0;
+                groupedProducts[productName].pairs += parseFloat(product.productionPairs) || 0;
+                if (!groupedProducts[productName].machines.includes(machine)) groupedProducts[productName].machines.push(machine);
+              });
+            });
+          });
+        });
+        const productRows = Object.entries(groupedProducts).sort(([a], [b]) => a.localeCompare(b, isAr ? "ar" : "en"));
 
         return (
           <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 16, textAlign: 'right', marginBottom: 12 }}>{label}</Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4 }}>
-                <MaterialIcons name="scale" size={22} color="#0a7ea4" />
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{isAr ? "خيوط" : "Yarn"}</Text>
-                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 16 }}>{sumYarnWeight.toFixed(0)}</Text>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 10, marginHorizontal: 3 }}>
+                <MaterialIcons name="scale" size={20} color="#0a7ea4" />
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 3 }}>{isAr ? "خيوط" : "Yarn"}</Text>
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15 }}>{sumYarnWeight.toFixed(0)}</Text>
               </View>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4 }}>
-                <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{isAr ? "هدر" : "Waste"}</Text>
-                <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 16 }}>{sumWasteAll.toFixed(0)}</Text>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 10, marginHorizontal: 3 }}>
+                <MaterialIcons name="delete-outline" size={20} color="#ef4444" />
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 3 }}>{isAr ? "هدر" : "Waste"}</Text>
+                <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 15 }}>{sumWasteAll.toFixed(0)}</Text>
               </View>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginHorizontal: 4 }}>
-                <MaterialIcons name="percent" size={22} color="#f59e0b" />
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{isAr ? "نسبة" : "%"}</Text>
-                <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 16 }}>{wastePercent}%</Text>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 10, marginHorizontal: 3 }}>
+                <MaterialIcons name="percent" size={20} color="#f59e0b" />
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 3 }}>{isAr ? "نسبة" : "%"}</Text>
+                <Text style={{ color: colors.warning, fontWeight: 'bold', fontSize: 15 }}>{wastePercent}%</Text>
               </View>
             </View>
+            {productRows.length > 0 && (
+              <View style={{ marginTop: 12, borderTopWidth: 1, borderColor: colors.border, paddingTop: 10 }}>
+                <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 13, textAlign: 'right', marginBottom: 6 }}>
+                  {isAr ? "الإنتاج مرتب حسب الصنف" : "Production grouped by product"}
+                </Text>
+                {productRows.map(([productName, productData]) => (
+                  <View key={productName} style={{ backgroundColor: colors.background, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 9, marginBottom: 5 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                        {productData.dozen} {isAr ? "درزن" : "dz"}{productData.pairs > 0 ? ` + ${productData.pairs} ${isAr ? "زوج" : "pr"}` : ""}
+                      </Text>
+                      <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 12, flex: 1, textAlign: 'right', marginLeft: 8 }}>{productName}</Text>
+                    </View>
+                    <Text style={{ color: colors.muted, fontSize: 10, textAlign: 'right', marginTop: 3 }}>
+                      {isAr ? `المكائن: ${productData.machines.join("، ")}` : `Machines: ${productData.machines.join(", ")}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         );
       })()}
 
-      {/* بطاقة إجمالي بيانات المكائن */}
+      {/* أدوات الإنتاج المختصرة: أيقونات صغيرة بجوار العنوان */}
       {!showForm && (
-        <TouchableOpacity
-          onPress={() => router.push("/production-totals" as any)}
-          style={{ marginHorizontal: 16, marginTop: 12, marginBottom: 4, backgroundColor: "#f0fdf4", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#16a34a", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
-        >
-          <MaterialIcons name="chevron-left" size={24} color="#16a34a" />
-          <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#16a34a" }}>{isAr ? "إجمالي بيانات المكائن" : "Total Machine Data"}</Text>
-            <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{isAr ? "عرض إجماليات الإنتاج والهدر والخيوط" : "View Production, Waste, and Yarn Totals"}</Text>
-          </View>
-          <View style={{ backgroundColor: "#16a34a", borderRadius: 12, padding: 10, marginLeft: 12 }}>
-            <MaterialIcons name="summarize" size={28} color="white" />
-          </View>
-        </TouchableOpacity>
-      )}
-
+        <View style={{ marginHorizontal: 16, marginTop: 10, marginBottom: 4, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
           <TouchableOpacity
-            onPress={() => router.push("/product-cost-calculator" as any)}
-            style={{ marginHorizontal: 16, marginTop: 4, marginBottom: 4, backgroundColor: "#fef3c7", borderRadius: 16, padding: 16, borderWidth: 2, borderColor: "#f59e0b", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+            accessibilityLabel={isAr ? "الإجراءات الإدارية" : "Administrative actions"}
+            onPress={() => router.push("/administrative" as any)}
+            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#e0f2fe", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#0369a1" }}
           >
-            <MaterialIcons name="chevron-left" size={24} color="#f59e0b" />
-            <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={{ fontSize: 16, fontWeight: "bold", color: "#f59e0b" }}>{isAr ? "حساب تكاليف منتج جديد" : "Calculate Product Cost"}</Text>
-              <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 4 }}>{isAr ? "إضافة تفاصيل الخيوط والألوان" : "Add Thread and Color Details"}</Text>
-            </View>
-            <View style={{ backgroundColor: "#f59e0b", borderRadius: 12, padding: 10, marginLeft: 12 }}>
-              <MaterialIcons name="calculate" size={28} color="white" />
-            </View>
+            <MaterialIcons name="assignment" size={22} color="#0369a1" />
           </TouchableOpacity>
-      {!showForm && <AdminCard />}
+          <TouchableOpacity
+            accessibilityLabel={isAr ? "حساب التكاليف" : "Product cost calculator"}
+            onPress={() => router.push("/product-cost-calculator" as any)}
+            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#fef3c7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#f59e0b" }}
+          >
+            <MaterialIcons name="calculate" size={22} color="#f59e0b" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={isAr ? "إجمالي بيانات المكائن" : "Total machine data"}
+            onPress={() => router.push("/production-totals" as any)}
+            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#16a34a" }}
+          >
+            <MaterialIcons name="summarize" size={22} color="#16a34a" />
+          </TouchableOpacity>
+          <Text style={{ color: colors.muted, fontSize: 11, marginLeft: 2 }}>{isAr ? "أدوات" : "Tools"}</Text>
+        </View>
+      )}
 
       {/* المحتوى */}
       {showForm ? (
