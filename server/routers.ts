@@ -2,6 +2,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { getDb } from "./db.js";
 import {
   users as usersTable,
@@ -128,18 +129,29 @@ export const appRouter = router({
 
         const openId = randomUUID();
 
-        await db.insert(usersTable).values({
-          openId,
-          name: input.name,
-          username: input.username,
-          email: input.username + "@sultan.local",
-          phone: input.phone || null,
-          position: input.position || null,
-          department: input.department || null,
-          password: input.password,
-          role: "user",
-          isActive: 0,
-        });
+        try {
+          await db.insert(usersTable).values({
+            openId,
+            name: input.name,
+            username: input.username,
+            email: input.username + "@sultan.local",
+            phone: input.phone || null,
+            position: input.position || null,
+            department: input.department || null,
+            password: input.password,
+            loginMethod: "password",
+            role: "user",
+            isActive: 0,
+            allowedSections: null,
+            toolPermissions: null,
+          });
+        } catch (error) {
+          console.error("[Auth] Registration insert failed:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "تعذر حفظ بيانات الموظف. يرجى التأكد من إعداد قاعدة البيانات والمحاولة مرة أخرى.",
+          });
+        }
 
         return {
           success: true,

@@ -69,7 +69,11 @@ async function apiCall(endpoint: string, body: any, method: "query" | "mutation"
   const data = await response.json();
   
   if (data.error) {
-    const errMsg = data.error?.json?.message || data.error?.message || "حدث خطأ";
+    const rawMessage = data.error?.json?.message || data.error?.message || "حدث خطأ";
+    const hasSensitiveDatabaseDetails = /failed query|insert into|select .* from|update .* set|delete from|mysql|sql/i.test(rawMessage);
+    const errMsg = hasSensitiveDatabaseDetails
+      ? "تعذر تنفيذ العملية حالياً. يرجى المحاولة مرة أخرى أو التواصل مع المدير."
+      : rawMessage;
     throw new Error(errMsg);
   }
   
