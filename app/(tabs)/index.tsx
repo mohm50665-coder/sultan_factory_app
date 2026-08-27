@@ -257,7 +257,12 @@ export default function HomeScreen() {
     requests: number;
     collections: number;
     overdue: number;
+    totalProduction: number;
+    totalSales: number;
+    totalRequests: number;
+    totalCollections: number;
   } | null>(null);
+  const [statsUnavailable, setStatsUnavailable] = useState<string[]>([]);
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -295,13 +300,20 @@ export default function HomeScreen() {
     const loadDailyStats = async () => {
       const today = new Date();
       try {
-        const [production, sales, collections, requests, customRows] = await Promise.all([
-          productionService.getAll().catch(() => []),
-          salesService.getAll().catch(() => []),
-          collectionService.getAll().catch(() => []),
-          administrativeService.getAll().catch(() => []),
-          maintenanceEntriesService.getBySection("custom_manufacturing").catch(() => []),
+        const results = await Promise.allSettled([
+          productionService.getAll(),
+          salesService.getAll(),
+          collectionService.getAll(),
+          administrativeService.getAll(),
+          maintenanceEntriesService.getBySection("custom_manufacturing"),
         ]);
+        const [productionResult, salesResult, collectionsResult, requestsResult, customRowsResult] = results;
+        const production = productionResult.status === "fulfilled" && Array.isArray(productionResult.value) ? productionResult.value : [];
+        const sales = salesResult.status === "fulfilled" && Array.isArray(salesResult.value) ? salesResult.value : [];
+        const collections = collectionsResult.status === "fulfilled" && Array.isArray(collectionsResult.value) ? collectionsResult.value : [];
+        const requests = requestsResult.status === "fulfilled" && Array.isArray(requestsResult.value) ? requestsResult.value : [];
+        const customRows = customRowsResult.status === "fulfilled" && Array.isArray(customRowsResult.value) ? customRowsResult.value : [];
+        setStatsUnavailable(results.flatMap((result, index) => result.status === "rejected" ? [["production", "sales", "collections", "requests", "custom"][index]] : []));
         const todayProduction = (Array.isArray(production) ? production : []).filter((item: any) =>
           sameDay(item.date || item.createdAt || item.entryDate, today),
         );
@@ -314,7 +326,7 @@ export default function HomeScreen() {
         const todayRequests = (Array.isArray(requests) ? requests : []).filter((item: any) =>
           sameDay(item.date || item.createdAt || item.submissionDate, today),
         );
-        const overdue = (Array.isArray(customRows) ? customRows : []).filter((row: any) => {
+        const overdue = customRows.filter((row: any) => {
           const data = row?.data || row || {};
           if (!data.deliveryDate || data.status === "completed" || data.salesApprovalStatus === "rejected") return false;
           const deadline = new Date(`${data.deliveryDate}T23:59:59`);
@@ -327,6 +339,10 @@ export default function HomeScreen() {
           requests: todayRequests.length,
           collections: collectionTotal,
           overdue: overdue.length,
+          totalProduction: Array.isArray(production) ? production.length : 0,
+          totalSales: Array.isArray(sales) ? sales.length : 0,
+          totalRequests: Array.isArray(requests) ? requests.length : 0,
+          totalCollections:           collections.reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0),
         });
       } catch (error) {
         console.error("Error loading daily statistics:", error);
@@ -551,22 +567,26 @@ export default function HomeScreen() {
 
       {/* Daily operational statistics */}
       {dailyStats && (
-        <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 15 }}>{isAr ? "ملخص اليوم" : "Today's Summary"}</Text>
+        <View style={{ marginHorizontal: 10, marginTop: 8, backgroundColor: colors.surface, borderRadius: 12, padding: 9, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: isRtl ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 13 }}>{isAr ? "ملخص اليوم" : "Today's Summary"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 9, marginTop: 2 }}>{isAr ? "الأرقام الكبيرة لليوم — والإجمالي أسفلها" : "Today — totals shown below"}</Text>
+            </View>
             <MaterialIcons name="today" size={20} color={colors.primary} />
           </View>
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 5 }}>
             {[
-              { label: isAr ? "الإنتاج" : "Production", value: dailyStats.production, icon: "factory", color: "#2563eb" },
-              { label: isAr ? "المبيعات" : "Sales", value: dailyStats.sales, icon: "shopping-cart", color: "#db2777" },
-              { label: isAr ? "الطلبات" : "Requests", value: dailyStats.requests, icon: "assignment", color: "#7c3aed" },
-              { label: isAr ? "التحصيل" : "Collection", value: dailyStats.collections ? `${dailyStats.collections.toLocaleString()} ر.س` : "0", icon: "payments", color: "#059669" },
+              { key: "production", label: isAr ? "الإنتاج" : "Production", value: dailyStats.production, total: dailyStats.totalProduction, icon: "factory", color: "#2563eb" },
+              { key: "sales", label: isAr ? "المبيعات" : "Sales", value: dailyStats.sales, total: dailyStats.totalSales, icon: "shopping-cart", color: "#db2777" },
+              { key: "requests", label: isAr ? "الطلبات" : "Requests", value: dailyStats.requests, total: dailyStats.totalRequests, icon: "assignment", color: "#7c3aed" },
+              { key: "collections", label: isAr ? "التحصيل" : "Collection", value: dailyStats.collections ? `${dailyStats.collections.toLocaleString()} ر.س` : "0", total: dailyStats.totalCollections, icon: "payments", color: "#059669" },
             ].map((stat) => (
               <View key={stat.label} style={{ flex: 1, backgroundColor: `${stat.color}12`, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 4, alignItems: "center" }}>
-                <MaterialIcons name={stat.icon as any} size={18} color={stat.color} />
-                <Text style={{ color: stat.color, fontWeight: "800", fontSize: 15, marginTop: 4, textAlign: "center" }}>{stat.value}</Text>
-                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: "center" }}>{stat.label}</Text>
+                <MaterialIcons name={stat.icon as any} size={16} color={stat.color} />
+                <Text style={{ color: stat.color, fontWeight: "800", fontSize: 13, marginTop: 2, textAlign: "center" }}>{statsUnavailable.includes(stat.key) ? "—" : stat.value}</Text>
+                <Text style={{ color: colors.muted, fontSize: 8, marginTop: 1, textAlign: "center" }}>{statsUnavailable.includes(stat.key) ? (isAr ? "غير متاح" : "Unavailable") : (isAr ? `الإجمالي ${stat.total}` : `Total ${stat.total}`)}</Text>
+                <Text style={{ color: colors.muted, fontSize: 9, marginTop: 1, textAlign: "center" }}>{stat.label}</Text>
               </View>
             ))}
           </View>
@@ -593,7 +613,7 @@ export default function HomeScreen() {
               style={styles.gridItem}
               activeOpacity={0.7}
             >
-              <View style={[{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }, styles.card]}>
+                  <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: colors.border }, styles.card]}>
                 <View
                   style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
                 >
@@ -802,10 +822,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   adminButton: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 12,
+    marginHorizontal: 10,
+    marginTop: 8,
+    borderRadius: 10,
+    padding: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -821,13 +841,13 @@ const styles = StyleSheet.create({
   adminButtonText: {
     color: "#f59e0b",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 12,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: 10,
   },
   grid: {
     flexDirection: "row",
@@ -835,36 +855,37 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   gridItem: {
-    width: "48%",
-    marginBottom: 16,
+    width: "48.5%",
+    marginBottom: 8,
   },
   card: {
-    minHeight: 130,
+    minHeight: 96,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 7,
   },
   description: {
-    lineHeight: 16,
+    lineHeight: 13,
+    fontSize: 10,
   },
   toolsTitle: {
-    marginTop: 16,
-    marginBottom: 12,
+    marginTop: 10,
+    marginBottom: 8,
   },
   toolsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 24,
+    marginBottom: 12,
   },
   toolItem: {
-    width: "31%",
-    marginBottom: 12,
+    width: "31.5%",
+    marginBottom: 8,
   },
   badge: {
     position: "absolute",
