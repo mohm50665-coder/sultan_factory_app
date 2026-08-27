@@ -632,14 +632,35 @@ export const appRouter = router({
         deliveredBy: z.string().optional(),
         receivedBy: z.string().optional(),
         handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
+        deliveredAt: z.coerce.date().optional(),
+        receivedAt: z.coerce.date().optional(),
         notes: z.string().optional(),
         userId: z.number(),
       }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const result = await db.insert(productTrackingTable).values({ ...input, handoverDate: input.handoverStatus === "received" ? new Date() : null });
+        const result = await db.insert(productTrackingTable).values({ ...input, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
         return { success: true, id: result[0].insertId };
+      }),
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        data: z.object({
+          handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
+          deliveredBy: z.string().optional(),
+          receivedBy: z.string().optional(),
+          deliveredAt: z.coerce.date().optional(),
+          receivedAt: z.coerce.date().optional(),
+          handoverDate: z.coerce.date().optional(),
+          notes: z.string().optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(productTrackingTable).set(input.data).where(eq(productTrackingTable.id, input.id));
+        return { success: true };
       }),
   }),
 

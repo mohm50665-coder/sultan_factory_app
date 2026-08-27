@@ -775,6 +775,8 @@ export const productTracking = mysqlTable("productTracking", {
   receivedBy: varchar("receivedBy", { length: 255 }),
   handoverStatus: mysqlEnum("handoverStatus", ["pending", "delivered", "received", "rejected"]).default("pending").notNull(),
   handoverDate: timestamp("handoverDate"),
+  deliveredAt: timestamp("deliveredAt"),
+  receivedAt: timestamp("receivedAt"),
   notes: text("notes"),
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

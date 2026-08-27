@@ -97,6 +97,7 @@ export const manufacturingService = {
 export const productTrackingService = {
   list: () => trpcCall("productTracking.list", undefined, "query"),
   create: (data: any) => trpcCall("productTracking.create", data),
+  update: (id: number, data: any) => trpcCall("productTracking.update", { id, data }),
 };
 
 // ===== Sales =====

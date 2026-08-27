@@ -1227,31 +1227,33 @@ export default function ProductionScreen() {
         );
       })()}
 
-      {/* أدوات الإنتاج المختصرة: أيقونات صغيرة بجوار العنوان */}
+      {/* أدوات الإنتاج المسماة بوضوح */}
       {!showForm && (
-        <View style={{ marginHorizontal: 16, marginTop: 10, marginBottom: 4, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+        <View style={{ marginHorizontal: 16, marginTop: 10, marginBottom: 4, flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end", gap: 8 }}>
+          <TouchableOpacity
+            accessibilityLabel={isAr ? "حساب التكاليف - منتج جديد" : "Cost calculation - New product"}
+            onPress={() => router.push("/product-cost-calculator" as any)}
+            style={{ width: 104, minHeight: 62, borderRadius: 12, backgroundColor: "#fef3c7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#f59e0b", paddingHorizontal: 4, paddingVertical: 6 }}
+          >
+            <MaterialIcons name="calculate" size={22} color="#f59e0b" />
+            <Text style={{ color: "#92400e", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 3 }}>{isAr ? "حساب التكاليف\nمنتج جديد" : "Cost calculation\nNew product"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel={isAr ? "الإجراءات الإدارية" : "Administrative actions"}
             onPress={() => router.push("/administrative" as any)}
-            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#e0f2fe", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#0369a1" }}
+            style={{ width: 104, minHeight: 62, borderRadius: 12, backgroundColor: "#e0f2fe", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#0369a1", paddingHorizontal: 4, paddingVertical: 6 }}
           >
             <MaterialIcons name="assignment" size={22} color="#0369a1" />
+            <Text style={{ color: "#075985", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 3 }}>{isAr ? "الإجراءات الإدارية" : "Administrative actions"}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            accessibilityLabel={isAr ? "حساب التكاليف" : "Product cost calculator"}
-            onPress={() => router.push("/product-cost-calculator" as any)}
-            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#fef3c7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#f59e0b" }}
-          >
-            <MaterialIcons name="calculate" size={22} color="#f59e0b" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel={isAr ? "إجمالي بيانات المكائن" : "Total machine data"}
+            accessibilityLabel={isAr ? "تقرير إنتاج المكائن" : "Machine production report"}
             onPress={() => router.push("/production-totals" as any)}
-            style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#16a34a" }}
+            style={{ width: 104, minHeight: 62, borderRadius: 12, backgroundColor: "#dcfce7", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#16a34a", paddingHorizontal: 4, paddingVertical: 6 }}
           >
             <MaterialIcons name="summarize" size={22} color="#16a34a" />
+            <Text style={{ color: "#166534", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 3 }}>{isAr ? "تقرير إنتاج المكائن" : "Machine production report"}</Text>
           </TouchableOpacity>
-          <Text style={{ color: colors.muted, fontSize: 11, marginLeft: 2 }}>{isAr ? "أدوات" : "Tools"}</Text>
         </View>
       )}
 

@@ -56,6 +56,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
 
   {
+    id: "product_tracking",
+    labelAr: "تتبع المنتجات",
+    labelEn: "Product Tracking",
+    icon: "timeline",
+    color: "#8B5A2B",
+    route: "/product-tracking",
+    descriptionAr: "تتبع المنتج ووقت التسليم والاستلام والمسؤولية",
+    descriptionEn: "Track product handovers, timing and accountability",
+    section: "manufacturing",
+    departments: ["production", "warehouse"],
+  },
+  {
     id: "production_costs",
     labelAr: "حساب التكاليف",
     labelEn: "Cost Calculation",

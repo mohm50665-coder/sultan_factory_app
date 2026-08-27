@@ -191,7 +191,16 @@ export default function UsersManagementScreen() {
       <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "إدارة المستخدمين" : "Users Management"}</Text>
-        <View style={{ width: 40 }} />
+        {currentUser?.role === "admin" ? (
+          <TouchableOpacity
+            onPress={() => router.push("/register" as any)}
+            style={styles.addUserHeaderBtn}
+            accessibilityLabel={isAr ? "إضافة مستخدم جديد" : "Add new user"}
+          >
+            <MaterialIcons name="person-add" size={20} color="#fff" />
+            <Text style={styles.addUserHeaderText}>{isAr ? "إضافة مستخدم" : "Add user"}</Text>
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
       </View>
 
       {/* Stats */}
@@ -512,13 +521,9 @@ const styles = StyleSheet.create({
     padding: 24,
     width: "85%",
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#11181C",
-    textAlign: "center",
-    marginBottom: 16,
-  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#11181C", textAlign: "center", marginBottom: 16 },
+  addUserHeaderBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0a7ea4", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8 },
+  addUserHeaderText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   modalInput: {
     borderWidth: 1,
     borderColor: "#E5E7EB",

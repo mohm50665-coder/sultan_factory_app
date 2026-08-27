@@ -22,6 +22,20 @@ const STAGES = [
 
 const numberValue = (value: unknown) => Number(value || 0) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
+const formatActionTime = (value: unknown) => value ? new Date(String(value)).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : "—";
+const elapsedMinutes = (deliveredAt: unknown, receivedAt: unknown = new Date()) => {
+  if (!deliveredAt) return null;
+  const start = new Date(String(deliveredAt)).getTime();
+  const end = new Date(String(receivedAt)).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return Math.floor((end - start) / 60000);
+};
+const elapsedLabel = (minutes: number | null, isAr: boolean) => {
+  if (minutes === null) return isAr ? "غير محسوبة" : "Not calculated";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return isAr ? `${hours ? `${hours} ساعة ` : ""}${mins} دقيقة` : `${hours ? `${hours}h ` : ""}${mins}m`;
+};
 
 export default function ProductTrackingScreen() {
   const router = useRouter();
@@ -84,6 +98,10 @@ export default function ProductTrackingScreen() {
   }, [production, dateFilter, isAr]);
 
   const stageForProduct = (productName: string) => {
+    const tracked = handoverRecords
+      .filter((row) => String(row.productName || "") === productName)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    if (tracked[0]?.currentStage) return tracked[0].currentStage;
     const rows = manufacturing
       .filter((row) => String(row.productName || "") === productName)
       .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
@@ -95,38 +113,60 @@ export default function ProductTrackingScreen() {
     ["span", isAr ? "سبان" : "Span"], ["spandex", isAr ? "إسباندكس" : "Spandex"], ["rubber", isAr ? "مطاط" : "Rubber"],
   ] as const;
 
-  const saveHandover = async () => {
-    if (!selectedProduct || !receivedBy.trim()) {
-      Alert.alert(isAr ? "بيانات ناقصة" : "Missing data", isAr ? "اكتب اسم المستلم قبل اعتماد التسليم" : "Enter the receiver name before confirming the handover");
+  const saveHandover = async (action: "deliver" | "receive") => {
+    if (!selectedProduct || !user?.name) {
+      Alert.alert(isAr ? "تعذر الاعتماد" : "Cannot sign", isAr ? "يجب تسجيل الدخول بحساب موظف لاعتماد الحركة" : "A signed-in employee is required");
       return;
     }
     const currentStage = stageForProduct(selectedProduct.name);
     const stageIndex = Math.max(0, STAGES.findIndex((stage) => stage.id === currentStage));
     const nextStage = STAGES[Math.min(stageIndex + 1, STAGES.length - 1)].id;
+    const pending = handoverRecords
+      .filter((row) => String(row.productName || "") === selectedProduct.name && String(row.handoverStatus) === "delivered" && !row.receivedAt)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))[0];
+    if (action === "receive" && !pending) {
+      Alert.alert(isAr ? "لا يوجد تسليم معلق" : "No pending delivery", isAr ? "لا يمكن اعتماد الاستلام قبل أن يسجل المسلم عملية التسليم" : "The receiver cannot sign before the sender records delivery");
+      return;
+    }
+    if (action === "deliver" && pending) {
+      Alert.alert(isAr ? "التسليم مسجل" : "Already delivered", isAr ? "هذه الحركة بانتظار توقيع المستلم" : "This movement is waiting for the receiver signature");
+      return;
+    }
+    const actionTime = new Date();
     try {
-      await productTrackingService.create({
-        productName: selectedProduct.name,
-        trackingDate: dateFilter || today(),
-        totalWeightGrams: Math.round(selectedProduct.weight),
-        yarnDetails: selectedProduct.yarn,
-        quantityDozen: Math.round(selectedProduct.dozen),
-        quantityPairs: Math.round(selectedProduct.pairs),
-        machineNumbers: selectedProduct.machines,
-        currentStage: nextStage,
-        previousStage: currentStage,
-        deliveredBy: user?.name || "",
-        receivedBy: receivedBy.trim(),
-        handoverStatus: "received",
-        notes: handoverNotes.trim() || undefined,
-        userId: user?.id || 1,
-      });
+      if (action === "deliver") {
+        await productTrackingService.create({
+          productName: selectedProduct.name,
+          trackingDate: dateFilter || today(),
+          totalWeightGrams: Math.round(selectedProduct.weight),
+          yarnDetails: selectedProduct.yarn,
+          quantityDozen: Math.round(selectedProduct.dozen),
+          quantityPairs: Math.round(selectedProduct.pairs),
+          machineNumbers: selectedProduct.machines,
+          currentStage: nextStage,
+          previousStage: currentStage,
+          deliveredBy: user.name,
+          deliveredAt: actionTime,
+          handoverStatus: "delivered",
+          notes: handoverNotes.trim() || undefined,
+          userId: user.id || 1,
+        });
+      } else {
+        await productTrackingService.update(pending.id, {
+          handoverStatus: "received",
+          receivedBy: user.name,
+          receivedAt: actionTime,
+          handoverDate: actionTime,
+          notes: handoverNotes.trim() || pending.notes || undefined,
+        });
+      }
       setReceivedBy("");
       setHandoverNotes("");
       setSelectedProduct(null);
       await loadData();
-      Alert.alert(isAr ? "تم توثيق التسليم" : "Handover recorded", isAr ? "تم حفظ المسلم والمستلم والكمية والوزن والمرحلة والتاريخ" : "The handover, quantity, weight, stage, and date were recorded");
+      Alert.alert(isAr ? `تم توقيع ${action === "deliver" ? "التسليم" : "الاستلام"}` : `${action === "deliver" ? "Delivery" : "Receipt"} signed`, isAr ? `تم تسجيل اسمك ووقت ${action === "deliver" ? "التسليم" : "الاستلام"} كمسؤولية على الحركة` : "Your identity and action time were recorded as responsibility for this movement");
     } catch (error) {
-      Alert.alert(isAr ? "تعذر الحفظ" : "Save failed", isAr ? "تعذر حفظ سجل التسليم والاستلام" : "The handover record could not be saved");
+      Alert.alert(isAr ? "تعذر الحفظ" : "Save failed", isAr ? "تعذر حفظ التوقيع. تحقق من ترحيل أعمدة الوقت ثم حاول مرة أخرى" : "Could not save the signature. Verify the time columns are migrated and try again");
     }
   };
 
@@ -186,12 +226,12 @@ export default function ProductTrackingScreen() {
 
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
           <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "سجل التسليم والاستلام" : "Handover and receipt log"}</Text>
-          {handoverRecords.filter((row) => !dateFilter || String(row.trackingDate || "").slice(0, 10) === dateFilter).slice(0, 20).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "-"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
+          {handoverRecords.filter((row) => !dateFilter || String(row.trackingDate || "").slice(0, 10) === dateFilter).slice(0, 20).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
           {handoverRecords.filter((row) => !dateFilter || String(row.trackingDate || "").slice(0, 10) === dateFilter).length === 0 && <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد عمليات تسليم واستلام لهذا التاريخ" : "No handovers for this date"}</Text>}
         </View>
       </ScrollView>
 
-      {selectedProduct && <View style={{ position: "absolute", left: 12, right: 12, bottom: 12, backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 2, borderColor: colors.primary, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 8, elevation: 8 }}><View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}><TouchableOpacity onPress={() => setSelectedProduct(null)}><MaterialIcons name="close" size={22} color={colors.muted} /></TouchableOpacity><Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", flex: 1 }}>{isAr ? `تسليم: ${selectedProduct.name}` : `Handover: ${selectedProduct.name}`}</Text></View><TextInput value={receivedBy} onChangeText={setReceivedBy} placeholder={isAr ? "اسم المستلم" : "Receiver name"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 9, color: colors.foreground, textAlign: "right", marginTop: 9 }} /><TextInput value={handoverNotes} onChangeText={setHandoverNotes} placeholder={isAr ? "ملاحظات التسليم (اختياري)" : "Handover notes (optional)"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 9, color: colors.foreground, textAlign: "right", marginTop: 7 }} /><TouchableOpacity onPress={saveHandover} style={{ backgroundColor: colors.primary, borderRadius: 9, padding: 10, alignItems: "center", marginTop: 9 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "اعتماد التسليم والاستلام" : "Confirm handover and receipt"}</Text></TouchableOpacity></View>}
+      {selectedProduct && <View style={{ position: "absolute", left: 12, right: 12, bottom: 12, backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 2, borderColor: colors.primary, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 8, elevation: 8 }}><View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}><TouchableOpacity onPress={() => setSelectedProduct(null)}><MaterialIcons name="close" size={22} color={colors.muted} /></TouchableOpacity><Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", flex: 1 }}>{isAr ? `تسليم: ${selectedProduct.name}` : `Handover: ${selectedProduct.name}`}</Text></View><Text style={{ color: colors.muted, fontSize: 11, textAlign: "right", marginTop: 9 }}>{isAr ? `المستخدم الحالي: ${user?.name || "غير معروف"}` : `Current user: ${user?.name || "Unknown"}`}</Text><TextInput value={handoverNotes} onChangeText={setHandoverNotes} placeholder={isAr ? "ملاحظات التسليم (اختياري)" : "Handover notes (optional)"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 9, color: colors.foreground, textAlign: "right", marginTop: 7 }} /><View style={{ flexDirection: "row", gap: 8, marginTop: 9 }}><TouchableOpacity onPress={() => saveHandover("deliver")} style={{ flex: 1, backgroundColor: "#d97706", borderRadius: 9, padding: 10, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "توقيع التسليم" : "Sign delivery"}</Text></TouchableOpacity><TouchableOpacity onPress={() => saveHandover("receive")} style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 9, padding: 10, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "توقيع الاستلام" : "Sign receipt"}</Text></TouchableOpacity></View></View>}
     </ScreenContainer>
   );
 }

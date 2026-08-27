@@ -476,6 +476,25 @@ export default function ManufacturingStageScreen() {
         <BackButton />
       </View>
 
+      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.background }}>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "deliver" } } as any)}
+          style={{ flex: 1, backgroundColor: "#fff7ed", borderWidth: 1, borderColor: "#d97706", borderRadius: 10, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}
+          accessibilityLabel={isAr ? `توقيع تسليم مرحلة ${config.name}` : `Sign delivery for ${config.name}`}
+        >
+          <MaterialIcons name="logout" size={18} color="#b45309" />
+          <Text style={{ color: "#92400e", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع التسليم" : "Sign delivery"}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "receive" } } as any)}
+          style={{ flex: 1, backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 10, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}
+          accessibilityLabel={isAr ? `توقيع استلام مرحلة ${config.name}` : `Sign receipt for ${config.name}`}
+        >
+          <MaterialIcons name="login" size={18} color="#15803d" />
+          <Text style={{ color: "#166534", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع الاستلام" : "Sign receipt"}</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* نموذج الإدخال */}
       {showForm ? (
         <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
