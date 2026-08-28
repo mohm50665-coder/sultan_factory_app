@@ -20,4 +20,11 @@ describe("barcode labels", () => {
     expect(code128Pattern(barcode)).toMatch(/^[01]+1110011101011$/);
     expect(code128Pattern(barcode).length).toBeGreaterThan(100);
   });
+
+  it("keeps the barcode tied to product identity, not print copies", () => {
+    const first = makeProductBarcode("ECO", "أسود");
+    const second = makeProductBarcode("ECO", "أسود");
+    expect(first).toBe(second);
+    expect(first).not.toContain("10");
+  });
 });
