@@ -342,6 +342,7 @@ export default function ProductionScreen() {
               yarnCotton: parseInt(product.yarnCotton) || 0,
               yarnBamboo: parseInt(product.yarnBamboo) || 0,
               yarnSpan: parseInt(product.yarnSpan) || 0,
+              yarnWeightPerPair: parseFloat(product.yarnWeightPerPair) || 0,
               userId,
             });
           });

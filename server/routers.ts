@@ -578,17 +578,19 @@ export const appRouter = router({
         yarnNylon: z.number().optional(),
         yarnCotton: z.number().optional(),
         yarnBamboo: z.number().optional(),
-        yarnSpan: z.number().optional(),
-        userId: z.number(),
-      }))
+          yarnSpan: z.number().optional(),
+          yarnWeightPerPair: z.number().optional(),
+          userId: z.number(),
+        }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const result = await db.insert(productionTable).values(input);
+        const { yarnWeightPerPair, ...productionInput } = input;
+        const result = await db.insert(productionTable).values(productionInput);
         const identity = parseLegacyProductName(input.productName);
         await ensureCatalogProduct(db, {
           ...identity,
-          weightGrams: 0,
+          weightGrams: yarnWeightPerPair || 0,
           yarnDetails: {
             yarnRubber: input.yarnRubber || 0,
             yarnSpandex: input.yarnSpandex || 0,
@@ -627,6 +629,7 @@ export const appRouter = router({
           yarnCotton: z.number().optional(),
           yarnBamboo: z.number().optional(),
           yarnSpan: z.number().optional(),
+          yarnWeightPerPair: z.number().optional(),
           userId: z.number(),
         })),
       }))
@@ -634,13 +637,14 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (input.entries.length === 0) return { success: true, count: 0 };
-        await db.insert(productionTable).values(input.entries);
+        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, ...entry }) => entry);
+        await db.insert(productionTable).values(entriesForProduction);
         const cache = new Map<string, any>();
         for (const entry of input.entries) {
           const identity = parseLegacyProductName(entry.productName);
           await ensureCatalogProduct(db, {
             ...identity,
-            weightGrams: 0,
+            weightGrams: entry.yarnWeightPerPair || 0,
             yarnDetails: {
               yarnRubber: entry.yarnRubber || 0,
               yarnSpandex: entry.yarnSpandex || 0,
