@@ -783,7 +783,7 @@ export const appRouter = router({
         }
         return { success: true, id: product.id, barcode: product.barcode };
       }),
-    update: publicProcedure
+    update: adminProcedure
       .input(z.object({
         id: z.number(),
         data: z.object({
@@ -803,7 +803,7 @@ export const appRouter = router({
         await db.update(productsTable).set(input.data).where(eq(productsTable.id, input.id));
         return { success: true };
       }),
-    delete: publicProcedure
+    delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();

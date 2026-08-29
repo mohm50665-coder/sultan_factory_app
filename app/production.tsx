@@ -229,6 +229,21 @@ export default function ProductionScreen() {
     );
   };
 
+  const canEditSavedProduct = user?.role === "admin";
+  const savedProductLockMessage = "لا يقبل التعديل على المنتج إلا من قبل مدير النظام";
+  const isSavedProductIdentity = (product: ProductItem) => savedProducts.some(saved =>
+    saved.itemName.trim() === product.itemName.trim() &&
+    saved.itemSize.trim() === product.itemSize.trim() &&
+    saved.itemColor.trim() === product.itemColor.trim() &&
+    product.itemName.trim() && product.itemSize.trim() && product.itemColor.trim()
+  );
+  const isProductIdentityField = (field: keyof ProductItem) => [
+    "itemName", "itemSize", "itemColor", "yarnWeightPerPair", "yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan",
+  ].includes(field);
+  const notifySavedProductLocked = () => {
+    if (!canEditSavedProduct) Alert.alert("التعديل غير مسموح", savedProductLockMessage);
+  };
+
   const loadEntries = async () => {
     try {
       setIsLoading(true);
@@ -427,6 +442,11 @@ export default function ProductionScreen() {
 
   const updateProductField = (machine: string, shiftIndex: number, productIndex: number, field: keyof ProductItem, value: string) => {
     const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
+    const currentProduct = current.shifts[shiftIndex]?.products[productIndex] || emptyProduct();
+    if (!canEditSavedProduct && isProductIdentityField(field) && isSavedProductIdentity(currentProduct)) {
+      notifySavedProductLocked();
+      return;
+    }
     const newShifts = [...current.shifts];
     const newProducts = [...newShifts[shiftIndex].products];
     newProducts[productIndex] = { ...newProducts[productIndex], [field]: value };
@@ -686,7 +706,10 @@ export default function ProductionScreen() {
   };
 
   // فورم إدخال منتج واحد
-  const renderProductForm = (machine: string, shiftIndex: number, product: ProductItem, productIndex: number, totalProducts: number) => (
+  const renderProductForm = (machine: string, shiftIndex: number, product: ProductItem, productIndex: number, totalProducts: number) => {
+    const productLocked = !canEditSavedProduct && isSavedProductIdentity(product);
+    const identityInputStyle = productLocked ? { backgroundColor: '#eef1f3', borderColor: '#94a3b8', color: colors.muted } : {};
+    return (
     <View key={`${machine}-s${shiftIndex}-p${productIndex}`} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
       {/* رأس المنتج */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -701,6 +724,7 @@ export default function ProductionScreen() {
           {isAr ? `منتج ${productIndex + 1}` : `Product ${productIndex + 1}`}
         </Text>
       </View>
+      {productLocked && <View style={{ backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fdba74', borderRadius: 7, padding: 7, marginBottom: 8 }}><Text style={{ color: '#9a3412', textAlign: 'right', fontSize: 11, fontWeight: '700' }}>بيانات المنتج محفوظة — التعديل متاح لمدير النظام فقط</Text></View>}
 
       {/* ملاحظة 6: اسم الصنف + المقاس + اللون */}
       <View style={{ marginBottom: 8, zIndex: 10 }}>
@@ -712,6 +736,8 @@ export default function ProductionScreen() {
               placeholder={isAr ? "اللون" : "Color"}
               placeholderTextColor={colors.muted}
               value={product.itemColor}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemColor", v)}
             />
           </View>
@@ -722,6 +748,8 @@ export default function ProductionScreen() {
               placeholder={isAr ? "المقاس" : "Size"}
               placeholderTextColor={colors.muted}
               value={product.itemSize}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemSize", v)}
             />
           </View>
@@ -732,6 +760,8 @@ export default function ProductionScreen() {
               placeholder={isAr ? "اسم الصنف" : "Item name"}
               placeholderTextColor={colors.muted}
               value={product.itemName}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "itemName", v)}
               onBlur={() => setTimeout(() => setShowSuggestions(null), 200)}
             />
@@ -780,7 +810,9 @@ export default function ProductionScreen() {
             placeholder="0"
             placeholderTextColor={colors.muted}
             value={product.yarnWeightPerPair}
-            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnWeightPerPair", v)}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
+              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnWeightPerPair", v)}
             keyboardType="numeric"
           />
         </View>
@@ -902,6 +934,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnSpandex}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpandex", v)}
               keyboardType="numeric"
             />
@@ -912,6 +946,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnRubber}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnRubber", v)}
               keyboardType="numeric"
             />
@@ -924,6 +960,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnCotton}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnCotton", v)}
               keyboardType="numeric"
             />
@@ -934,6 +972,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnNylon}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnNylon", v)}
               keyboardType="numeric"
             />
@@ -946,6 +986,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnSpan}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpan", v)}
               keyboardType="numeric"
             />
@@ -956,6 +998,8 @@ export default function ProductionScreen() {
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
               placeholder="0" placeholderTextColor={colors.muted}
               value={product.yarnBamboo}
+              editable={!productLocked}
+              onFocus={productLocked ? notifySavedProductLocked : undefined}
               onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnBamboo", v)}
               keyboardType="numeric"
             />
@@ -964,6 +1008,7 @@ export default function ProductionScreen() {
       </View>
     </View>
   );
+  };
 
   // فورم إدخال الوردية
   const renderShiftForm = (machine: string, shift: ShiftData, shiftIndex: number, totalShifts: number) => (
