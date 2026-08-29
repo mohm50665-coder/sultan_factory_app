@@ -68,6 +68,94 @@ async function getUserFromCookie(cookieValue: string | undefined) {
   return result.length > 0 ? result[0] : null;
 }
 
+function normalizeCatalogPart(value: unknown) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("ar");
+}
+
+function catalogKey(name: unknown, size?: unknown, color?: unknown) {
+  return [name, size, color].map(normalizeCatalogPart).join("|");
+}
+
+function parseLegacyProductName(rawName: unknown) {
+  const raw = String(rawName ?? "").trim();
+  const parts = raw.split(" - ").map((part) => part.trim());
+  return {
+    name: parts[0] || raw,
+    size: parts.length > 1 ? parts[1] : undefined,
+    color: parts.length > 2 ? parts.slice(2).join(" - ") : undefined,
+  };
+}
+
+async function ensureCatalogProduct(
+  db: any,
+  input: { name: string; size?: string | null; color?: string | null; weightGrams?: number | null; yarnDetails?: unknown; createdBy?: number | null },
+  cache: Map<string, any>,
+) {
+  const name = input.name.trim();
+  if (!name || name === "تخزين" || name === "Storage") return null;
+  const key = catalogKey(name, input.size, input.color);
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const rows = await db.select().from(productsTable);
+  const existing = rows.find((row: any) => catalogKey(row.name, row.size, row.color) === key);
+  if (existing) {
+    cache.set(key, existing);
+    const patch: Record<string, unknown> = {};
+    if ((!existing.weightGrams || existing.weightGrams === 0) && input.weightGrams) patch.weightGrams = input.weightGrams;
+    if (!existing.yarnDetails && input.yarnDetails) patch.yarnDetails = input.yarnDetails;
+    if (Object.keys(patch).length) await db.update(productsTable).set(patch).where(eq(productsTable.id, existing.id));
+    return { ...existing, ...patch };
+  }
+
+  const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
+  const result = await db.insert(productsTable).values({
+    barcode,
+    name,
+    size: input.size?.trim() || null,
+    color: input.color?.trim() || null,
+    weightGrams: input.weightGrams || 0,
+    yarnDetails: input.yarnDetails ?? null,
+    imageUrl: null,
+    attachments: [],
+    createdBy: input.createdBy || null,
+  });
+  const created = { id: result[0].insertId, barcode, ...input, isActive: 1 };
+  cache.set(key, created);
+  return created;
+}
+
+async function syncProductCatalogFromLegacy(db: any) {
+  const cache = new Map<string, any>();
+  const existing = await db.select().from(productsTable);
+  for (const row of existing) cache.set(catalogKey(row.name, row.size, row.color), row);
+
+  const [productionRows, manufacturingRows] = await Promise.all([
+    db.select().from(productionTable),
+    db.select().from(manufacturingStagesTable),
+  ]);
+  for (const row of productionRows) {
+    const identity = parseLegacyProductName(row.productName);
+    await ensureCatalogProduct(db, {
+      ...identity,
+      weightGrams: row.yarnWeightPerPair || 0,
+      yarnDetails: {
+        yarnRubber: row.yarnRubber || 0,
+        yarnSpandex: row.yarnSpandex || 0,
+        yarnNylon: row.yarnNylon || 0,
+        yarnCotton: row.yarnCotton || 0,
+        yarnBamboo: row.yarnBamboo || 0,
+        yarnSpan: row.yarnSpan || 0,
+      },
+      createdBy: row.userId,
+    }, cache);
+  }
+  for (const row of manufacturingRows) {
+    const identity = parseLegacyProductName(row.productName);
+    await ensureCatalogProduct(db, { ...identity, createdBy: row.userId }, cache);
+  }
+}
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -497,6 +585,20 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(productionTable).values(input);
+        const identity = parseLegacyProductName(input.productName);
+        await ensureCatalogProduct(db, {
+          ...identity,
+          weightGrams: 0,
+          yarnDetails: {
+            yarnRubber: input.yarnRubber || 0,
+            yarnSpandex: input.yarnSpandex || 0,
+            yarnNylon: input.yarnNylon || 0,
+            yarnCotton: input.yarnCotton || 0,
+            yarnBamboo: input.yarnBamboo || 0,
+            yarnSpan: input.yarnSpan || 0,
+          },
+          createdBy: input.userId,
+        }, new Map());
         return { success: true, id: result[0].insertId };
       }),
 
@@ -533,6 +635,23 @@ export const appRouter = router({
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (input.entries.length === 0) return { success: true, count: 0 };
         await db.insert(productionTable).values(input.entries);
+        const cache = new Map<string, any>();
+        for (const entry of input.entries) {
+          const identity = parseLegacyProductName(entry.productName);
+          await ensureCatalogProduct(db, {
+            ...identity,
+            weightGrams: 0,
+            yarnDetails: {
+              yarnRubber: entry.yarnRubber || 0,
+              yarnSpandex: entry.yarnSpandex || 0,
+              yarnNylon: entry.yarnNylon || 0,
+              yarnCotton: entry.yarnCotton || 0,
+              yarnBamboo: entry.yarnBamboo || 0,
+              yarnSpan: entry.yarnSpan || 0,
+            },
+            createdBy: entry.userId,
+          }, cache);
+        }
         return { success: true, count: input.entries.length };
       }),
 
@@ -588,6 +707,8 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(manufacturingStagesTable).values(input);
+        const identity = parseLegacyProductName(input.productName);
+        await ensureCatalogProduct(db, { ...identity, createdBy: input.userId }, new Map());
         return { success: true, id: result[0].insertId };
       }),
 
@@ -616,6 +737,7 @@ export const appRouter = router({
     list: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
+      await syncProductCatalogFromLegacy(db);
       return db.select().from(productsTable).where(eq(productsTable.isActive, 1)).orderBy(desc(productsTable.updatedAt));
     }),
     getByBarcode: publicProcedure
@@ -640,19 +762,22 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
-        const result = await db.insert(productsTable).values({
-          barcode,
+        const product = await ensureCatalogProduct(db, {
           name: input.name,
-          size: input.size || null,
-          color: input.color || null,
-          weightGrams: input.weightGrams || 0,
-          yarnDetails: input.yarnDetails ?? null,
-          imageUrl: input.imageUrl || null,
-          attachments: input.attachments ?? [],
-          createdBy: input.createdBy || null,
-        });
-        return { success: true, id: result[0].insertId, barcode };
+          size: input.size,
+          color: input.color,
+          weightGrams: input.weightGrams,
+          yarnDetails: input.yarnDetails,
+          createdBy: input.createdBy,
+        }, new Map());
+        if (!product) throw new Error("اسم المنتج غير صالح");
+        if (product.id && product.imageUrl === null && (input.imageUrl || input.attachments?.length)) {
+          await db.update(productsTable).set({
+            imageUrl: input.imageUrl || null,
+            attachments: input.attachments ?? [],
+          }).where(eq(productsTable.id, product.id));
+        }
+        return { success: true, id: product.id, barcode: product.barcode };
       }),
     update: publicProcedure
       .input(z.object({
