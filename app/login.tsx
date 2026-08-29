@@ -26,6 +26,7 @@ export default function LoginScreen() {
   const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     username: "",
@@ -48,12 +49,16 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validateForm()) return;
     setIsLoading(true);
+    setSubmitError(null);
     try {
       await login(formData.username, formData.password);
       router.replace("/(tabs)");
     } catch (error) {
       const message = error instanceof Error ? error.message : t("login_failed");
-      Alert.alert(t("error"), message);
+      setSubmitError(message);
+      if (Platform.OS !== "web") {
+        Alert.alert(t("error"), message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +152,12 @@ export default function LoginScreen() {
                   <Text style={[styles.errorText, { textAlign }]}>{errors.password}</Text>
                 )}
               </View>
+
+              {submitError && (
+                <Text style={styles.submitError} accessibilityRole="alert">
+                  {submitError}
+                </Text>
+              )}
 
               {/* Login Button */}
               <TouchableOpacity
@@ -296,6 +307,19 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontSize: 12,
     marginTop: 4,
+  },
+  submitError: {
+    color: "#b91c1c",
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    textAlign: "right",
+    fontSize: 13,
+    lineHeight: 20,
   },
   loginButton: {
     backgroundColor: "#0a7ea4",

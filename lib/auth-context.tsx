@@ -65,7 +65,20 @@ async function apiCall(endpoint: string, body: any, method: "query" | "mutation"
     };
   }
 
-  const response = await fetch(url, options);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, signal: controller.signal });
+  } catch (requestError) {
+    if (requestError instanceof DOMException && requestError.name === "AbortError") {
+      throw new Error("انتهت مهلة الاتصال بالخادم. تحقق من الاتصال بالإنترنت وحاول مرة أخرى.");
+    }
+    throw new Error("تعذر الاتصال بالخادم. حاول مرة أخرى.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   const data = await response.json();
   
   if (data.error) {
