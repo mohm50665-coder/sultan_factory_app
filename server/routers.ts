@@ -48,6 +48,7 @@ import {
   wasteAlerts as wasteAlertsTable,
   appSettings as appSettingsTable,
   productTracking as productTrackingTable,
+  products as productsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -610,6 +611,79 @@ export const appRouter = router({
   }),
 
   // ===== PRODUCT TRACKING ROUTER =====
+  // ===== CENTRAL PRODUCTS CATALOG ROUTER =====
+  products: router({
+    list: publicProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(productsTable).where(eq(productsTable.isActive, 1)).orderBy(desc(productsTable.updatedAt));
+    }),
+    getByBarcode: publicProcedure
+      .input(z.object({ barcode: z.string().min(2) }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const rows = await db.select().from(productsTable).where(eq(productsTable.barcode, input.barcode.toUpperCase())).limit(1);
+        return rows[0] ?? null;
+      }),
+    create: publicProcedure
+      .input(z.object({
+        name: z.string().min(1).max(255),
+        size: z.string().optional(),
+        color: z.string().optional(),
+        weightGrams: z.number().int().nonnegative().optional(),
+        yarnDetails: z.any().optional(),
+        imageUrl: z.string().optional(),
+        attachments: z.array(z.string()).optional(),
+        createdBy: z.number().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
+        const result = await db.insert(productsTable).values({
+          barcode,
+          name: input.name,
+          size: input.size || null,
+          color: input.color || null,
+          weightGrams: input.weightGrams || 0,
+          yarnDetails: input.yarnDetails ?? null,
+          imageUrl: input.imageUrl || null,
+          attachments: input.attachments ?? [],
+          createdBy: input.createdBy || null,
+        });
+        return { success: true, id: result[0].insertId, barcode };
+      }),
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        data: z.object({
+          name: z.string().min(1).max(255).optional(),
+          size: z.string().optional(),
+          color: z.string().optional(),
+          weightGrams: z.number().int().nonnegative().optional(),
+          yarnDetails: z.any().optional(),
+          imageUrl: z.string().optional(),
+          attachments: z.array(z.string()).optional(),
+          isActive: z.number().int().min(0).max(1).optional(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(productsTable).set(input.data).where(eq(productsTable.id, input.id));
+        return { success: true };
+      }),
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(productsTable).set({ isActive: 0 }).where(eq(productsTable.id, input.id));
+        return { success: true };
+      }),
+  }),
+
   productTracking: router({
     list: publicProcedure.query(async () => {
       const db = await getDb();

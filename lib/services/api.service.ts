@@ -93,6 +93,15 @@ export const manufacturingService = {
   delete: (id: number) => trpcCall("manufacturing.delete", { id }),
 };
 
+// ===== Central Products Catalog =====
+export const productsService = {
+  list: () => trpcCall("products.list", undefined, "query"),
+  getByBarcode: (barcode: string) => trpcCall("products.getByBarcode", { barcode }, "query"),
+  create: (data: any) => trpcCall("products.create", data),
+  update: (id: number, data: any) => trpcCall("products.update", { id, data }),
+  delete: (id: number) => trpcCall("products.delete", { id }),
+};
+
 // ===== Product Tracking =====
 export const productTrackingService = {
   list: () => trpcCall("productTracking.list", undefined, "query"),

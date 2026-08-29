@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, appSettingsService } from "@/lib/services/api.service";
+import { productionService, appSettingsService, productsService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AttachmentPicker } from "@/components/attachment-picker";
@@ -161,11 +161,24 @@ export default function ProductionScreen() {
   // تحميل بيانات المنتجات المحفوظة (ملاحظة 5)
   const loadSavedProducts = async () => {
     try {
-      const result = await appSettingsService.get("saved_products_data");
-      if (result && result.value) {
-        const parsed = JSON.parse(result.value);
-        setSavedProducts(parsed);
-      }
+      const [localResult, catalogResult] = await Promise.allSettled([
+        appSettingsService.get("saved_products_data"),
+        productsService.list(),
+      ]);
+      const local = localResult.status === "fulfilled" && localResult.value?.value ? JSON.parse(localResult.value.value) : [];
+      const catalog = catalogResult.status === "fulfilled" && Array.isArray(catalogResult.value) ? catalogResult.value : [];
+      const central = catalog.map((p: any) => {
+        const yarn = p.yarnDetails && typeof p.yarnDetails === "object" ? p.yarnDetails : {};
+        return {
+          itemName: p.name || "", itemSize: p.size || "", itemColor: p.color || "",
+          yarnWeightPerPair: String(p.weightGrams || yarn.yarnWeightPerPair || ""),
+          yarnRubber: String(yarn.yarnRubber || ""), yarnSpandex: String(yarn.yarnSpandex || ""),
+          yarnNylon: String(yarn.yarnNylon || ""), yarnCotton: String(yarn.yarnCotton || ""),
+          yarnBamboo: String(yarn.yarnBamboo || ""), yarnSpan: String(yarn.yarnSpan || ""),
+        } as SavedProductData;
+      });
+      const merged = [...central, ...local].filter((p, index, all) => all.findIndex(x => `${x.itemName}_${x.itemSize}_${x.itemColor}` === `${p.itemName}_${p.itemSize}_${p.itemColor}`) === index);
+      setSavedProducts(merged);
     } catch (e) {
       console.log("Error loading saved products:", e);
     }

@@ -784,3 +784,23 @@ export const productTracking = mysqlTable("productTracking", {
 });
 export type ProductTracking = typeof productTracking.$inferSelect;
 export type InsertProductTracking = typeof productTracking.$inferInsert;
+
+
+// دليل المنتجات المركزي: هوية المنتج الثابتة المستخدمة في الإنتاج والتخزين والتتبع
+export const products = mysqlTable("products", {
+  id: int("id").autoincrement().primaryKey(),
+  barcode: varchar("barcode", { length: 32 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  size: varchar("size", { length: 100 }),
+  color: varchar("color", { length: 100 }),
+  weightGrams: int("weightGrams").default(0),
+  yarnDetails: json("yarnDetails"),
+  imageUrl: text("imageUrl"),
+  attachments: json("attachments"),
+  isActive: int("isActive").default(1).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = typeof products.$inferInsert;
