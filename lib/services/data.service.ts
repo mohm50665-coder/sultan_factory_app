@@ -73,6 +73,7 @@ export interface CollectionData {
 
 export interface AdministrativeData {
   id?: number;
+  userId?: number;
   referenceNumber?: string;
   submissionDate?: string;
   employeeName: string;

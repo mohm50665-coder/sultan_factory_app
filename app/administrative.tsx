@@ -15,6 +15,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useAuth } from "@/hooks/use-auth";
 import { MaterialIcons } from "@expo/vector-icons";
 import { administrativeService, AdministrativeData } from "@/lib/services/data.service";
 import { administrativeExportService } from "@/lib/services/administrative-export";
@@ -107,6 +108,7 @@ export default function AdministrativeScreen() {
   const DEPARTMENTS = isAr ? DEPARTMENTS_AR : DEPARTMENTS_EN;
   const router = useRouter();
   const colors = useColors();
+  const { user } = useAuth();
   const [requests, setRequests] = useState<AdministrativeData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -153,6 +155,12 @@ export default function AdministrativeScreen() {
       }
       return;
     }
+    if (!user?.id) {
+      if (Platform.OS === "web") {
+        window.alert(isAr ? "انتهت جلسة الدخول. يرجى تسجيل الدخول مرة أخرى ثم إعادة إرسال الطلب." : "Your session has expired. Please sign in again and resubmit the request.");
+      }
+      return;
+    }
     try {
       setIsLoading(true);
       if (editingId) {
@@ -172,7 +180,7 @@ export default function AdministrativeScreen() {
           }
         }
       } else {
-        await administrativeService.create(formData);
+        await administrativeService.create({ ...formData, userId: user.id });
         // إشعار عند إنشاء طلب جديد
         notificationsService.add({
           type: "admin",
@@ -186,6 +194,10 @@ export default function AdministrativeScreen() {
       loadRequests();
     } catch (error) {
       console.error("Error saving:", error);
+      if (Platform.OS === "web") {
+        const message = error instanceof Error ? error.message : (isAr ? "تعذر حفظ الطلب. يرجى المحاولة مرة أخرى." : "The request could not be saved. Please try again.");
+        window.alert(message);
+      }
     } finally {
       setIsLoading(false);
     }
