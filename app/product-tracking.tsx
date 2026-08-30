@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
@@ -51,6 +51,8 @@ export default function ProductTrackingScreen() {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [receivedBy, setReceivedBy] = useState("");
   const [handoverNotes, setHandoverNotes] = useState("");
+  const [stageFilter, setStageFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("");
 
   const loadData = async () => {
     setLoading(true);
@@ -112,6 +114,45 @@ export default function ProductTrackingScreen() {
     ["cotton", isAr ? "قطن" : "Cotton"], ["bamboo", isAr ? "بامبو" : "Bamboo"], ["nylon", isAr ? "نايلون" : "Nylon"],
     ["span", isAr ? "سبان" : "Span"], ["spandex", isAr ? "إسباندكس" : "Spandex"], ["rubber", isAr ? "مطاط" : "Rubber"],
   ] as const;
+
+  const filteredHandovers = useMemo(() => {
+    const employee = employeeFilter.trim().toLowerCase();
+    return handoverRecords.filter((row) => {
+      const dateMatches = !dateFilter || String(row.trackingDate || row.createdAt || "").slice(0, 10) === dateFilter;
+      const stageMatches = stageFilter === "all" || String(row.previousStage || "") === stageFilter || String(row.currentStage || "") === stageFilter;
+      const employeeMatches = !employee || [row.deliveredBy, row.receivedBy].some((name) => String(name || "").toLowerCase().includes(employee));
+      return dateMatches && stageMatches && employeeMatches;
+    });
+  }, [handoverRecords, dateFilter, stageFilter, employeeFilter]);
+
+  const employeeSummary = useMemo(() => {
+    const summary: Record<string, { name: string; deliveredCount: number; receivedCount: number; deliveredDozen: number; receivedDozen: number; deliveredPairs: number; receivedPairs: number }> = {};
+    const ensure = (name: string) => {
+      if (!summary[name]) summary[name] = { name, deliveredCount: 0, receivedCount: 0, deliveredDozen: 0, receivedDozen: 0, deliveredPairs: 0, receivedPairs: 0 };
+      return summary[name];
+    };
+    filteredHandovers.forEach((row) => {
+      if (row.deliveredBy) { const item = ensure(String(row.deliveredBy)); item.deliveredCount += 1; item.deliveredDozen += numberValue(row.quantityDozen); item.deliveredPairs += numberValue(row.quantityPairs); }
+      if (row.receivedBy) { const item = ensure(String(row.receivedBy)); item.receivedCount += 1; item.receivedDozen += numberValue(row.quantityDozen); item.receivedPairs += numberValue(row.quantityPairs); }
+    });
+    return Object.values(summary).sort((a, b) => a.name.localeCompare(b.name, "ar"));
+  }, [filteredHandovers]);
+
+  const stageLabel = (id: string) => STAGES.find((stage) => stage.id === id)?.ar || id || "غير محددة";
+  const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\\\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\\"": "&quot;", "'": "&#039;" } as Record<string, string>)[char] || char);
+
+  const printHandoverReport = () => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      Alert.alert(isAr ? "الطباعة متاحة من الويب" : "Web printing", isAr ? "افتح التقرير من نسخة الويب لطباعة التقرير" : "Open the web version to print this report");
+      return;
+    }
+    const rows = filteredHandovers.map((row) => `<tr><td>${escapeHtml(row.productName || "-")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</td><td>${escapeHtml(row.deliveredBy || "-")}</td><td>${escapeHtml(row.receivedBy || "بانتظار الاستلام")}</td><td>${escapeHtml(formatActionTime(row.deliveredAt))}</td><td>${escapeHtml(formatActionTime(row.receivedAt))}</td><td>${escapeHtml(elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), true))}</td><td>${numberValue(row.quantityDozen)} درزن + ${numberValue(row.quantityPairs)} زوج</td></tr>`).join("");
+    const summaryRows = employeeSummary.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.deliveredCount}</td><td>${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج</td><td>${item.receivedCount}</td><td>${item.receivedDozen} درزن + ${item.receivedPairs} زوج</td></tr>`).join("");
+    const printWindow = window.open("", "_blank", "width=1200,height=800");
+    if (!printWindow) return;
+    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير التسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#17202a}h1,h2{text-align:right;color:#0a7ea4}p{text-align:right}.filters{background:#f2f8fa;padding:12px;border-radius:8px}table{width:100%;border-collapse:collapse;margin:12px 0 24px;font-size:12px}th,td{border:1px solid #b8c7cc;padding:7px;text-align:right}th{background:#0a7ea4;color:white}tr:nth-child(even){background:#f5fafb}@media print{button{display:none}}</style></head><body><h1>تقرير التسليم والاستلام في مراحل الإنتاج</h1><p class="filters">التاريخ: ${escapeHtml(dateFilter || "كل التواريخ")} | المرحلة: ${escapeHtml(stageFilter === "all" ? "كل المراحل" : stageLabel(stageFilter))} | الموظف: ${escapeHtml(employeeFilter || "كل الموظفين")}</p><h2>ملخص الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>التفاصيل</h2><table><thead><tr><th>المنتج</th><th>المسار</th><th>المسلّم</th><th>المستلم</th><th>وقت التسليم</th><th>وقت الاستلام</th><th>الانتظار</th><th>الكمية</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد بيانات</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
+    printWindow.document.close();
+  };
 
   const saveHandover = async (action: "deliver" | "receive") => {
     if (!selectedProduct || !user?.name) {
@@ -192,6 +233,12 @@ export default function ProductTrackingScreen() {
               </View>
             ))}
           </View>
+          <TextInput value={employeeFilter} onChangeText={setEmployeeFilter} placeholder={isAr ? "فلترة باسم الموظف (اختياري)" : "Filter by employee (optional)"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right", marginTop: 8 }} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, marginTop: 8 }}>
+            <TouchableOpacity onPress={() => setStageFilter("all")} style={{ backgroundColor: stageFilter === "all" ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === "all" ? "#fff" : colors.foreground, fontSize: 10 }}>{isAr ? "كل المراحل" : "All stages"}</Text></TouchableOpacity>
+            {STAGES.map((stage) => <TouchableOpacity key={stage.id} onPress={() => setStageFilter(stage.id)} style={{ backgroundColor: stageFilter === stage.id ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === stage.id ? "#fff" : colors.foreground, fontSize: 10 }}>{stage.ar}</Text></TouchableOpacity>)}
+          </View>
+          <TouchableOpacity onPress={printHandoverReport} style={{ backgroundColor: "#0f766e", borderRadius: 9, padding: 10, alignItems: "center", marginTop: 10 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "طباعة تقرير التسليم والاستلام" : "Print handover report"}</Text></TouchableOpacity>
         </View>
 
         {loading ? <ActivityIndicator size="large" color={colors.primary} /> : groupedProducts.length === 0 ? (
@@ -225,9 +272,14 @@ export default function ProductTrackingScreen() {
         })}
 
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
-          <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "سجل التسليم والاستلام" : "Handover and receipt log"}</Text>
-          {handoverRecords.filter((row) => !dateFilter || String(row.trackingDate || "").slice(0, 10) === dateFilter).slice(0, 20).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
-          {handoverRecords.filter((row) => !dateFilter || String(row.trackingDate || "").slice(0, 10) === dateFilter).length === 0 && <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد عمليات تسليم واستلام لهذا التاريخ" : "No handovers for this date"}</Text>}
+          <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "ملخص مسؤولية الموظفين" : "Employee accountability summary"}</Text>
+          {employeeSummary.length === 0 ? <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد توقيعات ضمن الفلاتر الحالية" : "No signatures for current filters"}</Text> : employeeSummary.map((item) => <View key={item.name} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 9, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right" }}>{item.name}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 4 }}>{isAr ? `سلّم: ${item.deliveredCount} حركة — ${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج` : `Delivered: ${item.deliveredCount} — ${item.deliveredDozen} dz + ${item.deliveredPairs} pairs`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `استلم: ${item.receivedCount} حركة — ${item.receivedDozen} درزن + ${item.receivedPairs} زوج` : `Received: ${item.receivedCount} — ${item.receivedDozen} dz + ${item.receivedPairs} pairs`}</Text></View>)}
+        </View>
+
+        <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
+          <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "سجل التسليم والاستلام التفصيلي" : "Detailed handover and receipt log"}</Text>
+          {filteredHandovers.slice(0, 100).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
+          {filteredHandovers.length === 0 && <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد عمليات تسليم واستلام لهذا التاريخ" : "No handovers for this date"}</Text>}
         </View>
       </ScrollView>
 
