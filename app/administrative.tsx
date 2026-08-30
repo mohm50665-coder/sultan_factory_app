@@ -81,6 +81,61 @@ const DEPARTMENTS_EN = [
   { label: "Government & Military Tenders", value: "government_tenders" },
 ];
 
+type AdvanceFormData = {
+  advanceAmount: string;
+  previousAdvanceAmount: string;
+  repaymentMethod: string;
+  jobTitle: string;
+  workLocation: string;
+  formVersion: string;
+  documentNumber: string;
+};
+
+const emptyAdvanceForm = (): AdvanceFormData => ({
+  advanceAmount: "",
+  previousAdvanceAmount: "",
+  repaymentMethod: "",
+  jobTitle: "",
+  workLocation: "",
+  formVersion: "1.0",
+  documentNumber: "",
+});
+
+const parseAdvanceDetails = (details: string): { fields: AdvanceFormData; reason: string } => {
+  try {
+    const parsed = JSON.parse(details);
+    if (parsed?.kind === "advance_request") {
+      return {
+        fields: {
+          advanceAmount: String(parsed.advanceAmount ?? ""),
+          previousAdvanceAmount: String(parsed.previousAdvanceAmount ?? ""),
+          repaymentMethod: String(parsed.repaymentMethod ?? ""),
+          jobTitle: String(parsed.jobTitle ?? ""),
+          workLocation: String(parsed.workLocation ?? ""),
+          formVersion: String(parsed.formVersion ?? "1.0"),
+          documentNumber: String(parsed.documentNumber ?? ""),
+        },
+        reason: String(parsed.reason ?? ""),
+      };
+    }
+  } catch {
+    // الطلبات القديمة تحفظ التفاصيل كنص عادي.
+  }
+  return { fields: emptyAdvanceForm(), reason: details };
+};
+
+const serializeAdvanceDetails = (fields: AdvanceFormData, reason: string) => JSON.stringify({
+  kind: "advance_request",
+  formVersion: fields.formVersion || "1.0",
+  documentNumber: fields.documentNumber || "",
+  advanceAmount: fields.advanceAmount,
+  previousAdvanceAmount: fields.previousAdvanceAmount,
+  repaymentMethod: fields.repaymentMethod,
+  jobTitle: fields.jobTitle,
+  workLocation: fields.workLocation,
+  reason,
+});
+
 const emptyFormData = (): AdministrativeData => ({
   employeeName: "",
   employeeNumber: "",
@@ -114,6 +169,7 @@ export default function AdministrativeScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<AdministrativeData>(emptyFormData());
+  const [advanceForm, setAdvanceForm] = useState<AdvanceFormData>(emptyAdvanceForm());
   const [showRequestTypeDropdown, setShowRequestTypeDropdown] = useState(false);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [attachmentInput, setAttachmentInput] = useState("");
@@ -155,6 +211,12 @@ export default function AdministrativeScreen() {
       }
       return;
     }
+    if (formData.requestType === "advance_request" && (!advanceForm.advanceAmount.trim() || !advanceForm.repaymentMethod.trim())) {
+      if (Platform.OS === "web") {
+        window.alert(isAr ? "يرجى إدخال مبلغ السلفة وآلية السداد قبل الحفظ." : "Please enter the advance amount and repayment method before saving.");
+      }
+      return;
+    }
     if (!user?.id) {
       if (Platform.OS === "web") {
         window.alert(isAr ? "انتهت جلسة الدخول. يرجى تسجيل الدخول مرة أخرى ثم إعادة إرسال الطلب." : "Your session has expired. Please sign in again and resubmit the request.");
@@ -163,8 +225,11 @@ export default function AdministrativeScreen() {
     }
     try {
       setIsLoading(true);
+      const requestPayload = formData.requestType === "advance_request"
+        ? { ...formData, requestDetails: serializeAdvanceDetails(advanceForm, formData.requestDetails) }
+        : formData;
       if (editingId) {
-        await administrativeService.update(editingId, formData);
+        await administrativeService.update(editingId, requestPayload);
         // إشعار عند تحديث الطلب
         const oldRequest = requests.find(r => r.id === editingId);
         if (oldRequest) {
@@ -180,7 +245,7 @@ export default function AdministrativeScreen() {
           }
         }
       } else {
-        await administrativeService.create({ ...formData, userId: user.id });
+        await administrativeService.create({ ...requestPayload, userId: user.id });
         // إشعار عند إنشاء طلب جديد
         notificationsService.add({
           type: "admin",
@@ -226,9 +291,12 @@ export default function AdministrativeScreen() {
   };
 
   const handleEdit = (request: AdministrativeData) => {
+    const parsedAdvance = request.requestType === "advance_request" ? parseAdvanceDetails(request.requestDetails) : null;
+    setAdvanceForm(parsedAdvance?.fields || emptyAdvanceForm());
     setFormData({
       ...emptyFormData(),
       ...request,
+      requestDetails: parsedAdvance?.reason || request.requestDetails,
       attachments: request.attachments || [],
       status: request.status || "pending",
       rejectionReason: request.rejectionReason || "",
@@ -250,6 +318,7 @@ export default function AdministrativeScreen() {
 
   const resetForm = () => {
     setFormData(emptyFormData());
+    setAdvanceForm(emptyAdvanceForm());
     setEditingId(null);
     setAttachmentInput("");
   };
@@ -276,6 +345,20 @@ export default function AdministrativeScreen() {
 
   const getDepartmentLabel = (dept: string) => {
     return (isAr ? DEPARTMENTS_AR : DEPARTMENTS_EN).find((d) => d.value === dept)?.label || dept || (isAr ? "غير محدد" : "Not specified");
+  };
+
+  const getReadableRequestDetails = (request: AdministrativeData) => {
+    if (request.requestType !== "advance_request") return request.requestDetails;
+    const parsed = parseAdvanceDetails(request.requestDetails);
+    const fields = parsed.fields;
+    return [
+      `${isAr ? "مبلغ السلفة" : "Advance amount"}: ${fields.advanceAmount || (isAr ? "غير محدد" : "Not specified")} ريال`,
+      `${isAr ? "سلفة سابقة" : "Previous advance"}: ${fields.previousAdvanceAmount || (isAr ? "لا يوجد" : "None")}`,
+      `${isAr ? "آلية السداد" : "Repayment method"}: ${fields.repaymentMethod || (isAr ? "غير محددة" : "Not specified")}`,
+      `${isAr ? "المسمى الوظيفي" : "Job title"}: ${fields.jobTitle || (isAr ? "غير محدد" : "Not specified")}`,
+      `${isAr ? "مقر العمل" : "Work location"}: ${fields.workLocation || (isAr ? "غير محدد" : "Not specified")}`,
+      `${isAr ? "الأسباب" : "Reason"}: ${parsed.reason || (isAr ? "غير محددة" : "Not specified")}`,
+    ].join("\n");
   };
 
   const getStatusLabel = (request: AdministrativeData) => {
@@ -326,8 +409,8 @@ export default function AdministrativeScreen() {
       isAr ? `الإدارة/القسم: ${getDepartmentLabel(item.department)}
 ` : `Department/Section: ${getDepartmentLabel(item.department)}
 ` +
-      isAr ? `تفاصيل الطلب: ${item.requestDetails}
-` : `Request Details: ${item.requestDetails}
+      isAr ? `تفاصيل الطلب:\n${getReadableRequestDetails(item)}
+` : `Request Details:\n${getReadableRequestDetails(item)}
 ` +
       (item.attachments && item.attachments.length > 0 ? isAr ? `المرفقات: ${item.attachments.join(", ")}
 ` : `Attachments: ${item.attachments.join(", ")}
@@ -408,7 +491,7 @@ Approvals:
       </View>
 
       {/* Details */}
-      <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 12, lineHeight: 20 }}>{item.requestDetails}</Text>
+      <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 12, lineHeight: 20 }}>{getReadableRequestDetails(item)}</Text>
 
       {/* Attachments */}
       {item.attachments && item.attachments.length > 0 && (
@@ -614,17 +697,43 @@ Approvals:
 
               {/* \u062a\u0641\u0627\u0635\u064a\u0644 \u0627\u0644\u0637\u0644\u0628 */}
               <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "تفاصيل الطلب" : "Request Details"} <Text style={{ color: colors.error }}>*</Text></Text>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{formData.requestType === "advance_request" ? (isAr ? "أسباب طلب السلفة" : "Reason for Advance") : (isAr ? "تفاصيل الطلب" : "Request Details")} <Text style={{ color: colors.error }}>*</Text></Text>
                 <TextInput
                   value={formData.requestDetails}
                   onChangeText={(text) => setFormData({ ...formData, requestDetails: text })}
-                  placeholder={isAr ? "أدخل تفاصيل الطلب" : "Enter request details"}
+                  placeholder={formData.requestType === "advance_request" ? (isAr ? "اكتب أسباب طلب السلفة" : "Enter the reason for the advance") : (isAr ? "أدخل تفاصيل الطلب" : "Enter request details")}
                   placeholderTextColor={colors.muted}
                   multiline
                   numberOfLines={4}
                   style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right", textAlignVertical: "top", minHeight: 100 }}
                 />
               </View>
+
+              {formData.requestType === "advance_request" && (
+                <View style={{ marginTop: 4, marginBottom: 8, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.primary + "50", backgroundColor: colors.primary + "08" }}>
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15, textAlign: "right", marginBottom: 14 }}>{isAr ? "بيانات طلب السلفة" : "Advance Request Details"}</Text>
+                  {[
+                    { key: "advanceAmount", label: isAr ? "مبلغ السلفة بالريال" : "Advance Amount (SAR)", placeholder: isAr ? "مثال: 1500" : "Example: 1500", required: true },
+                    { key: "previousAdvanceAmount", label: isAr ? "مبلغ سلفة سابقة إن وجدت" : "Previous Advance Amount (if any)", placeholder: isAr ? "اتركه فارغاً إذا لا يوجد" : "Leave empty if none", required: false },
+                    { key: "repaymentMethod", label: isAr ? "آلية السداد" : "Repayment Method", placeholder: isAr ? "مثال: خصم شهري من الراتب" : "Example: Monthly salary deduction", required: true },
+                    { key: "jobTitle", label: isAr ? "المسمى الوظيفي" : "Job Title", placeholder: isAr ? "أدخل المسمى الوظيفي" : "Enter job title", required: false },
+                    { key: "workLocation", label: isAr ? "مقر العمل / الموقع" : "Work Location", placeholder: isAr ? "أدخل مقر العمل" : "Enter work location", required: false },
+                  ].map((field) => (
+                    <View key={field.key} style={{ marginBottom: 12 }}>
+                      <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "600", marginBottom: 6, textAlign: "right" }}>{field.label}{field.required ? <Text style={{ color: colors.error }}> *</Text> : null}</Text>
+                      <TextInput
+                        value={advanceForm[field.key as keyof AdvanceFormData]}
+                        onChangeText={(text) => setAdvanceForm({ ...advanceForm, [field.key]: text })}
+                        placeholder={field.placeholder}
+                        placeholderTextColor={colors.muted}
+                        keyboardType={field.key.includes("Amount") ? "numeric" : "default"}
+                        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 9, padding: 11, fontSize: 13, color: colors.foreground, backgroundColor: colors.surface, textAlign: "right" }}
+                      />
+                    </View>
+                  ))}
+                  <Text style={{ color: colors.muted, fontSize: 11, textAlign: "right", lineHeight: 18 }}>{isAr ? "تُحفظ هذه البيانات داخل الطلب وتظهر عند التعديل والطباعة." : "These details are saved with the request and appear during editing and printing."}</Text>
+                </View>
+              )}
             </View>
 
             {/* \u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062a */}

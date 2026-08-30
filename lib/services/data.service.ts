@@ -98,6 +98,15 @@ export interface AdministrativeData {
   status: "pending" | "approved" | "rejected";
   approvedByHR?: boolean;
   approvedByManager?: boolean;
+  advanceAmount?: string;
+  previousAdvanceAmount?: string;
+  repaymentMethod?: string;
+  jobTitle?: string;
+  workLocation?: string;
+  approvalDecision?: "approved" | "approved_with_conditions" | "rejected";
+  approvalReason?: string;
+  formVersion?: string;
+  documentNumber?: string;
 }
 
 export interface FinancialData {
