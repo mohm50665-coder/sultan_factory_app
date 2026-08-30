@@ -352,6 +352,8 @@ export default function AdministrativeScreen() {
     const parsed = parseAdvanceDetails(request.requestDetails);
     const fields = parsed.fields;
     return [
+      `${isAr ? "رقم الوثيقة" : "Document number"}: ${fields.documentNumber || (isAr ? "غير محدد" : "Not specified")}`,
+      `${isAr ? "إصدار النموذج" : "Form version"}: ${fields.formVersion || "1.0"}`,
       `${isAr ? "مبلغ السلفة" : "Advance amount"}: ${fields.advanceAmount || (isAr ? "غير محدد" : "Not specified")} ريال`,
       `${isAr ? "سلفة سابقة" : "Previous advance"}: ${fields.previousAdvanceAmount || (isAr ? "لا يوجد" : "None")}`,
       `${isAr ? "آلية السداد" : "Repayment method"}: ${fields.repaymentMethod || (isAr ? "غير محددة" : "Not specified")}`,
@@ -713,6 +715,8 @@ Approvals:
                 <View style={{ marginTop: 4, marginBottom: 8, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.primary + "50", backgroundColor: colors.primary + "08" }}>
                   <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15, textAlign: "right", marginBottom: 14 }}>{isAr ? "بيانات طلب السلفة" : "Advance Request Details"}</Text>
                   {[
+                    { key: "documentNumber", label: isAr ? "رقم الوثيقة" : "Document Number", placeholder: isAr ? "رقم مرجعي إن وجد" : "Reference number", required: false },
+                    { key: "formVersion", label: isAr ? "إصدار النموذج" : "Form Version", placeholder: "1.0", required: false },
                     { key: "advanceAmount", label: isAr ? "مبلغ السلفة بالريال" : "Advance Amount (SAR)", placeholder: isAr ? "مثال: 1500" : "Example: 1500", required: true },
                     { key: "previousAdvanceAmount", label: isAr ? "مبلغ سلفة سابقة إن وجدت" : "Previous Advance Amount (if any)", placeholder: isAr ? "اتركه فارغاً إذا لا يوجد" : "Leave empty if none", required: false },
                     { key: "repaymentMethod", label: isAr ? "آلية السداد" : "Repayment Method", placeholder: isAr ? "مثال: خصم شهري من الراتب" : "Example: Monthly salary deduction", required: true },
