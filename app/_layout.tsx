@@ -95,6 +95,8 @@ function NavigationContent() {
       <Stack.Screen name="oauth/callback" />
       <Stack.Screen name="manufacturing" />
       <Stack.Screen name="manufacturing-stage" />
+      <Stack.Screen name="product-tracking" />
+      <Stack.Screen name="daily-summary" />
       <Stack.Screen name="production" />
       <Stack.Screen name="production-totals" />
       <Stack.Screen name="sales" />
