@@ -7,7 +7,7 @@ import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
-import { productionService, manufacturingService, productTrackingService } from "@/lib/services/api.service";
+import { productionService, manufacturingService, productTrackingService, productsService } from "@/lib/services/api.service";
 
 const STAGES = [
   { id: "machines", ar: "إنتاج", en: "Production", color: "#6B7280", icon: "precision-manufacturing" },
@@ -47,6 +47,7 @@ export default function ProductTrackingScreen() {
   const [production, setProduction] = useState<any[]>([]);
   const [manufacturing, setManufacturing] = useState<any[]>([]);
   const [handoverRecords, setHandoverRecords] = useState<any[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [receivedBy, setReceivedBy] = useState("");
@@ -57,14 +58,16 @@ export default function ProductTrackingScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productionRows, stageRows, trackingRows] = await Promise.all([
+      const [productionRows, stageRows, trackingRows, catalogRows] = await Promise.all([
         productionService.getAll(),
         manufacturingService.getAll(),
         productTrackingService.list(),
+        productsService.list(),
       ]);
       setProduction(Array.isArray(productionRows) ? productionRows : []);
       setManufacturing(Array.isArray(stageRows) ? stageRows : []);
       setHandoverRecords(Array.isArray(trackingRows) ? trackingRows : []);
+      setCatalogProducts(Array.isArray(catalogRows) ? catalogRows : []);
     } catch (error) {
       console.error("Product tracking load failed", error);
       Alert.alert(isAr ? "تعذر تحميل التتبع" : "Tracking unavailable", isAr ? "تحقق من اتصال الخادم ثم حاول مرة أخرى" : "Check the server connection and try again");
@@ -99,6 +102,7 @@ export default function ProductTrackingScreen() {
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name, isAr ? "ar" : "en"));
   }, [production, dateFilter, isAr]);
 
+  const catalogForProduct = (productName: string) => catalogProducts.find((item) => String(item.name || "") === productName) || {};
   const stageForProduct = (productName: string) => {
     const tracked = handoverRecords
       .filter((row) => String(row.productName || "") === productName)
@@ -146,11 +150,11 @@ export default function ProductTrackingScreen() {
       Alert.alert(isAr ? "الطباعة متاحة من الويب" : "Web printing", isAr ? "افتح التقرير من نسخة الويب لطباعة التقرير" : "Open the web version to print this report");
       return;
     }
-    const rows = filteredHandovers.map((row) => `<tr><td>${escapeHtml(row.productName || "-")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</td><td>${escapeHtml(row.deliveredBy || "-")}</td><td>${escapeHtml(row.receivedBy || "بانتظار الاستلام")}</td><td>${escapeHtml(formatActionTime(row.deliveredAt))}</td><td>${escapeHtml(formatActionTime(row.receivedAt))}</td><td>${escapeHtml(elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), true))}</td><td>${numberValue(row.quantityDozen)} درزن + ${numberValue(row.quantityPairs)} زوج</td></tr>`).join("");
+    const rows = filteredHandovers.map((row) => { const catalog = catalogForProduct(String(row.productName || "")); return `<tr><td>${escapeHtml(row.productName || "-")}</td><td>${escapeHtml(row.productColor || catalog.color || "غير محدد")}</td><td>${escapeHtml(row.productSize || catalog.size || "غير محدد")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</td><td>${escapeHtml(row.deliveredBy || "-")}</td><td>${escapeHtml(row.receivedBy || "بانتظار الاستلام")}</td><td>${escapeHtml(formatActionTime(row.deliveredAt))}</td><td>${escapeHtml(formatActionTime(row.receivedAt))}</td><td>${escapeHtml(elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), true))}</td><td>${numberValue(row.quantityDozen)} درزن + ${numberValue(row.quantityPairs)} زوج</td></tr>`; }).join("");
     const summaryRows = employeeSummary.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.deliveredCount}</td><td>${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج</td><td>${item.receivedCount}</td><td>${item.receivedDozen} درزن + ${item.receivedPairs} زوج</td></tr>`).join("");
     const printWindow = window.open("", "_blank", "width=1200,height=800");
     if (!printWindow) return;
-    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير التسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#17202a}h1,h2{text-align:right;color:#0a7ea4}p{text-align:right}.filters{background:#f2f8fa;padding:12px;border-radius:8px}table{width:100%;border-collapse:collapse;margin:12px 0 24px;font-size:12px}th,td{border:1px solid #b8c7cc;padding:7px;text-align:right}th{background:#0a7ea4;color:white}tr:nth-child(even){background:#f5fafb}@media print{button{display:none}}</style></head><body><h1>تقرير التسليم والاستلام في مراحل الإنتاج</h1><p class="filters">التاريخ: ${escapeHtml(dateFilter || "كل التواريخ")} | المرحلة: ${escapeHtml(stageFilter === "all" ? "كل المراحل" : stageLabel(stageFilter))} | الموظف: ${escapeHtml(employeeFilter || "كل الموظفين")}</p><h2>ملخص الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>التفاصيل</h2><table><thead><tr><th>المنتج</th><th>المسار</th><th>المسلّم</th><th>المستلم</th><th>وقت التسليم</th><th>وقت الاستلام</th><th>الانتظار</th><th>الكمية</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد بيانات</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
+    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير التسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#17202a}h1,h2{text-align:right;color:#0a7ea4}p{text-align:right}.filters{background:#f2f8fa;padding:12px;border-radius:8px}table{width:100%;border-collapse:collapse;margin:12px 0 24px;font-size:12px}th,td{border:1px solid #b8c7cc;padding:7px;text-align:right}th{background:#0a7ea4;color:white}tr:nth-child(even){background:#f5fafb}@media print{button{display:none}}</style></head><body><h1>تقرير التسليم والاستلام في مراحل الإنتاج</h1><p class="filters">التاريخ: ${escapeHtml(dateFilter || "كل التواريخ")} | المرحلة: ${escapeHtml(stageFilter === "all" ? "كل المراحل" : stageLabel(stageFilter))} | الموظف: ${escapeHtml(employeeFilter || "كل الموظفين")}</p><h2>ملخص الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>التفاصيل</h2><table><thead><tr><th>اسم المنتج</th><th>اللون</th><th>المقاس</th><th>المسار</th><th>المسلّم</th><th>المستلم</th><th>وقت التسليم</th><th>وقت الاستلام</th><th>الانتظار</th><th>الكمية</th></tr></thead><tbody>${rows || '<tr><td colspan="10">لا توجد بيانات</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
     printWindow.document.close();
   };
 
@@ -159,6 +163,7 @@ export default function ProductTrackingScreen() {
       Alert.alert(isAr ? "تعذر الاعتماد" : "Cannot sign", isAr ? "يجب تسجيل الدخول بحساب موظف لاعتماد الحركة" : "A signed-in employee is required");
       return;
     }
+    const catalogProduct = catalogForProduct(selectedProduct.name);
     const currentStage = stageForProduct(selectedProduct.name);
     const stageIndex = Math.max(0, STAGES.findIndex((stage) => stage.id === currentStage));
     const nextStage = STAGES[Math.min(stageIndex + 1, STAGES.length - 1)].id;
@@ -178,6 +183,8 @@ export default function ProductTrackingScreen() {
       if (action === "deliver") {
         await productTrackingService.create({
           productName: selectedProduct.name,
+          productSize: catalogProduct.size || undefined,
+          productColor: catalogProduct.color || undefined,
           trackingDate: dateFilter || today(),
           totalWeightGrams: Math.round(selectedProduct.weight),
           yarnDetails: selectedProduct.yarn,
@@ -235,6 +242,7 @@ export default function ProductTrackingScreen() {
           </View>
           <TextInput value={employeeFilter} onChangeText={setEmployeeFilter} placeholder={isAr ? "فلترة باسم الموظف (اختياري)" : "Filter by employee (optional)"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right", marginTop: 8 }} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, marginTop: 8 }}>
+            <TouchableOpacity onPress={() => setDateFilter("")} style={{ backgroundColor: !dateFilter ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: !dateFilter ? "#fff" : colors.foreground, fontSize: 10 }}>كل التواريخ</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setStageFilter("all")} style={{ backgroundColor: stageFilter === "all" ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === "all" ? "#fff" : colors.foreground, fontSize: 10 }}>{isAr ? "كل المراحل" : "All stages"}</Text></TouchableOpacity>
             {STAGES.map((stage) => <TouchableOpacity key={stage.id} onPress={() => setStageFilter(stage.id)} style={{ backgroundColor: stageFilter === stage.id ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === stage.id ? "#fff" : colors.foreground, fontSize: 10 }}>{stage.ar}</Text></TouchableOpacity>)}
           </View>
@@ -251,7 +259,7 @@ export default function ProductTrackingScreen() {
             <View key={product.name} style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginBottom: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <TouchableOpacity onPress={() => setSelectedProduct(product)} style={{ backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7 }}><Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>{isAr ? "تسجيل تسليم" : "Record handover"}</Text></TouchableOpacity>
-                <View style={{ flex: 1, alignItems: "flex-end", marginLeft: 10 }}><Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "800" }}>{product.name}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{isAr ? `المكائن: ${product.machines.join("، ") || "-"}` : `Machines: ${product.machines.join(", ") || "-"}`}</Text></View>
+                <View style={{ flex: 1, alignItems: "flex-end", marginLeft: 10 }}><Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "800" }}>{product.name}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{isAr ? `المكائن: ${product.machines.join("، ") || "-"}` : `Machines: ${product.machines.join(", ") || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>اللون: {catalogForProduct(product.name).color || "غير محدد"} | المقاس: {catalogForProduct(product.name).size || "غير محدد"}</Text></View>
               </View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 11 }}>
                 <View style={{ alignItems: "center", flex: 1 }}><Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "الكمية" : "Quantity"}</Text><Text style={{ color: colors.primary, fontWeight: "800" }}>{product.dozen} {isAr ? "درزن" : "dz"} + {product.pairs} {isAr ? "زوج" : "pr"}</Text></View>
@@ -278,7 +286,7 @@ export default function ProductTrackingScreen() {
 
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
           <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "سجل التسليم والاستلام التفصيلي" : "Detailed handover and receipt log"}</Text>
-          {filteredHandovers.slice(0, 100).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
+          {filteredHandovers.slice(0, 100).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>اللون: {row.productColor || catalogForProduct(String(row.productName || "")).color || "غير محدد"} | المقاس: {row.productSize || catalogForProduct(String(row.productName || "")).size || "غير محدد"}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج | الوزن: ${row.totalWeightGrams || 0} جرام` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs | Weight: ${row.totalWeightGrams || 0} g`}</Text></View>)}
           {filteredHandovers.length === 0 && <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد عمليات تسليم واستلام لهذا التاريخ" : "No handovers for this date"}</Text>}
         </View>
       </ScrollView>
