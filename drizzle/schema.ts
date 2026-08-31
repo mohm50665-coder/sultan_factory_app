@@ -761,6 +761,7 @@ export type AppSetting = typeof appSettings.$inferSelect;
 export const productTracking = mysqlTable("productTracking", {
   id: int("id").autoincrement().primaryKey(),
   productName: varchar("productName", { length: 255 }).notNull(),
+  productBarcode: varchar("productBarcode", { length: 32 }),
   productSize: varchar("productSize", { length: 100 }),
   productColor: varchar("productColor", { length: 100 }),
   trackingDate: varchar("trackingDate", { length: 20 }).notNull(),
@@ -768,6 +769,7 @@ export const productTracking = mysqlTable("productTracking", {
   yarnDetails: json("yarnDetails"),
   quantityDozen: int("quantityDozen").default(0),
   quantityPairs: int("quantityPairs").default(0),
+  qualityGrade: mysqlEnum("qualityGrade", ["first", "second"]),
   machineNumbers: json("machineNumbers"),
   currentStage: varchar("currentStage", { length: 100 }).notNull(),
   previousStage: varchar("previousStage", { length: 100 }),

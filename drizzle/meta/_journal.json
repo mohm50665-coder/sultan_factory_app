@@ -29,6 +29,20 @@
       "when": 1787909455508,
       "tag": "0003_moaning_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1788176896141,
+      "tag": "0004_brown_blazing_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1788176996736,
+      "tag": "0005_robust_madrox",
+      "breakpoints": true
     }
   ]
 }

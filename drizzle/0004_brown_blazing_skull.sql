@@ -1,0 +1,1 @@
+ALTER TABLE `productTracking` ADD `qualityGrade` enum('first','second');

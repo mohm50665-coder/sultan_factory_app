@@ -1,0 +1,1 @@
+ALTER TABLE `productTracking` ADD `productBarcode` varchar(32);

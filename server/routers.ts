@@ -829,6 +829,7 @@ export const appRouter = router({
         yarnDetails: z.any().optional(),
         quantityDozen: z.number().optional(),
         quantityPairs: z.number().optional(),
+        qualityGrade: z.enum(["first", "second"]).optional(),
         machineNumbers: z.any().optional(),
         currentStage: z.string().min(1),
         previousStage: z.string().optional(),
@@ -851,6 +852,7 @@ export const appRouter = router({
         id: z.number(),
         data: z.object({
           handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
+          qualityGrade: z.enum(["first", "second"]).optional(),
           deliveredBy: z.string().optional(),
           receivedBy: z.string().optional(),
           deliveredAt: z.coerce.date().optional(),
