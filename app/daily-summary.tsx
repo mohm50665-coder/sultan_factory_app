@@ -9,10 +9,22 @@ import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
 import { administrativeService, boardDataService, collectionService, expensesService, financialReportsService, governmentTendersService, maintenanceService, manufacturingService, meetingsService, meetingOutputsService, productTrackingService, productionCostsLocalService, productionService, productsService, salesService, savedProductCostsService, taskService, warehouseService } from "@/lib/services/api.service";
 
-const today = () => new Date().toISOString().slice(0, 10);
+const REPORT_TIME_ZONE = "Asia/Riyadh";
+const localDateKey = (value: Date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: REPORT_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || "00";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+const today = () => localDateKey();
 const numberValue = (value: unknown) => Number(value || 0) || 0;
-const dateOnly = (value: unknown) => value ? String(value).slice(0, 10) : "";
-const displayTime = (value: unknown) => value ? new Date(String(value)).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : "غير مسجل";
+const dateOnly = (value: unknown) => {
+  if (!value) return "";
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : localDateKey(parsed);
+};
+const displayTime = (value: unknown) => value ? new Date(String(value)).toLocaleString("ar-SA", { timeZone: REPORT_TIME_ZONE, dateStyle: "short", timeStyle: "short" }) : "غير مسجل";
 const elapsedLabel = (minutes: number | null, _isAr = true) => {
   if (minutes === null || !Number.isFinite(minutes)) return "غير محسوبة";
   const hours = Math.floor(minutes / 60);
