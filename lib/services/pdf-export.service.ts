@@ -252,8 +252,12 @@ export function generateCostReport(data: any): PDFReportData {
 export function generateComprehensiveReport(data: any): PDFReportData {
   return {
     title: "التقرير الشامل",
-    subtitle: "ملخص شامل لجميع أقسام المصنع",
-    date: new Date().toLocaleDateString("ar-SA"),
+    subtitle: data.reportPeriod?.startDate && data.reportPeriod?.endDate
+      ? `ملخص شامل لجميع أقسام المصنع — من ${data.reportPeriod.startDate} إلى ${data.reportPeriod.endDate}`
+      : "ملخص شامل لجميع أقسام المصنع",
+    date: data.reportPeriod?.startDate === data.reportPeriod?.endDate
+      ? data.reportPeriod.startDate
+      : (data.reportPeriod ? `${data.reportPeriod.startDate} إلى ${data.reportPeriod.endDate}` : new Date().toLocaleDateString("ar-SA")),
     sections: [
       {
         title: "ملخص عام",

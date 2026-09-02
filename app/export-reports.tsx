@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Alert,
   ActivityIndicator,
   StyleSheet,
@@ -94,6 +95,8 @@ export default function ExportReports() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [userId, setUserId] = useState<number>(0);
   const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [startDate, setStartDate] = useState(getRiyadhDate());
+  const [endDate, setEndDate] = useState(getRiyadhDate());
 
   useEffect(() => {
     loadData();
@@ -114,14 +117,21 @@ export default function ExportReports() {
   };
 
   const handleGenerateReport = async (option: ReportOption) => {
+    if (option.id === "comprehensive") {
+      const validDate = /^\\d{4}-\\d{2}-\\d{2}$/;
+      if (!validDate.test(startDate) || !validDate.test(endDate) || startDate > endDate) {
+        Alert.alert(isAr ? "التاريخ غير صحيح" : "Invalid date", isAr ? "أدخل تاريخاً بصيغة YYYY-MM-DD وتأكد أن تاريخ البداية لا يتجاوز تاريخ النهاية" : "Enter dates as YYYY-MM-DD and ensure the start date is not after the end date");
+        return;
+      }
+    }
     setGenerating(option.id);
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const today = getRiyadhDate();
+      const thirtyDaysAgo = getRiyadhDate(-30);
 
       if (option.id === "comprehensive") {
-        // Generate comprehensive report from server
-        const result = await reportsService.generateComprehensive(thirtyDaysAgo, today, userId);
+        // Generate the comprehensive report for the dates selected on this screen.
+        const result = await reportsService.generateComprehensive(startDate, endDate, userId);
         const pdfData = generateComprehensiveReport(result?.data || {});
         await exportReportAsPDF(pdfData);
         Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير التقرير الشامل بنجاح" : "Comprehensive report exported successfully");
@@ -187,6 +197,25 @@ export default function ExportReports() {
           <MaterialIcons name="picture-as-pdf" size={28} color="#EF4444" />
         </View>
 
+        {/* Comprehensive report date range */}
+        <View style={[styles.dateCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.dateTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "تاريخ التقرير الشامل" : "Comprehensive report dates"}</Text>
+          <Text style={[styles.dateHint, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? "اختر يوماً واحداً أو فترة. هذا الفلتر خاص بالتقرير الشامل ولا يغيّر ملخص اليوم." : "Choose one day or a range. This filter belongs to the comprehensive report and does not change Daily Summary."}</Text>
+          <View style={styles.dateRow}>
+            <View style={styles.dateField}>
+              <Text style={[styles.dateLabel, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? "من تاريخ" : "From"}</Text>
+              <TextInput value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} keyboardType="numbers-and-punctuation" />
+            </View>
+            <View style={styles.dateField}>
+              <Text style={[styles.dateLabel, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? "إلى تاريخ" : "To"}</Text>
+              <TextInput value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} keyboardType="numbers-and-punctuation" />
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => { setStartDate(getRiyadhDate()); setEndDate(getRiyadhDate()); }} style={[styles.todayButton, { borderColor: colors.primary }]}>
+            <Text style={{ color: colors.primary, fontWeight: "700", textAlign: "center" }}>{isAr ? "اليوم حسب توقيت الرياض" : "Today — Riyadh time"}</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Report Options */}
         <Text style={[styles.sectionTitle, { color: colors.foreground, textAlign: isAr ? "right" : "left" }]}>{isAr ? "اختر نوع التقرير" : "Select Report Type"}</Text>
         {REPORT_OPTIONS.map((option) => (
@@ -236,6 +265,11 @@ export default function ExportReports() {
   );
 }
 
+function getRiyadhDate(offsetDays = 0) {
+  const now = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
 const styles = StyleSheet.create({
   container: { paddingBottom: 100 },
   header: { alignItems: "center", padding: 16, gap: 12 },
@@ -244,6 +278,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: "bold" },
   headerSubtitle: { fontSize: 13, marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: "bold", paddingHorizontal: 16, marginBottom: 12 },
+  dateCard: { marginHorizontal: 16, marginBottom: 18, padding: 14, borderRadius: 12, borderWidth: 1 },
+  dateTitle: { fontSize: 16, fontWeight: "800" },
+  dateHint: { fontSize: 11, lineHeight: 17, marginTop: 5 },
+  dateRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  dateField: { flex: 1 },
+  dateLabel: { fontSize: 11, marginBottom: 5 },
+  dateInput: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 8, fontSize: 13, textAlign: "center" },
+  todayButton: { borderWidth: 1, borderRadius: 8, paddingVertical: 8, marginTop: 10 },
   reportCard: { alignItems: "center", marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 12, borderWidth: 1, gap: 12 },
   reportIcon: { width: 52, height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   reportContent: { flex: 1 },

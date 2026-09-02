@@ -1583,21 +1583,30 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
 
-        // Collect all data for the period
-        const productionData = await db.select().from(productionTable);
-        const salesData = await db.select().from(salesTable);
-        const expensesData = await db.select().from(expensesTable);
-        const costsData = await db.select().from(productionCostsTable);
-        const tasksData = await db.select().from(tasksTable);
-        const collectionData = await db.select().from(collectionTable);
+        // Collect only operational data inside the selected inclusive date range.
+        // Date fields are stored as YYYY-MM-DD strings, so lexical comparison is stable.
+        const inRange = (column: any) => and(gte(column, input.startDate), lte(column, input.endDate));
+        const productionData = await db.select().from(productionTable).where(inRange(productionTable.date));
+        const manufacturingData = await db.select().from(manufacturingStagesTable).where(inRange(manufacturingStagesTable.date));
+        const salesData = await db.select().from(salesTable).where(inRange(salesTable.invoiceDate));
+        const expensesData = await db.select().from(expensesTable).where(and(gte(expensesTable.createdAt, sql`${input.startDate} 00:00:00`), lte(expensesTable.createdAt, sql`${input.endDate} 23:59:59`)));
+        const costsData = await db.select().from(productionCostsTable).where(inRange(productionCostsTable.date));
+        const tasksData = await db.select().from(tasksTable).where(and(gte(tasksTable.createdAt, sql`${input.startDate} 00:00:00`), lte(tasksTable.createdAt, sql`${input.endDate} 23:59:59`)));
+        const collectionData = await db.select().from(collectionTable).where(inRange(collectionTable.receiptDate));
 
         const reportData = {
+          reportPeriod: { startDate: input.startDate, endDate: input.endDate },
           production: {
             totalEntries: productionData.length,
             totalDozen: productionData.reduce((sum, p) => sum + (p.productionDozen || 0), 0),
             totalPairs: productionData.reduce((sum, p) => sum + (p.productionPairs || 0), 0),
             totalWasteThread: productionData.reduce((sum, p) => sum + (p.wasteThreadGrams || 0), 0),
             totalWasteSocks: productionData.reduce((sum, p) => sum + (p.wasteSocksGrams || 0), 0),
+          },
+          manufacturing: {
+            totalEntries: manufacturingData.length,
+            totalDozen: manufacturingData.reduce((sum, row) => sum + (row.quantityDozen || 0), 0),
+            totalPairs: manufacturingData.reduce((sum, row) => sum + (row.quantityPair || 0), 0),
           },
           sales: {
             totalEntries: salesData.length,
