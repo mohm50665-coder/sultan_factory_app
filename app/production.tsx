@@ -220,13 +220,17 @@ export default function ProductionScreen() {
   };
 
   // البحث عن اقتراحات المنتجات (ملاحظة 5)
+  const normalizeProductText = (text: string) => text.trim().toLowerCase().replace(/[–—_/]+/g, "-").replace(/\s+/g, " ");
+  const getProductSearchText = (p: SavedProductData) => normalizeProductText(`${p.itemName} ${p.itemSize} ${p.itemColor}`);
+
   const getProductSuggestions = (text: string): SavedProductData[] => {
-    if (!text.trim()) return [];
-    return savedProducts.filter(p =>
-      p.itemName.includes(text.trim()) ||
-      p.itemColor.includes(text.trim()) ||
-      p.itemSize.includes(text.trim())
-    );
+    const query = normalizeProductText(text);
+    if (!query) return [];
+    return savedProducts.filter((p) => {
+      const name = normalizeProductText(p.itemName);
+      const composite = getProductSearchText(p);
+      return name.includes(query) || composite.includes(query) || normalizeProductText(p.itemColor).includes(query) || normalizeProductText(p.itemSize).includes(query);
+    });
   };
 
   const canEditSavedProduct = user?.role === "admin";
@@ -451,8 +455,13 @@ export default function ProductionScreen() {
 
     // ملاحظة 5: عند تغيير اسم الصنف - إظهار اقتراحات
     if (field === "itemName") {
-      const normalized = value.trim().toLowerCase();
-      const exactMatches = savedProducts.filter((saved) => saved.itemName.trim().toLowerCase() === normalized);
+      const normalized = normalizeProductText(value);
+      const exactMatches = savedProducts.filter((saved) => {
+        const name = normalizeProductText(saved.itemName);
+        const compositeWithSpaces = getProductSearchText(saved);
+        const compositeWithDashes = normalizeProductText(`${saved.itemName} - ${saved.itemSize} - ${saved.itemColor}`);
+        return name === normalized || compositeWithSpaces === normalized || compositeWithDashes === normalized;
+      });
       if (normalized && exactMatches.length === 1) {
         const saved = exactMatches[0];
         newProducts[productIndex] = {
