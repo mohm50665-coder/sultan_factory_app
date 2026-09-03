@@ -21,7 +21,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 export default function LoginScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
   const isAr = language === "ar";
   const [isLoading, setIsLoading] = useState(false);
@@ -64,6 +64,13 @@ export default function LoginScreen() {
     }
   };
 
+
+  const handleFreshLogin = async () => {
+    await logout();
+    setSubmitError(null);
+    setErrors({});
+    setFormData({ username: "", password: "" });
+  };
 
   const textAlign = isRtl ? "right" : "left";
 
@@ -154,9 +161,12 @@ export default function LoginScreen() {
               </View>
 
               {submitError && (
-                <Text style={styles.submitError} accessibilityRole="alert">
-                  {submitError}
-                </Text>
+                <>
+                  <Text style={styles.submitError} accessibilityRole="alert">{submitError}</Text>
+                  <TouchableOpacity onPress={handleFreshLogin} style={{ marginTop: 8 }}>
+                    <Text style={{ color: colors.primary, textAlign: "center", fontWeight: "700" }}>{isAr ? "مسح الجلسة وإعادة المحاولة" : "Clear session and try again"}</Text>
+                  </TouchableOpacity>
+                </>
               )}
 
               {/* Login Button */}

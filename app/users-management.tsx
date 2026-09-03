@@ -72,6 +72,9 @@ export default function UsersManagementScreen() {
   const [sectionsUser, setSectionsUser] = useState<User | null>(null);
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [editPosition, setEditPosition] = useState("");
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameUser, setRenameUser] = useState<User | null>(null);
+  const [renameUsername, setRenameUsername] = useState("");
 
   const loadUsers = useCallback(async () => {
     const allUsers = await adminService.getAllUsers();
@@ -139,6 +142,27 @@ export default function UsersManagementScreen() {
         },
       ]
     );
+  };
+
+  const duplicateUsernames = users.filter((u, index, list) => list.findIndex((item) => item.username.trim().toLowerCase() === u.username.trim().toLowerCase()) !== index);
+
+  const handleRenameUser = (u: User) => {
+    setRenameUser(u);
+    setRenameUsername(u.username.trim());
+    setShowRenameModal(true);
+  };
+
+  const handleSaveRename = async () => {
+    if (!renameUser || !renameUsername.trim()) return;
+    try {
+      await adminService.renameUser(renameUser.id, renameUsername);
+      setShowRenameModal(false);
+      setRenameUser(null);
+      await loadUsers();
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث اسم المستخدم" : "Username updated");
+    } catch (e: any) {
+      Alert.alert(isAr ? "خطأ" : "Error", e?.message || (isAr ? "تعذر تحديث اسم المستخدم" : "Could not update username"));
+    }
   };
 
   const handleResetPassword = (userId: number) => {
@@ -223,6 +247,13 @@ export default function UsersManagementScreen() {
         </View>
       </View>
 
+      {currentUser?.role === "admin" && duplicateUsernames.length > 0 && (
+        <View style={[styles.duplicateNotice, { backgroundColor: "#fff7ed", borderColor: "#fb923c" }]}>
+          <Text style={styles.duplicateTitle}>{isAr ? "تنبيه: توجد أسماء مستخدمين مكررة" : "Warning: duplicate usernames found"}</Text>
+          <Text style={styles.duplicateText}>{isAr ? "أعد تسمية الحسابات غير الأساسية لتجنب رفض كلمة المرور أو الدخول إلى الحساب الخطأ." : "Rename non-primary accounts to avoid password conflicts."}</Text>
+        </View>
+      )}
+
       {/* Users List */}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {users.map((u) => (
@@ -265,6 +296,12 @@ export default function UsersManagementScreen() {
                   color={u.isActive ? "#b91c1c" : "#15803d"}
                 />
               </TouchableOpacity>
+
+              {users.filter((item) => item.username.trim().toLowerCase() === u.username.trim().toLowerCase()).length > 1 && currentUser?.role === "admin" && (
+                <TouchableOpacity onPress={() => handleRenameUser(u)} style={[styles.actionBtn, { backgroundColor: "#ffedd5" }]}>
+                  <MaterialIcons name="drive-file-rename-outline" size={18} color="#c2410c" />
+                </TouchableOpacity>
+              )}
 
               {/* إعادة تعيين كلمة المرور */}
               <TouchableOpacity
@@ -361,6 +398,21 @@ export default function UsersManagementScreen() {
         </View>
       </Modal>
 
+      {/* Modal إعادة تسمية الحساب المتكرر */}
+      <Modal visible={showRenameModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{isAr ? "إعادة تسمية حساب متكرر" : "Rename duplicate account"}</Text>
+            <Text style={{ fontSize: 12, color: "#687076", textAlign: "right", marginBottom: 10 }}>{isAr ? "اكتب اسماً فريداً لهذا الحساب، ولن تتغير كلمة المرور." : "Enter a unique username. The password will not change."}</Text>
+            <TextInput value={renameUsername} onChangeText={setRenameUsername} autoCapitalize="none" style={[styles.modalInput, { textAlign: isAr ? "right" : "left" }]} placeholder={isAr ? "اسم المستخدم الجديد" : "New username"} />
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setShowRenameModal(false)} style={styles.cancelBtn}><Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveRename} style={styles.saveBtn}><Text style={styles.saveBtnText}>{isAr ? "حفظ" : "Save"}</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal تحديد الأيقونات المسموحة */}
       <Modal visible={showSectionsModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -416,6 +468,9 @@ export default function UsersManagementScreen() {
 }
 
 const styles = StyleSheet.create({
+  duplicateNotice: { marginHorizontal: 16, marginBottom: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
+  duplicateTitle: { color: "#9a3412", fontWeight: "800", textAlign: "right" },
+  duplicateText: { color: "#c2410c", fontSize: 12, lineHeight: 18, textAlign: "right", marginTop: 4 },
   header: {
     backgroundColor: "#0a7ea4",
     flexDirection: "row",

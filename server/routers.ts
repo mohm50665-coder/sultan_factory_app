@@ -301,6 +301,18 @@ export const appRouter = router({
         };
       }),
 
+    changePassword: publicProcedure
+      .input(z.object({ username: z.string().min(1), currentPassword: z.string().min(1), newPassword: z.string().min(6) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const users = await db.select().from(usersTable).where(sql`TRIM(${usersTable.username}) = ${input.username.trim()}`);
+        const user = users.find((candidate) => candidate.password === input.currentPassword);
+        if (!user) throw new Error("كلمة المرور الحالية غير صحيحة");
+        await db.update(usersTable).set({ password: input.newPassword }).where(eq(usersTable.id, user.id));
+        return { success: true };
+      }),
+
     resetPassword: publicProcedure
       .input(
         z.object({
@@ -373,6 +385,18 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         await db.update(usersTable).set({ role: input.role }).where(eq(usersTable.id, input.userId));
+        return { success: true };
+      }),
+
+    renameUser: publicProcedure
+      .input(z.object({ userId: z.number(), username: z.string().min(1).max(100) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const normalized = input.username.trim();
+        const duplicate = await db.select({ id: usersTable.id }).from(usersTable).where(and(sql`TRIM(${usersTable.username}) = ${normalized}`, sql`${usersTable.id} <> ${input.userId}`)).limit(1);
+        if (duplicate.length) throw new Error("اسم المستخدم مستخدم مسبقاً");
+        await db.update(usersTable).set({ username: normalized }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
 

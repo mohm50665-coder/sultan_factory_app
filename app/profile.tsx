@@ -19,6 +19,7 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
+import { authApiService } from "@/lib/services/api.service";
 
 const AVATAR_COLORS = [
   "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
@@ -107,22 +108,9 @@ export default function ProfileScreen() {
 
     setIsLoading(true);
     try {
-      const usersData = await AsyncStorage.getItem("users");
-      if (usersData) {
-        const users = JSON.parse(usersData);
-        const currentUser = users.find((u: any) => u.username === user?.username);
-        if (currentUser && currentUser.password !== passwordForm.currentPassword) {
-          setPasswordErrors({ current: isAr ? "كلمة المرور الحالية غير صحيحة" : "Current password is incorrect" });
-          setIsLoading(false);
-          return;
-        }
-        const updatedUsers = users.map((u: any) =>
-          u.username === user?.username ? { ...u, password: passwordForm.newPassword } : u
-        );
-        await AsyncStorage.setItem("users", JSON.stringify(updatedUsers));
-      }
-
-      Alert.alert(t("success"), isAr ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully");
+      if (!user?.username) throw new Error(isAr ? "المستخدم غير معروف" : "Current user is unavailable");
+      await authApiService.changePassword(user.username, passwordForm.currentPassword, passwordForm.newPassword);
+      Alert.alert(t("success"), isAr ? "تم تغيير كلمة المرور على الخادم بنجاح. احفظها في مكان آمن." : "Password changed on the server. Store it securely.");
       setShowPasswordModal(false);
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error) {

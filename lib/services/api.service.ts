@@ -52,6 +52,7 @@ export const adminService = {
   changeUserRole: (userId: number, role: "user" | "admin") => trpcCall("admin.changeUserRole", { userId, role }),
   deleteUser: (userId: number) => trpcCall("admin.deleteUser", { userId }),
   resetUserPassword: (userId: number, newPassword: string) => trpcCall("admin.resetUserPassword", { userId, newPassword }),
+  renameUser: (userId: number, username: string) => trpcCall("admin.renameUser", { userId, username }),
   updateAllowedSections: (userId: number, allowedSections: string[]) => trpcCall("admin.updateAllowedSections", { userId, allowedSections }),
   updateUserDepartment: (userId: number, department: string) => trpcCall("admin.updateUserDepartment", { userId, department }),
   updatePosition: (userId: number, position: string) => trpcCall("admin.updatePosition", { userId, position }),
@@ -169,6 +170,8 @@ export const financialService = {
 export const authApiService = {
   resetPassword: (username: string, phone: string, newPassword: string) =>
     trpcCall("auth.resetPassword", { username, phone, newPassword }),
+  changePassword: (username: string, currentPassword: string, newPassword: string) =>
+    trpcCall("auth.changePassword", { username, currentPassword, newPassword }),
 };
 
 // ===== Board Representative Data (Server) =====
