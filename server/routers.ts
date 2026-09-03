@@ -426,11 +426,16 @@ export const appRouter = router({
 
     deleteUser: adminProcedure
       .input(z.object({ userId: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        if (ctx.user?.id === input.userId) throw new Error("لا يمكنك حذف حساب الأدمن المستخدم حالياً");
+        const target = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        if (!target.length) throw new Error("المستخدم غير موجود أو تم حذفه مسبقاً");
         await db.delete(usersTable).where(eq(usersTable.id, input.userId));
-        return { success: true };
+        const remaining = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        if (remaining.length) throw new Error("تعذر حذف المستخدم من قاعدة البيانات");
+        return { success: true, deletedUserId: input.userId };
       }),
 
     resetUserPassword: publicProcedure

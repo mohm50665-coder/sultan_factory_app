@@ -79,7 +79,7 @@ export default function RegisterScreen() {
     }
     if (!formData.email.trim()) {
       newErrors.email = isAr ? "البريد الإلكتروني مطلوب" : "Email is required";
-    } else if (!/^\\S+@\\S+\\.\\S+$/.test(formData.email.trim())) {
+    } else if (!/^\S+@\S+\.\S+$/.test(formData.email.trim())) {
       newErrors.email = isAr ? "أدخل بريداً إلكترونياً صحيحاً" : "Enter a valid email address";
     }
     if (!formData.department) {
