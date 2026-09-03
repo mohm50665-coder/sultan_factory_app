@@ -260,15 +260,18 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
 
+        // Match the entered username after removing accidental outer spaces.
+        // Check all matching rows so an older duplicate username cannot hide the
+        // active account whose password is correct.
+        const normalizedUsername = input.username.trim();
         const result = await db
           .select()
           .from(usersTable)
-          .where(eq(usersTable.username, input.username))
-          .limit(1);
+          .where(sql`TRIM(${usersTable.username}) = ${normalizedUsername}`);
 
-        const user = result[0];
+        const user = result.find((candidate) => candidate.password === input.password);
 
-        if (!user || user.password !== input.password) {
+        if (!user) {
           throw new Error("اسم المستخدم أو كلمة المرور غير صحيحة");
         }
 
