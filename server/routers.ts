@@ -196,7 +196,8 @@ export const appRouter = router({
         z.object({
           name: z.string().min(1),
           username: z.string().min(1),
-          phone: z.string().optional(),
+          email: z.string().email(),
+          phone: z.string().min(1),
           position: z.string().optional(),
           department: z.string().optional(),
           password: z.string().min(6),
@@ -206,26 +207,25 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
 
-        // Check if username exists
-        const existing = await db
-          .select()
-          .from(usersTable)
-          .where(eq(usersTable.username, input.username))
-          .limit(1);
-
-        if (existing.length > 0) {
-          throw new Error("اسم المستخدم مستخدم بالفعل");
-        }
+        const normalizedUsername = input.username.trim();
+        const normalizedEmail = input.email.trim().toLowerCase();
+        const normalizedPhone = input.phone.trim();
+        const existingUsername = await db.select({ id: usersTable.id }).from(usersTable).where(sql`LOWER(TRIM(${usersTable.username})) = ${normalizedUsername.toLowerCase()}`).limit(1);
+        if (existingUsername.length > 0) throw new Error("اسم المستخدم مستخدم بالفعل");
+        const existingEmail = await db.select({ id: usersTable.id }).from(usersTable).where(sql`LOWER(TRIM(${usersTable.email})) = ${normalizedEmail}`).limit(1);
+        if (existingEmail.length > 0) throw new Error("البريد الإلكتروني مستخدم بالفعل");
+        const existingPhone = await db.select({ id: usersTable.id }).from(usersTable).where(sql`TRIM(${usersTable.phone}) = ${normalizedPhone}`).limit(1);
+        if (existingPhone.length > 0) throw new Error("رقم الجوال مستخدم بالفعل");
 
         const openId = randomUUID();
 
         try {
           await db.insert(usersTable).values({
             openId,
-            name: input.name,
-            username: input.username,
-            email: input.username + "@sultan.local",
-            phone: input.phone || null,
+            name: input.name.trim(),
+            username: normalizedUsername,
+            email: normalizedEmail,
+            phone: normalizedPhone,
             position: input.position || null,
             department: input.department || null,
             password: input.password,
@@ -424,7 +424,7 @@ export const appRouter = router({
       return db.select().from(usersTable).where(eq(usersTable.isActive, 0));
     }),
 
-    deleteUser: publicProcedure
+    deleteUser: adminProcedure
       .input(z.object({ userId: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();

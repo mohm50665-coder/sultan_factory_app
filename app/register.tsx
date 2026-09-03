@@ -51,6 +51,7 @@ export default function RegisterScreen() {
   const [formData, setFormData] = useState({
     name: "",
     username: "",
+    email: "",
     position: "",
     department: "",
     phone: "",
@@ -75,6 +76,11 @@ export default function RegisterScreen() {
     }
     if (!formData.username.trim()) {
       newErrors.username = isAr ? "اسم المستخدم مطلوب" : "Username is required";
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = isAr ? "البريد الإلكتروني مطلوب" : "Email is required";
+    } else if (!/^\\S+@\\S+\\.\\S+$/.test(formData.email.trim())) {
+      newErrors.email = isAr ? "أدخل بريداً إلكترونياً صحيحاً" : "Enter a valid email address";
     }
     if (!formData.department) {
       newErrors.department = isAr ? "القسم مطلوب" : "Department is required";
@@ -107,6 +113,7 @@ export default function RegisterScreen() {
       await register(
         formData.name,
         formData.username,
+        formData.email,
         formData.phone,
         formData.position,
         formData.department,
@@ -211,6 +218,7 @@ export default function RegisterScreen() {
             <View style={styles.formCard}>
               {renderInput("name", t("full_name"), t("enter_full_name"), "person-outline")}
               {renderInput("username", t("username"), t("enter_username"), "account-circle")}
+              {renderInput("email", isAr ? "البريد الإلكتروني" : "Email", isAr ? "أدخل البريد الإلكتروني" : "Enter email", "email", { keyboard: "email-address" })}
 
               {/* Department Picker */}
               <View style={styles.inputGroup}>

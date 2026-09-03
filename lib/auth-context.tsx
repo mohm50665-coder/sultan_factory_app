@@ -22,9 +22,9 @@ interface AuthContextType {
   isLoading: boolean;
   isSignedIn: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (name: string, username: string, phone: string, position: string, department: string, password: string) => Promise<void>;
+  register: (name: string, username: string, email: string, phone: string, position: string, department: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  signUp: (name: string, username: string, phone: string, position: string, department: string, password: string) => Promise<void>;
+  signUp: (name: string, username: string, email: string, phone: string, position: string, department: string, password: string) => Promise<void>;
   updateProfile: (data: { name?: string; username?: string; phone?: string; position?: string }) => Promise<void>;
   refreshUser: () => Promise<void>;
   error: string | null;
@@ -140,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (
     name: string,
     username: string,
+    email: string,
     phone: string,
     position: string,
     department: string,
@@ -148,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      await apiCall("auth.register", { name, username, phone, position, department, password });
+      await apiCall("auth.register", { name, username, email, phone, position, department, password });
       // لا يتم تسجيل الدخول تلقائياً - الحساب يحتاج تفعيل من الأدمن
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل التسجيل";
