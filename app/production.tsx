@@ -590,17 +590,17 @@ export default function ProductionScreen() {
     }
   };
 
-  // حساب إجمالي وزن الخيوط لمنتج واحد
-  const getProductTotalYarn = (p: ProductItem): number => {
-    return (
-      (parseFloat(p.yarnRubber) || 0) +
-      (parseFloat(p.yarnSpandex) || 0) +
-      (parseFloat(p.yarnNylon) || 0) +
-      (parseFloat(p.yarnCotton) || 0) +
-      (parseFloat(p.yarnBamboo) || 0) +
-      (parseFloat(p.yarnSpan) || 0)
-    );
-  };
+  // الكمية الفعلية دائماً بالأزواج: كل درزن = 12 زوجاً، مع إضافة الأزواج المفردة.
+  const getProductPairs = (p: ProductItem): number =>
+    (parseFloat(p.productionDozen) || 0) * 12 + (parseFloat(p.productionPairs) || 0);
+
+  // وزن نوع الخيط في السجل محفوظ لكل زوج، وهذا هو إجماليه حسب الكمية.
+  type YarnWeightField = "yarnRubber" | "yarnSpandex" | "yarnNylon" | "yarnCotton" | "yarnBamboo" | "yarnSpan";
+  const getProductYarnTotal = (p: ProductItem, field: YarnWeightField): number =>
+    (parseFloat(p[field]) || 0) * getProductPairs(p);
+
+  const getProductTotalYarn = (p: ProductItem): number =>
+    ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"].reduce((sum, field) => sum + getProductYarnTotal(p, field as YarnWeightField), 0);
 
   // حساب المجاميع لسجل واحد
   const getEntryTotals = (entry: ProductionEntry) => {
@@ -623,15 +623,13 @@ export default function ProductionScreen() {
           totalNeedles += parseFloat(p.wasteNeedles) || 0;
           totalHours += parseFloat(p.productionHours) || 0;
           totalMinutes += parseFloat(p.productionMinutes) || 0;
-          totalYarnRubber += parseFloat(p.yarnRubber) || 0;
-          totalYarnSpandex += parseFloat(p.yarnSpandex) || 0;
-          totalYarnNylon += parseFloat(p.yarnNylon) || 0;
-          totalYarnCotton += parseFloat(p.yarnCotton) || 0;
-          totalYarnBamboo += parseFloat(p.yarnBamboo) || 0;
-          totalYarnSpan += parseFloat(p.yarnSpan) || 0;
-          const yarnPerPair = parseFloat(p.yarnWeightPerPair) || 0;
-          const pairs = parseInt(p.productionPairs) || 0;
-          totalYarnByPairs += yarnPerPair * pairs;
+          totalYarnRubber += getProductYarnTotal(p, "yarnRubber");
+          totalYarnSpandex += getProductYarnTotal(p, "yarnSpandex");
+          totalYarnNylon += getProductYarnTotal(p, "yarnNylon");
+          totalYarnCotton += getProductYarnTotal(p, "yarnCotton");
+          totalYarnBamboo += getProductYarnTotal(p, "yarnBamboo");
+          totalYarnSpan += getProductYarnTotal(p, "yarnSpan");
+          totalYarnByPairs += (parseFloat(p.yarnWeightPerPair) || 0) * getProductPairs(p);
         });
       });
     });
@@ -639,6 +637,7 @@ export default function ProductionScreen() {
     totalHours += Math.floor(totalMinutes / 60);
     totalMinutes = totalMinutes % 60;
 
+    const totalPairsEquivalent = totalDozen * 12 + totalPairs;
     const totalYarnWeight = totalYarnRubber + totalYarnSpandex + totalYarnNylon + totalYarnCotton + totalYarnBamboo + totalYarnSpan;
     const totalWasteAll = totalWasteThread + totalWasteSocks;
     const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
@@ -648,7 +647,7 @@ export default function ProductionScreen() {
     const secondConverted = convertPairsToDozens(totalSecondPairsAll);
 
     return {
-      totalDozen, totalPairs, totalWasteThread, totalWasteSocks,
+      totalDozen, totalPairs, totalPairsEquivalent, totalWasteThread, totalWasteSocks,
       totalSecondDozen: secondConverted.dozens, totalSecondPairs: secondConverted.remainingPairs,
       totalNeedles, totalHours, totalMinutes,
       totalYarnRubber, totalYarnSpandex, totalYarnNylon, totalYarnCotton, totalYarnBamboo, totalYarnSpan,
@@ -708,6 +707,7 @@ export default function ProductionScreen() {
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "إنتاج" : "Production"}</Text>
             <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14 }}>{totals.totalDozen}</Text>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "درزن" : "dozen"}</Text>
+            <Text style={{ color: colors.primary, fontSize: 10 }}>{isAr ? `${totals.totalPairsEquivalent} زوج إجمالي` : `${totals.totalPairsEquivalent} total pairs`}</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "نخب ثاني" : "2nd Grade"}</Text>
@@ -822,7 +822,7 @@ export default function ProductionScreen() {
           <Text style={{ color: '#16a34a', fontWeight: 'bold', fontSize: 14 }}>
             {(() => {
               const weight = parseFloat(product.yarnWeightPerPair) || 0;
-              const pairs = parseInt(product.productionPairs) || 0;
+              const pairs = getProductPairs(product);
               const total = weight * pairs;
               return total > 0 ? `${total.toLocaleString()} ${isAr ? 'جم' : 'g'}` : '---';
             })()}
@@ -1029,6 +1029,12 @@ export default function ProductionScreen() {
               keyboardType="numeric"
             />
           </View>
+        </View>
+        <View style={{ backgroundColor: '#f8fafc', borderRadius: 6, padding: 7, marginTop: 6 }}>
+          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 10, textAlign: 'right', marginBottom: 4 }}>{isAr ? "إجمالي أوزان الخيوط حسب الكمية (جرام)" : "Total yarn weights by quantity (g)"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 10, textAlign: 'right' }}>{isAr ? `الكمية المحولة: ${getProductPairs(product)} زوج` : `Converted quantity: ${getProductPairs(product)} pairs`}</Text>
+          <Text style={{ color: colors.primary, fontSize: 11, textAlign: 'right', marginTop: 3 }}>{isAr ? `مطاط: ${getProductYarnTotal(product, "yarnRubber")} جم • إسباندكس: ${getProductYarnTotal(product, "yarnSpandex")} جم • نايلون: ${getProductYarnTotal(product, "yarnNylon")} جم` : `Rubber: ${getProductYarnTotal(product, "yarnRubber")} g • Spandex: ${getProductYarnTotal(product, "yarnSpandex")} g • Nylon: ${getProductYarnTotal(product, "yarnNylon")} g`}</Text>
+          <Text style={{ color: colors.primary, fontSize: 11, textAlign: 'right', marginTop: 2 }}>{isAr ? `قطن: ${getProductYarnTotal(product, "yarnCotton")} جم • بامبو: ${getProductYarnTotal(product, "yarnBamboo")} جم • إسبان: ${getProductYarnTotal(product, "yarnSpan")} جم` : `Cotton: ${getProductYarnTotal(product, "yarnCotton")} g • Bamboo: ${getProductYarnTotal(product, "yarnBamboo")} g • Span: ${getProductYarnTotal(product, "yarnSpan")} g`}</Text>
         </View>
       </View>
     </View>
