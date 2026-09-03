@@ -299,7 +299,7 @@ export default function UsersManagementScreen() {
                 {isAr ? "تاريخ التسجيل: " : "Registered: "}{u.createdAt ? new Date(u.createdAt).toLocaleDateString(isAr ? "ar-SA" : "en-US") : "-"}
               </Text>
               </View>
-              <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>@{u.username}</Text>
+              <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left", fontWeight: "700", color: "#0369a1" }]}>{isAr ? "اسم المستخدم: " : "Username: "}{u.username}</Text>
               <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>{u.position} | {getRoleLabel(u.role)}</Text>
               <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>{u.phone}</Text>
             </View>
