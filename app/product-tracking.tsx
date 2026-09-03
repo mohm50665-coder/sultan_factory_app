@@ -228,7 +228,14 @@ export default function ProductTrackingScreen() {
           <Text style={{ color: "#fff", fontSize: 19, fontWeight: "800" }}>{isAr ? "تتبع المنتجات" : "Product Tracking"}</Text>
           <Text style={{ color: "#E0F2FE", fontSize: 11, marginTop: 2 }}>{isAr ? "تقرير يومي موثق من الإنتاج إلى التخزين" : "Daily trace from production to storage"}</Text>
         </View>
-        <MaterialIcons name="timeline" size={30} color="#fff" />
+        <TouchableOpacity
+          onPress={() => router.push("/products" as any)}
+          accessibilityLabel={isAr ? "فتح وطباعة دليل المنتجات" : "Open and print product catalog"}
+          style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#ffffff22", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6 }}
+        >
+          <MaterialIcons name="print" size={19} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{isAr ? "طباعة المنتجات" : "Print products"}</Text>
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
