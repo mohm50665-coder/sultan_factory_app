@@ -262,6 +262,9 @@ export default function UsersManagementScreen() {
               <View style={styles.userHeader}>
                 <View style={[styles.statusDot, { backgroundColor: u.isActive ? "#22c55e" : "#ef4444" }]} />
                 <Text style={styles.userName}>{u.name}</Text>
+              <Text style={[styles.registrationDate, { textAlign: isAr ? "right" : "left" }]}>
+                {isAr ? "تاريخ التسجيل: " : "Registered: "}{u.createdAt ? new Date(u.createdAt).toLocaleDateString(isAr ? "ar-SA" : "en-US") : "-"}
+              </Text>
               </View>
               <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>@{u.username}</Text>
               <Text style={[styles.userDetail, { textAlign: isAr ? "right" : "left" }]}>{u.position} | {getRoleLabel(u.role)}</Text>
@@ -471,6 +474,7 @@ const styles = StyleSheet.create({
   duplicateNotice: { marginHorizontal: 16, marginBottom: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
   duplicateTitle: { color: "#9a3412", fontWeight: "800", textAlign: "right" },
   duplicateText: { color: "#c2410c", fontSize: 12, lineHeight: 18, textAlign: "right", marginTop: 4 },
+  registrationDate: { color: "#64748b", fontSize: 11, marginTop: 2 },
   header: {
     backgroundColor: "#0a7ea4",
     flexDirection: "row",
