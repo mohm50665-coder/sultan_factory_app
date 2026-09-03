@@ -241,6 +241,17 @@ class SDKServer {
 
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = token || cookies.get(COOKIE_NAME);
+
+    // Local employee login stores the database user id in the session cookie/header.
+    // Resolve it before attempting OAuth JWT verification so protected local-user
+    // operations (including admin deletion) receive the actual database user.
+    const localSessionId = req.headers["x-session-id"] || (!token && sessionCookie && /^\d+$/.test(sessionCookie) ? sessionCookie : undefined);
+    const localUserId = Array.isArray(localSessionId) ? localSessionId[0] : localSessionId;
+    if (typeof localUserId === "string" && /^\d+$/.test(localUserId)) {
+      const localUser = await db.getUserById(Number(localUserId));
+      if (localUser) return localUser;
+    }
+
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {
