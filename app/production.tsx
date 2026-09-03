@@ -443,22 +443,37 @@ export default function ProductionScreen() {
   const updateProductField = (machine: string, shiftIndex: number, productIndex: number, field: keyof ProductItem, value: string) => {
     const current = machinesData[machine] || { shifts: [emptyShiftData(1)] };
     const currentProduct = current.shifts[shiftIndex]?.products[productIndex] || emptyProduct();
-    if (!canEditSavedProduct && isProductIdentityField(field) && isSavedProductIdentity(currentProduct)) {
-      notifySavedProductLocked();
-      return;
-    }
+    // بيانات دليل المنتجات تُنسخ إلى سجل الإنتاج، لذلك يبقى هذا السجل قابلاً للتعديل يدوياً.
+    // تعديل الكتالوج المركزي نفسه ما زال محصوراً في الأدمن من شاشة دليل المنتجات.
     const newShifts = [...current.shifts];
     const newProducts = [...newShifts[shiftIndex].products];
     newProducts[productIndex] = { ...newProducts[productIndex], [field]: value };
 
     // ملاحظة 5: عند تغيير اسم الصنف - إظهار اقتراحات
     if (field === "itemName") {
-      const suggestions = getProductSuggestions(value);
-      setProductSuggestions(suggestions);
-      if (value.trim()) {
-        setShowSuggestions({ machine, shiftIndex, productIndex });
-      } else {
+      const normalized = value.trim().toLowerCase();
+      const exactMatches = savedProducts.filter((saved) => saved.itemName.trim().toLowerCase() === normalized);
+      if (normalized && exactMatches.length === 1) {
+        const saved = exactMatches[0];
+        newProducts[productIndex] = {
+          ...newProducts[productIndex],
+          itemName: saved.itemName,
+          itemSize: saved.itemSize,
+          itemColor: saved.itemColor,
+          yarnWeightPerPair: saved.yarnWeightPerPair,
+          yarnRubber: saved.yarnRubber,
+          yarnSpandex: saved.yarnSpandex,
+          yarnNylon: saved.yarnNylon,
+          yarnCotton: saved.yarnCotton,
+          yarnBamboo: saved.yarnBamboo,
+          yarnSpan: saved.yarnSpan,
+        };
+        setProductSuggestions([]);
         setShowSuggestions(null);
+      } else {
+        const suggestions = getProductSuggestions(value);
+        setProductSuggestions(suggestions);
+        setShowSuggestions(value.trim() ? { machine, shiftIndex, productIndex } : null);
       }
     }
 
@@ -707,7 +722,8 @@ export default function ProductionScreen() {
 
   // فورم إدخال منتج واحد
   const renderProductForm = (machine: string, shiftIndex: number, product: ProductItem, productIndex: number, totalProducts: number) => {
-    const productLocked = !canEditSavedProduct && isSavedProductIdentity(product);
+    // المنتج المحفوظ يعبئ سجل الإنتاج تلقائياً، لكن سجل الإنتاج نفسه قابل للتعديل اليدوي.
+    const productLocked = false;
     const identityInputStyle = productLocked ? { backgroundColor: '#eef1f3', borderColor: '#94a3b8', color: colors.muted } : {};
     return (
     <View key={`${machine}-s${shiftIndex}-p${productIndex}`} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: colors.border }}>
