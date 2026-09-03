@@ -171,7 +171,7 @@ export default function ProductionScreen() {
         const yarn = p.yarnDetails && typeof p.yarnDetails === "object" ? p.yarnDetails : {};
         return {
           itemName: p.name || "", itemSize: p.size || "", itemColor: p.color || "",
-          yarnWeightPerPair: String(p.weightGrams || yarn.yarnWeightPerPair || ""),
+          yarnWeightPerPair: String(yarn.yarnWeightPerPair || ""),
           yarnRubber: String(yarn.yarnRubber || ""), yarnSpandex: String(yarn.yarnSpandex || ""),
           yarnNylon: String(yarn.yarnNylon || ""), yarnCotton: String(yarn.yarnCotton || ""),
           yarnBamboo: String(yarn.yarnBamboo || ""), yarnSpan: String(yarn.yarnSpan || ""),

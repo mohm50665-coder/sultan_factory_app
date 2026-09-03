@@ -22,7 +22,7 @@ const formatYarn = (details: any) => {
   if (!details) return "غير متوفر";
   if (typeof details === "string") return details;
   const entries = Object.entries(details).filter(([, value]) => value !== undefined && value !== null && value !== "" && Number(value) !== 0);
-  return entries.length ? entries.map(([key, value]) => `${key}: ${value}%`).join("، ") : "غير متوفر";
+  return entries.length ? entries.map(([key, value]) => `${key}: ${key === "yarnWeightPerPair" ? value + " جم/زوج" : value + " جم"}`).join("، ") : "غير متوفر";
 };
 const emptyStats = (): ProductStats => ({ productionRows: 0, productionDozen: 0, productionPairs: 0, machines: [], stageRows: 0, stageDozen: 0, stagePairs: 0, stages: [], trackingRows: 0, storedPairs: 0 });
 
@@ -38,7 +38,7 @@ export default function ProductsScreen() {
   const [editing, setEditing] = useState<number | null>(null);
   const [files, setFiles] = useState<AttachmentFile[]>([]);
   const [name, setName] = useState(""); const [size, setSize] = useState(""); const [color, setColor] = useState("");
-  const [weight, setWeight] = useState(""); const [yarn, setYarn] = useState(""); const [imageUrl, setImageUrl] = useState(""); const [attachment, setAttachment] = useState("");
+  const [weight, setWeight] = useState(""); const [yarnWeightPerPair, setYarnWeightPerPair] = useState(""); const [yarnRubber, setYarnRubber] = useState(""); const [yarnSpandex, setYarnSpandex] = useState(""); const [yarnNylon, setYarnNylon] = useState(""); const [yarnCotton, setYarnCotton] = useState(""); const [yarnBamboo, setYarnBamboo] = useState(""); const [yarnSpan, setYarnSpan] = useState(""); const [imageUrl, setImageUrl] = useState(""); const [attachment, setAttachment] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -71,17 +71,18 @@ export default function ProductsScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const reset = () => { setEditing(null); setName(""); setSize(""); setColor(""); setWeight(""); setYarn(""); setImageUrl(""); setAttachment(""); setFiles([]); };
+  const reset = () => { setEditing(null); setName(""); setSize(""); setColor(""); setWeight(""); setYarnWeightPerPair(""); setYarnRubber(""); setYarnSpandex(""); setYarnNylon(""); setYarnCotton(""); setYarnBamboo(""); setYarnSpan(""); setImageUrl(""); setAttachment(""); setFiles([]); };
   const save = async () => {
-    if (!name.trim() || !size.trim() || !color.trim() || !weight.trim() || Number(weight) <= 0 || !yarn.trim()) return Alert.alert("بيانات إلزامية", "يجب إدخال الاسم والمقاس واللون والوزن وخيوط التصنيع ونِسَبها قبل الحفظ");
-    let yarnDetails: any = null; try { yarnDetails = JSON.parse(yarn); } catch { yarnDetails = { الوصف: yarn.trim() }; }
+    const yarnWeights = { yarnRubber: Number(yarnRubber) || 0, yarnSpandex: Number(yarnSpandex) || 0, yarnNylon: Number(yarnNylon) || 0, yarnCotton: Number(yarnCotton) || 0, yarnBamboo: Number(yarnBamboo) || 0, yarnSpan: Number(yarnSpan) || 0 };
+    if (!name.trim() || !size.trim() || !color.trim() || !weight.trim() || Number(weight) <= 0 || !yarnWeightPerPair.trim() || Number(yarnWeightPerPair) <= 0 || Object.values(yarnWeights).every((value) => value <= 0)) return Alert.alert("بيانات إلزامية", "يجب إدخال الاسم والمقاس واللون ووزن الجورب ووزن الخيط/زوج ووزن نوع خيط واحد على الأقل قبل الحفظ");
+    const yarnDetails: any = { yarnWeightPerPair: Number(yarnWeightPerPair), ...yarnWeights };
     const uploadedFiles = files.map((file) => file.uploadedUrl || file.uri).filter(Boolean);
     const firstImage = files.find((file) => file.type === "image");
       const manualAttachments = attachment.split(/\\n+/).map((item) => item.trim()).filter(Boolean);
     const data = { name: name.trim(), size: size.trim() || undefined, color: color.trim() || undefined, weightGrams: Math.max(0, Number(weight) || 0), yarnDetails, imageUrl: imageUrl.trim() || firstImage?.uploadedUrl || firstImage?.uri || undefined, attachments: [...new Set([...manualAttachments, ...uploadedFiles])] };
     try { if (editing) await productsService.update(editing, data); else await productsService.create({ ...data, createdBy: user?.id }); Alert.alert("تم", editing ? "تم تحديث بيان المنتج" : "تم حفظ المنتج وإنشاء الباركود"); reset(); await load(); } catch (error: any) { Alert.alert("خطأ", error?.message || "تعذر حفظ المنتج"); }
   };
-  const edit = (product: Product) => { if (user?.role !== "admin") return Alert.alert("التعديل غير مسموح", "لا يقبل التعديل على المنتج إلا من قبل مدير النظام"); setEditing(product.id); setName(product.name); setSize(product.size || ""); setColor(product.color || ""); setWeight(String(product.weightGrams || "")); setYarn(typeof product.yarnDetails === "string" ? product.yarnDetails : product.yarnDetails ? JSON.stringify(product.yarnDetails) : ""); setImageUrl(product.imageUrl || ""); setAttachment(product.attachments?.join("\\n") || ""); };
+  const edit = (product: Product) => { if (user?.role !== "admin") return Alert.alert("التعديل غير مسموح", "لا يقبل التعديل على المنتج إلا من قبل مدير النظام"); const details: any = typeof product.yarnDetails === "string" ? (() => { try { return JSON.parse(product.yarnDetails); } catch { return {}; } })() : product.yarnDetails || {}; setEditing(product.id); setName(product.name); setSize(product.size || ""); setColor(product.color || ""); setWeight(String(product.weightGrams || "")); setYarnWeightPerPair(String(details.yarnWeightPerPair || "")); setYarnRubber(String(details.yarnRubber || "")); setYarnSpandex(String(details.yarnSpandex || "")); setYarnNylon(String(details.yarnNylon || "")); setYarnCotton(String(details.yarnCotton || "")); setYarnBamboo(String(details.yarnBamboo || "")); setYarnSpan(String(details.yarnSpan || "")); setImageUrl(product.imageUrl || ""); setAttachment(product.attachments?.join("\\n") || ""); };
   const remove = (product: Product) => Alert.alert("تأكيد الحذف", `حذف ${product.name} من دليل المنتجات؟`, [{ text: "إلغاء", style: "cancel" }, { text: "حذف", style: "destructive", onPress: async () => { await productsService.delete(product.id); await load(); } }]);
   const sortedItems = useMemo(() => {
     const query = normalize(searchQuery);
@@ -106,8 +107,9 @@ export default function ProductsScreen() {
     <View style={styles.header}><Pressable onPress={() => router.back()} style={styles.back}><MaterialIcons name="arrow-forward" size={22} color="#fff" /></Pressable><View style={{ flex: 1 }}><Text style={styles.title}>دليل المنتجات</Text><Text style={styles.subtitle}>بيان شامل للهوية والمواصفات والإنتاج والحركة</Text></View><MaterialIcons name="inventory-2" size={32} color="#0a7ea4" /></View>
     <View style={styles.card}><Text style={styles.section}>{editing ? "تعديل بيانات المنتج" : "إضافة منتج جديد"}</Text><Text style={styles.label}>اسم المنتج *</Text><TextInput value={name} onChangeText={setName} style={styles.input} placeholder="مثال: ECO" />
       <View style={styles.row}><View style={styles.col}><Text style={styles.label}>المقاس</Text><TextInput value={size} onChangeText={setSize} style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>اللون</Text><TextInput value={color} onChangeText={setColor} style={styles.input} /></View></View>
-      <View style={styles.row}><View style={styles.col}><Text style={styles.label}>الوزن بالجرام</Text><TextInput value={weight} onChangeText={setWeight} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>الصورة (رابط)</Text><TextInput value={imageUrl} onChangeText={setImageUrl} style={styles.input} /></View></View>
-      <Text style={styles.label}>خيوط التصنيع ونِسَبها (JSON أو وصف)</Text><TextInput value={yarn} onChangeText={setYarn} style={styles.input} placeholder='مثال: {"قطن":50,"نايلون":50}' />
+      <View style={styles.row}><View style={styles.col}><Text style={styles.label}>وزن الجورب الفردي (جرام) *</Text><TextInput value={weight} onChangeText={setWeight} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>الصورة (رابط)</Text><TextInput value={imageUrl} onChangeText={setImageUrl} style={styles.input} /></View></View>
+      <Text style={styles.label}>وزن الخيط لكل زوج (جرام) *</Text><TextInput value={yarnWeightPerPair} onChangeText={setYarnWeightPerPair} keyboardType="numeric" style={styles.input} placeholder="مثل إدخال الإنتاج" />
+      <Text style={styles.label}>أنواع الخيوط وأوزانها (جرام) مثل إدخال الإنتاج</Text><View style={styles.row}><View style={styles.col}><Text style={styles.label}>مطاط</Text><TextInput value={yarnRubber} onChangeText={setYarnRubber} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>سباندكس</Text><TextInput value={yarnSpandex} onChangeText={setYarnSpandex} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>نايلون</Text><TextInput value={yarnNylon} onChangeText={setYarnNylon} keyboardType="numeric" style={styles.input} /></View></View><View style={styles.row}><View style={styles.col}><Text style={styles.label}>قطن</Text><TextInput value={yarnCotton} onChangeText={setYarnCotton} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>بامبو</Text><TextInput value={yarnBamboo} onChangeText={setYarnBamboo} keyboardType="numeric" style={styles.input} /></View><View style={styles.col}><Text style={styles.label}>سبان</Text><TextInput value={yarnSpan} onChangeText={setYarnSpan} keyboardType="numeric" style={styles.input} /></View></View>
       <Text style={styles.label}>مرفق المنتج (رابط اختياري)</Text><TextInput value={attachment} onChangeText={setAttachment} style={styles.input} /><AttachmentPicker attachments={files} onAttachmentsChange={setFiles} language="ar" maxAttachments={10} />
       <View style={styles.row}><Pressable onPress={save} style={styles.primary}><MaterialIcons name="save" size={19} color="#fff" /><Text style={styles.primaryText}>{editing ? "حفظ التعديل" : "حفظ وإنشاء باركود"}</Text></Pressable>{editing ? <Pressable onPress={reset} style={styles.secondary}><Text>إلغاء</Text></Pressable> : null}</View>
     </View>
