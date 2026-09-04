@@ -43,6 +43,13 @@
       "when": 1788176996736,
       "tag": "0005_robust_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1788534104220,
+      "tag": "0006_pale_redwing",
+      "breakpoints": true
     }
   ]
 }

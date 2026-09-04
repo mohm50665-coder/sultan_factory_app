@@ -49,6 +49,7 @@ import {
   appSettings as appSettingsTable,
   productTracking as productTrackingTable,
   products as productsTable,
+  internalMessages as internalMessagesTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -1559,6 +1560,38 @@ export const appRouter = router({
         const result = await db.insert(activityLogTable).values(input as any);
         return { success: true, id: (result[0] as any).insertId };
       }),
+  }),
+
+  // ===== INTERNAL MAIL ROUTER =====
+  internalMessages: router({
+    getInbox: publicProcedure.input(z.object({ userId: z.number() })).query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const me = await db.select({ department: usersTable.department }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+      const department = me[0]?.department;
+      const conditions = department ? sql`(recipientUserId = ${input.userId} OR recipientDepartment = ${department})` : sql`recipientUserId = ${input.userId}`;
+      return db.select().from(internalMessagesTable).where(conditions).orderBy(desc(internalMessagesTable.createdAt));
+    }),
+    getSent: publicProcedure.input(z.object({ userId: z.number() })).query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(internalMessagesTable).where(eq(internalMessagesTable.senderId, input.userId)).orderBy(desc(internalMessagesTable.createdAt));
+    }),
+    create: publicProcedure.input(z.object({
+      subject: z.string().min(1), body: z.string().min(1), senderId: z.number(), recipientUserId: z.number().optional(), recipientDepartment: z.string().optional(), relatedType: z.string().optional(), relatedId: z.number().optional(), attachments: z.array(z.string()).optional(), dueAt: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      if (!input.recipientUserId && !input.recipientDepartment) throw new Error("اختر موظفاً أو إدارة مستلمة");
+      const result = await db.insert(internalMessagesTable).values({ ...input, attachments: input.attachments || [], dueAt: input.dueAt ? new Date(input.dueAt) : undefined });
+      return { success: true, id: result[0].insertId };
+    }),
+    markRead: publicProcedure.input(z.object({ id: z.number(), userId: z.number() })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await db.update(internalMessagesTable).set({ readAt: new Date() }).where(and(eq(internalMessagesTable.id, input.id), eq(internalMessagesTable.recipientUserId, input.userId)));
+      return { success: true };
+    }),
   }),
 
   // ===== REPORTS ROUTER =====

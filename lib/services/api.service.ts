@@ -174,6 +174,14 @@ export const authApiService = {
     trpcCall("auth.changePassword", { username, currentPassword, newPassword }),
 };
 
+// ===== Internal Mail (Server) =====
+export const internalMessagesService = {
+  inbox: (userId: number) => trpcCall("internalMessages.getInbox", { userId }, "query"),
+  sent: (userId: number) => trpcCall("internalMessages.getSent", { userId }, "query"),
+  create: (data: any) => trpcCall("internalMessages.create", data),
+  markRead: (id: number, userId: number) => trpcCall("internalMessages.markRead", { id, userId }),
+};
+
 // ===== Board Representative Data (Server) =====
 export const boardDataService = {
   getAll: () => trpcCall("boardData.getAll", undefined, "query"),

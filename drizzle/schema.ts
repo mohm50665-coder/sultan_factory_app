@@ -26,6 +26,25 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+// مركز البريد والمراسلات الداخلية
+export const internalMessages = mysqlTable("internalMessages", {
+  id: int("id").autoincrement().primaryKey(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  senderId: int("senderId").notNull(),
+  recipientUserId: int("recipientUserId"),
+  recipientDepartment: varchar("recipientDepartment", { length: 100 }),
+  relatedType: varchar("relatedType", { length: 80 }),
+  relatedId: int("relatedId"),
+  attachments: json("attachments"),
+  readAt: timestamp("readAt"),
+  dueAt: timestamp("dueAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type InternalMessage = typeof internalMessages.$inferSelect;
+export type InsertInternalMessage = typeof internalMessages.$inferInsert;
+
 // جدول الإنتاج - صف واحد لكل مكينة في كل يوم
 export const production = mysqlTable("production", {
   id: int("id").autoincrement().primaryKey(),

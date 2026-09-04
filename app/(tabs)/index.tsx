@@ -253,6 +253,19 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["board_representative"],
   },
   {
+    id: "mail_center",
+    labelAr: "البريد والمراسلات",
+    labelEn: "Mail & Correspondence",
+    icon: "mail",
+    color: "#0ea5e9",
+    route: "/mail-center",
+    descriptionAr: "الوارد والصادر والرسائل المرتبطة بالتقارير والطلبات",
+    descriptionEn: "Inbox, sent messages, and linked reports and requests",
+    section: "communications",
+    departments: [],
+    isShared: true,
+  },
+  {
     id: "server_notifications",
     labelAr: "الإشعارات الفورية",
     labelEn: "Real-time Notifications",
@@ -399,7 +412,7 @@ export default function HomeScreen() {
   const userDepartment = user?.department || "";
   const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
   // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
-  const SHARED_ITEMS = ["administrative", "server_notifications", "tasks"];
+  const SHARED_ITEMS = ["administrative", "server_notifications", "tasks", "mail_center"];
   
   // Load user tool permissions (server first, then local fallback)
   const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
