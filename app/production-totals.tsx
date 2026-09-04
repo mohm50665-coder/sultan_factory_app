@@ -1,11 +1,12 @@
 import { BackButton } from "@/components/back-button";
-import { View, Text, ScrollView } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/language-context";
-import { productionService } from "@/lib/services/api.service";
+import { maintenanceService, productionService } from "@/lib/services/api.service";
+import { useAuth } from "@/lib/auth-context";
 
 
 
@@ -37,6 +38,14 @@ interface ProductionEntry {
   machines: { [key: string]: MachineData };
 }
 
+const MACHINES = ["RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9", "NS1", "RS1", "RS2", "RS3", "RS4", "RS5", "RS6", "RS7", "RS8", "RS9", "RS10", "RS11", "LT1", "LT2"];
+const STOP_REASONS = [
+  { ar: "عطل", en: "Breakdown" },
+  { ar: "لا يوجد طلب متاح", en: "No available order" },
+  { ar: "لا يمكنها نسج الأصناف المطلوبة", en: "Cannot knit the required products" },
+  { ar: "لا توجد مواد خام لتشغيلها", en: "No raw materials available" },
+  { ar: "لا يوجد موظف مختص لتشغيلها", en: "No qualified operator available" },
+];
 // ملاحظة 1: تحويل النخب الثاني من زوج لدرزن
 const convertPairsToDozens = (totalPairs: number): { dozens: number; remainingPairs: number } => {
   const dozens = Math.floor(totalPairs / 12);
@@ -47,7 +56,10 @@ const convertPairsToDozens = (totalPairs: number): { dozens: number; remainingPa
 export default function ProductionTotalsScreen() {
   const colors = useColors();
   const [entries, setEntries] = useState<ProductionEntry[]>([]);
+  const [stopReasons, setStopReasons] = useState<Record<string, string>>({});
+  const [savedStops, setSavedStops] = useState<Record<string, boolean>>({});
   const { language } = useLanguage();
+  const { user } = useAuth();
   const isAr = language === "ar";
 
   useEffect(() => {
@@ -96,6 +108,30 @@ export default function ProductionTotalsScreen() {
       }
     } catch (e) {
       console.error("Error loading entries:", e);
+    }
+  };
+
+  const unusedMachinesFor = (entry: ProductionEntry) => {
+    const used = new Set(Object.keys(entry.machines).map((key) => key.split("_S")[0]));
+    return MACHINES.filter((machine) => !used.has(machine));
+  };
+  const saveStoppedMachine = async (machine: string, date: string) => {
+    const key = `${date}:${machine}`;
+    const reason = stopReasons[key];
+    if (!reason) {
+      Alert.alert(isAr ? "سبب عدم التشغيل مطلوب" : "Stop reason required", isAr ? "اختر سبب عدم تشغيل الماكينة أولاً." : "Select a reason before saving.");
+      return;
+    }
+    if (!user?.id) {
+      Alert.alert(isAr ? "الجلسة غير متاحة" : "Session unavailable", isAr ? "أعد تسجيل الدخول ثم حاول مرة أخرى." : "Sign in again and try again.");
+      return;
+    }
+    try {
+      await maintenanceService.createStopped({ equipmentName: machine, stopDate: `${date}T${new Date().toTimeString().slice(0, 8)}`, stopReason: reason, userId: user.id });
+      setSavedStops((current) => ({ ...current, [key]: true }));
+      Alert.alert(isAr ? "تم حفظ التقرير" : "Report saved", isAr ? "تم حفظ سبب عدم تشغيل الماكينة." : "The machine non-operation reason was saved.");
+    } catch (error) {
+      Alert.alert(isAr ? "تعذر الحفظ" : "Save failed", error instanceof Error ? error.message : (isAr ? "حدث خطأ غير متوقع." : "Unexpected error."));
     }
   };
 
@@ -380,6 +416,38 @@ export default function ProductionTotalsScreen() {
                 </View>
               );
             })()}
+
+            {/* تقرير المكائن غير المستخدمة */}
+            <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: "#f59e0b" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "flex-end", marginBottom: 10 }}>
+                <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>{isAr ? "تقرير عمل مكائن الإنتاج" : "Production Machine Work Report"}</Text>
+                <View style={{ backgroundColor: "#f59e0b20", borderRadius: 14, padding: 5 }}><MaterialIcons name="warning" size={20} color="#f59e0b" /></View>
+              </View>
+              <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right", marginBottom: 10 }}>{isAr ? "تظهر هنا المكائن التي لم يظهر لها إنتاج في كل تاريخ." : "Machines without recorded production appear here for each date."}</Text>
+              {entries.map((entry) => {
+                const unused = unusedMachinesFor(entry);
+                if (!unused.length) return null;
+                return <View key={`unused-${entry.date}`} style={{ marginBottom: 12 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", marginBottom: 6 }}>{isAr ? `تاريخ التقرير: ${entry.date}` : `Report date: ${entry.date}`}</Text>
+                  {unused.map((machine) => {
+                    const key = `${entry.date}:${machine}`;
+                    const selected = stopReasons[key];
+                    return <View key={machine} style={{ backgroundColor: colors.background, borderRadius: 9, padding: 10, marginBottom: 7, borderWidth: 1, borderColor: savedStops[key] ? "#22c55e" : colors.border }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                        <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `وقت التقرير: ${new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}` : `Report time: ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`}</Text>
+                        <Text style={{ color: colors.foreground, fontWeight: "800" }}>{isAr ? `الماكينة: ${machine}` : `Machine: ${machine}`}</Text>
+                      </View>
+                      <Text style={{ color: colors.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{isAr ? "سبب عدم التشغيل:" : "Reason for non-operation:"}</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginTop: 6 }}>
+                        {STOP_REASONS.map((reason) => <TouchableOpacity key={reason.ar} onPress={() => setStopReasons((current) => ({ ...current, [key]: isAr ? reason.ar : reason.en }))} style={{ borderWidth: 1, borderColor: selected === (isAr ? reason.ar : reason.en) ? "#f59e0b" : colors.border, backgroundColor: selected === (isAr ? reason.ar : reason.en) ? "#fef3c7" : colors.surface, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 9 }}><Text style={{ color: colors.foreground, fontSize: 11, textAlign: "center" }}>{isAr ? reason.ar : reason.en}</Text></TouchableOpacity>)}
+                      </ScrollView>
+                      <TextInput value={selected || ""} editable={false} placeholder={isAr ? "اختر السبب من القائمة" : "Select a reason above"} placeholderTextColor={colors.muted} style={{ color: colors.foreground, textAlign: "right", borderWidth: 1, borderColor: colors.border, borderRadius: 7, padding: 8, marginTop: 7 }} />
+                      <TouchableOpacity disabled={savedStops[key]} onPress={() => saveStoppedMachine(machine, entry.date)} style={{ backgroundColor: savedStops[key] ? "#22c55e" : "#f59e0b", borderRadius: 8, padding: 9, alignItems: "center", marginTop: 8, opacity: savedStops[key] ? 0.75 : 1 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{savedStops[key] ? (isAr ? "تم الحفظ" : "Saved") : (isAr ? "حفظ تقرير عدم التشغيل" : "Save non-operation report")}</Text></TouchableOpacity>
+                    </View>;
+                  })}
+                </View>;
+              })}
+            </View>
 
             {/* ملخص حسب الوردية */}
             {(() => {

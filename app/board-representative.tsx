@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   FlatList,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -17,7 +18,8 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
-import { boardDataService } from "@/lib/services/api.service";
+import { adminService, boardDataService, reportsService } from "@/lib/services/api.service";
+import { useAuth } from "@/lib/auth-context";
 
 interface BoardData {
   id: number;
@@ -48,6 +50,12 @@ export default function BoardRepresentativeScreen() {
   const [boardData, setBoardData] = useState<BoardData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const { user } = useAuth();
+  const [reports, setReports] = useState<any[]>([]);
+  const [reportUsers, setReportUsers] = useState<any[]>([]);
+  const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [responseForm, setResponseForm] = useState({ response: "", notes: "", recommendations: "", requiredAction: "", assignedUserId: "", assignedDepartment: "" });
+  const [isResponding, setIsResponding] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editingData, setEditingData] = useState<BoardData | null>(null);
@@ -79,7 +87,44 @@ export default function BoardRepresentativeScreen() {
 
   useEffect(() => {
     loadData();
+    reportsService.list().then((result) => setReports(Array.isArray(result) ? result : [])).catch(() => setReports([]));
+    adminService.getAllUsers().then((result) => setReportUsers(Array.isArray(result) ? result : [])).catch(() => setReportUsers([]));
   }, [loadData]);
+
+  const reportDepartments = Array.from(new Set(reportUsers.map((item) => item.department).filter(Boolean)));
+  const openReportResponse = (report: any) => {
+    setSelectedReport(report);
+    const saved = report?.data?.boardResponse || {};
+    setResponseForm({ response: saved.response || "", notes: saved.notes || "", recommendations: saved.recommendations || "", requiredAction: saved.requiredAction || "", assignedUserId: saved.assignedUserId ? String(saved.assignedUserId) : "", assignedDepartment: saved.assignedDepartment || "" });
+  };
+  const printReport = (report: any) => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      Alert.alert(isAr ? "الطباعة من الويب" : "Web printing", isAr ? "افتح نسخة الويب لطباعة التقرير." : "Open the web version to print the report.");
+      return;
+    }
+    const popup = window.open("", "_blank", "width=1000,height=800");
+    if (!popup) return;
+    const payload = report?.data ? JSON.stringify(report.data, null, 2) : (isAr ? "لا توجد تفاصيل محفوظة" : "No saved details");
+    popup.document.write(`<html dir="rtl"><head><meta charset="utf-8"><title>${report.reportName || "Report"}</title><style>body{font-family:Arial;padding:24px;color:#17202a}h1{color:#6d28d9}pre{white-space:pre-wrap;background:#f8fafc;padding:16px;border:1px solid #cbd5e1;border-radius:8px}</style></head><body><h1>${report.reportName || "Report"}</h1><p>${isAr ? "الفترة" : "Period"}: ${report.startDate} — ${report.endDate}</p><p>${isAr ? "المصدر" : "Source"}: ${report.generatedBy}</p><pre>${payload.replace(/[&<>]/g, (char: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[char] || char))}</pre><script>window.onload=()=>window.print()</script></body></html>`);
+    popup.document.close();
+  };
+
+  const saveReportResponse = async () => {
+    if (!selectedReport || !user?.id || !responseForm.response.trim()) {
+      Alert.alert(isAr ? "الرد مطلوب" : "Response required", isAr ? "اكتب الرد قبل الحفظ." : "Enter a response before saving.");
+      return;
+    }
+    try {
+      setIsResponding(true);
+      await reportsService.updateResponse({ id: selectedReport.id, response: responseForm.response.trim(), notes: responseForm.notes.trim(), recommendations: responseForm.recommendations.trim(), requiredAction: responseForm.requiredAction.trim(), assignedUserId: responseForm.assignedUserId ? Number(responseForm.assignedUserId) : undefined, assignedDepartment: responseForm.assignedDepartment || undefined, respondedBy: user.id });
+      const refreshed = await reportsService.list();
+      setReports(Array.isArray(refreshed) ? refreshed : []);
+      setSelectedReport(null);
+      Alert.alert(isAr ? "تم حفظ الرد" : "Response saved", isAr ? "تم حفظ التوجيه وإرساله للجهة المحددة." : "The response was saved and directed to the selected recipient.");
+    } catch (error) {
+      Alert.alert(isAr ? "تعذر حفظ الرد" : "Could not save response", error instanceof Error ? error.message : "Unexpected error");
+    } finally { setIsResponding(false); }
+  };
 
   const handleAddData = () => {
     setEditingData(null);
@@ -360,6 +405,20 @@ export default function BoardRepresentativeScreen() {
             </View>
             <MaterialIcons name="assessment" size={24} color="#8B5CF6" />
           </TouchableOpacity>
+          <ScrollView horizontal={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 10 }}>
+            {reports.length === 0 ? <Text style={{ color: colors.muted, textAlign: "right" }}>{isAr ? "لا توجد تقارير محفوظة بعد" : "No saved reports yet"}</Text> : reports.map((report) => {
+              const hasResponse = Boolean(report?.data?.boardResponse?.response);
+              return <View key={`server-report-${report.id}`} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: hasResponse ? "#22c55e" : "#8B5CF6", borderRadius: 12, padding: 12 }}>
+                <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right" }}>{report.reportName}</Text>
+                <Text style={{ color: colors.muted, fontSize: 11, textAlign: "right", marginTop: 4 }}>{isAr ? `التاريخ: ${report.startDate} إلى ${report.endDate} | المصدر: ${report.generatedBy}` : `Date: ${report.startDate} to ${report.endDate} | Source: ${report.generatedBy}`}</Text>
+                <Text style={{ color: hasResponse ? "#16a34a" : "#d97706", fontSize: 11, textAlign: "right", marginTop: 4 }}>{hasResponse ? (isAr ? "تمت الإجابة" : "Answered") : (isAr ? "بانتظار رد ممثل المجلس" : "Awaiting board response")}</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 9 }}>
+                  <TouchableOpacity onPress={() => printReport(report)} style={{ flex: 1, backgroundColor: "#e0e7ff", borderRadius: 8, padding: 9, alignItems: "center" }}><Text style={{ color: "#3730a3", fontWeight: "800" }}>{isAr ? "طباعة" : "Print"}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => openReportResponse(report)} style={{ flex: 1, backgroundColor: "#6d28d9", borderRadius: 8, padding: 9, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "عرض والرد" : "View & reply"}</Text></TouchableOpacity>
+                </View>
+              </View>;
+            })}
+          </ScrollView>
           <FlatList
             data={boardData.filter(d => d.dataType === "report")}
             renderItem={renderDataCard}
@@ -376,6 +435,30 @@ export default function BoardRepresentativeScreen() {
           />
         </View>
       )}
+
+      {/* Report response modal */}
+      <Modal visible={Boolean(selectedReport)} animationType="slide" transparent>
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}> 
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", flex: 1, textAlign: "right" }}>{isAr ? "الرد على التقرير" : "Respond to report"}</Text>
+            <TouchableOpacity onPress={() => setSelectedReport(null)}><MaterialIcons name="close" size={24} color={colors.muted} /></TouchableOpacity>
+          </View>
+          {selectedReport && <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right" }}>{selectedReport.reportName}</Text>
+            <Text style={{ color: colors.muted, textAlign: "right" }}>{isAr ? `الفترة: ${selectedReport.startDate} إلى ${selectedReport.endDate}` : `Period: ${selectedReport.startDate} to ${selectedReport.endDate}`}</Text>
+            <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{isAr ? "الرد" : "Response"}</Text>
+            <TextInput value={responseForm.response} onChangeText={(value) => setResponseForm((current) => ({ ...current, response: value }))} placeholder={isAr ? "اكتب الرد" : "Write the response"} placeholderTextColor={colors.muted} multiline style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, minHeight: 84 }]} />
+            <TextInput value={responseForm.notes} onChangeText={(value) => setResponseForm((current) => ({ ...current, notes: value }))} placeholder={isAr ? "الملاحظات" : "Notes"} placeholderTextColor={colors.muted} multiline style={[styles.textInput, { color: colors.foreground, borderColor: colors.border }]} />
+            <TextInput value={responseForm.recommendations} onChangeText={(value) => setResponseForm((current) => ({ ...current, recommendations: value }))} placeholder={isAr ? "التوصيات" : "Recommendations"} placeholderTextColor={colors.muted} multiline style={[styles.textInput, { color: colors.foreground, borderColor: colors.border }]} />
+            <TextInput value={responseForm.requiredAction} onChangeText={(value) => setResponseForm((current) => ({ ...current, requiredAction: value }))} placeholder={isAr ? "المطلوب" : "Required action"} placeholderTextColor={colors.muted} multiline style={[styles.textInput, { color: colors.foreground, borderColor: colors.border }]} />
+            <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{isAr ? "إرسال إلى موظف" : "Assign to employee"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}><TouchableOpacity onPress={() => setResponseForm((current) => ({ ...current, assignedUserId: "" }))} style={{ padding: 8, borderRadius: 7, borderWidth: 1, borderColor: !responseForm.assignedUserId ? colors.primary : colors.border }}><Text style={{ color: colors.foreground }}>{isAr ? "بدون تحديد" : "None"}</Text></TouchableOpacity>{reportUsers.map((item) => <TouchableOpacity key={item.id} onPress={() => setResponseForm((current) => ({ ...current, assignedUserId: String(item.id) }))} style={{ padding: 8, borderRadius: 7, borderWidth: 1, borderColor: responseForm.assignedUserId === String(item.id) ? colors.primary : colors.border }}><Text style={{ color: colors.foreground, fontSize: 11 }}>{item.name}</Text></TouchableOpacity>)}</ScrollView>
+            <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{isAr ? "إرسال إلى إدارة" : "Assign to department"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>{reportDepartments.map((department) => <TouchableOpacity key={department} onPress={() => setResponseForm((current) => ({ ...current, assignedDepartment: department }))} style={{ padding: 8, borderRadius: 7, borderWidth: 1, borderColor: responseForm.assignedDepartment === department ? colors.primary : colors.border }}><Text style={{ color: colors.foreground, fontSize: 11 }}>{department}</Text></TouchableOpacity>)}</ScrollView>
+            <TouchableOpacity disabled={isResponding} onPress={saveReportResponse} style={{ backgroundColor: "#16a34a", borderRadius: 9, padding: 12, alignItems: "center", marginTop: 4 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isResponding ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (isAr ? "حفظ وإرسال الرد" : "Save and send response")}</Text></TouchableOpacity>
+          </ScrollView>}
+        </View>
+      </Modal>
 
       {/* Add/Edit Modal */}
       <Modal visible={showModal} animationType="slide" transparent>
@@ -581,6 +664,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  textInput: { borderWidth: 1, borderRadius: 8, padding: 10, textAlign: "right", minHeight: 48 },
   modalContainer: {
     flex: 1,
     paddingTop: 40,

@@ -1579,6 +1579,41 @@ export const appRouter = router({
           .orderBy(desc(reportsTable.createdAt));
       }),
 
+    updateResponse: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        response: z.string().min(1),
+        notes: z.string().optional(),
+        recommendations: z.string().optional(),
+        requiredAction: z.string().optional(),
+        assignedUserId: z.number().optional(),
+        assignedDepartment: z.string().optional(),
+        respondedBy: z.number(),
+      }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const existing = await db.select().from(reportsTable).where(eq(reportsTable.id, input.id)).limit(1);
+        if (!existing[0]) throw new Error("التقرير غير موجود");
+        const currentData = existing[0].data && typeof existing[0].data === "object" ? existing[0].data as Record<string, unknown> : {};
+        await db.update(reportsTable).set({
+          data: {
+            ...currentData,
+            boardResponse: {
+              response: input.response,
+              notes: input.notes || "",
+              recommendations: input.recommendations || "",
+              requiredAction: input.requiredAction || "",
+              assignedUserId: input.assignedUserId || null,
+              assignedDepartment: input.assignedDepartment || "",
+              respondedBy: input.respondedBy,
+              respondedAt: new Date().toISOString(),
+            },
+          },
+        }).where(eq(reportsTable.id, input.id));
+        return { success: true };
+      }),
+
     create: publicProcedure
       .input(z.object({
         reportName: z.string(),

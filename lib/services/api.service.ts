@@ -221,6 +221,12 @@ export const meetingOutputsService = {
   delete: (id: number) => trpcCall("meetingOutputs.delete", { id }),
 };
 
+// ===== Reports Center (Server) =====
+export const reportsService = {
+  list: () => trpcCall("reports.getAll", undefined, "query"),
+  updateResponse: (data: { id: number; response: string; notes?: string; recommendations?: string; requiredAction?: string; assignedUserId?: number; assignedDepartment?: string; respondedBy: number }) => trpcCall("reports.updateResponse", data),
+};
+
 // ===== Financial Reports (Server) =====
 export const financialReportsService = {
   list: () => trpcCall("financialReports.list", undefined, "query"),
