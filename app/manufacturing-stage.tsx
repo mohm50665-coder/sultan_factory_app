@@ -725,7 +725,7 @@ export default function ManufacturingStageScreen() {
                 onPress={() => { setShowForm(false); resetForm(); }}
                 style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 16, alignItems: 'center', flexDirection: "row", justifyContent: "center", gap: 6 }}
               >
-                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>إلغاء</Text>
+                <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
               <TouchableOpacity

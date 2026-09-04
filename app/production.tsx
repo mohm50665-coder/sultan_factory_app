@@ -749,7 +749,7 @@ export default function ProductionScreen() {
           {isAr ? `منتج ${productIndex + 1}` : `Product ${productIndex + 1}`}
         </Text>
       </View>
-      {productLocked && <View style={{ backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fdba74', borderRadius: 7, padding: 7, marginBottom: 8 }}><Text style={{ color: '#9a3412', textAlign: 'right', fontSize: 11, fontWeight: '700' }}>بيانات المنتج محفوظة — التعديل متاح لمدير النظام فقط</Text></View>}
+      {productLocked && <View style={{ backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fdba74', borderRadius: 7, padding: 7, marginBottom: 8 }}><Text style={{ color: '#9a3412', textAlign: 'right', fontSize: 11, fontWeight: '700' }}>{isAr ? "بيانات المنتج محفوظة — التعديل متاح لمدير النظام فقط" : "Product data is saved — only the system administrator can edit it"}</Text></View>}
 
       {/* ملاحظة 6: اسم الصنف + المقاس + اللون */}
       <View style={{ marginBottom: 8, zIndex: 10 }}>
