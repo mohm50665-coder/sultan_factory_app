@@ -18,7 +18,7 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
-import { productionService, salesService, collectionService } from "@/lib/services/api.service";
+import { productionService, salesService, collectionService, taskService } from "@/lib/services/api.service";
 import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
 
 // Helper function to check tool permissions
@@ -314,6 +314,7 @@ export default function HomeScreen() {
   const isAr = language === "ar";
   const userRole = (user?.role || "user") as UserRole;
   const [unreadCount, setUnreadCount] = useState(0);
+  const [performanceNewCount, setPerformanceNewCount] = useState(0);
   const [pendingUsersCount, setPendingUsersCount] = useState(0);
   const [dailyStats, setDailyStats] = useState<{
     production: number;
@@ -337,6 +338,24 @@ export default function HomeScreen() {
     loadUnread();
     const unsubscribe = notificationsService.subscribe(loadUnread);
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const loadPerformanceCount = async () => {
+      try {
+        const rows = await taskService.getAll();
+        const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const count = (Array.isArray(rows) ? rows : []).filter((row: any) => {
+          const value = row.createdAt || row.createdDate || row.startDate;
+          const time = value ? new Date(String(value)).getTime() : 0;
+          return time >= cutoff;
+        }).length;
+        setPerformanceNewCount(count);
+      } catch {
+        setPerformanceNewCount(0);
+      }
+    };
+    loadPerformanceCount();
   }, []);
 
   // Load pending users count for admin
@@ -699,9 +718,12 @@ export default function HomeScreen() {
                 >
                   <MaterialIcons name={item.icon as any} size={26} color={item.color} />
                 </View>
-                <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, textAlign: isRtl ? "right" : "left" }}>
-                  {isAr ? item.labelAr : item.labelEn}
-                </Text>
+                <View style={{ flexDirection: isRtl ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 14, textAlign: isRtl ? "right" : "left", flex: 1 }}>
+                    {isAr ? item.labelAr : item.labelEn}
+                  </Text>
+                  {item.id === "employee_performance" && performanceNewCount > 0 && <View style={styles.performanceBadge}><Text style={styles.badgeText}>{performanceNewCount > 9 ? "9+" : performanceNewCount}</Text></View>}
+                </View>
                 <Text style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, styles.description, { textAlign: isRtl ? "right" : "left" }]}>
                   {isAr ? item.descriptionAr : item.descriptionEn}
                 </Text>
@@ -979,6 +1001,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 3,
   },
+  performanceBadge: { backgroundColor: "#dc2626", borderRadius: 10, minWidth: 20, paddingHorizontal: 5, paddingVertical: 2, alignItems: "center" },
   badgeText: {
     color: "white",
     fontSize: 9,
