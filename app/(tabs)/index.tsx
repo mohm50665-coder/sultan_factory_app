@@ -812,7 +812,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('employee_performance', user?.toolPermissions) && (
+              {(user?.role === "admin" || canAccessTool('employee_performance', user?.toolPermissions)) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/employee-performance")}
                   style={styles.toolItem}
