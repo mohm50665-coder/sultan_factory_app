@@ -40,7 +40,7 @@ const DEPARTMENTS = [
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, user } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -62,6 +62,7 @@ export default function RegisterScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const textAlign = isRtl ? "right" : "left";
   const isAr = language === "ar";
+  const isAdminAddingUser = user?.role === "admin";
 
   const getSelectedDepartmentLabel = () => {
     const dept = DEPARTMENTS.find((d) => d.id === formData.department);
@@ -99,7 +100,7 @@ export default function RegisterScreen() {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = t("passwords_not_match");
     }
-    if (!agreedToTerms) {
+    if (!isAdminAddingUser && !agreedToTerms) {
       newErrors.terms = isAr ? "يجب الموافقة على الشروط والأحكام" : "You must agree to the terms";
     }
     setErrors(newErrors);
@@ -119,9 +120,9 @@ export default function RegisterScreen() {
         formData.department,
         formData.password
       );
-      const successMsg = isAr
-        ? "تم التسجيل بنجاح! حسابك بانتظار التفعيل من المدير. يرجى التواصل مع الإدارة."
-        : "Registration successful! Your account is pending activation by the admin. Please contact management.";
+      const successMsg = isAdminAddingUser
+        ? (isAr ? "تمت إضافة الموظف بنجاح، ويمكنك تفعيل حسابه وتحديد صلاحياته من إدارة المستخدمين." : "Employee added successfully. You can activate the account and assign permissions from user management.")
+        : (isAr ? "تم التسجيل بنجاح! حسابك بانتظار التفعيل من المدير. يرجى التواصل مع الإدارة." : "Registration successful! Your account is pending activation by the admin. Please contact management.");
       if (Platform.OS === "web") {
         window.alert(successMsg);
       } else {
@@ -130,7 +131,7 @@ export default function RegisterScreen() {
           successMsg
         );
       }
-      router.replace("/login");
+      router.replace(isAdminAddingUser ? "/users-management" : "/login");
     } catch (error) {
       const message = error instanceof Error ? error.message : t("error");
       if (Platform.OS === "web") {
@@ -205,12 +206,12 @@ export default function RegisterScreen() {
           <View style={styles.mainContainer}>
             {/* Header */}
             <View style={styles.header}>
-              <BackButton target="/login" />
-              <Text style={styles.headerTitle}>{t("register")}</Text>
+              <BackButton target={isAdminAddingUser ? "/users-management" : "/login"} />
+              <Text style={styles.headerTitle}>{isAdminAddingUser ? (isAr ? "إضافة موظف جديد" : "Add New Employee") : t("register")}</Text>
               <Text style={styles.headerSubtitle}>
-                {isAr
-                  ? "أنشئ حسابك للبدء في استخدام التطبيق"
-                  : "Create your account to start using the app"}
+                {isAdminAddingUser
+                  ? (isAr ? "أدخل بيانات الموظف ثم حدد صلاحياته من إدارة المستخدمين" : "Enter employee details, then assign permissions from user management")
+                  : (isAr ? "أنشئ حسابك للبدء في استخدام التطبيق" : "Create your account to start using the app")}
               </Text>
             </View>
 
@@ -267,7 +268,7 @@ export default function RegisterScreen() {
               )}
 
               {/* Terms */}
-              <View style={styles.termsContainer}>
+              {!isAdminAddingUser && <View style={styles.termsContainer}>
                 <View style={styles.checkboxRow}>
                   <Pressable
                     onPress={() => {
@@ -292,7 +293,7 @@ export default function RegisterScreen() {
                   </Pressable>
                 </View>
                 {errors.terms && <Text style={[styles.errorText, { textAlign }]}>{errors.terms}</Text>}
-              </View>
+              </View>}
 
               {/* Register Button */}
               <Pressable
@@ -307,12 +308,12 @@ export default function RegisterScreen() {
                 {isLoading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.registerButtonText}>{t("register")}</Text>
+                  <Text style={styles.registerButtonText}>{isAdminAddingUser ? (isAr ? "حفظ الموظف" : "Save Employee") : t("register")}</Text>
                 )}
               </Pressable>
 
               {/* Login Link */}
-              <View style={styles.loginRow}>
+              {!isAdminAddingUser && <View style={styles.loginRow}>
                 <Text style={styles.loginLabel}>{t("have_account")} </Text>
                 <Pressable
                   onPress={() => router.push("/login")}
@@ -320,7 +321,7 @@ export default function RegisterScreen() {
                 >
                   <Text style={styles.loginLink}>{t("login")}</Text>
                 </Pressable>
-              </View>
+              </View>}
             </View>
           </View>
         </ScrollView>

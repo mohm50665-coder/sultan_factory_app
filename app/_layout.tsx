@@ -69,7 +69,7 @@ class ErrorBoundary extends React.Component<
 
 // Navigation component that uses useAuth
 function NavigationContent() {
-  const { isSignedIn, isLoading } = useAuth();
+  const { isSignedIn, isLoading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -78,13 +78,14 @@ function NavigationContent() {
 
     const currentSegment = segments[0] as string;
     const isAuthScreen = AUTH_SCREENS.includes(currentSegment);
+    const isAdminAddingUser = currentSegment === "register" && user?.role === "admin";
 
-    if (isSignedIn && isAuthScreen) {
+    if (isSignedIn && isAuthScreen && !isAdminAddingUser) {
       router.replace("/(tabs)");
     } else if (!isSignedIn && !isAuthScreen && currentSegment !== "oauth") {
       router.replace("/login");
     }
-  }, [isSignedIn, segments, isLoading]);
+  }, [isSignedIn, segments, isLoading, user?.role]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
