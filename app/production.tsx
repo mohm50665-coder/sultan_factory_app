@@ -895,6 +895,21 @@ export default function ProductionScreen() {
         </View>
       </View>
 
+      {/* وزن ونسبة الهدر حسب السجل */}
+      {(() => {
+        const wasteTotal = (parseFloat(product.wasteThreadGrams) || 0) + (parseFloat(product.wasteSocksGrams) || 0);
+        const yarnTotal = getProductTotalYarn(product);
+        const wastePercent = yarnTotal > 0 ? (wasteTotal / yarnTotal) * 100 : 0;
+        const wasteColor = wastePercent > 5 ? "#dc2626" : "#16a34a";
+        return <View style={{ backgroundColor: `${wasteColor}12`, borderWidth: 1, borderColor: wasteColor, borderRadius: 8, padding: 8, marginBottom: 8 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ color: wasteColor, fontWeight: "800", fontSize: 13 }}>{wasteTotal.toFixed(2)} {isAr ? "جم هدر" : "g waste"}</Text>
+            <Text style={{ color: wasteColor, fontWeight: "800", fontSize: 13 }}>{isAr ? "نسبة الهدر" : "Waste percentage"}: {wastePercent.toFixed(2)}%</Text>
+          </View>
+          <Text style={{ color: wasteColor, fontSize: 10, textAlign: "right", marginTop: 3 }}>{wastePercent > 5 ? (isAr ? "تجاوز الحد المسموح 5%" : "Above the allowed 5% limit") : (isAr ? "ضمن الحد المسموح 5%" : "Within the allowed 5% limit")}</Text>
+        </View>;
+      })()}
+
       {/* النخب الثاني وهدر الإبر */}
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
         <View style={{ flex: 1 }}>
@@ -1045,10 +1060,10 @@ export default function ProductionScreen() {
           </View>
         </View>
         <View style={{ backgroundColor: '#f8fafc', borderRadius: 6, padding: 7, marginTop: 6 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 10, textAlign: 'right', marginBottom: 4 }}>{isAr ? "إجمالي أوزان الخيوط حسب الكمية (جرام)" : "Total yarn weights by quantity (g)"}</Text>
+          <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 10, textAlign: 'right', marginBottom: 4 }}>{isAr ? "تفصيل وزن الخيوط: الزوج والإجمالي (جرام)" : "Yarn detail: per pair and production total (g)"}</Text>
           <Text style={{ color: colors.muted, fontSize: 10, textAlign: 'right' }}>{isAr ? `الكمية المحولة: ${getProductPairs(product)} زوج` : `Converted quantity: ${getProductPairs(product)} pairs`}</Text>
-          <Text style={{ color: colors.primary, fontSize: 11, textAlign: 'right', marginTop: 3 }}>{isAr ? `مطاط: ${getProductYarnTotal(product, "yarnRubber")} جم • إسباندكس: ${getProductYarnTotal(product, "yarnSpandex")} جم • نايلون: ${getProductYarnTotal(product, "yarnNylon")} جم` : `Rubber: ${getProductYarnTotal(product, "yarnRubber")} g • Spandex: ${getProductYarnTotal(product, "yarnSpandex")} g • Nylon: ${getProductYarnTotal(product, "yarnNylon")} g`}</Text>
-          <Text style={{ color: colors.primary, fontSize: 11, textAlign: 'right', marginTop: 2 }}>{isAr ? `قطن: ${getProductYarnTotal(product, "yarnCotton")} جم • بامبو: ${getProductYarnTotal(product, "yarnBamboo")} جم • إسبان: ${getProductYarnTotal(product, "yarnSpan")} جم` : `Cotton: ${getProductYarnTotal(product, "yarnCotton")} g • Bamboo: ${getProductYarnTotal(product, "yarnBamboo")} g • Span: ${getProductYarnTotal(product, "yarnSpan")} g`}</Text>
+          {([['yarnRubber', isAr ? 'مطاط' : 'Rubber'], ['yarnSpandex', isAr ? 'إسباندكس' : 'Spandex'], ['yarnNylon', isAr ? 'نايلون' : 'Nylon'], ['yarnCotton', isAr ? 'قطن' : 'Cotton'], ['yarnBamboo', isAr ? 'بامبو' : 'Bamboo'], ['yarnSpan', isAr ? 'إسبان' : 'Span']] as [YarnWeightField, string][]).map(([field, label]) => <View key={field} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 }}><Text style={{ color: colors.primary, fontSize: 10 }}>{(parseFloat(product[field]) || 0).toFixed(2)} {isAr ? 'جم/زوج' : 'g/pair'} → {getProductYarnTotal(product, field).toFixed(2)} {isAr ? 'جم إجمالي' : 'g total'}</Text><Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text></View>)}
+          <Text style={{ color: colors.foreground, fontWeight: '800', fontSize: 11, textAlign: 'right', marginTop: 5 }}>{isAr ? `إجمالي كل الخيوط: ${getProductTotalYarn(product).toFixed(2)} جم` : `All yarn total: ${getProductTotalYarn(product).toFixed(2)} g`}</Text>
         </View>
       </View>
     </View>

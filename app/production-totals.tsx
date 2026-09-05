@@ -26,6 +26,7 @@ interface MachineData {
   yarnCotton: string;
   yarnBamboo: string;
   yarnSpan: string;
+  yarnWeightPerPair: string;
   productName?: string;
   shiftNumber?: string;
   shiftStart?: string;
@@ -39,6 +40,17 @@ interface ProductionEntry {
 }
 
 const MACHINES = ["RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9", "NS1", "RS1", "RS2", "RS3", "RS4", "RS5", "RS6", "RS7", "RS8", "RS9", "RS10", "RS11", "LT1", "LT2"];
+const YARN_FIELDS = [
+  ["yarnRubber", "مطاط", "Rubber"],
+  ["yarnSpandex", "اسباندكس", "Spandex"],
+  ["yarnNylon", "نايلون", "Nylon"],
+  ["yarnCotton", "قطن", "Cotton"],
+  ["yarnBamboo", "بامبو", "Bamboo"],
+  ["yarnSpan", "اسبان", "Span"],
+] as const;
+
+type YarnField = typeof YARN_FIELDS[number][0];
+
 const STOP_REASONS = [
   { ar: "عطل", en: "Breakdown" },
   { ar: "لا يوجد طلب متاح", en: "No available order" },
@@ -61,6 +73,23 @@ export default function ProductionTotalsScreen() {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isAr = language === "ar";
+  const [reportPeriod, setReportPeriod] = useState<"all" | "day" | "week" | "month">("all");
+  const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const visibleEntries = entries.filter((entry) => {
+    if (reportPeriod === "all") return true;
+    const entryDate = new Date(`${entry.date}T00:00:00`);
+    const selected = new Date(`${reportDate}T00:00:00`);
+    if (Number.isNaN(entryDate.getTime()) || Number.isNaN(selected.getTime())) return false;
+    if (reportPeriod === "day") return entry.date === reportDate;
+    if (reportPeriod === "month") return entryDate.getFullYear() === selected.getFullYear() && entryDate.getMonth() === selected.getMonth();
+    const start = new Date(selected);
+    const day = start.getDay();
+    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return entryDate >= start && entryDate <= end;
+  });
 
   useEffect(() => {
     loadEntries();
@@ -93,6 +122,7 @@ export default function ProductionTotalsScreen() {
             yarnCotton: String(item.yarnCotton || "0"),
             yarnBamboo: String(item.yarnBamboo || "0"),
             yarnSpan: String(item.yarnSpan || "0"),
+            yarnWeightPerPair: String(item.yarnWeightPerPair || "0"),
             productName: item.productName || "",
             shiftNumber: String(item.shiftNumber || "1"),
             shiftStart: item.shiftStart || "",
@@ -138,6 +168,7 @@ export default function ProductionTotalsScreen() {
   // حساب الإجماليات لجميع المكائن في جميع السجلات
   let grandDozen = 0;
   let grandPairs = 0;
+  let grandPairsEquivalent = 0;
   let grandSecondDozen = 0;
   let grandSecondPairs = 0;
   let grandWasteThread = 0;
@@ -154,10 +185,12 @@ export default function ProductionTotalsScreen() {
   let totalBamboo = 0;
   let totalSpan = 0;
 
-  entries.forEach(entry => {
+  visibleEntries.forEach(entry => {
     Object.values(entry.machines).forEach(m => {
       grandDozen += parseFloat(m.productionDozen) || 0;
+      const productionPairs = (parseFloat(m.productionDozen) || 0) * 12 + (parseFloat(m.productionPairs) || 0);
       grandPairs += parseFloat(m.productionPairs) || 0;
+      grandPairsEquivalent += productionPairs;
       grandSecondDozen += parseFloat(m.secondGradeDozen) || 0;
       grandSecondPairs += parseFloat(m.secondGradePairs) || 0;
       grandWasteThread += parseFloat(m.wasteThreadGrams) || 0;
@@ -173,14 +206,14 @@ export default function ProductionTotalsScreen() {
       const bamboo = parseFloat(m.yarnBamboo) || 0;
       const span = parseFloat(m.yarnSpan) || 0;
 
-      totalRubber += rubber;
-      totalSpandex += spandex;
-      totalNylon += nylon;
-      totalCotton += cotton;
-      totalBamboo += bamboo;
-      totalSpan += span;
+      totalRubber += rubber * productionPairs;
+      totalSpandex += spandex * productionPairs;
+      totalNylon += nylon * productionPairs;
+      totalCotton += cotton * productionPairs;
+      totalBamboo += bamboo * productionPairs;
+      totalSpan += span * productionPairs;
 
-      grandYarnWeight += rubber + spandex + nylon + cotton + bamboo + span;
+      grandYarnWeight += (rubber + spandex + nylon + cotton + bamboo + span) * productionPairs;
     });
   });
 
@@ -195,6 +228,15 @@ export default function ProductionTotalsScreen() {
   const grandWasteAll = grandWasteThread + grandWasteSocks;
   const grandWastePercent = grandYarnWeight > 0 ? ((grandWasteAll / grandYarnWeight) * 100) : 0;
   const wasteColor = grandWastePercent > 5 ? "#ef4444" : "#22c55e";
+  const yarnDetails = visibleEntries.flatMap((entry) => Object.entries(entry.machines).map(([machine, m]) => ({
+    key: `${entry.date}-${machine}`,
+    date: entry.date,
+    machine,
+    productName: m.productName || (isAr ? "بدون اسم" : "Unnamed"),
+    pairs: (parseFloat(m.productionDozen) || 0) * 12 + (parseFloat(m.productionPairs) || 0),
+    yarnWeightPerPair: parseFloat(m.yarnWeightPerPair) || 0,
+    values: YARN_FIELDS.map(([field, ar, en]) => ({ label: isAr ? ar : en, perPair: parseFloat(m[field]) || 0, total: (parseFloat(m[field]) || 0) * ((parseFloat(m.productionDozen) || 0) * 12 + (parseFloat(m.productionPairs) || 0)) })),
+  })));
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
@@ -204,14 +246,22 @@ export default function ProductionTotalsScreen() {
           <View style={{ width: 40 }} />
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "إجمالي بيانات المكائن" : "Total Machines Data"}</Text>
-            <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
+            <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{visibleEntries.length} {isAr ? "سجل" : "Record"}</Text>
           </View>
           <BackButton />
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        {entries.length === 0 ? (
+        <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
+          <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", marginBottom: 8 }}>{isAr ? "فترة تقرير إنتاج المكائن" : "Machine production report period"}</Text>
+          <TextInput value={reportDate} onChangeText={setReportDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={{ color: colors.foreground, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 9, textAlign: "right", marginBottom: 8 }} />
+          <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
+            {([["all", isAr ? "كل السجلات" : "All"], ["day", isAr ? "يومي" : "Daily"], ["week", isAr ? "أسبوعي" : "Weekly"], ["month", isAr ? "شهري" : "Monthly"]] as [typeof reportPeriod, string][]).map(([key, label]) => <TouchableOpacity key={key} onPress={() => setReportPeriod(key)} style={{ flex: 1, backgroundColor: reportPeriod === key ? "#0d9488" : colors.background, borderWidth: 1, borderColor: reportPeriod === key ? "#0d9488" : colors.border, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: reportPeriod === key ? "#fff" : colors.foreground, fontSize: 11, fontWeight: "700" }}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>{isAr ? `عدد سجلات الفترة: ${visibleEntries.length}` : `Records in period: ${visibleEntries.length}`}</Text>
+        </View>
+        {visibleEntries.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
             <View style={{ backgroundColor: "#0d948815", borderRadius: 40, padding: 20 }}>
               <MaterialIcons name="summarize" size={48} color="#0d9488" />
@@ -240,6 +290,10 @@ export default function ProductionTotalsScreen() {
                   <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 24 }}>{grandPairs}</Text>
                   <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "زوج" : "Pair"}</Text>
                 </View>
+              </View>
+              <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10, marginTop: 10, alignItems: "center" }}>
+                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 18 }}>{grandPairsEquivalent}</Text>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "إجمالي الأزواج المحولة (الدرازن × 12 + الأزواج)" : "Total converted pairs (dozen × 12 + pairs)"}</Text>
               </View>
             </View>
 
@@ -289,6 +343,10 @@ export default function ProductionTotalsScreen() {
                   <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 18 }}>{grandWasteAll.toFixed(0)} {isAr ? "جم" : "g"}</Text>
                   <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>{isAr ? "إجمالي الهدر" : "Total Waste"}</Text>
                 </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: `${wasteColor}12`, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: wasteColor }}>
+                  <Text style={{ color: wasteColor, fontWeight: 'bold', fontSize: 18 }}>{grandWastePercent.toFixed(2)}%</Text>
+                  <Text style={{ color: wasteColor, fontWeight: '700', fontSize: 14 }}>{isAr ? "نسبة الهدر من الخيوط المستخدمة" : "Waste % of used yarn"}</Text>
+                </View>
               </View>
             </View>
 
@@ -301,8 +359,8 @@ export default function ProductionTotalsScreen() {
                 </View>
               </View>
               <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 24, textAlign: 'right', marginBottom: 12 }}>{grandYarnWeight.toFixed(0)} {isAr ? "جرام" : "Grams"}</Text>
-              <View style={{ gap: 8 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 8, paddingHorizontal: 12 }}>
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 8, paddingHorizontal: 12 }}>
                   <Text style={{ color: colors.foreground, fontWeight: '600' }}>{totalRubber.toFixed(0)} {isAr ? "جم" : "g"}</Text>
                   <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "مطاط" : "Rubber"}</Text>
                 </View>
@@ -326,6 +384,14 @@ export default function ProductionTotalsScreen() {
                   <Text style={{ color: colors.foreground, fontWeight: '600' }}>{totalSpan.toFixed(0)} {isAr ? "جم" : "g"}</Text>
                   <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "اسبان" : "Span"}</Text>
                 </View>
+              </View>
+              <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
+                <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", marginBottom: 7 }}>{isAr ? "التفصيل حسب المنتج والماكينة" : "Detail by product and machine"}</Text>
+                {yarnDetails.map((row) => <View key={row.key} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 9, marginBottom: 7 }}>
+                  <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName} — {row.machine} — {row.date}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `الكمية: ${row.pairs} زوج | وزن الزوج: ${row.yarnWeightPerPair.toFixed(2)} جم` : `Quantity: ${row.pairs} pairs | Pair weight: ${row.yarnWeightPerPair.toFixed(2)} g`}</Text>
+                  {row.values.filter((value) => value.perPair > 0 || value.total > 0).map((value) => <Text key={value.label} style={{ color: colors.primary, fontSize: 10, textAlign: "right", marginTop: 2 }}>{value.label}: {value.perPair.toFixed(2)} {isAr ? "جم/زوج" : "g/pair"} × {row.pairs} = {value.total.toFixed(2)} {isAr ? "جم إجمالي" : "g total"}</Text>)}
+                </View>)}
               </View>
             </View>
 
@@ -378,7 +444,7 @@ export default function ProductionTotalsScreen() {
             {/* ملاحظة 2: ملخص حسب المنتج - تجميع المنتجات المتكررة */}
             {(() => {
               const productSummary: Record<string, { dozen: number; pairs: number; machines: string[] }> = {};
-              entries.forEach(entry => {
+              visibleEntries.forEach(entry => {
                 Object.entries(entry.machines).forEach(([machine, m]) => {
                   const name = (m.productName || "").trim() || (isAr ? "بدون اسم" : "Unnamed");
                   if (!productSummary[name]) productSummary[name] = { dozen: 0, pairs: 0, machines: [] };
@@ -424,7 +490,7 @@ export default function ProductionTotalsScreen() {
                 <View style={{ backgroundColor: "#f59e0b20", borderRadius: 14, padding: 5 }}><MaterialIcons name="warning" size={20} color="#f59e0b" /></View>
               </View>
               <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right", marginBottom: 10 }}>{isAr ? "تظهر هنا المكائن التي لم يظهر لها إنتاج في كل تاريخ." : "Machines without recorded production appear here for each date."}</Text>
-              {entries.map((entry) => {
+              {visibleEntries.map((entry) => {
                 const unused = unusedMachinesFor(entry);
                 if (!unused.length) return null;
                 return <View key={`unused-${entry.date}`} style={{ marginBottom: 12 }}>
@@ -452,7 +518,7 @@ export default function ProductionTotalsScreen() {
             {/* ملخص حسب الوردية */}
             {(() => {
               const shiftSummary: Record<string, { dozen: number; count: number }> = {};
-              entries.forEach(entry => {
+              visibleEntries.forEach(entry => {
                 Object.values(entry.machines).forEach(m => {
                   const shift = `${isAr ? "وردية" : "Shift"} ${m.shiftNumber || "1"}`;
                   if (!shiftSummary[shift]) shiftSummary[shift] = { dozen: 0, count: 0 };
