@@ -54,6 +54,7 @@ import {
 import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
+import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
 
 const COOKIE_NAME = "session_id";
 
@@ -1406,21 +1407,23 @@ export const appRouter = router({
       return db.select().from(alertsTable).orderBy(desc(alertsTable.createdAt));
     }),
 
-    getByUser: publicProcedure
+    getByUser: protectedProcedure
       .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) return [];
-        return db.select().from(alertsTable).where(eq(alertsTable.userId, input.userId)).orderBy(desc(alertsTable.createdAt));
+        const targetUserId = ctx.user.role === "admin" ? input.userId : ctx.user.id;
+        return db.select().from(alertsTable).where(eq(alertsTable.userId, targetUserId)).orderBy(desc(alertsTable.createdAt));
       }),
 
-    getUnread: publicProcedure
+    getUnread: protectedProcedure
       .input(z.object({ userId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) return [];
+        const targetUserId = ctx.user.role === "admin" ? input.userId : ctx.user.id;
         return db.select().from(alertsTable)
-          .where(and(eq(alertsTable.userId, input.userId), eq(alertsTable.read, 0)))
+          .where(and(eq(alertsTable.userId, targetUserId), eq(alertsTable.read, 0)))
           .orderBy(desc(alertsTable.createdAt));
       }),
 
@@ -1440,30 +1443,33 @@ export const appRouter = router({
         return { success: true, id: (result[0] as any).insertId };
       }),
 
-    markAsRead: publicProcedure
+    markAsRead: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
-        await db.update(alertsTable).set({ read: 1 }).where(eq(alertsTable.id, input.id));
+        const condition = ctx.user.role === "admin" ? eq(alertsTable.id, input.id) : and(eq(alertsTable.id, input.id), eq(alertsTable.userId, ctx.user.id));
+        await db.update(alertsTable).set({ read: 1 }).where(condition);
         return { success: true };
       }),
 
-    markAllAsRead: publicProcedure
+    markAllAsRead: protectedProcedure
       .input(z.object({ userId: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
-        await db.update(alertsTable).set({ read: 1 }).where(eq(alertsTable.userId, input.userId));
+        const targetUserId = ctx.user.role === "admin" ? input.userId : ctx.user.id;
+        await db.update(alertsTable).set({ read: 1 }).where(eq(alertsTable.userId, targetUserId));
         return { success: true };
       }),
 
-    delete: publicProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
-        await db.delete(alertsTable).where(eq(alertsTable.id, input.id));
+        const condition = ctx.user.role === "admin" ? eq(alertsTable.id, input.id) : and(eq(alertsTable.id, input.id), eq(alertsTable.userId, ctx.user.id));
+        await db.delete(alertsTable).where(condition);
         return { success: true };
       }),
   }),
@@ -1591,6 +1597,148 @@ export const appRouter = router({
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
       await db.update(internalMessagesTable).set({ readAt: new Date() }).where(and(eq(internalMessagesTable.id, input.id), eq(internalMessagesTable.recipientUserId, input.userId)));
+      return { success: true };
+    }),
+  }),
+
+  // ===== EMPLOYEE PERFORMANCE ROUTER =====
+  employeePerformance: router({
+    listEmployees: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const canViewAll = ["admin", "manager", "supervisor"].includes(ctx.user.role) || ctx.user.department === "board_representative";
+      const rows = canViewAll
+        ? await db.select().from(usersTable).orderBy(usersTable.name)
+        : await db.select().from(usersTable).where(eq(usersTable.id, ctx.user.id)).limit(1);
+      return rows.map((user) => ({ id: user.id, name: user.name, username: user.username, email: user.email, phone: user.phone, position: user.position, department: user.department, role: user.role, createdAt: user.createdAt }));
+    }),
+
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db.select().from(reportsTable).where(eq(reportsTable.reportType, "performance")).orderBy(desc(reportsTable.createdAt));
+      const employeeRows = rows.filter((row) => Number((row.data as any)?.employeeId) > 0);
+      const canViewAll = ["admin", "manager", "supervisor"].includes(ctx.user.role) || ctx.user.department === "board_representative";
+      if (canViewAll) return employeeRows;
+      return employeeRows.filter((row) => Number((row.data as any)?.employeeId) === ctx.user.id);
+    }),
+
+    create: protectedProcedure.input(z.object({
+      employeeId: z.number().int().positive(),
+      period: z.enum(["daily", "weekly", "monthly"]),
+      startDate: z.string().min(10),
+      endDate: z.string().min(10),
+      targetTitle: z.string().min(1),
+      targetDescription: z.string().optional(),
+      targetQuantity: z.number().positive(),
+      unit: z.string().min(1),
+      completedWork: z.string().min(1),
+      achievedQuantity: z.number().min(0),
+      workHours: z.number().min(0).optional(),
+      obstacles: z.string().optional(),
+      notes: z.string().optional(),
+      rewardAmount: z.number().min(0).optional(),
+      rewardReason: z.string().optional(),
+      penaltyAmount: z.number().min(0).optional(),
+      penaltyReason: z.string().optional(),
+    })).mutation(async ({ input, ctx }) => {
+      if (!["admin", "manager", "supervisor"].includes(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية إصدار تقييم الموظفين" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const employeeRows = await db.select().from(usersTable).where(eq(usersTable.id, input.employeeId)).limit(1);
+      const employee = employeeRows[0];
+      if (!employee) throw new Error("الموظف غير موجود");
+
+      const achievementPercentage = calculateAchievementPercentage(input.targetQuantity, input.achievedQuantity);
+      const evaluation = getPerformanceRating(achievementPercentage);
+      const payload = {
+        ...input,
+        achievementPercentage,
+        evaluation,
+        remainingQuantity: Math.max(0, input.targetQuantity - input.achievedQuantity),
+        employee: { id: employee.id, name: employee.name, username: employee.username, email: employee.email, phone: employee.phone, department: employee.department, position: employee.position },
+        createdBy: ctx.user.id,
+        createdByName: ctx.user.name,
+      };
+      const result = await db.insert(reportsTable).values({
+        reportName: `تقييم أداء - ${employee.name} - ${input.startDate}`,
+        reportType: "performance",
+        startDate: input.startDate,
+        endDate: input.endDate,
+        data: payload,
+        generatedBy: ctx.user.id,
+      });
+      const reportId = Number(result[0].insertId);
+      await db.insert(alertsTable).values({
+        type: achievementPercentage < 60 ? "low_productivity" : "pending_procedure",
+        title: "تقييم أداء جديد",
+        message: `صدر تقييم أدائك بنسبة إنجاز ${achievementPercentage.toFixed(2)}% للفترة ${input.startDate} إلى ${input.endDate}`,
+        severity: achievementPercentage < 60 ? "warning" : "info",
+        read: 0,
+        userId: input.employeeId,
+        data: { category: "employee_performance", reportId, route: "/employee-performance", achievementPercentage, evaluation },
+      });
+      return { success: true, id: reportId, data: payload };
+    }),
+
+    update: protectedProcedure.input(z.object({
+      id: z.number().int().positive(),
+      employeeId: z.number().int().positive(),
+      period: z.enum(["daily", "weekly", "monthly"]),
+      startDate: z.string().min(10),
+      endDate: z.string().min(10),
+      targetTitle: z.string().min(1),
+      targetDescription: z.string().optional(),
+      targetQuantity: z.number().positive(),
+      unit: z.string().min(1),
+      completedWork: z.string().min(1),
+      achievedQuantity: z.number().min(0),
+      workHours: z.number().min(0).optional(),
+      obstacles: z.string().optional(),
+      notes: z.string().optional(),
+      rewardAmount: z.number().min(0).optional(),
+      rewardReason: z.string().optional(),
+      penaltyAmount: z.number().min(0).optional(),
+      penaltyReason: z.string().optional(),
+    })).mutation(async ({ input, ctx }) => {
+      if (!["admin", "manager", "supervisor"].includes(ctx.user.role)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية تعديل تقييم الموظفين" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const reportRows = await db.select().from(reportsTable).where(and(eq(reportsTable.id, input.id), eq(reportsTable.reportType, "performance"))).limit(1);
+      if (!reportRows[0] || !(reportRows[0].data as any)?.employeeId) throw new Error("تقييم الموظف غير موجود");
+      const employeeRows = await db.select().from(usersTable).where(eq(usersTable.id, input.employeeId)).limit(1);
+      const employee = employeeRows[0];
+      if (!employee) throw new Error("الموظف غير موجود");
+      const achievementPercentage = calculateAchievementPercentage(input.targetQuantity, input.achievedQuantity);
+      const evaluation = getPerformanceRating(achievementPercentage);
+      const { id, ...values } = input;
+      const payload = {
+        ...values,
+        achievementPercentage,
+        evaluation,
+        remainingQuantity: Math.max(0, input.targetQuantity - input.achievedQuantity),
+        employee: { id: employee.id, name: employee.name, username: employee.username, email: employee.email, phone: employee.phone, department: employee.department, position: employee.position },
+        createdBy: ctx.user.id,
+        createdByName: ctx.user.name,
+        updatedAt: new Date().toISOString(),
+      };
+      await db.update(reportsTable).set({ reportName: `تقييم أداء - ${employee.name} - ${input.startDate}`, startDate: input.startDate, endDate: input.endDate, data: payload }).where(eq(reportsTable.id, id));
+      await db.insert(alertsTable).values({
+        type: achievementPercentage < 60 ? "low_productivity" : "pending_procedure",
+        title: "تم تحديث تقييم الأداء",
+        message: `تم تحديث تقييم أدائك، ونسبة الإنجاز الحالية ${achievementPercentage.toFixed(2)}%`,
+        severity: achievementPercentage < 60 ? "warning" : "info",
+        read: 0,
+        userId: input.employeeId,
+        data: { category: "employee_performance", reportId: id, route: "/employee-performance", achievementPercentage, evaluation },
+      });
+      return { success: true, id, data: payload };
+    }),
+
+    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await db.delete(reportsTable).where(and(eq(reportsTable.id, input.id), eq(reportsTable.reportType, "performance")));
       return { success: true };
     }),
   }),

@@ -13,6 +13,8 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
+import { useAuth } from "@/lib/auth-context";
+import { alertsService } from "@/lib/services/api.service";
 import { MaterialIcons } from "@expo/vector-icons";
 import notificationsService, {
   type AppNotification,
@@ -26,12 +28,14 @@ const TYPE_CONFIG: Record<NotificationType, { icon: string; color: string; label
   maintenance: { icon: "build", color: "#f59e0b", labelAr: "صيانة", labelEn: "Maintenance" },
   system: { icon: "info", color: "#6366f1", labelAr: "نظام", labelEn: "System" },
   admin: { icon: "admin-panel-settings", color: "#8b5cf6", labelAr: "إداري", labelEn: "Admin" },
+  performance: { icon: "assessment", color: "#0f766e", labelAr: "تقييم أداء", labelEn: "Performance" },
 };
 
 export default function InAppNotificationsScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t, language, isRtl } = useLanguage();
+  const { user } = useAuth();
   const isAr = language === "ar";
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -41,14 +45,24 @@ export default function InAppNotificationsScreen() {
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      const all = await notificationsService.getAll();
-      setNotifications(all);
+      const local = await notificationsService.getAll();
+      const serverRows = user?.id ? await alertsService.getByUser(Number(user.id)) : [];
+      const server: AppNotification[] = (Array.isArray(serverRows) ? serverRows : []).map((row: any) => ({
+        id: `server_${row.id}`,
+        type: row.data?.category === "employee_performance" ? "performance" : "admin",
+        title: row.title,
+        message: row.message,
+        isRead: Boolean(row.read),
+        createdAt: row.createdAt,
+        data: { ...(row.data || {}), serverId: row.id },
+      }));
+      setNotifications([...server, ...local].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (error) {
       // ignore
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadNotifications();
@@ -62,11 +76,15 @@ export default function InAppNotificationsScreen() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleMarkAsRead = async (id: string) => {
-    await notificationsService.markAsRead(id);
+    if (id.startsWith("server_")) await alertsService.markAsRead(Number(id.replace("server_", "")));
+    else await notificationsService.markAsRead(id);
+    await loadNotifications();
   };
 
   const handleMarkAllRead = async () => {
     await notificationsService.markAllAsRead();
+    if (user?.id) await alertsService.markAllAsRead(Number(user.id));
+    await loadNotifications();
   };
 
   const handleDelete = (id: string) => {
@@ -79,7 +97,9 @@ export default function InAppNotificationsScreen() {
           text: t("delete"),
           style: "destructive",
           onPress: async () => {
-            await notificationsService.delete(id);
+            if (id.startsWith("server_")) await alertsService.delete(Number(id.replace("server_", "")));
+            else await notificationsService.delete(id);
+            await loadNotifications();
           },
         },
       ]
@@ -96,7 +116,10 @@ export default function InAppNotificationsScreen() {
           text: t("delete"),
           style: "destructive",
           onPress: async () => {
+            const serverIds = notifications.filter((item) => item.id.startsWith("server_")).map((item) => Number(item.id.replace("server_", "")));
+            await Promise.all(serverIds.map((id) => alertsService.delete(id)));
             await notificationsService.clearAll();
+            await loadNotifications();
           },
         },
       ]
@@ -122,7 +145,10 @@ export default function InAppNotificationsScreen() {
     const config = TYPE_CONFIG[item.type];
     return (
       <TouchableOpacity
-        onPress={() => handleMarkAsRead(item.id)}
+        onPress={async () => {
+          await handleMarkAsRead(item.id);
+          if (item.data?.route) router.push(item.data.route as any);
+        }}
         onLongPress={() => handleDelete(item.id)}
         style={[styles.notifCard, !item.isRead && styles.notifUnread]}
         activeOpacity={0.7}
@@ -155,6 +181,7 @@ export default function InAppNotificationsScreen() {
     { key: "task", labelAr: "مهام", labelEn: "Tasks" },
     { key: "maintenance", labelAr: "صيانة", labelEn: "Maintenance" },
     { key: "admin", labelAr: "إداري", labelEn: "Admin" },
+    { key: "performance", labelAr: "تقييم أداء", labelEn: "Performance" },
   ];
 
   return (

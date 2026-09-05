@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -18,8 +19,9 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
-import { productionService, salesService, collectionService, taskService } from "@/lib/services/api.service";
+import { alertsService, employeePerformanceService, productionService, salesService, collectionService, taskService } from "@/lib/services/api.service";
 import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
+import { moveVisibleDashboardItem, normalizeDashboardOrder } from "../../lib/dashboard-order";
 
 // Helper function to check tool permissions
 const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | undefined): boolean => {
@@ -305,6 +307,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
 ];
 
+const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboard_order_${userId || "guest"}`;
+
 export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -329,24 +333,47 @@ export default function HomeScreen() {
   } | null>(null);
   const [statsUnavailable, setStatsUnavailable] = useState<string[]>([]);
   const [showDailySummary, setShowDailySummary] = useState(false);
+  const [isReorderingIcons, setIsReorderingIcons] = useState(false);
+  const [dashboardOrder, setDashboardOrder] = useState<string[]>(DASHBOARD_ITEMS.map((item) => item.id));
+
+  useEffect(() => {
+    let active = true;
+    const loadDashboardOrder = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(dashboardOrderStorageKey(user?.id));
+        if (!active || !saved) return;
+        const parsed = JSON.parse(saved);
+        setDashboardOrder(normalizeDashboardOrder(parsed, DASHBOARD_ITEMS.map((item) => item.id)));
+      } catch (error) {
+        console.error("Error loading dashboard order:", error);
+      }
+    };
+    loadDashboardOrder();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     const loadUnread = async () => {
-      const count = await notificationsService.getUnreadCount();
-      setUnreadCount(count);
+      const localCount = await notificationsService.getUnreadCount();
+      try {
+        const serverUnread = user?.id ? await alertsService.getUnread(Number(user.id)) : [];
+        setUnreadCount(localCount + (Array.isArray(serverUnread) ? serverUnread.length : 0));
+      } catch {
+        setUnreadCount(localCount);
+      }
     };
     loadUnread();
     const unsubscribe = notificationsService.subscribe(loadUnread);
     return unsubscribe;
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     const loadPerformanceCount = async () => {
       try {
-        const rows = await taskService.getAll();
+        const rows = await employeePerformanceService.list();
         const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const count = (Array.isArray(rows) ? rows : []).filter((row: any) => {
-          const value = row.createdAt || row.createdDate || row.startDate;
+          const value = row.createdAt || row.startDate;
           const time = value ? new Date(String(value)).getTime() : 0;
           return time >= cutoff;
         }).length;
@@ -356,7 +383,7 @@ export default function HomeScreen() {
       }
     };
     loadPerformanceCount();
-  }, []);
+  }, [user?.id]);
 
   // Load pending users count for admin
   useEffect(() => {
@@ -510,6 +537,36 @@ export default function HomeScreen() {
     if (item.departments.length === 0) return true;
     return item.departments.includes(userDepartment);
   });
+
+  const orderedVisibleDashboardItems = [...visibleDashboardItems].sort((a, b) => {
+    const aIndex = dashboardOrder.indexOf(a.id);
+    const bIndex = dashboardOrder.indexOf(b.id);
+    const safeAIndex = aIndex === -1 ? DASHBOARD_ITEMS.findIndex((item) => item.id === a.id) + dashboardOrder.length : aIndex;
+    const safeBIndex = bIndex === -1 ? DASHBOARD_ITEMS.findIndex((item) => item.id === b.id) + dashboardOrder.length : bIndex;
+    return safeAIndex - safeBIndex;
+  });
+
+  const persistDashboardOrder = async (nextOrder: string[]) => {
+    setDashboardOrder(nextOrder);
+    try {
+      await AsyncStorage.setItem(dashboardOrderStorageKey(user?.id), JSON.stringify(nextOrder));
+    } catch (error) {
+      console.error("Error saving dashboard order:", error);
+      Alert.alert(isAr ? "تعذر حفظ الترتيب" : "Could not save order", isAr ? "حاول مرة أخرى." : "Please try again.");
+    }
+  };
+
+  const moveDashboardItem = async (itemId: string, direction: -1 | 1) => {
+    const visibleIds = orderedVisibleDashboardItems.map((item) => item.id);
+    const nextOrder = moveVisibleDashboardItem(dashboardOrder, visibleIds, itemId, direction);
+    if (nextOrder === dashboardOrder) return;
+    await persistDashboardOrder(nextOrder);
+  };
+
+  const resetDashboardOrder = async () => {
+    await persistDashboardOrder(DASHBOARD_ITEMS.map((item) => item.id));
+    Alert.alert(isAr ? "تمت الاستعادة" : "Order restored", isAr ? "تمت استعادة الترتيب الافتراضي للأيقونات." : "The default icon order has been restored.");
+  };
 
     const handleLogout = async () => {
     const confirmMessage = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
@@ -704,15 +761,42 @@ export default function HomeScreen() {
 
       {/* Grid */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={[styles.reorderToolbar, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+          <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start" }}>
+            <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 13 }}>{isAr ? "ترتيب الأيقونات الرئيسية" : "Arrange Main Icons"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>{isAr ? "يُحفظ ترتيب مستقل لهذا المستخدم تلقائياً" : "A separate order is saved automatically for this user"}</Text>
+          </View>
+          {isReorderingIcons && (
+            <TouchableOpacity onPress={resetDashboardOrder} style={[styles.reorderAction, { borderColor: colors.border }]}>
+              <MaterialIcons name="restart-alt" size={18} color="#dc2626" />
+              <Text style={{ color: "#dc2626", fontSize: 10, fontWeight: "700" }}>{isAr ? "افتراضي" : "Reset"}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setIsReorderingIcons((value) => !value)} style={[styles.reorderAction, { backgroundColor: isReorderingIcons ? "#dcfce7" : `${colors.primary}12`, borderColor: isReorderingIcons ? "#86efac" : colors.primary }]}>
+            <MaterialIcons name={isReorderingIcons ? "check" : "reorder"} size={18} color={isReorderingIcons ? "#15803d" : colors.primary} />
+            <Text style={{ color: isReorderingIcons ? "#15803d" : colors.primary, fontSize: 10, fontWeight: "700" }}>{isReorderingIcons ? (isAr ? "تم" : "Done") : (isAr ? "ترتيب" : "Arrange")}</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.grid}>
-          {visibleDashboardItems.map((item) => (
+          {orderedVisibleDashboardItems.map((item, index) => (
             <TouchableOpacity
               key={item.id}
-              onPress={() => handleNavigate(item.route)}
+              onPress={() => isReorderingIcons ? undefined : handleNavigate(item.route)}
               style={styles.gridItem}
               activeOpacity={0.7}
             >
-                  <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: colors.border }, styles.card]}>
+                  <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: isReorderingIcons ? 2 : 1, borderColor: isReorderingIcons ? colors.primary : colors.border }, styles.card]}>
+                {isReorderingIcons && (
+                  <View style={styles.reorderCardControls}>
+                    <TouchableOpacity disabled={index === 0} onPress={() => moveDashboardItem(item.id, -1)} style={[styles.moveButton, { opacity: index === 0 ? 0.3 : 1, borderColor: colors.border }]} accessibilityLabel={isAr ? "تحريك الأيقونة للأعلى" : "Move icon up"}>
+                      <MaterialIcons name="arrow-upward" size={17} color={colors.primary} />
+                    </TouchableOpacity>
+                    <View style={[styles.orderNumber, { backgroundColor: `${item.color}18` }]}><Text style={{ color: item.color, fontWeight: "800", fontSize: 11 }}>{index + 1}</Text></View>
+                    <TouchableOpacity disabled={index === orderedVisibleDashboardItems.length - 1} onPress={() => moveDashboardItem(item.id, 1)} style={[styles.moveButton, { opacity: index === orderedVisibleDashboardItems.length - 1 ? 0.3 : 1, borderColor: colors.border }]} accessibilityLabel={isAr ? "تحريك الأيقونة للأسفل" : "Move icon down"}>
+                      <MaterialIcons name="arrow-downward" size={17} color={colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <View
                   style={[styles.iconContainer, { backgroundColor: `${item.color}15` }]}
                 >
@@ -951,6 +1035,25 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 10,
   },
+  reorderToolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  reorderAction: {
+    minWidth: 56,
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -962,6 +1065,28 @@ const styles = StyleSheet.create({
   },
   card: {
     minHeight: 96,
+  },
+  reorderCardControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+  moveButton: {
+    width: 30,
+    height: 28,
+    borderWidth: 1,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orderNumber: {
+    minWidth: 28,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconContainer: {
     width: 34,

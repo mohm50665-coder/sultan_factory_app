@@ -68,6 +68,24 @@ export const taskService = {
   delete: (id: number) => trpcCall("tasks.delete", { id }),
 };
 
+// ===== Employee Performance =====
+export const employeePerformanceService = {
+  listEmployees: () => trpcCall("employeePerformance.listEmployees", undefined, "query"),
+  list: () => trpcCall("employeePerformance.list", undefined, "query"),
+  create: (data: any) => trpcCall("employeePerformance.create", data),
+  update: (id: number, data: any) => trpcCall("employeePerformance.update", { id, ...data }),
+  delete: (id: number) => trpcCall("employeePerformance.delete", { id }),
+};
+
+// ===== Server Alerts =====
+export const alertsService = {
+  getByUser: (userId: number) => trpcCall("alerts.getByUser", { userId }, "query"),
+  getUnread: (userId: number) => trpcCall("alerts.getUnread", { userId }, "query"),
+  markAsRead: (id: number) => trpcCall("alerts.markAsRead", { id }),
+  markAllAsRead: (userId: number) => trpcCall("alerts.markAllAsRead", { userId }),
+  delete: (id: number) => trpcCall("alerts.delete", { id }),
+};
+
 // ===== Administrative Procedures =====
 export const administrativeService = {
   getAll: () => trpcCall("administrative.getAll", undefined, "query"),
