@@ -56,6 +56,19 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
 
   {
+    id: "employee_performance",
+    labelAr: "تقييم أداء الموظفين",
+    labelEn: "Employee Performance",
+    icon: "assessment",
+    color: "#059669",
+    route: "/employee-performance",
+    descriptionAr: "تقرير يومي وأسبوعي وشهري عن إنجاز الموظفين",
+    descriptionEn: "Daily, weekly and monthly employee performance reports",
+    section: "reports",
+    departments: [],
+    isShared: true,
+  },
+  {
     id: "product_tracking",
     labelAr: "تتبع المنتجات",
     labelEn: "Product Tracking",
@@ -809,18 +822,6 @@ export default function HomeScreen() {
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
                     <MaterialIcons name="people" size={24} color="#7c3aed" />
                     <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{t("users_management")}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              {(user?.role === "admin" || canAccessTool('employee_performance', user?.toolPermissions)) && (
-                <TouchableOpacity
-                  onPress={() => handleNavigate("/employee-performance")}
-                  style={styles.toolItem}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-                    <MaterialIcons name="assessment" size={24} color="#059669" />
-                    <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: '600', marginTop: 8 }}>{isAr ? "أداء الموظفين" : "Performance"}</Text>
                   </View>
                 </TouchableOpacity>
               )}
