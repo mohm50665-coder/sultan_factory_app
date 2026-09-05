@@ -604,6 +604,7 @@ export const appRouter = router({
         secondGradeDozen: z.number().optional(),
         secondGradePairs: z.number().optional(),
         wasteNeedles: z.number().optional(),
+        needlesUsed: z.number().optional(),
         productionHours: z.number().optional(),
         productionMinutes: z.number().optional(),
         yarnRubber: z.number().optional(),

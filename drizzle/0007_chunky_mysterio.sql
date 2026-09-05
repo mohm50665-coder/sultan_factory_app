@@ -1,0 +1,1 @@
+ALTER TABLE `production` ADD `needlesUsed` int DEFAULT 0;

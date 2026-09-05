@@ -50,6 +50,13 @@
       "when": 1788534104220,
       "tag": "0006_pale_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1788535561752,
+      "tag": "0007_chunky_mysterio",
+      "breakpoints": true
     }
   ]
 }

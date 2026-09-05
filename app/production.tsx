@@ -41,6 +41,7 @@ interface ProductItem {
   secondGradeDozen: string;
   secondGradePairs: string;
   wasteNeedles: string;
+  needlesUsed: string;
   productionHours: string;
   productionMinutes: string;
   yarnRubber: string;
@@ -95,6 +96,7 @@ const emptyProduct = (): ProductItem => ({
   secondGradeDozen: "",
   secondGradePairs: "",
   wasteNeedles: "",
+  needlesUsed: "",
   productionHours: "",
   productionMinutes: "",
   yarnRubber: "",
@@ -285,6 +287,7 @@ export default function ProductionScreen() {
           secondGradeDozen: String(row.secondGradeDozen || 0),
           secondGradePairs: String(row.secondGradePairs || 0),
           wasteNeedles: String(row.wasteNeedles || 0),
+          needlesUsed: String(row.needlesUsed || 0),
           productionHours: String(row.productionHours || 0),
           productionMinutes: String(row.productionMinutes || 0),
           yarnRubber: String(row.yarnRubber || 0),
@@ -353,6 +356,7 @@ export default function ProductionScreen() {
               secondGradeDozen: parseInt(product.secondGradeDozen) || 0,
               secondGradePairs: parseInt(product.secondGradePairs) || 0,
               wasteNeedles: parseInt(product.wasteNeedles) || 0,
+              needlesUsed: parseInt(product.needlesUsed) || 0,
               productionHours: parseInt(product.productionHours) || 0,
               productionMinutes: parseInt(product.productionMinutes) || 0,
               yarnRubber: parseInt(product.yarnRubber) || 0,
@@ -894,7 +898,17 @@ export default function ProductionScreen() {
       {/* النخب الثاني وهدر الإبر */}
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "الإبر المستخدمة" : "Needles used"}</Text>
+          <TextInput
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={colors.muted}
+            value={product.needlesUsed}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "needlesUsed", v)}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles waste"}</Text>
           <TextInput
             style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
             placeholder="0" placeholderTextColor={colors.muted}

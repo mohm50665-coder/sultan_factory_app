@@ -61,6 +61,7 @@ export const production = mysqlTable("production", {
   secondGradeDozen: int("secondGradeDozen").default(0),
   secondGradePairs: int("secondGradePairs").default(0),
   wasteNeedles: int("wasteNeedles").default(0),
+  needlesUsed: int("needlesUsed").default(0),
   productionHours: int("productionHours").default(0),
   productionMinutes: int("productionMinutes").default(0),
   yarnRubber: int("yarnRubber").default(0),
