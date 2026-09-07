@@ -312,7 +312,7 @@ const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboa
 export default function HomeScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
 
   const isAr = language === "ar";
@@ -335,6 +335,11 @@ export default function HomeScreen() {
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [isReorderingIcons, setIsReorderingIcons] = useState(false);
   const [dashboardOrder, setDashboardOrder] = useState<string[]>(DASHBOARD_ITEMS.map((item) => item.id));
+
+  useEffect(() => {
+    // جلب أحدث الصلاحيات من الخادم بدلاً من الاعتماد على نسخة الجلسة القديمة.
+    void refreshUser();
+  }, []);
 
   useEffect(() => {
     let active = true;
