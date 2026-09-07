@@ -906,6 +906,8 @@ export const appRouter = router({
           receivedBy: z.string().optional(),
           deliveredAt: z.coerce.date().optional(),
           receivedAt: z.coerce.date().optional(),
+          quantityDozen: z.number().optional(),
+          quantityPairs: z.number().optional(),
           handoverDate: z.coerce.date().optional(),
           notes: z.string().optional(),
         }),

@@ -81,6 +81,7 @@ export const employeePerformanceService = {
 export const alertsService = {
   getByUser: (userId: number) => trpcCall("alerts.getByUser", { userId }, "query"),
   getUnread: (userId: number) => trpcCall("alerts.getUnread", { userId }, "query"),
+  create: (data: any) => trpcCall("alerts.create", data),
   markAsRead: (id: number) => trpcCall("alerts.markAsRead", { id }),
   markAllAsRead: (userId: number) => trpcCall("alerts.markAllAsRead", { userId }),
   delete: (id: number) => trpcCall("alerts.delete", { id }),
