@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   FlatList,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -429,24 +430,26 @@ export default function ManufacturingStageScreen() {
 
   // حذف سجل
   const handleDelete = (entry: WorkerEntry) => {
-    Alert.alert(
-      isAr ? "تأكيد الحذف" : "Confirm Deletion",
-      isAr ? `هل أنت متأكد من حذف سجل "${entry.workerName}"؟` : `Are you sure you want to delete the record for "${entry.workerName}"?`,
-      [
-        { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
-        {
-          text: isAr ? "حذف" : "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await manufacturingStageService.delete(parseInt(entry.id));
-              await loadEntries();
-              Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم حذف السجل بنجاح" : "Record deleted successfully");
-            } catch (e) { console.log(e); }
-          },
-        },
-      ]
-    );
+    const productLabel = entry.products?.map((product) => product.productName).filter(Boolean).join("، ") || entry.workerName;
+    const confirmMessage = isAr ? `سيتم نقل المنتج إلى سلة المهملات:\n${productLabel}\nالعامل: ${entry.workerName}\nهل تريد المتابعة؟` : `This product will move to trash:\n${productLabel}\nWorker: ${entry.workerName}\nContinue?`;
+    const executeDelete = async () => {
+      try {
+        await manufacturingStageService.delete(Number(entry.id));
+        await loadEntries();
+        Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم نقل السجل إلى سلة المهملات بنجاح" : "Record moved to trash successfully");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف السجل" : "Unable to delete record");
+        Alert.alert(isAr ? "فشل الحذف" : "Delete failed", message);
+      }
+    };
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      if (window.confirm(confirmMessage)) void executeDelete();
+      return;
+    }
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", confirmMessage, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: () => { void executeDelete(); } },
+    ]);
   };
 
   const getReportWindow = (anchor: string, period: "daily" | "weekly" | "monthly") => {
