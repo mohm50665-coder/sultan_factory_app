@@ -18,7 +18,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
-import { manufacturingWorkersService } from "@/lib/services/api.service";
+import { manufacturingWorkersService, productsService } from "@/lib/services/api.service";
 
 interface ProductItem {
   productName: string;
@@ -124,6 +124,8 @@ export default function ManufacturingStageScreen() {
 
   // Load workers from server
   const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
+  const [savedProducts, setSavedProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
   useEffect(() => {
     const loadServerWorkers = async () => {
       try {
@@ -178,6 +180,24 @@ export default function ManufacturingStageScreen() {
     loadEntries();
   }, [stage]);
 
+  useEffect(() => {
+    let active = true;
+    const loadSavedProducts = async () => {
+      setProductsLoading(true);
+      try {
+        const rows = await productsService.list();
+        if (active) setSavedProducts(Array.isArray(rows) ? rows : []);
+      } catch (error) {
+        console.log("Error loading saved products for manufacturing stage:", error);
+        if (active) setSavedProducts([]);
+      } finally {
+        if (active) setProductsLoading(false);
+      }
+    };
+    loadSavedProducts();
+    return () => { active = false; };
+  }, []);
+
   const loadEntries = async () => {
     try {
       const data = await manufacturingStageService.getAll();
@@ -217,6 +237,13 @@ export default function ManufacturingStageScreen() {
       console.log("Error loading entries:", e);
       setEntries([]);
     }
+  };
+
+  const getSavedProductLabel = (product: any) => [product?.name, product?.size, product?.color].filter(Boolean).join(" - ");
+
+  const selectSavedProduct = (index: number, product: any) => {
+    const label = getSavedProductLabel(product);
+    if (label) updateProduct(index, "productName", label);
   };
 
   const resetForm = () => {
@@ -744,17 +771,36 @@ export default function ManufacturingStageScreen() {
                         </Text>
                       </View>
 
-                      {/* {isAr ? "اسم المنتج *" : "Product Name *"} */}
+                      {/* اختيار المنتج من دليل المنتجات المحفوظة */}
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "اسم المنتج *" : "Product Name *"}</Text>
-                        <TextInput
-                          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 15 }}
-                          placeholder={isAr ? "أدخل اسم المنتج" : "Enter product name"}
-                          placeholderTextColor={colors.muted}
-                          value={product.productName}
-                          onChangeText={(v) => updateProduct(index, "productName", v)}
-                          returnKeyType="next"
-                        />
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "اختر المنتج المحفوظ *" : "Select Saved Product *"}</Text>
+                        <View style={{ backgroundColor: "#ffffff", borderWidth: 1, borderColor: product.productName ? config.color : colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}>
+                          <Text style={{ color: product.productName ? "#111827" : "#6b7280", textAlign: isAr ? "right" : "left", fontSize: 14 }}>
+                            {product.productName || (productsLoading ? (isAr ? "جاري تحميل المنتجات..." : "Loading products...") : (isAr ? "اختر من القائمة أدناه" : "Choose from the list below"))}
+                          </Text>
+                        </View>
+                        {savedProducts.length > 0 ? (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }} contentContainerStyle={{ gap: 6 }}>
+                            {savedProducts.map((savedProduct) => {
+                              const label = getSavedProductLabel(savedProduct);
+                              if (!label) return null;
+                              const selected = product.productName === label;
+                              return (
+                                <TouchableOpacity
+                                  key={String(savedProduct.id ?? savedProduct.barcode ?? label)}
+                                  onPress={() => selectSavedProduct(index, savedProduct)}
+                                  style={{ backgroundColor: selected ? config.color : "#f8fafc", borderWidth: 1, borderColor: selected ? config.color : colors.border, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 7 }}
+                                >
+                                  <Text style={{ color: selected ? "#ffffff" : "#111827", fontSize: 11, fontWeight: "700" }}>{label}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        ) : (
+                          <Text style={{ color: "#b45309", fontSize: 11, marginTop: 6, textAlign: isAr ? "right" : "left" }}>
+                            {isAr ? "لا توجد منتجات محفوظة في دليل المنتجات" : "No saved products found in the catalog"}
+                          </Text>
+                        )}
                       </View>
 
                       {/* الكميات */}
