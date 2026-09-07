@@ -25,14 +25,15 @@ interface ProductItem {
   quantityDozen: string;
   quantityPairs: string;
   movementStatus: "none" | "received" | "delivered";
+  movementAt?: string;
 }
 
 interface WorkerEntry {
   id: string;
   workerName: string;
   products: ProductItem[];
-  durationHours?: string;
-  durationMinutes?: string;
+  receivedAt?: string;
+  deliveredAt?: string;
   // حقول التخزين
   finishedDozen?: string;
   finishedPairs?: string;
@@ -219,8 +220,8 @@ export default function ManufacturingStageScreen() {
               id: String(d.id),
               workerName: d.workerName || "",
               products: [],
-              durationHours: "0",
-              durationMinutes: "0",
+              receivedAt: "",
+              deliveredAt: "",
               date: d.date || (d.createdAt ? new Date(d.createdAt).toLocaleDateString("ar-SA") : ""),
               notes: d.productType || "",
             };
@@ -230,7 +231,10 @@ export default function ManufacturingStageScreen() {
             quantityDozen: String(d.quantityDozen || 0),
             quantityPairs: String(d.quantityPair || 0),
             movementStatus: d.movementStatus || "none",
+            movementAt: d.movementAt ? String(d.movementAt) : "",
           });
+          if (d.movementStatus === "received" && d.movementAt) grouped[groupKey].receivedAt = String(d.movementAt);
+          if (d.movementStatus === "delivered" && d.movementAt) grouped[groupKey].deliveredAt = String(d.movementAt);
         });
         setEntries(Object.values(grouped));
       } else {
@@ -397,10 +401,9 @@ export default function ManufacturingStageScreen() {
         quantityDozen: p.quantityDozen,
         quantityPairs: p.quantityPairs,
         movementStatus: p.movementStatus || "none",
+        movementAt: p.movementAt || "",
       })));
     }
-    setDurationHours(entry.durationHours || "");
-    setDurationMinutes(entry.durationMinutes || "");
     setNotes(entry.notes || "");
     setEntryDate(entry.date || new Date().toISOString().split("T")[0]);
     setEditingEntry(entry);
@@ -456,8 +459,13 @@ export default function ManufacturingStageScreen() {
     const productsCount = selectedEntries.reduce((sum, entry) => sum + entry.products.length, 0);
     const totalDozen = selectedEntries.reduce((sum, entry) => sum + entry.products.reduce((inner, product) => inner + (parseInt(product.quantityDozen) || 0), 0), 0);
     const totalPairs = selectedEntries.reduce((sum, entry) => sum + entry.products.reduce((inner, product) => inner + (parseInt(product.quantityPairs) || 0), 0), 0);
+    const allProducts = selectedEntries.flatMap((entry) => entry.products);
+    const receivedCount = allProducts.filter((product) => product.movementStatus === "received").length;
+    const deliveredCount = allProducts.filter((product) => product.movementStatus === "delivered").length;
+    const latestReceivedAt = selectedEntries.map((entry) => entry.receivedAt).filter(Boolean).sort().at(-1) || "";
+    const latestDeliveredAt = selectedEntries.map((entry) => entry.deliveredAt).filter(Boolean).sort().at(-1) || "";
     const workers = Array.from(new Set(selectedEntries.map((entry) => entry.workerName).filter(Boolean)));
-    return { window, selectedEntries, productsCount, totalDozen, totalPairs, workers };
+    return { window, selectedEntries, productsCount, totalDozen, totalPairs, receivedCount, deliveredCount, latestReceivedAt, latestDeliveredAt, workers };
   };
 
   // عرض سجل واحد
@@ -491,7 +499,11 @@ export default function ManufacturingStageScreen() {
 
       {/* {isAr ? "التاريخ" : "Date"} */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 12 }}>
-        <Text style={{ color: colors.muted, fontSize: 13 }}>{item.date}</Text>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text style={{ color: colors.muted, fontSize: 13 }}>{item.date}</Text>
+          {item.receivedAt && <Text style={{ color: "#dc2626", fontSize: 11, marginTop: 3 }}>{isAr ? `وقت الاستلام: ${new Date(item.receivedAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}` : `Received: ${new Date(item.receivedAt).toLocaleTimeString()}`}</Text>}
+          {item.deliveredAt && <Text style={{ color: "#16a34a", fontSize: 11, marginTop: 3 }}>{isAr ? `وقت التسليم: ${new Date(item.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}` : `Delivered: ${new Date(item.deliveredAt).toLocaleTimeString()}`}</Text>}
+        </View>
         <MaterialIcons name="calendar-today" size={14} color={colors.muted} />
       </View>
 
@@ -649,6 +661,8 @@ export default function ManufacturingStageScreen() {
                 [isAr ? "المنتجات" : "Products", String(report.productsCount)],
                 [isAr ? "الدرزن" : "Dozen", String(report.totalDozen)],
                 [isAr ? "الأزواج" : "Pairs", String(report.totalPairs)],
+                [isAr ? "المستلم" : "Received", String(report.receivedCount)],
+                [isAr ? "المسلّم" : "Delivered", String(report.deliveredCount)],
               ].map(([label, value]) => (
                 <View key={label} style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}>
                   <Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text>
@@ -659,6 +673,10 @@ export default function ManufacturingStageScreen() {
             <Text style={{ color: colors.muted, fontSize: 10, marginTop: 8, textAlign: isAr ? "right" : "left" }}>
               {isAr ? `الفترة: ${report.window.start} إلى ${report.window.end} — المرحلة: ${config.name}` : `Period: ${report.window.start} to ${report.window.end} — Stage: ${config.name}`}
             </Text>
+            <View style={{ marginTop: 8, gap: 4 }}>
+              <Text style={{ color: "#dc2626", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? `آخر وقت استلام: ${report.latestReceivedAt ? new Date(report.latestReceivedAt).toLocaleString("ar-SA") : "غير مسجل"}` : `Latest receipt: ${report.latestReceivedAt ? new Date(report.latestReceivedAt).toLocaleString() : "Not recorded"}`}</Text>
+              <Text style={{ color: "#16a34a", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? `آخر وقت تسليم: ${report.latestDeliveredAt ? new Date(report.latestDeliveredAt).toLocaleString("ar-SA") : "غير مسجل"}` : `Latest delivery: ${report.latestDeliveredAt ? new Date(report.latestDeliveredAt).toLocaleString() : "Not recorded"}`}</Text>
+            </View>
           </View>
         );
       })()}
@@ -882,27 +900,10 @@ export default function ManufacturingStageScreen() {
               </View>
             )}
 
-            {/* {isAr ? "المدة الزمنية للإنجاز" : "Completion Time"} */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
-                {isAr ? "المدة الزمنية للإنجاز" : "Completion Time"}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "دقيقة" : "Minute"}</Text>
-                  <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
-                    placeholder="0" placeholderTextColor={colors.muted} value={durationMinutes} onChangeText={setDurationMinutes} keyboardType="numeric"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "ساعة" : "Hour"}</Text>
-                  <TextInput
-                    style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
-                    placeholder="0" placeholderTextColor={colors.muted} value={durationHours} onChangeText={setDurationHours} keyboardType="numeric"
-                  />
-                </View>
-              </View>
+            {/* وقتا الاستلام والتسليم */}
+            <View style={{ marginBottom: 20, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12 }}>
+              <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>{isAr ? "وقت الاستلام والتسليم" : "Receipt and delivery time"}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12, textAlign: isAr ? "right" : "left", lineHeight: 20 }}>{isAr ? "يسجل النظام وقت العملية تلقائياً عند اختيار «استلمت» أو «سلّمت» لكل منتج، ويعرضه في سجل المرحلة والتقارير." : "The system records the action time automatically when Received or Delivered is selected for each product and shows it in stage records and reports."}</Text>
             </View>
 
             {/* ملاحظات */}
