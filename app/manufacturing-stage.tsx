@@ -160,6 +160,7 @@ export default function ManufacturingStageScreen() {
   const [products, setProducts] = useState<ProductItem[]>([
     { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" },
   ]);
+  const [productSearch, setProductSearch] = useState<Record<number, string>>({});
   const [durationHours, setDurationHours] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
   // حقول التخزين
@@ -245,12 +246,22 @@ export default function ManufacturingStageScreen() {
 
   const selectSavedProduct = (index: number, product: any) => {
     const label = getSavedProductLabel(product);
-    if (label) updateProduct(index, "productName", label);
+    if (label) {
+      updateProduct(index, "productName", label);
+      setProductSearch((current) => ({ ...current, [index]: label }));
+    }
+  };
+
+  const getFilteredSavedProducts = (index: number) => {
+    const query = String(productSearch[index] || "").trim().toLocaleLowerCase("ar");
+    if (!query) return savedProducts.slice(0, 20);
+    return savedProducts.filter((product: any) => getSavedProductLabel(product).toLocaleLowerCase("ar").includes(query) || String(product?.barcode || "").toLocaleLowerCase("ar").includes(query)).slice(0, 20);
   };
 
   const resetForm = () => {
     setSelectedWorker(user?.name || "");
     setProducts([{ productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" }]);
+    setProductSearch({});
     setDurationHours("");
     setDurationMinutes("");
     setFinishedDozen("");
@@ -791,36 +802,42 @@ export default function ManufacturingStageScreen() {
                         </Text>
                       </View>
 
-                      {/* اختيار المنتج من دليل المنتجات المحفوظة */}
+                      {/* بحث احترافي عن المنتج من دليل المنتجات المحفوظة */}
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "اختر المنتج المحفوظ *" : "Select Saved Product *"}</Text>
-                        <View style={{ backgroundColor: "#ffffff", borderWidth: 1, borderColor: product.productName ? config.color : colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}>
-                          <Text style={{ color: product.productName ? "#111827" : "#6b7280", textAlign: isAr ? "right" : "left", fontSize: 14 }}>
-                            {product.productName || (productsLoading ? (isAr ? "جاري تحميل المنتجات..." : "Loading products...") : (isAr ? "اختر من القائمة أدناه" : "Choose from the list below"))}
-                          </Text>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "ابحث عن المنتج المحفوظ *" : "Search saved product *"}</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#ffffff", borderWidth: 1.5, borderColor: product.productName ? config.color : colors.border, borderRadius: 10, paddingHorizontal: 10 }}>
+                          <MaterialIcons name="search" size={20} color={config.color} />
+                          <TextInput
+                            value={productSearch[index] ?? (product.productName || "")}
+                            onChangeText={(value) => { setProductSearch((current) => ({ ...current, [index]: value })); if (!value.trim()) updateProduct(index, "productName", ""); }}
+                            placeholder={productsLoading ? (isAr ? "جاري تحميل المنتجات..." : "Loading products...") : (isAr ? "اكتب الاسم أو المقاس أو اللون أو الباركود" : "Search by name, size, color or barcode")}
+                            placeholderTextColor="#6b7280"
+                            style={{ flex: 1, color: "#111827", backgroundColor: "#ffffff", paddingHorizontal: 8, paddingVertical: 11, textAlign: isAr ? "right" : "left", fontSize: 13 }}
+                          />
+                          {product.productName && <MaterialIcons name="check-circle" size={19} color="#16a34a" />}
                         </View>
-                        {savedProducts.length > 0 ? (
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }} contentContainerStyle={{ gap: 6 }}>
-                            {savedProducts.map((savedProduct) => {
+                        {savedProducts.length > 0 && (productSearch[index] || !product.productName) && (
+                          <View style={{ marginTop: 6, backgroundColor: "#ffffff", borderWidth: 1, borderColor: colors.border, borderRadius: 10, overflow: "hidden" }}>
+                            {getFilteredSavedProducts(index).map((savedProduct: any, resultIndex: number) => {
                               const label = getSavedProductLabel(savedProduct);
                               if (!label) return null;
                               const selected = product.productName === label;
                               return (
-                                <TouchableOpacity
-                                  key={String(savedProduct.id ?? savedProduct.barcode ?? label)}
-                                  onPress={() => selectSavedProduct(index, savedProduct)}
-                                  style={{ backgroundColor: selected ? config.color : "#f8fafc", borderWidth: 1, borderColor: selected ? config.color : colors.border, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 7 }}
-                                >
-                                  <Text style={{ color: selected ? "#ffffff" : "#111827", fontSize: 11, fontWeight: "700" }}>{label}</Text>
+                                <TouchableOpacity key={String(savedProduct.id ?? savedProduct.barcode ?? label)} onPress={() => selectSavedProduct(index, savedProduct)} style={{ paddingHorizontal: 11, paddingVertical: 10, borderBottomWidth: resultIndex < getFilteredSavedProducts(index).length - 1 ? 1 : 0, borderColor: "#e5e7eb", backgroundColor: selected ? `${config.color}12` : "#ffffff" }}>
+                                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                                    <MaterialIcons name={selected ? "check-circle" : "inventory-2"} size={18} color={selected ? "#16a34a" : config.color} />
+                                    <View style={{ flex: 1, marginLeft: 8, alignItems: "flex-end" }}>
+                                      <Text style={{ color: "#111827", fontSize: 13, fontWeight: "800" }}>{label}</Text>
+                                      <Text style={{ color: "#6b7280", fontSize: 10, marginTop: 3 }}>{savedProduct.barcode ? `S${savedProduct.barcode}` : (isAr ? "منتج محفوظ" : "Saved product")}</Text>
+                                    </View>
+                                  </View>
                                 </TouchableOpacity>
                               );
                             })}
-                          </ScrollView>
-                        ) : (
-                          <Text style={{ color: "#b45309", fontSize: 11, marginTop: 6, textAlign: isAr ? "right" : "left" }}>
-                            {isAr ? "لا توجد منتجات محفوظة في دليل المنتجات" : "No saved products found in the catalog"}
-                          </Text>
+                            {getFilteredSavedProducts(index).length === 0 && <Text style={{ color: "#b45309", padding: 12, textAlign: "center", fontSize: 12 }}>{isAr ? "لا توجد نتيجة مطابقة" : "No matching product"}</Text>}
+                          </View>
                         )}
+                        {product.productName && <Text style={{ color: "#16a34a", fontSize: 11, marginTop: 5, textAlign: isAr ? "right" : "left" }}>{isAr ? "تم اختيار منتج محفوظ من الدليل" : "Saved catalog product selected"}</Text>}
                       </View>
 
                       {/* حالة التسليم والاستلام */}
