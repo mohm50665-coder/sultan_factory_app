@@ -138,6 +138,11 @@ const getFullProductName = (product: ProductItem): string => {
 export default function ProductionScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
+  // ألوان ثابتة لحقول الإدخال حتى لا يتحول النص إلى أبيض على خلفية بيضاء عند التركيز.
+  const fieldTextColor = "#111827";
+  const fieldBackgroundColor = "#ffffff";
+  const fieldPlaceholderColor = "#6b7280";
+  const fieldSelectionColor = "#0a7ea4";
   const router = useRouter();
   const colors = useColors();
   const { user } = useAuth();
@@ -767,9 +772,9 @@ export default function ProductionScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "اللون" : "Color"}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
               placeholder={isAr ? "اللون" : "Color"}
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={fieldPlaceholderColor}
               value={product.itemColor}
               editable={!productLocked}
               onFocus={productLocked ? notifySavedProductLocked : undefined}
@@ -779,9 +784,9 @@ export default function ProductionScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "المقاس" : "Size"}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
               placeholder={isAr ? "المقاس" : "Size"}
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={fieldPlaceholderColor}
               value={product.itemSize}
               editable={!productLocked}
               onFocus={productLocked ? notifySavedProductLocked : undefined}
@@ -791,9 +796,9 @@ export default function ProductionScreen() {
           <View style={{ flex: 2 }}>
             <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "اسم الصنف" : "Item Name"}</Text>
             <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+              style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
               placeholder={isAr ? "اسم الصنف" : "Item name"}
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={fieldPlaceholderColor}
               value={product.itemName}
               editable={!productLocked}
               onFocus={productLocked ? notifySavedProductLocked : undefined}
@@ -841,9 +846,9 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "وزن الخيط/زوج" : "Yarn/Pair"}</Text>
           <TextInput
-            style={{ backgroundColor: product.yarnWeightPerPair ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: product.yarnWeightPerPair ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
+            style={{ backgroundColor: product.yarnWeightPerPair ? '#f0fdf4' : fieldBackgroundColor, borderWidth: 1, borderColor: product.yarnWeightPerPair ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
             placeholder="0"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={fieldPlaceholderColor}
             value={product.yarnWeightPerPair}
               editable={!productLocked}
               onFocus={productLocked ? notifySavedProductLocked : undefined}
@@ -858,8 +863,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "إنتاج (زوج)" : "Pairs"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.productionPairs}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionPairs", v)}
             keyboardType="numeric"
@@ -868,8 +873,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "إنتاج (درزن)" : "Dozen"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.productionDozen}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionDozen", v)}
             keyboardType="numeric"
@@ -882,8 +887,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر جوارب (جم)" : "Socks (g)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.wasteSocksGrams}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteSocksGrams", v)}
             keyboardType="numeric"
@@ -892,8 +897,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر خيوط (جم)" : "Thread (g)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.wasteThreadGrams}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteThreadGrams", v)}
             keyboardType="numeric"
@@ -921,8 +926,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "الإبر المستخدمة" : "Needles used"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.needlesUsed}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "needlesUsed", v)}
             keyboardType="numeric"
@@ -931,8 +936,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "هدر إبر" : "Needles waste"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.wasteNeedles}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "wasteNeedles", v)}
             keyboardType="numeric"
@@ -941,8 +946,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "نخب ثاني (زوج)" : "2nd (Pairs)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.secondGradePairs}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "secondGradePairs", v)}
             keyboardType="numeric"
@@ -951,8 +956,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "نخب ثاني (درزن)" : "2nd (Dz)"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.secondGradeDozen}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "secondGradeDozen", v)}
             keyboardType="numeric"
@@ -965,8 +970,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "دقيقة" : "Min"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.productionMinutes}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionMinutes", v)}
             keyboardType="numeric"
@@ -975,8 +980,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "ساعة" : "Hour"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 13 }}
-            placeholder="0" placeholderTextColor={colors.muted}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder="0" placeholderTextColor={fieldPlaceholderColor}
             value={product.productionHours}
             onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "productionHours", v)}
             keyboardType="numeric"
@@ -1001,8 +1006,8 @@ export default function ProductionScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <TextInput
-                  style={{ backgroundColor: product[field] ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: product[field] ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-                  placeholder="0" placeholderTextColor={colors.muted}
+                  style={{ backgroundColor: product[field] ? '#f0fdf4' : fieldBackgroundColor, borderWidth: 1, borderColor: product[field] ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 12 }}
+                  placeholder="0" placeholderTextColor={fieldPlaceholderColor}
                   value={product[field]}
                   editable={!productLocked}
                   onFocus={productLocked ? notifySavedProductLocked : undefined}
@@ -1049,9 +1054,9 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نهاية الوردية" : "Shift End"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
             placeholder="18:00"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={fieldPlaceholderColor}
             value={shift.shiftEnd}
             onChangeText={(v) => updateShiftField(machine, shiftIndex, "shiftEnd", v)}
           />
@@ -1059,9 +1064,9 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بداية الوردية" : "Shift Start"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: colors.foreground, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
             placeholder="06:00"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={fieldPlaceholderColor}
             value={shift.shiftStart}
             onChangeText={(v) => updateShiftField(machine, shiftIndex, "shiftStart", v)}
           />
@@ -1117,11 +1122,11 @@ export default function ProductionScreen() {
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: colors.foreground, textAlign: 'right', fontSize: 16 }}
+            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: fieldTextColor, textAlign: 'right', fontSize: 16 }}
             value={selectedDate}
             onChangeText={setSelectedDate}
             placeholder="2026-01-01"
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={fieldPlaceholderColor}
           />
         </View>
 
@@ -1215,7 +1220,20 @@ export default function ProductionScreen() {
           <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{entries.length} {isAr ? "سجل" : "Record"}</Text>
         </View>
 
-        <BackButton />
+        <BackButton
+          onPress={() => {
+            if (showForm) {
+              resetForm();
+              setShowForm(false);
+            } else if (showDailySummary) {
+              setShowDailySummary(false);
+            } else if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/(tabs)" as any);
+            }
+          }}
+        />
       </View>
 
       {/* الملخص اليومي */}
