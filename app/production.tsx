@@ -978,92 +978,40 @@ export default function ProductionScreen() {
         </View>
       </View>
 
-      {/* وزن الخيوط */}
+      {/* أوزان الخيوط حسب النوع: وزن بالزوج وإجمالي الإنتاج */}
       <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 8, marginTop: 4 }}>
-        <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 11, marginBottom: 6, textAlign: 'right' }}>{isAr ? "وزن الخيوط (جرام)" : "Yarn Weight (g)"}</Text>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "اسباندكس" : "Spandex"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnSpandex}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpandex", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "مطاط" : "Rubber"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnRubber}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnRubber", v)}
-              keyboardType="numeric"
-            />
-          </View>
+        <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 11, marginBottom: 6, textAlign: 'right' }}>{isAr ? "أوزان الخيوط حسب النوع (جرام)" : "Yarn weights by type (g)"}</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4, alignItems: 'center' }}>
+          <View style={{ flex: 1.1 }}><Text style={{ color: colors.muted, fontSize: 9, textAlign: 'right' }}>{isAr ? "نوع الخيط" : "Yarn type"}</Text></View>
+          <View style={{ flex: 1 }}><Text style={{ color: colors.muted, fontSize: 9, textAlign: 'right' }}>{isAr ? "وزن بالزوج" : "Per pair"}</Text></View>
+          <View style={{ flex: 1 }}><Text style={{ color: colors.muted, fontSize: 9, textAlign: 'right' }}>{isAr ? "الإجمالي" : "Total"}</Text></View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "قطن" : "Cotton"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnCotton}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnCotton", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "نايلون" : "Nylon"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnNylon}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnNylon", v)}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "اسبان" : "Span"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnSpan}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnSpan", v)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2, textAlign: 'right' }}>{isAr ? "بامبو" : "Bamboo"}</Text>
-            <TextInput
-              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
-              placeholder="0" placeholderTextColor={colors.muted}
-              value={product.yarnBamboo}
-              editable={!productLocked}
-              onFocus={productLocked ? notifySavedProductLocked : undefined}
-              onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "yarnBamboo", v)}
-              keyboardType="numeric"
-            />
-          </View>
-        </View>
-        <View style={{ backgroundColor: '#f8fafc', borderRadius: 6, padding: 7, marginTop: 6 }}>
-          <Text style={{ color: colors.foreground, fontWeight: '700', fontSize: 10, textAlign: 'right', marginBottom: 4 }}>{isAr ? "تفصيل وزن الخيوط: الزوج والإجمالي (جرام)" : "Yarn detail: per pair and production total (g)"}</Text>
-          <Text style={{ color: colors.muted, fontSize: 10, textAlign: 'right' }}>{isAr ? `الكمية المحولة: ${getProductPairs(product)} زوج` : `Converted quantity: ${getProductPairs(product)} pairs`}</Text>
-          {([['yarnRubber', isAr ? 'مطاط' : 'Rubber'], ['yarnSpandex', isAr ? 'إسباندكس' : 'Spandex'], ['yarnNylon', isAr ? 'نايلون' : 'Nylon'], ['yarnCotton', isAr ? 'قطن' : 'Cotton'], ['yarnBamboo', isAr ? 'بامبو' : 'Bamboo'], ['yarnSpan', isAr ? 'إسبان' : 'Span']] as [YarnWeightField, string][]).map(([field, label]) => <View key={field} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 }}><Text style={{ color: colors.primary, fontSize: 10 }}>{(parseFloat(product[field]) || 0).toFixed(2)} {isAr ? 'جم/زوج' : 'g/pair'} → {getProductYarnTotal(product, field).toFixed(2)} {isAr ? 'جم إجمالي' : 'g total'}</Text><Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text></View>)}
-          <Text style={{ color: colors.foreground, fontWeight: '800', fontSize: 11, textAlign: 'right', marginTop: 5 }}>{isAr ? `إجمالي كل الخيوط: ${getProductTotalYarn(product).toFixed(2)} جم` : `All yarn total: ${getProductTotalYarn(product).toFixed(2)} g`}</Text>
+        {([['yarnRubber', isAr ? 'مطاط' : 'Rubber'], ['yarnSpandex', isAr ? 'إسباندكس' : 'Spandex'], ['yarnNylon', isAr ? 'نايلون' : 'Nylon'], ['yarnCotton', isAr ? 'قطن' : 'Cotton'], ['yarnBamboo', isAr ? 'بامبو' : 'Bamboo'], ['yarnSpan', isAr ? 'إسبان' : 'Span']] as [YarnWeightField, string][]).map(([field, label]) => {
+          const total = getProductYarnTotal(product, field);
+          return (
+            <View key={field} style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 5 }}>
+              <View style={{ flex: 1.1, backgroundColor: '#f8fafc', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 7 }}>
+                <Text style={{ color: colors.foreground, fontSize: 11, fontWeight: '700', textAlign: 'right' }}>{label}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={{ backgroundColor: product[field] ? '#f0fdf4' : colors.surface, borderWidth: 1, borderColor: product[field] ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 6, color: colors.foreground, textAlign: 'right', fontSize: 12 }}
+                  placeholder="0" placeholderTextColor={colors.muted}
+                  value={product[field]}
+                  editable={!productLocked}
+                  onFocus={productLocked ? notifySavedProductLocked : undefined}
+                  onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, field, v)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 7 }}>
+                <Text style={{ color: '#15803d', fontWeight: '700', fontSize: 12, textAlign: 'right' }}>{total.toFixed(2)} {isAr ? 'جم' : 'g'}</Text>
+              </View>
+            </View>
+          );
+        })}
+        <View style={{ backgroundColor: '#ecfeff', borderWidth: 1, borderColor: '#a5f3fc', borderRadius: 7, padding: 8, marginTop: 3 }}>
+          <Text style={{ color: '#0e7490', fontWeight: '800', fontSize: 12, textAlign: 'right' }}>{isAr ? `إجمالي الخيوط المستخدمة: ${getProductTotalYarn(product).toFixed(2)} جم` : `Total yarn used: ${getProductTotalYarn(product).toFixed(2)} g`}</Text>
         </View>
       </View>
     </View>
