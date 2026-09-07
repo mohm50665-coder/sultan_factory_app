@@ -1,0 +1,1 @@
+ALTER TABLE `products` MODIFY COLUMN `weightGrams` decimal(10,2);

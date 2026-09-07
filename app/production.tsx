@@ -1002,7 +1002,7 @@ export default function ProductionScreen() {
           return (
             <View key={field} style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 5 }}>
               <View style={{ flex: 1.1, backgroundColor: '#f8fafc', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 7 }}>
-                <Text style={{ color: colors.foreground, fontSize: 11, fontWeight: '700', textAlign: 'right' }}>{label}</Text>
+                <Text style={{ color: '#111827', fontSize: 11, fontWeight: '700', textAlign: 'right' }}>{label}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <TextInput

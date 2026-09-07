@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, timestamp, json, mysqlEnum } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, timestamp, json, mysqlEnum, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -815,7 +815,7 @@ export const products = mysqlTable("products", {
   name: varchar("name", { length: 255 }).notNull(),
   size: varchar("size", { length: 100 }),
   color: varchar("color", { length: 100 }),
-  weightGrams: int("weightGrams").default(0),
+  weightGrams: decimal("weightGrams", { precision: 10, scale: 2, mode: "number" }).default(0),
   yarnDetails: json("yarnDetails"),
   imageUrl: text("imageUrl"),
   attachments: json("attachments"),

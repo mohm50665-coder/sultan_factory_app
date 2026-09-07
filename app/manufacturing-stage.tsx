@@ -146,6 +146,7 @@ export default function ManufacturingStageScreen() {
 
   const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
   const isStageWorker = user?.department && MANUFACTURING_STAGE_IDS.includes(user.department) && user.department === stage;
+  const isProductionManager = user?.department === "production" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
 
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -183,7 +184,7 @@ export default function ManufacturingStageScreen() {
       if (data) {
         let filtered = data.filter((d: any) => d.stageName === stage);
         // العامل يشوف بياناته فقط، الأدمن يشوف الكل
-        if (user?.role !== 'admin') {
+        if (user?.role !== 'admin' && !isProductionManager) {
           filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name);
         }
         // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)

@@ -470,6 +470,7 @@ export default function HomeScreen() {
   // Filter dashboard items based on user department + admin sees all
   const userDepartment = user?.department || "";
   const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
+  const isProductionManager = userDepartment === "production" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
   // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
   const SHARED_ITEMS = ["administrative", "server_notifications", "tasks", "mail_center"];
   
@@ -509,6 +510,8 @@ export default function HomeScreen() {
     
     // الأيقونات الثابتة المشتركة تظهر للجميع دائماً
     if (SHARED_ITEMS.includes(item.id)) return true;
+    // مدير الإنتاج يحتاج رؤية تقرير مراحل التسليم وتتبّع جميع الحركات مثل الأدمن.
+    if (isProductionManager && ["manufacturing", "product_tracking", "daily_summary"].includes(item.id)) return true;
     // If admin assigned specific sections to this user, use those
     if (user?.allowedSections && user.allowedSections.length > 0) {
       return user.allowedSections.includes(item.id);

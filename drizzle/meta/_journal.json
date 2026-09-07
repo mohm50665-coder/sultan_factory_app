@@ -57,6 +57,13 @@
       "when": 1788535561752,
       "tag": "0007_chunky_mysterio",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1788790972774,
+      "tag": "0008_lively_night_thrasher",
+      "breakpoints": true
     }
   ]
 }
