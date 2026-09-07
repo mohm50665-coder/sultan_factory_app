@@ -341,11 +341,11 @@ export default function ProductionScreen() {
           shift.products.forEach((product) => {
             // اسم المنتج = صنف - مقاس - لون
             const productName = getFullProductName(product);
-            if (!productName && !product.productionDozen && !product.productionPairs) return; // تخطي المنتجات الفارغة
+            if (!productName && !product.productionDozen && !product.productionPairs && !product.yarnRubber && !product.yarnSpandex && !product.yarnNylon && !product.yarnCotton && !product.yarnBamboo && !product.yarnSpan) return;
             batchEntries.push({
               date: entry.date,
               machineNumber: machine,
-              productName: productName,
+              productName: productName || (isAr ? "منتج غير محدد" : "Unnamed product"),
               shiftNumber: shift.shiftNumber || 1,
               shiftStart: shift.shiftStart || "",
               shiftEnd: shift.shiftEnd || "",
@@ -371,8 +371,12 @@ export default function ProductionScreen() {
           });
         });
       });
-      if (batchEntries.length > 0) {
-        await productionService.createBatch(batchEntries);
+      if (batchEntries.length === 0) {
+        throw new Error(isAr ? "لا توجد بيانات إنتاج قابلة للحفظ" : "No production data to save");
+      }
+      const result = await productionService.createBatch(batchEntries);
+      if (!result?.success) {
+        throw new Error(isAr ? "لم يؤكد الخادم حفظ بيانات الإنتاج" : "The server did not confirm production save");
       }
     } catch (e) {
       console.log("Error saving to server:", e);
@@ -556,7 +560,9 @@ export default function ProductionScreen() {
       setShowForm(false);
       Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
     } catch (e) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      const message = e instanceof Error ? e.message : "";
+      console.error("Production save failed:", e);
+      Alert.alert(isAr ? "خطأ في الحفظ" : "Save error", message || (isAr ? "فشل حفظ البيانات" : "Failed to save data"));
     }
   };
 

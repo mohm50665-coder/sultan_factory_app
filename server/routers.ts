@@ -674,22 +674,27 @@ export const appRouter = router({
         if (input.entries.length === 0) return { success: true, count: 0 };
         const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, ...entry }) => entry);
         await db.insert(productionTable).values(entriesForProduction);
+        // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
         const cache = new Map<string, any>();
         for (const entry of input.entries) {
-          const identity = parseLegacyProductName(entry.productName);
-          await ensureCatalogProduct(db, {
-            ...identity,
-            weightGrams: entry.yarnWeightPerPair || 0,
-            yarnDetails: {
-              yarnRubber: entry.yarnRubber || 0,
-              yarnSpandex: entry.yarnSpandex || 0,
-              yarnNylon: entry.yarnNylon || 0,
-              yarnCotton: entry.yarnCotton || 0,
-              yarnBamboo: entry.yarnBamboo || 0,
-              yarnSpan: entry.yarnSpan || 0,
-            },
-            createdBy: entry.userId,
-          }, cache);
+          try {
+            const identity = parseLegacyProductName(entry.productName);
+            await ensureCatalogProduct(db, {
+              ...identity,
+              weightGrams: entry.yarnWeightPerPair || 0,
+              yarnDetails: {
+                yarnRubber: entry.yarnRubber || 0,
+                yarnSpandex: entry.yarnSpandex || 0,
+                yarnNylon: entry.yarnNylon || 0,
+                yarnCotton: entry.yarnCotton || 0,
+                yarnBamboo: entry.yarnBamboo || 0,
+                yarnSpan: entry.yarnSpan || 0,
+              },
+              createdBy: entry.userId,
+            }, cache);
+          } catch (catalogError) {
+            console.error("Production saved, catalog sync failed:", catalogError);
+          }
         }
         return { success: true, count: input.entries.length };
       }),

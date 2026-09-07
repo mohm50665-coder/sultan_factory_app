@@ -168,6 +168,10 @@ export default function ManufacturingStageScreen() {
   const [notes, setNotes] = useState("");
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
   const [stageAttachments, setStageAttachments] = useState<AttachmentFile[]>([]);
+  const [showStageReport, setShowStageReport] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [reportWorker, setReportWorker] = useState("all");
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
     loadEntries();
@@ -295,9 +299,11 @@ export default function ManufacturingStageScreen() {
           userId: user?.id || 1,
         };
         if (editingEntry) {
-          await manufacturingStageService.update(parseInt(editingEntry.id), apiData);
+          const result = await manufacturingStageService.update(parseInt(editingEntry.id), apiData);
+          if ((result as any)?.success === false) throw new Error("Stage update was not confirmed");
         } else {
-          await manufacturingStageService.create(apiData);
+          const result = await manufacturingStageService.create(apiData);
+          if ((result as any)?.success === false) throw new Error("Stage save was not confirmed");
         }
       } else {
         // مراحل عادية - إدخال لكل منتج
@@ -320,7 +326,8 @@ export default function ManufacturingStageScreen() {
             date: entryDate,
             userId: user?.id || 1,
           };
-          await manufacturingStageService.create(apiData);
+          const result = await manufacturingStageService.create(apiData);
+          if ((result as any)?.success === false) throw new Error("Stage save was not confirmed");
         }
       }
 
@@ -371,6 +378,37 @@ export default function ManufacturingStageScreen() {
         },
       ]
     );
+  };
+
+  const getReportWindow = (anchor: string, period: "daily" | "weekly" | "monthly") => {
+    const date = new Date(`${anchor}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return { start: anchor, end: anchor };
+    const start = new Date(date);
+    const end = new Date(date);
+    if (period === "weekly") {
+      const day = start.getDay();
+      start.setDate(start.getDate() - day);
+      end.setDate(start.getDate() + 6);
+    } else if (period === "monthly") {
+      start.setDate(1);
+      end.setMonth(start.getMonth() + 1, 0);
+    }
+    const format = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    return { start: format(start), end: format(end) };
+  };
+
+  const getStageReport = () => {
+    const window = getReportWindow(reportDate, reportPeriod);
+    const selectedEntries = entries.filter((entry) => {
+      const inRange = entry.date >= window.start && entry.date <= window.end;
+      const workerMatch = reportWorker === "all" || entry.workerName === reportWorker;
+      return inRange && workerMatch;
+    });
+    const productsCount = selectedEntries.reduce((sum, entry) => sum + entry.products.length, 0);
+    const totalDozen = selectedEntries.reduce((sum, entry) => sum + entry.products.reduce((inner, product) => inner + (parseInt(product.quantityDozen) || 0), 0), 0);
+    const totalPairs = selectedEntries.reduce((sum, entry) => sum + entry.products.reduce((inner, product) => inner + (parseInt(product.quantityPairs) || 0), 0), 0);
+    const workers = Array.from(new Set(selectedEntries.map((entry) => entry.workerName).filter(Boolean)));
+    return { window, selectedEntries, productsCount, totalDozen, totalPairs, workers };
   };
 
   // عرض سجل واحد
@@ -457,23 +495,31 @@ export default function ManufacturingStageScreen() {
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
       <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        {isViewOnly ? (
-          <View style={{ width: 40 }} />
-        ) : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {!isViewOnly && (
+            <TouchableOpacity
+              onPress={() => { resetForm(); setShowForm(true); }}
+              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+              accessibilityLabel={isAr ? "إضافة بيانات" : "Add data"}
+            >
+              <MaterialIcons name="add" size={24} color="white" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            onPress={() => { resetForm(); setShowForm(true); }}
+            onPress={() => setShowStageReport((value) => !value)}
             style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+            accessibilityLabel={isAr ? "تقرير المرحلة" : "Stage report"}
           >
-            <MaterialIcons name="add" size={24} color="white" />
+            <MaterialIcons name="assessment" size={22} color="white" />
           </TouchableOpacity>
-        )}
+        </View>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 }}>
             {entries.length > 0 ? (isAr ? `${entries.length} سجل` : `${entries.length} records`) : (isAr ? "لا توجد سجلات" : "No records")}
           </Text>
         </View>
-        <BackButton />
+        <BackButton onPress={showForm ? () => { resetForm(); setShowForm(false); } : undefined} />
       </View>
 
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.background }}>
@@ -494,6 +540,69 @@ export default function ManufacturingStageScreen() {
           <Text style={{ color: "#166534", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع الاستلام" : "Sign receipt"}</Text>
         </TouchableOpacity>
       </View>
+
+      {showStageReport && (() => {
+        const report = getStageReport();
+        const reportWorkers = Array.from(new Set([...(stageWorkers || []), ...entries.map((entry) => entry.workerName).filter(Boolean)]));
+        const periodButton = (period: "daily" | "weekly" | "monthly", labelAr: string, labelEn: string) => (
+          <TouchableOpacity
+            key={period}
+            onPress={() => setReportPeriod(period)}
+            style={{ flex: 1, backgroundColor: reportPeriod === period ? config.color : colors.background, borderWidth: 1, borderColor: config.color, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}
+          >
+            <Text style={{ color: reportPeriod === period ? "white" : config.color, fontSize: 12, fontWeight: "800" }}>{isAr ? labelAr : labelEn}</Text>
+          </TouchableOpacity>
+        );
+        return (
+          <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 12, padding: 12 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <Text style={{ color: config.color, fontWeight: "800", fontSize: 15, textAlign: isAr ? "right" : "left" }}>{isAr ? `تقرير ${config.name}` : `${config.name} Report`}</Text>
+              <MaterialIcons name="assessment" size={20} color={config.color} />
+            </View>
+            <View style={{ flexDirection: "row", gap: 6, marginBottom: 8 }}>
+              {periodButton("daily", "يومي", "Daily")}
+              {periodButton("weekly", "أسبوعي", "Weekly")}
+              {periodButton("monthly", "شهري", "Monthly")}
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
+            <TextInput
+              value={reportDate}
+              onChangeText={setReportDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.muted}
+              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: isAr ? "right" : "left", marginBottom: 8 }}
+            />
+            {user?.role === "admin" && reportWorkers.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
+                <TouchableOpacity onPress={() => setReportWorker("all")} style={{ backgroundColor: reportWorker === "all" ? config.color : colors.background, borderWidth: 1, borderColor: config.color, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+                  <Text style={{ color: reportWorker === "all" ? "white" : config.color, fontSize: 11, fontWeight: "700" }}>{isAr ? "كل العمال" : "All workers"}</Text>
+                </TouchableOpacity>
+                {reportWorkers.map((worker) => (
+                  <TouchableOpacity key={worker} onPress={() => setReportWorker(worker)} style={{ backgroundColor: reportWorker === worker ? config.color : colors.background, borderWidth: 1, borderColor: config.color, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
+                    <Text style={{ color: reportWorker === worker ? "white" : config.color, fontSize: 11, fontWeight: "700" }}>{worker}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {[
+                [isAr ? "السجلات" : "Records", String(report.selectedEntries.length)],
+                [isAr ? "المنتجات" : "Products", String(report.productsCount)],
+                [isAr ? "الدرزن" : "Dozen", String(report.totalDozen)],
+                [isAr ? "الأزواج" : "Pairs", String(report.totalPairs)],
+              ].map(([label, value]) => (
+                <View key={label} style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}>
+                  <Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text>
+                  <Text style={{ color: config.color, fontWeight: "800", fontSize: 16 }}>{value}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 8, textAlign: isAr ? "right" : "left" }}>
+              {isAr ? `الفترة: ${report.window.start} إلى ${report.window.end} — المرحلة: ${config.name}` : `Period: ${report.window.start} to ${report.window.end} — Stage: ${config.name}`}
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* نموذج الإدخال */}
       {showForm ? (

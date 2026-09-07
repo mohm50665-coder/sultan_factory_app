@@ -7,14 +7,23 @@ interface BackButtonProps {
   color?: string;
   size?: number;
   target?: string;
+  onPress?: () => void;
 }
 
-export function BackButton({ color = "white", size = 24, target = "/(tabs)" }: BackButtonProps) {
+export function BackButton({ color = "white", size = 24, target = "/(tabs)", onPress }: BackButtonProps) {
   const router = useRouter();
 
   return (
     <Pressable
-      onPress={() => router.replace(target as any)}
+      onPress={() => {
+        if (onPress) {
+          onPress();
+        } else if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace(target as any);
+        }
+      }}
       style={({ pressed }) => [
         styles.button,
         pressed && styles.pressed,
