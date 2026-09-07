@@ -7,7 +7,7 @@ import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
-import { productionService, manufacturingService, productTrackingService, productsService } from "@/lib/services/api.service";
+import { productionService, manufacturingService, productTrackingService, productsService, employeePerformanceService } from "@/lib/services/api.service";
 
 const STAGES = [
   { id: "machines", ar: "إنتاج", en: "Production", color: "#6B7280", icon: "precision-manufacturing" },
@@ -48,6 +48,7 @@ export default function ProductTrackingScreen() {
   const [manufacturing, setManufacturing] = useState<any[]>([]);
   const [handoverRecords, setHandoverRecords] = useState<any[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [receivedBy, setReceivedBy] = useState("");
@@ -59,11 +60,12 @@ export default function ProductTrackingScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productionRows, stageRows, trackingRows, catalogRows] = await Promise.all([
+      const [productionRows, stageRows, trackingRows, catalogRows, employeeRows] = await Promise.all([
         productionService.getAll(),
         manufacturingService.getAll(),
         productTrackingService.list(),
         productsService.list(),
+        employeePerformanceService.listEmployees().catch(() => []),
       ]);
       const productionList = Array.isArray(productionRows) ? productionRows : [];
       const manufacturingList = Array.isArray(stageRows) ? stageRows : [];
@@ -79,11 +81,15 @@ export default function ProductTrackingScreen() {
           const key = String(row.productName);
           const actionAt = row.movementAt || row.createdAt || null;
           if (row.movementStatus === "received") {
-            pendingReceived[key] = { at: actionAt, by: row.sourceWorker, stage: row.sourceStage };
-            movementHistory.push({ id: `movement-received-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: row.sourceStage, currentStage: row.sourceStage, receivedBy: row.sourceWorker, receivedAt: actionAt, handoverStatus: "received", quantityDozen: row.quantityDozen || row.productionDozen || 0, quantityPairs: row.quantityPair || row.productionPairs || 0, createdAt: actionAt });
+            const receivedDozen = numberValue(row.quantityDozen || row.productionDozen);
+            const receivedPairs = numberValue(row.quantityPair || row.productionPairs);
+            pendingReceived[key] = { at: actionAt, by: row.sourceWorker, stage: row.sourceStage, dozen: receivedDozen, pairs: receivedPairs };
+            movementHistory.push({ id: `movement-received-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: row.sourceStage, currentStage: row.sourceStage, receivedBy: row.sourceWorker, receivedAt: actionAt, handoverStatus: "received", quantityDozen: receivedDozen, quantityPairs: receivedPairs, receivedQuantityDozen: receivedDozen, receivedQuantityPairs: receivedPairs, createdAt: actionAt });
           } else if (row.movementStatus === "delivered") {
             const received = pendingReceived[key];
-            movementHistory.push({ id: `movement-delivered-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: received?.stage || row.sourceStage, currentStage: row.sourceStage, deliveredBy: row.sourceWorker, deliveredAt: actionAt, receivedBy: received?.by, receivedAt: received?.at, handoverStatus: "delivered", quantityDozen: row.quantityDozen || row.productionDozen || 0, quantityPairs: row.quantityPair || row.productionPairs || 0, createdAt: actionAt });
+            const deliveredDozen = numberValue(row.quantityDozen || row.productionDozen);
+            const deliveredPairs = numberValue(row.quantityPair || row.productionPairs);
+            movementHistory.push({ id: `movement-delivered-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: received?.stage || row.sourceStage, currentStage: row.sourceStage, deliveredBy: row.sourceWorker, deliveredAt: actionAt, receivedBy: received?.by, receivedAt: received?.at, handoverStatus: "delivered", quantityDozen: deliveredDozen, quantityPairs: deliveredPairs, receivedQuantityDozen: received?.dozen || 0, receivedQuantityPairs: received?.pairs || 0, deliveredQuantityDozen: deliveredDozen, deliveredQuantityPairs: deliveredPairs, shortageDozen: Math.max(0, (received?.dozen || 0) - deliveredDozen), shortagePairs: Math.max(0, (received?.pairs || 0) - deliveredPairs), createdAt: actionAt });
             delete pendingReceived[key];
           }
         });
@@ -91,6 +97,7 @@ export default function ProductTrackingScreen() {
       setManufacturing(manufacturingList);
       setHandoverRecords([...(Array.isArray(trackingRows) ? trackingRows : []), ...movementHistory]);
       setCatalogProducts(Array.isArray(catalogRows) ? catalogRows : []);
+      setEmployees(Array.isArray(employeeRows) ? employeeRows : []);
     } catch (error) {
       console.error("Product tracking load failed", error);
       Alert.alert(isAr ? "تعذر تحميل التتبع" : "Tracking unavailable", isAr ? "تحقق من اتصال الخادم ثم حاول مرة أخرى" : "Check the server connection and try again");
@@ -126,6 +133,16 @@ export default function ProductTrackingScreen() {
   }, [production, dateFilter, isAr]);
 
   const catalogForProduct = (productName: string) => catalogProducts.find((item) => String(item.name || "") === productName) || {};
+  const employeeFor = (name: unknown) => employees.find((employee) => String(employee.name || "") === String(name || "") || String(employee.username || "") === String(name || "")) || {};
+  const employeeSummaryLabel = (name: unknown) => {
+    const employee = employeeFor(name);
+    if (!name && !employee.name) return isAr ? "غير محدد" : "Not specified";
+    return [employee.name || name, employee.position, employee.department].filter(Boolean).join(" — ");
+  };
+  const employeeDetailsLabel = (name: unknown) => {
+    const employee = employeeFor(name);
+    return [employee.name || name, employee.username && `اسم المستخدم: ${employee.username}`, employee.phone && `الجوال: ${employee.phone}`, employee.email && `البريد: ${employee.email}`, employee.department && `القسم: ${employee.department}`, employee.position && `الوظيفة: ${employee.position}`].filter(Boolean).join(" | ");
+  };
   const stageForProduct = (productName: string) => {
     const tracked = handoverRecords
       .filter((row) => String(row.productName || "") === productName)
@@ -173,11 +190,11 @@ export default function ProductTrackingScreen() {
       Alert.alert(isAr ? "الطباعة متاحة من الويب" : "Web printing", isAr ? "افتح التقرير من نسخة الويب لطباعة التقرير" : "Open the web version to print this report");
       return;
     }
-    const rows = filteredHandovers.map((row) => { const catalog = catalogForProduct(String(row.productName || "")); return `<tr><td>${escapeHtml(row.productName || "-")}</td><td>${escapeHtml(row.productBarcode || catalog.barcode || "غير محدد")}</td><td>${escapeHtml(row.productColor || catalog.color || "غير محدد")}</td><td>${escapeHtml(row.productSize || catalog.size || "غير محدد")}</td><td>${escapeHtml(row.qualityGrade === "second" ? "نخب ثاني" : row.qualityGrade === "first" ? "نخب أول" : "غير محدد")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</td><td>${escapeHtml(row.deliveredBy || "-")}</td><td>${escapeHtml(row.receivedBy || "بانتظار الاستلام")}</td><td>${escapeHtml(formatActionTime(row.deliveredAt))}</td><td>${escapeHtml(formatActionTime(row.receivedAt))}</td><td>${escapeHtml(elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), true))}</td><td>${numberValue(row.quantityDozen)} درزن + ${numberValue(row.quantityPairs)} زوج</td></tr>`; }).join("");
+    const rows = filteredHandovers.map((row) => { const catalog = catalogForProduct(String(row.productName || "")); const deliveredEmployee = employeeDetailsLabel(row.deliveredBy); const receivedEmployee = employeeDetailsLabel(row.receivedBy); const receivedQty = `${numberValue(row.receivedQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.receivedQuantityPairs ?? row.quantityPairs)} زوج`; const deliveredQty = `${numberValue(row.deliveredQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.deliveredQuantityPairs ?? row.quantityPairs)} زوج`; const shortage = `${numberValue(row.shortageDozen)} درزن + ${numberValue(row.shortagePairs)} زوج`; return `<tr><td>${escapeHtml(row.productName || "-")}</td><td>${escapeHtml(row.productBarcode || catalog.barcode || "غير محدد")}</td><td>${escapeHtml(row.productColor || catalog.color || "غير محدد")}</td><td>${escapeHtml(row.productSize || catalog.size || "غير محدد")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</td><td>${escapeHtml(deliveredEmployee || "-")}</td><td>${escapeHtml(receivedEmployee || "بانتظار الاستلام")}</td><td>${escapeHtml(formatActionTime(row.deliveredAt))}</td><td>${escapeHtml(formatActionTime(row.receivedAt))}</td><td>${escapeHtml(elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), true))}</td><td>${escapeHtml(receivedQty)}</td><td>${escapeHtml(deliveredQty)}</td><td>${escapeHtml(shortage)}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`; }).join("");
     const summaryRows = employeeSummary.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.deliveredCount}</td><td>${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج</td><td>${item.receivedCount}</td><td>${item.receivedDozen} درزن + ${item.receivedPairs} زوج</td></tr>`).join("");
     const printWindow = window.open("", "_blank", "width=1200,height=800");
     if (!printWindow) return;
-    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير التسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#17202a}h1,h2{text-align:right;color:#0a7ea4}p{text-align:right}.filters{background:#f2f8fa;padding:12px;border-radius:8px}table{width:100%;border-collapse:collapse;margin:12px 0 24px;font-size:12px}th,td{border:1px solid #b8c7cc;padding:7px;text-align:right}th{background:#0a7ea4;color:white}tr:nth-child(even){background:#f5fafb}@media print{button{display:none}}</style></head><body><h1>تقرير التسليم والاستلام في مراحل الإنتاج</h1><p class="filters">التاريخ: ${escapeHtml(dateFilter || "كل التواريخ")} | المرحلة: ${escapeHtml(stageFilter === "all" ? "كل المراحل" : stageLabel(stageFilter))} | الموظف: ${escapeHtml(employeeFilter || "كل الموظفين")}</p><h2>ملخص الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>التفاصيل</h2><table><thead><tr><th>اسم المنتج</th><th>الباركود</th><th>اللون</th><th>المقاس</th><th>التصنيف</th><th>المسار</th><th>المسلّم</th><th>المستلم</th><th>وقت التسليم</th><th>وقت الاستلام</th><th>الانتظار</th><th>الكمية</th></tr></thead><tbody>${rows || '<tr><td colspan="12">لا توجد بيانات</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
+    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير التسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#17202a}h1,h2{text-align:right;color:#0a7ea4}p{text-align:right}.filters{background:#f2f8fa;padding:12px;border-radius:8px}table{width:100%;border-collapse:collapse;margin:12px 0 24px;font-size:12px}th,td{border:1px solid #b8c7cc;padding:7px;text-align:right}th{background:#0a7ea4;color:white}tr:nth-child(even){background:#f5fafb}@media print{button{display:none}}</style></head><body><h1>تقرير التسليم والاستلام في مراحل الإنتاج</h1><p class="filters">التاريخ: ${escapeHtml(dateFilter || "كل التواريخ")} | المرحلة: ${escapeHtml(stageFilter === "all" ? "كل المراحل" : stageLabel(stageFilter))} | الموظف: ${escapeHtml(employeeFilter || "كل الموظفين")}</p><h2>ملخص الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>التفاصيل</h2><table><thead><tr><th>اسم المنتج</th><th>الباركود</th><th>اللون</th><th>المقاس</th><th>المسار</th><th>بيانات المسلّم</th><th>بيانات المستلم</th><th>وقت التسليم</th><th>وقت الاستلام</th><th>المدة</th><th>كمية الاستلام</th><th>كمية التسليم</th><th>النقص</th><th>الملاحظات</th></tr></thead><tbody>${rows || '<tr><td colspan="12">لا توجد بيانات</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
     printWindow.document.close();
   };
 
@@ -317,7 +334,7 @@ export default function ProductTrackingScreen() {
 
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
           <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "800", textAlign: "right" }}>{isAr ? "سجل التسليم والاستلام التفصيلي" : "Detailed handover and receipt log"}</Text>
-          {filteredHandovers.slice(0, 100).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>الباركود: {row.productBarcode || catalogForProduct(String(row.productName || "")).barcode || "غير محدد"} | اللون: {row.productColor || catalogForProduct(String(row.productName || "")).color || "غير محدد"} | المقاس: {row.productSize || catalogForProduct(String(row.productName || "")).size || "غير محدد"} | التصنيف: {row.qualityGrade === "second" ? "نخب ثاني" : row.qualityGrade === "first" ? "نخب أول" : "غير محدد"}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"} | المُسلِّم: ${row.deliveredBy || "-"} | المُستلم: ${row.receivedBy || "بانتظار التوقيع"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"} | Delivered: ${row.deliveredBy || "-"} | Received: ${row.receivedBy || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | مدة الانتظار: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Waiting: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `الكمية: ${row.quantityDozen || 0} درزن + ${row.quantityPairs || 0} زوج` : `Quantity: ${row.quantityDozen || 0} dz + ${row.quantityPairs || 0} pairs`}</Text></View>)}
+          {filteredHandovers.slice(0, 100).map((row) => <View key={String(row.id)} style={{ borderTopWidth: 1, borderColor: colors.border, paddingVertical: 8, marginTop: 7 }}><Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right" }}>{row.productName}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>الباركود: {row.productBarcode || catalogForProduct(String(row.productName || "")).barcode || "غير محدد"} | اللون: {row.productColor || catalogForProduct(String(row.productName || "")).color || "غير محدد"} | المقاس: {row.productSize || catalogForProduct(String(row.productName || "")).size || "غير محدد"} | التصنيف: {row.qualityGrade === "second" ? "نخب ثاني" : row.qualityGrade === "first" ? "نخب أول" : "غير محدد"}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>{isAr ? `من ${row.previousStage || "-"} إلى ${row.currentStage || "-"}` : `From ${row.previousStage || "-"} to ${row.currentStage || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `المسلّم: ${employeeDetailsLabel(row.deliveredBy) || "-"}` : `Delivered employee: ${employeeDetailsLabel(row.deliveredBy) || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `المستلم: ${employeeDetailsLabel(row.receivedBy) || "بانتظار التوقيع"}` : `Received employee: ${employeeDetailsLabel(row.receivedBy) || "Awaiting signature"}`}</Text><Text style={{ color: row.receivedAt ? "#16a34a" : "#d97706", fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `وقت التسليم: ${formatActionTime(row.deliveredAt)} | وقت الاستلام: ${formatActionTime(row.receivedAt)} | المدة: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}` : `Delivered: ${formatActionTime(row.deliveredAt)} | Received: ${formatActionTime(row.receivedAt)} | Duration: ${elapsedLabel(elapsedMinutes(row.deliveredAt, row.receivedAt), isAr)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 2 }}>{isAr ? `كمية الاستلام: ${numberValue(row.receivedQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.receivedQuantityPairs ?? row.quantityPairs)} زوج | كمية التسليم: ${numberValue(row.deliveredQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.deliveredQuantityPairs ?? row.quantityPairs)} زوج | النقص: ${numberValue(row.shortageDozen)} درزن + ${numberValue(row.shortagePairs)} زوج` : `Received: ${numberValue(row.receivedQuantityDozen ?? row.quantityDozen)} dz + ${numberValue(row.receivedQuantityPairs ?? row.quantityPairs)} pairs | Delivered: ${numberValue(row.deliveredQuantityDozen ?? row.quantityDozen)} dz + ${numberValue(row.deliveredQuantityPairs ?? row.quantityPairs)} pairs | Shortage: ${numberValue(row.shortageDozen)} dz + ${numberValue(row.shortagePairs)} pairs`}</Text></View>)}
           {filteredHandovers.length === 0 && <Text style={{ color: colors.muted, textAlign: "right", marginTop: 9, fontSize: 11 }}>{isAr ? "لا توجد عمليات تسليم واستلام لهذا التاريخ" : "No handovers for this date"}</Text>}
         </View>
       </ScrollView>
