@@ -97,6 +97,8 @@ export const manufacturingStages = mysqlTable("manufacturingStages", {
   userId: int("userId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  deletedAt: timestamp("deletedAt"),
+  deletedBy: int("deletedBy"),
 });
 
 export type ManufacturingStage = typeof manufacturingStages.$inferSelect;

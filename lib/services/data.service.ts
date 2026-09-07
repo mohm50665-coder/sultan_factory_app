@@ -174,6 +174,14 @@ export const manufacturingStageService = {
   async delete(id: number): Promise<void> {
     await trpcCall("manufacturing.delete", { id });
   },
+
+  async getDeleted(): Promise<ManufacturingStageData[]> {
+    return await trpcCall("manufacturing.getDeleted", undefined, "query") || [];
+  },
+
+  async restore(id: number): Promise<void> {
+    await trpcCall("manufacturing.restore", { id });
+  },
 };
 
 // Sales Service - API based

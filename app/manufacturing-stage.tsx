@@ -155,6 +155,8 @@ export default function ManufacturingStageScreen() {
 
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashEntries, setTrashEntries] = useState<any[]>([]);
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
   // العامل يُحدد تلقائياً من حساب المستخدم المسجل دخول
   const [selectedWorker, setSelectedWorker] = useState(user?.name || "");
@@ -247,6 +249,20 @@ export default function ManufacturingStageScreen() {
     }
   };
 
+  const loadTrash = async () => {
+    if (!isAdmin) return;
+    try {
+      const deleted = await manufacturingStageService.getDeleted();
+      setTrashEntries((deleted || []).filter((item: any) => item.stageName === stage));
+    } catch (error) {
+      console.log("Error loading deleted stage records:", error);
+      setTrashEntries([]);
+    }
+  };
+  const handleRestore = (entry: any) => {
+    const label = [entry.productName, entry.workerName, entry.date].filter(Boolean).join(" - ");
+    Alert.alert(isAr ? "تأكيد الاسترجاع" : "Confirm restore", isAr ? `هل تريد استرجاع السجل؟\n${label}` : `Restore this record?\n${label}`, [{ text: isAr ? "إلغاء" : "Cancel", style: "cancel" }, { text: isAr ? "استرجاع" : "Restore", onPress: async () => { try { await manufacturingStageService.restore(Number(entry.id)); await loadTrash(); await loadEntries(); Alert.alert(isAr ? "تم الاسترجاع" : "Restored", isAr ? "تم استرجاع السجل بنجاح" : "Record restored successfully"); } catch (error) { Alert.alert(isAr ? "خطأ" : "Error", error instanceof Error ? error.message : (isAr ? "تعذر استرجاع السجل" : "Unable to restore record")); } } }]);
+  };
   const getSavedProductLabel = (product: any) => [product?.name, product?.size, product?.color].filter(Boolean).join(" - ");
 
   const selectSavedProduct = (index: number, product: any) => {
@@ -584,6 +600,13 @@ export default function ManufacturingStageScreen() {
           >
             <MaterialIcons name="assessment" size={22} color="white" />
           </TouchableOpacity>
+          {isAdmin && <TouchableOpacity
+            onPress={async () => { const next = !showTrash; setShowTrash(next); if (next) await loadTrash(); }}
+            style={{ backgroundColor: showTrash ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+            accessibilityLabel={isAr ? "سلة المهملات" : "Trash"}
+          >
+            <MaterialIcons name="delete-sweep" size={22} color="white" />
+          </TouchableOpacity>}
         </View>
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
@@ -611,8 +634,8 @@ export default function ManufacturingStageScreen() {
           <MaterialIcons name="login" size={18} color="#15803d" />
           <Text style={{ color: "#166534", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع الاستلام" : "Sign receipt"}</Text>
         </TouchableOpacity>
-      </View>
-
+            </View>
+      {showTrash && isAdmin && <View style={{ margin: 12, padding: 12, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: "#f59e0b" }}><Text style={{ color: "#b45309", fontWeight: "800", textAlign: isAr ? "right" : "left" }}>{isAr ? "سلة مهملات مراحل التسليم — الاسترجاع متاح خلال 30 يوماً" : "Stage trash — restore available for 30 days"}</Text>{trashEntries.length === 0 ? <Text style={{ color: colors.muted, textAlign: isAr ? "right" : "left", marginTop: 8 }}>{isAr ? "لا توجد سجلات محذوفة" : "No deleted records"}</Text> : trashEntries.map((entry: any) => <View key={String(entry.id)} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><TouchableOpacity onPress={() => handleRestore(entry)} style={{ backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{isAr ? "استرجاع" : "Restore"}</Text></TouchableOpacity><Text style={{ color: colors.foreground, flex: 1, textAlign: "right", marginRight: 8, fontSize: 11 }}>{[entry.productName, entry.workerName, entry.date].filter(Boolean).join(" | ")}</Text></View>)}</View>}
       {showStageReport && (() => {
         const report = getStageReport();
         const reportWorkers = Array.from(new Set([...(stageWorkers || []), ...entries.map((entry) => entry.workerName).filter(Boolean)]));

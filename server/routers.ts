@@ -51,7 +51,7 @@ import {
   products as productsTable,
   internalMessages as internalMessagesTable,
 } from "../drizzle/schema.js";
-import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
@@ -739,7 +739,13 @@ export const appRouter = router({
     getAll: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(manufacturingStagesTable).orderBy(desc(manufacturingStagesTable.createdAt));
+      return db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.createdAt));
+    }),
+
+    getDeleted: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(manufacturingStagesTable).where(sql`deletedAt IS NOT NULL`).orderBy(desc(manufacturingStagesTable.deletedAt));
     }),
 
     create: publicProcedure
@@ -767,19 +773,39 @@ export const appRouter = router({
 
     update: adminProcedure
       .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const previous = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        if (!previous[0] || previous[0].deletedAt) throw new Error("السجل غير موجود أو موجود في سلة المهملات");
         await db.update(manufacturingStagesTable).set(input.data as any).where(eq(manufacturingStagesTable.id, input.id));
+        await db.insert(auditLogTable).values({ userId: ctx.user.id, action: "update", tableName: "manufacturingStages", recordId: input.id, oldValue: previous[0] as any, newValue: input.data as any, description: "تعديل سجل مرحلة تسليم" });
         return { success: true };
       }),
 
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.delete(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id));
+        const previous = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        if (!previous[0] || previous[0].deletedAt) throw new Error("السجل غير موجود أو محذوف مسبقاً");
+        await db.update(manufacturingStagesTable).set({ deletedAt: new Date(), deletedBy: ctx.user.id }).where(eq(manufacturingStagesTable.id, input.id));
+        await db.insert(auditLogTable).values({ userId: ctx.user.id, action: "delete", tableName: "manufacturingStages", recordId: input.id, oldValue: previous[0] as any, description: "نقل سجل مرحلة تسليم إلى سلة المهملات" });
+        return { success: true };
+      }),
+
+    restore: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const deleted = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        if (!deleted[0] || !deleted[0].deletedAt) throw new Error("السجل غير موجود في سلة المهملات");
+        const restoreLimit = 30 * 24 * 60 * 60 * 1000;
+        if (Date.now() - new Date(deleted[0].deletedAt).getTime() > restoreLimit) throw new Error("انتهت مدة استرجاع السجل");
+        await db.update(manufacturingStagesTable).set({ deletedAt: null, deletedBy: null }).where(eq(manufacturingStagesTable.id, input.id));
+        await db.insert(auditLogTable).values({ userId: ctx.user.id, action: "restore", tableName: "manufacturingStages", recordId: input.id, oldValue: deleted[0] as any, description: "استرجاع سجل مرحلة تسليم من سلة المهملات" });
         return { success: true };
       }),
   }),
