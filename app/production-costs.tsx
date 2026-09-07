@@ -88,16 +88,18 @@ export default function ProductionCostsScreen() {
       const data = await productionCostsLocalService.list();
       if (data && Array.isArray(data)) {
         const parsed = data.map((item: any) => {
-          const details = item.details ? (typeof item.details === "string" ? JSON.parse(item.details) : item.details) : {};
+          // التفاصيل الجديدة محفوظة داخل notes، مع دعم السجلات القديمة التي استخدمت details.
+          const rawDetails = item.notes || item.details;
+          const details = rawDetails ? (typeof rawDetails === "string" ? JSON.parse(rawDetails) : rawDetails) : {};
           return {
             id: String(item.id),
-            date: details.date || item.month || "",
+            date: details.date || item.date || item.month || "",
             rawMaterials: details.rawMaterials || { yarn: 0, rubber: 0, spandex: 0, nylon: 0, cotton: 0, bamboo: 0, span: 0 },
-            labor: details.labor || 0,
+            labor: details.labor ?? item.amount ?? 0,
             utilities: details.utilities || 0,
             maintenance: details.maintenance || 0,
             other: details.other || 0,
-            notes: details.notes || "",
+            notes: details.notes || item.description || "",
           };
         });
         setCosts(parsed);
@@ -154,22 +156,32 @@ export default function ProductionCostsScreen() {
     try {
       setIsLoading(true);
       const entryData = editingId ? formData : { ...formData, id: Date.now().toString() };
+      // مطابقة الحقول مع جدول localProductionCosts: date/category/amount/notes.
+      const totalAmount = Object.values(entryData.rawMaterials).reduce((sum, value) => sum + (Number(value) || 0), 0) + entryData.labor + entryData.utilities + entryData.maintenance + entryData.other;
       const serverPayload = {
-        month: formData.date,
-        year: new Date().getFullYear(),
+        date: formData.date,
         category: "production",
-        details: JSON.stringify(entryData),
+        description: isAr ? "تكاليف الإنتاج" : "Production costs",
+        amount: Math.round(totalAmount),
+        quantity: 1,
+        unitPrice: Math.round(totalAmount),
+        notes: JSON.stringify(entryData),
       };
       if (editingId) {
-        await productionCostsLocalService.update(Number(editingId), serverPayload);
+        const result = await productionCostsLocalService.update(Number(editingId), serverPayload);
+        if ((result as any)?.success === false) throw new Error("لم يؤكد الخادم تعديل التكلفة");
       } else {
-        await productionCostsLocalService.create(serverPayload);
+        const result = await productionCostsLocalService.create(serverPayload);
+        if ((result as any)?.success === false) throw new Error("لم يؤكد الخادم حفظ التكلفة");
       }
       await loadCosts();
       resetForm();
       setShowForm(false);
     } catch (error) {
-      console.error("Error saving:", error);
+      console.error("Error saving cost:", error);
+      if (Platform.OS === "web") {
+        window.alert(error instanceof Error ? error.message : (isAr ? "فشل حفظ بيانات التكلفة" : "Failed to save cost data"));
+      }
     } finally {
       setIsLoading(false);
     }
