@@ -65,9 +65,31 @@ export default function ProductTrackingScreen() {
         productTrackingService.list(),
         productsService.list(),
       ]);
-      setProduction(Array.isArray(productionRows) ? productionRows : []);
-      setManufacturing(Array.isArray(stageRows) ? stageRows : []);
-      setHandoverRecords(Array.isArray(trackingRows) ? trackingRows : []);
+      const productionList = Array.isArray(productionRows) ? productionRows : [];
+      const manufacturingList = Array.isArray(stageRows) ? stageRows : [];
+      const movementSources = [
+        ...productionList.map((row: any) => ({ ...row, sourceStage: "machines", sourceWorker: row.movementBy || "", sourceKind: "production" })),
+        ...manufacturingList.map((row: any) => ({ ...row, sourceStage: row.stageName || "", sourceWorker: row.workerName || row.movementBy || "", sourceKind: "stage" })),
+      ].filter((row: any) => row.movementStatus && row.movementStatus !== "none" && row.productName);
+      const movementHistory: any[] = [];
+      const pendingReceived: Record<string, any> = {};
+      movementSources
+        .sort((a: any, b: any) => String(a.movementAt || a.createdAt || "").localeCompare(String(b.movementAt || b.createdAt || "")))
+        .forEach((row: any, index: number) => {
+          const key = String(row.productName);
+          const actionAt = row.movementAt || row.createdAt || null;
+          if (row.movementStatus === "received") {
+            pendingReceived[key] = { at: actionAt, by: row.sourceWorker, stage: row.sourceStage };
+            movementHistory.push({ id: `movement-received-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: row.sourceStage, currentStage: row.sourceStage, receivedBy: row.sourceWorker, receivedAt: actionAt, handoverStatus: "received", quantityDozen: row.quantityDozen || row.productionDozen || 0, quantityPairs: row.quantityPair || row.productionPairs || 0, createdAt: actionAt });
+          } else if (row.movementStatus === "delivered") {
+            const received = pendingReceived[key];
+            movementHistory.push({ id: `movement-delivered-${row.id || index}`, productName: row.productName, trackingDate: row.date || row.trackingDate, previousStage: received?.stage || row.sourceStage, currentStage: row.sourceStage, deliveredBy: row.sourceWorker, deliveredAt: actionAt, receivedBy: received?.by, receivedAt: received?.at, handoverStatus: "delivered", quantityDozen: row.quantityDozen || row.productionDozen || 0, quantityPairs: row.quantityPair || row.productionPairs || 0, createdAt: actionAt });
+            delete pendingReceived[key];
+          }
+        });
+      setProduction(productionList);
+      setManufacturing(manufacturingList);
+      setHandoverRecords([...(Array.isArray(trackingRows) ? trackingRows : []), ...movementHistory]);
       setCatalogProducts(Array.isArray(catalogRows) ? catalogRows : []);
     } catch (error) {
       console.error("Product tracking load failed", error);

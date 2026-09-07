@@ -615,6 +615,9 @@ export const appRouter = router({
         yarnBamboo: z.number().optional(),
           yarnSpan: z.number().optional(),
           yarnWeightPerPair: z.number().optional(),
+          movementStatus: z.enum(["none", "received", "delivered"]).optional(),
+          movementBy: z.string().optional(),
+          movementAt: z.coerce.date().optional(),
           userId: z.number(),
         }))
       .mutation(async ({ input }) => {
@@ -665,6 +668,9 @@ export const appRouter = router({
           yarnBamboo: z.number().optional(),
           yarnSpan: z.number().optional(),
           yarnWeightPerPair: z.number().optional(),
+          movementStatus: z.enum(["none", "received", "delivered"]).optional(),
+          movementBy: z.string().optional(),
+          movementAt: z.coerce.date().optional(),
           userId: z.number(),
         })),
       }))
@@ -745,6 +751,9 @@ export const appRouter = router({
         productType: z.string().optional(),
         productName: z.string().optional(),
         date: z.string().optional(),
+        movementStatus: z.enum(["none", "received", "delivered"]).optional(),
+        movementBy: z.string().optional(),
+        movementAt: z.coerce.date().optional(),
         userId: z.number(),
       }))
       .mutation(async ({ input }) => {

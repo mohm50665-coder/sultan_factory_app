@@ -24,6 +24,7 @@ interface ProductItem {
   productName: string;
   quantityDozen: string;
   quantityPairs: string;
+  movementStatus: "none" | "received" | "delivered";
 }
 
 interface WorkerEntry {
@@ -157,7 +158,7 @@ export default function ManufacturingStageScreen() {
   const [selectedWorker, setSelectedWorker] = useState(user?.name || "");
   // منتجات (حتى 10)
   const [products, setProducts] = useState<ProductItem[]>([
-    { productName: "", quantityDozen: "", quantityPairs: "" },
+    { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" },
   ]);
   const [durationHours, setDurationHours] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
@@ -227,6 +228,7 @@ export default function ManufacturingStageScreen() {
             productName: d.productName || "",
             quantityDozen: String(d.quantityDozen || 0),
             quantityPairs: String(d.quantityPair || 0),
+            movementStatus: d.movementStatus || "none",
           });
         });
         setEntries(Object.values(grouped));
@@ -248,7 +250,7 @@ export default function ManufacturingStageScreen() {
 
   const resetForm = () => {
     setSelectedWorker(user?.name || "");
-    setProducts([{ productName: "", quantityDozen: "", quantityPairs: "" }]);
+    setProducts([{ productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" }]);
     setDurationHours("");
     setDurationMinutes("");
     setFinishedDozen("");
@@ -268,7 +270,7 @@ export default function ManufacturingStageScreen() {
       Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "الحد الأقصى 10 منتجات لكل إدخال" : "Maximum 10 products per entry");
       return;
     }
-    setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "" }]);
+    setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" }]);
   };
 
   // حذف منتج
@@ -302,6 +304,10 @@ export default function ManufacturingStageScreen() {
     } else {
       // التحقق من أن كل منتج له اسم وكمية
       const validProducts = products.filter(p => p.productName.trim());
+      if (validProducts.some((product) => product.movementStatus === "none")) {
+        Alert.alert(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد استلمت أو سلّمت لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
+        return;
+      }
       if (validProducts.length === 0) {
         Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال اسم منتج واحد على الأقل مع الكمية" : "Please enter at least one product name with quantity");
         return;
@@ -352,6 +358,9 @@ export default function ManufacturingStageScreen() {
             productType: notes || "",
             productName: product.productName.trim(),
             date: entryDate,
+            movementStatus: product.movementStatus,
+            movementBy: product.movementStatus === "none" ? undefined : workerName,
+            movementAt: product.movementStatus === "none" ? undefined : new Date(),
             userId: user?.id || 1,
           };
           const result = await manufacturingStageService.create(apiData);
@@ -376,6 +385,7 @@ export default function ManufacturingStageScreen() {
         productName: p.productName,
         quantityDozen: p.quantityDozen,
         quantityPairs: p.quantityPairs,
+        movementStatus: p.movementStatus || "none",
       })));
     }
     setDurationHours(entry.durationHours || "");
@@ -486,6 +496,9 @@ export default function ManufacturingStageScreen() {
               borderColor: colors.border, 
               paddingBottom: idx < item.products.length - 1 ? 10 : 0,
               marginBottom: idx < item.products.length - 1 ? 10 : 0,
+              borderLeftWidth: product.movementStatus === "received" || product.movementStatus === "delivered" ? 4 : 0,
+              borderLeftColor: product.movementStatus === "received" ? "#dc2626" : "#16a34a",
+              paddingLeft: product.movementStatus === "received" || product.movementStatus === "delivered" ? 8 : 0,
             }}>
               {/* {isAr ? "اسم المنتج *" : "Product Name *"} */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginBottom: 6 }}>
@@ -505,6 +518,13 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "زوج" : "Pair"}</Text>
                 </View>
               </View>
+              {product.movementStatus !== "none" && (
+                <View style={{ marginTop: 8, backgroundColor: product.movementStatus === "received" ? "#fef2f2" : "#f0fdf4", borderRadius: 6, paddingVertical: 6, alignItems: "center" }}>
+                  <Text style={{ color: product.movementStatus === "received" ? "#dc2626" : "#16a34a", fontWeight: "800", fontSize: 12 }}>
+                    {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : (isAr ? "مسلّم" : "Delivered")}
+                  </Text>
+                </View>
+              )}
             </View>
           ))}
         </View>
@@ -801,6 +821,19 @@ export default function ManufacturingStageScreen() {
                             {isAr ? "لا توجد منتجات محفوظة في دليل المنتجات" : "No saved products found in the catalog"}
                           </Text>
                         )}
+                      </View>
+
+                      {/* حالة التسليم والاستلام */}
+                      <View style={{ marginBottom: 10 }}>
+                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderColor: "#dc2626", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
+                            <Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "Received"}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderColor: "#16a34a", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
+                            <Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontWeight: "800", fontSize: 12 }}>{isAr ? "سلّمت" : "Delivered"}</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
 
                       {/* الكميات */}

@@ -51,6 +51,7 @@ interface ProductItem {
   yarnBamboo: string;
   yarnSpan: string;
   yarnWeightPerPair: string;
+  movementStatus: "none" | "received" | "delivered";
 }
 
 // ملاحظة 3: كل مكينة تتحمل 5 منتجات أو أكثر
@@ -106,6 +107,7 @@ const emptyProduct = (): ProductItem => ({
   yarnBamboo: "",
   yarnSpan: "",
   yarnWeightPerPair: "",
+  movementStatus: "none",
 });
 
 const emptyShiftData = (shiftNum: number): ShiftData => ({
@@ -302,6 +304,7 @@ export default function ProductionScreen() {
           yarnBamboo: String(row.yarnBamboo || 0),
           yarnSpan: String(row.yarnSpan || 0),
           yarnWeightPerPair: String(row.yarnWeightPerPair || ""),
+          movementStatus: row.movementStatus || "none",
         });
       }
 
@@ -371,6 +374,9 @@ export default function ProductionScreen() {
               yarnBamboo: parseInt(product.yarnBamboo) || 0,
               yarnSpan: parseInt(product.yarnSpan) || 0,
               yarnWeightPerPair: parseFloat(product.yarnWeightPerPair) || 0,
+              movementStatus: product.movementStatus,
+              movementBy: product.movementStatus === "none" ? undefined : user?.name || undefined,
+              movementAt: product.movementStatus === "none" ? undefined : new Date(),
               userId,
             });
           });
@@ -545,6 +551,12 @@ export default function ProductionScreen() {
       const mData = machinesData[machine] || { shifts: [emptyShiftData(1)] };
       entry.machines[machine] = mData;
     });
+
+    const enteredProducts = activeMachines.flatMap((machine) => entry.machines[machine].shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim() || product.productionDozen || product.productionPairs)));
+    if (enteredProducts.some((product) => product.movementStatus === "none")) {
+      Alert.alert(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد استلمت أو سلّمت لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
+      return;
+    }
 
     try {
       // حفظ بيانات المنتجات تلقائياً (ملاحظة 5)
@@ -828,6 +840,19 @@ export default function ProductionScreen() {
             </ScrollView>
           </View>
         )}
+      </View>
+
+      {/* حالة الاستلام والتسليم */}
+      <View style={{ marginBottom: 8 }}>
+        <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderWidth: 1, borderColor: "#dc2626", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}>
+            <Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontSize: 11, fontWeight: "800" }}>{isAr ? "استلمت" : "Received"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}>
+            <Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontSize: 11, fontWeight: "800" }}>{isAr ? "سلّمت" : "Delivered"}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* وزن الخيط لكل زوج + إجمالي */}
