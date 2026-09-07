@@ -1054,7 +1054,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "نهاية الوردية" : "Shift End"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
+            selectionColor={fieldTextColor}
             placeholder="18:00"
             placeholderTextColor={fieldPlaceholderColor}
             value={shift.shiftEnd}
@@ -1064,7 +1065,8 @@ export default function ProductionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, textAlign: 'right' }}>{isAr ? "بداية الوردية" : "Shift Start"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: fieldTextColor, textAlign: 'right', fontSize: 14 }}
+            selectionColor={fieldTextColor}
             placeholder="06:00"
             placeholderTextColor={fieldPlaceholderColor}
             value={shift.shiftStart}
@@ -1122,7 +1124,8 @@ export default function ProductionScreen() {
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
           <TextInput
-            style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: fieldTextColor, textAlign: 'right', fontSize: 16 }}
+            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: fieldTextColor, textAlign: 'right', fontSize: 16 }}
+            selectionColor={fieldTextColor}
             value={selectedDate}
             onChangeText={setSelectedDate}
             placeholder="2026-01-01"

@@ -507,22 +507,20 @@ export default function HomeScreen() {
     // Admin sees everything
     if (user?.role === "admin") return true;
     
-    // Check tool permissions for additional tools
-    const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
-    if (toolIds.includes(item.id) && !userToolPermissions[item.id]) {
-      return false;
-    }
-    
-    // الأيقونات الثابتة المشتركة تظهر للجميع دائماً
-    if (SHARED_ITEMS.includes(item.id)) return true;
-    // دليل المنتجات ليس مشتركاً؛ يظهر للأدمن أو عند منحه يدوياً من إدارة المستخدمين.
-    if (item.id === "products_catalog") return (user as any)?.role === "admin" || Boolean(user?.allowedSections?.includes("products_catalog"));
-    // مدير الإنتاج يحتاج رؤية تقرير مراحل التسليم وتتبّع جميع الحركات مثل الأدمن.
-    if (isProductionManager && ["manufacturing", "product_tracking", "daily_summary"].includes(item.id)) return true;
-    // If admin assigned specific sections to this user, use those
+    // عند وجود قائمة صلاحيات يدوية، تكون هي المصدر الوحيد لعرض الأيقونات.
+    // لا تتجاوزها الأيقونات المشتركة أو صلاحيات مدير الإنتاج التلقائية.
     if (user?.allowedSections && user.allowedSections.length > 0) {
+      const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
+      if (toolIds.includes(item.id) && !userToolPermissions[item.id]) return false;
       return user.allowedSections.includes(item.id);
     }
+
+    // قبل تحديد أي صلاحيات يدوياً، حافظ على السلوك الافتراضي الحالي.
+    const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
+    if (toolIds.includes(item.id) && !userToolPermissions[item.id]) return false;
+    if (SHARED_ITEMS.includes(item.id)) return true;
+    if (item.id === "products_catalog") return false;
+    if (isProductionManager && ["manufacturing", "product_tracking", "daily_summary"].includes(item.id)) return true;
     // No specific sections assigned - show all sections by default
     return true;
     // Manufacturing stage workers: see manufacturing section + shared
