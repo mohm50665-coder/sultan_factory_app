@@ -119,7 +119,8 @@ export default function ManufacturingStageScreen() {
     },
   };
   // عمال المرحلة يمكنهم الإدخال، المستودعات view only فقط
-  const isViewOnly = user?.department === "warehouse" && user?.role !== "admin" && stage !== "storage";
+  const isAdmin = user?.role === "admin";
+  const isViewOnly = user?.department === "warehouse" && !isAdmin && stage !== "storage";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const isStorageStage = stage === "storage";
@@ -473,7 +474,7 @@ export default function ManufacturingStageScreen() {
     <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
       {/* {isAr ? "اسم العامل" : "Worker Name"} والأزرار */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        {!isViewOnly && (
+        {isAdmin && (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
               onPress={() => handleEdit(item)}
@@ -935,9 +936,9 @@ export default function ManufacturingStageScreen() {
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 16 }}>{isAr ? "إلغاء" : "Cancel"}</Text>
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSave}
-                style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
+          <TouchableOpacity
+            onPress={() => handleSave}
+            style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
               >
                 <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
                   {editingEntry ? (isAr ? "تعديل" : "Edit") : (isAr ? "حفظ" : "Save")}

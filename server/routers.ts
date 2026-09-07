@@ -765,7 +765,7 @@ export const appRouter = router({
         return { success: true, id: result[0].insertId };
       }),
 
-    update: publicProcedure
+    update: adminProcedure
       .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -774,7 +774,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    delete: publicProcedure
+    delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
