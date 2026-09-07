@@ -510,6 +510,8 @@ export default function HomeScreen() {
     
     // الأيقونات الثابتة المشتركة تظهر للجميع دائماً
     if (SHARED_ITEMS.includes(item.id)) return true;
+    // دليل المنتجات ليس مشتركاً؛ يظهر للأدمن أو عند منحه يدوياً من إدارة المستخدمين.
+    if (item.id === "products_catalog") return (user as any)?.role === "admin" || Boolean(user?.allowedSections?.includes("products_catalog"));
     // مدير الإنتاج يحتاج رؤية تقرير مراحل التسليم وتتبّع جميع الحركات مثل الأدمن.
     if (isProductionManager && ["manufacturing", "product_tracking", "daily_summary"].includes(item.id)) return true;
     // If admin assigned specific sections to this user, use those
