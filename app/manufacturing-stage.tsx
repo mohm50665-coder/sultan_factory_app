@@ -152,7 +152,7 @@ export default function ManufacturingStageScreen() {
   const [editingEntry, setEditingEntry] = useState<WorkerEntry | null>(null);
   // العامل يُحدد تلقائياً من حساب المستخدم المسجل دخول
   const [selectedWorker, setSelectedWorker] = useState(user?.name || "");
-  // منتجات (حتى 5)
+  // منتجات (حتى 10)
   const [products, setProducts] = useState<ProductItem[]>([
     { productName: "", quantityDozen: "", quantityPairs: "" },
   ]);
@@ -230,10 +230,10 @@ export default function ManufacturingStageScreen() {
     setEntryDate(new Date().toISOString().split("T")[0]);
   };
 
-  // {isAr ? "إضافة منتج" : "Add Product"} جديد (حتى 5)
+  // {isAr ? "إضافة منتج" : "Add Product"} جديد (حتى 10)
   const addProduct = () => {
-    if (products.length >= 5) {
-      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "الحد الأقصى 5 منتجات لكل إدخال" : "Maximum 5 products per entry");
+    if (products.length >= 10) {
+      Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "الحد الأقصى 10 منتجات لكل إدخال" : "Maximum 10 products per entry");
       return;
     }
     setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "" }]);
@@ -607,7 +607,7 @@ export default function ManufacturingStageScreen() {
                       <MaterialIcons name="add" size={16} color="white" />
                     </TouchableOpacity>
                     <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14 }}>
-                      {isAr ? `المنتجات (${products.length}/5)` : `Products (${products.length}/5)`}
+                      {isAr ? `المنتجات (${products.length}/10)` : `Products (${products.length}/10)`}
                     </Text>
                   </View>
 
