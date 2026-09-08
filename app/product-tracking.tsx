@@ -37,6 +37,14 @@ const elapsedLabel = (minutes: number | null, isAr: boolean) => {
   return isAr ? `${hours ? `${hours} ساعة ` : ""}${mins} دقيقة` : `${hours ? `${hours}h ` : ""}${mins}m`;
 };
 
+const showTrackingMessage = (title: string, message: string) => {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export default function ProductTrackingScreen() {
   const router = useRouter();
   const colors = useColors();
@@ -281,9 +289,10 @@ export default function ProductTrackingScreen() {
       setHandoverNotes("");
       setSelectedProduct(null);
       await loadData();
-      Alert.alert(isAr ? `تم توقيع ${action === "deliver" ? "التسليم" : "الاستلام"}` : `${action === "deliver" ? "Delivery" : "Receipt"} signed`, isAr ? `تم تسجيل اسمك ووقت ${action === "deliver" ? "التسليم" : "الاستلام"} كمسؤولية على الحركة` : "Your identity and action time were recorded as responsibility for this movement");
+      showTrackingMessage(isAr ? `تم توقيع ${action === "deliver" ? "التسليم" : "الاستلام"}` : `${action === "deliver" ? "Delivery" : "Receipt"} signed`, isAr ? `تم تسجيل اسمك ووقت ${action === "deliver" ? "التسليم" : "الاستلام"} كمسؤولية على الحركة` : "Your identity and action time were recorded as responsibility for this movement");
     } catch (error) {
-      Alert.alert(isAr ? "تعذر الحفظ" : "Save failed", isAr ? "تعذر حفظ التوقيع. تحقق من ترحيل أعمدة الوقت ثم حاول مرة أخرى" : "Could not save the signature. Verify the time columns are migrated and try again");
+      const message = error instanceof Error ? error.message : (isAr ? "تعذر حفظ التوقيع. تحقق من ترحيل أعمدة الوقت ثم حاول مرة أخرى" : "Could not save the signature. Verify the time columns are migrated and try again");
+      showTrackingMessage(isAr ? "تعذر الحفظ" : "Save failed", message);
     }
   };
 

@@ -605,7 +605,11 @@ export default function ProductionScreen() {
         try {
           await productionService.deleteByDate(entry.date);
           await loadEntries();
-        } catch (e) { console.log(e); }
+          showSaveMessage(isAr ? "تم الحذف ✓" : "Deleted ✓", isAr ? "تم حذف سجل الإنتاج بنجاح" : "Production record deleted successfully");
+        } catch (e) {
+          const message = e instanceof Error ? e.message : (isAr ? "تعذر حذف سجل الإنتاج" : "Unable to delete production record");
+          showSaveMessage(isAr ? "فشل الحذف" : "Delete failed", message);
+        }
       }
     } else {
       Alert.alert(isAr ? "تأكيد الحذف" : "Confirm Deletion", isAr ? `هل تريد حذف بيانات يوم "${entry.date}"؟` : `Do you want to delete data for day "${entry.date}"?`, [

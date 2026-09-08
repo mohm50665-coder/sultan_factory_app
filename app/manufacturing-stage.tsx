@@ -320,6 +320,14 @@ export default function ManufacturingStageScreen() {
     setProducts(newProducts);
   };
 
+  const showStageMessage = (title: string, message: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   // حفظ البيانات
   const handleSave = async () => {
     // اسم العامل يؤخذ تلقائياً من حساب المستخدم
@@ -404,9 +412,10 @@ export default function ManufacturingStageScreen() {
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات بنجاح" : "Data updated successfully") : (isAr ? "تم حفظ البيانات بنجاح" : "Data saved successfully"));
+      showStageMessage(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات بنجاح" : "Data updated successfully") : (isAr ? "تم حفظ البيانات بنجاح" : "Data saved successfully"));
     } catch (e) {
-      Alert.alert(isAr ? "خطأ" : "Error", isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      const message = e instanceof Error ? e.message : (isAr ? "فشل حفظ البيانات" : "Failed to save data");
+      showStageMessage(isAr ? "خطأ في الحفظ" : "Save error", message);
     }
   };
 
@@ -436,10 +445,10 @@ export default function ManufacturingStageScreen() {
       try {
         await manufacturingStageService.delete(Number(entry.id));
         await loadEntries();
-        Alert.alert(isAr ? "تم ✓" : "Done ✓", isAr ? "تم نقل السجل إلى سلة المهملات بنجاح" : "Record moved to trash successfully");
+        showStageMessage(isAr ? "تم ✓" : "Done ✓", isAr ? "تم نقل السجل إلى سلة المهملات بنجاح" : "Record moved to trash successfully");
       } catch (error) {
         const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف السجل" : "Unable to delete record");
-        Alert.alert(isAr ? "فشل الحذف" : "Delete failed", message);
+        showStageMessage(isAr ? "فشل الحذف" : "Delete failed", message);
       }
     };
     if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -963,7 +972,7 @@ export default function ManufacturingStageScreen() {
                 <MaterialIcons name="close" size={20} color={colors.foreground} />
               </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleSave}
+            onPress={handleSave}
             style={{ backgroundColor: config.color, flexDirection: "row", justifyContent: "center", gap: 6, flex: 1, borderRadius: 12, paddingVertical: 16, alignItems: 'center' }}
               >
                 <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>
