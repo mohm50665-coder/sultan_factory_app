@@ -153,6 +153,7 @@ export default function ProductionScreen() {
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(null);
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [productionAttachments, setProductionAttachments] = useState<AttachmentFile[]>([]);
 
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
@@ -535,9 +536,18 @@ export default function ProductionScreen() {
     setProductSuggestions([]);
   };
 
+  const showSaveMessage = (title: string, message: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleSave = async () => {
+    if (isSaving) return;
     if (activeMachines.length === 0) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
+      showSaveMessage(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
       return;
     }
 
@@ -554,32 +564,29 @@ export default function ProductionScreen() {
 
     const enteredProducts = activeMachines.flatMap((machine) => entry.machines[machine].shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim() || product.productionDozen || product.productionPairs)));
     if (enteredProducts.some((product) => product.movementStatus === "none")) {
-      Alert.alert(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد استلمت أو سلّمت لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
+      showSaveMessage(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد «استلمت» أو «سلّمت» لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
       return;
     }
 
+    setIsSaving(true);
     try {
-      // حفظ بيانات المنتجات تلقائياً (ملاحظة 5)
-      activeMachines.forEach((machine) => {
+      // لا نغلق النموذج ولا نحفظ الدفعة قبل اكتمال حفظ بيانات دليل المنتجات.
+      const productSaves = activeMachines.flatMap((machine) => {
         const mData = machinesData[machine] || { shifts: [] };
-        mData.shifts.forEach((shift) => {
-          shift.products.forEach((product) => {
-            if (product.itemName.trim()) {
-              saveProductData(product);
-            }
-          });
-        });
+        return mData.shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim()).map((product) => saveProductData(product)));
       });
-
+      await Promise.all(productSaves);
       await saveToServer(entry, !!editingEntry);
       await loadEntries();
       resetForm();
       setShowForm(false);
-      Alert.alert(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? isAr ? "تم تعديل البيانات" : "Data updated" : isAr ? "تم حفظ البيانات" : "Data saved");
+      showSaveMessage(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved"));
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
       console.error("Production save failed:", e);
-      Alert.alert(isAr ? "خطأ في الحفظ" : "Save error", message || (isAr ? "فشل حفظ البيانات" : "Failed to save data"));
+      showSaveMessage(isAr ? "خطأ في الحفظ" : "Save error", message || (isAr ? "فشل حفظ البيانات" : "Failed to save data"));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1205,9 +1212,10 @@ export default function ProductionScreen() {
 
             <TouchableOpacity
               onPress={handleSave}
-              style={{ flex: 1, backgroundColor: "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
+              disabled={isSaving}
+              style={{ flex: 1, backgroundColor: isSaving ? "#86efac" : "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
             >
-              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save")}</Text>
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{isSaving ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save"))}</Text>
               <MaterialIcons name="save" size={18} color="white" />
             </TouchableOpacity>
           </View>
