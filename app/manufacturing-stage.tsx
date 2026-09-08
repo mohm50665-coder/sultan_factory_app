@@ -345,10 +345,7 @@ export default function ManufacturingStageScreen() {
     } else {
       // التحقق من أن كل منتج له اسم وكمية
       const validProducts = products.filter(p => p.productName.trim());
-      if (validProducts.some((product) => product.movementStatus === "none")) {
-        Alert.alert(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد استلمت أو سلّمت لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
-        return;
-      }
+      // حفظ التقرير مستقل عن حركة الاستلام والتسليم؛ الحالة none تعني «بانتظار الحركة».
       if (validProducts.length === 0) {
         Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال اسم منتج واحد على الأقل مع الكمية" : "Please enter at least one product name with quantity");
         return;
@@ -570,13 +567,11 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: colors.muted, fontSize: 12 }}>{isAr ? "زوج" : "Pair"}</Text>
                 </View>
               </View>
-              {product.movementStatus !== "none" && (
-                <View style={{ marginTop: 8, backgroundColor: product.movementStatus === "received" ? "#fef2f2" : "#f0fdf4", borderRadius: 6, paddingVertical: 6, alignItems: "center" }}>
-                  <Text style={{ color: product.movementStatus === "received" ? "#dc2626" : "#16a34a", fontWeight: "800", fontSize: 12 }}>
-                    {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : (isAr ? "مسلّم" : "Delivered")}
-                  </Text>
-                </View>
-              )}
+              <View style={{ marginTop: 8, backgroundColor: product.movementStatus === "received" ? "#fef2f2" : product.movementStatus === "delivered" ? "#f0fdf4" : "#fffbeb", borderRadius: 6, paddingVertical: 6, alignItems: "center" }}>
+                <Text style={{ color: product.movementStatus === "received" ? "#dc2626" : product.movementStatus === "delivered" ? "#16a34a" : "#b45309", fontWeight: "800", fontSize: 12 }}>
+                  {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "مسلّم" : "Delivered") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
+                </Text>
+              </View>
             </View>
           ))}
         </View>

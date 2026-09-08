@@ -563,10 +563,7 @@ export default function ProductionScreen() {
     });
 
     const enteredProducts = activeMachines.flatMap((machine) => entry.machines[machine].shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim() || product.productionDozen || product.productionPairs)));
-    if (enteredProducts.some((product) => product.movementStatus === "none")) {
-      showSaveMessage(isAr ? "حالة المنتج مطلوبة" : "Product status required", isAr ? "يجب تحديد «استلمت» أو «سلّمت» لكل منتج قبل الحفظ" : "Select Received or Delivered for every product before saving");
-      return;
-    }
+    // الحفظ الأساسي مستقل عن حركة الاستلام والتسليم؛ الحالة none تعني «بانتظار الحركة».
 
     setIsSaving(true);
     try {
