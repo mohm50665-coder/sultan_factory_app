@@ -106,7 +106,20 @@ export default function ProductTrackingScreen() {
         });
       setProduction(productionList);
       setManufacturing(manufacturingList);
-      setHandoverRecords([...(Array.isArray(trackingRows) ? trackingRows : []), ...movementHistory]);
+      const catalogByName = new Map((Array.isArray(catalogRows) ? catalogRows : []).map((item: any) => [String(item.name || ""), item]));
+      const detailedHandoverRecords = [...(Array.isArray(trackingRows) ? trackingRows : []), ...movementHistory].map((row: any) => {
+        const catalog = catalogByName.get(String(row.productName || "")) || {};
+        return {
+          ...row,
+          productName: row.productName || catalog.name || "",
+          productSize: row.productSize || catalog.size || "",
+          productColor: row.productColor || catalog.color || "",
+          productBarcode: row.productBarcode || catalog.barcode || "",
+          quantityDozen: row.quantityDozen ?? row.productionDozen ?? 0,
+          quantityPairs: row.quantityPairs ?? row.productionPairs ?? row.quantityPair ?? 0,
+        };
+      });
+      setHandoverRecords(detailedHandoverRecords);
       setCatalogProducts(Array.isArray(catalogRows) ? catalogRows : []);
       setEmployees(Array.isArray(employeeRows) ? employeeRows : []);
     } catch (error) {
