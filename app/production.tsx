@@ -1268,6 +1268,14 @@ export default function ProductionScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityLabel={isAr ? "دليل المنتجات" : "Product catalog"}
+          onPress={() => router.push("/products" as any)}
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+        >
+          <MaterialIcons name="inventory-2" size={24} color="white" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => setShowDailySummary(!showDailySummary)}
           style={{ backgroundColor: showDailySummary ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
         >
