@@ -13,6 +13,7 @@ import {
   Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
@@ -710,24 +711,8 @@ export default function CustomManufacturingScreen() {
 
       {/* تاريخ الطلب وتاريخ التسليم */}
       <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ التسليم" : "Delivery Date"}</Text>
-          <TextInput
-            value={deliveryDate}
-            onChangeText={setDeliveryDate}
-            placeholder="YYYY-MM-DD"
-            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "تاريخ الطلب" : "Order Date"}</Text>
-          <TextInput
-            value={orderDate}
-            onChangeText={setOrderDate}
-            placeholder="YYYY-MM-DD"
-            style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "center" }}
-          />
-        </View>
+        <DateField value={deliveryDate} onChange={setDeliveryDate} label={isAr ? "تاريخ التسليم" : "Delivery Date"} isAr={isAr} />
+        <DateField value={orderDate} onChange={setOrderDate} label={isAr ? "تاريخ الطلب" : "Order Date"} isAr={isAr} />
       </View>
 
       {/* اسم الصنف */}

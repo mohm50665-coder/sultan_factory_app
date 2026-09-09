@@ -8,6 +8,7 @@ import {
   FlatList,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/lib/language-context";
@@ -292,50 +293,8 @@ export default function SearchScreen() {
 
           {/* نطاق التاريخ */}
           <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
-                {isAr ? "من التاريخ" : "From Date"}
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: colors.surface,
-                  borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  color: colors.foreground,
-                  fontSize: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  textAlign: isAr ? "right" : "left",
-                }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.muted}
-                value={dateFrom}
-                onChangeText={setDateFrom}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
-                {isAr ? "إلى التاريخ" : "To Date"}
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: colors.surface,
-                  borderRadius: 8,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  color: colors.foreground,
-                  fontSize: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  textAlign: isAr ? "right" : "left",
-                }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.muted}
-                value={dateTo}
-                onChangeText={setDateTo}
-              />
-            </View>
+            <DateField value={dateFrom} onChange={setDateFrom} label={isAr ? "من التاريخ" : "From Date"} isAr={isAr} />
+            <DateField value={dateTo} onChange={setDateTo} label={isAr ? "إلى التاريخ" : "To Date"} isAr={isAr} />
           </View>
         </View>
 

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
@@ -486,8 +487,7 @@ export default function MaintenanceSectionScreen() {
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={employeeName} onChangeText={setEmployeeName} placeholder={isAr ? "اسم الموظف" : "Employee Name"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "مصدر الإجازة" : "Leave Source"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveSource} onChangeText={setLeaveSource} placeholder={isAr ? "مصدر الإجازة" : "Leave Source"} placeholderTextColor={colors.muted} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "تاريخ الإجازة" : "Leave Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={leaveDate} onChangeText={setLeaveDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={leaveDate} onChange={setLeaveDate} label={isAr ? "تاريخ الإجازة" : "Leave Date"} isAr={isAr} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "سبب الإجازة" : "Leave Reason"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={reason} onChangeText={setReason} placeholder={isAr ? "سبب الإجازة" : "Leave Reason"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "مدة الإجازة" : "Leave Duration"}</Text>

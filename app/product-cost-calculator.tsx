@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { useAuth } from "@/lib/auth-context";
@@ -439,21 +440,7 @@ ${formData.notes ? `${isAr ? "ملاحظات" : "Notes"}: ${formData.notes}` : "
           </Text>
 
           {/* Date */}
-          <View style={{ marginBottom: 12 }}>
-            <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>
-              {isAr ? "التاريخ" : "Date"}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, textAlign: isRtl ? "right" : "left" },
-              ]}
-              value={formData.date}
-              onChangeText={(text) => setFormData({ ...formData, date: text })}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-            />
-          </View>
+          <DateField value={formData.date} onChange={(date) => setFormData({ ...formData, date })} label={isAr ? "التاريخ" : "Date"} isAr={isAr} />
 
           {/* Product Name */}
           <View style={{ marginBottom: 12 }}>

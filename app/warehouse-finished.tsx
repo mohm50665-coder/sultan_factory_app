@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { warehouseEntriesService } from "@/lib/services/data.service";
@@ -202,15 +203,7 @@ export default function WarehouseFinishedScreen() {
           ))}
         </View>
 
-        {/* تاريخ الإدخال */}
-        <Text style={styles.label}>{isAr ? "تاريخ الإدخال" : "Entry Date"}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.muted}
-          value={entryDate}
-          onChangeText={setEntryDate}
-        />
+        <DateField value={entryDate} onChange={setEntryDate} label={isAr ? "تاريخ الإدخال" : "Entry Date"} isAr={isAr} />
 
         {/* نوع الصنف */}
         <Text style={styles.label}>{isAr ? "نوع الصنف" : "Product Type"}</Text>
@@ -250,15 +243,7 @@ export default function WarehouseFinishedScreen() {
           onChangeText={setOrderNumber}
         />
 
-        {/* تاريخ المستند */}
-        <Text style={styles.label}>{isAr ? "تاريخ المستند" : "Document Date"}</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.muted}
-          value={orderDate}
-          onChangeText={setOrderDate}
-        />
+        <DateField value={orderDate} onChange={setOrderDate} label={isAr ? "تاريخ المستند" : "Document Date"} isAr={isAr} />
 
         {/* الكمية المدخلة */}
         <Text style={styles.label}>{isAr ? "الكمية المدخلة (إجمالي)" : "Total Quantity"}</Text>

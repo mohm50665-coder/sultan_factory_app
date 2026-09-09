@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -558,24 +559,8 @@ export default function TasksScreen() {
                 {/* التواريخ */}
                 <Text style={styles.sectionTitle}>{isAr ? "المدة الزمنية" : "Duration"}</Text>
                 <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>{isAr ? "البداية" : "Start"}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.startDate}
-                      onChangeText={(t) => setFormData({ ...formData, startDate: t })}
-                      placeholder="YYYY-MM-DD"
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>{isAr ? "النهاية" : "End"}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.endDate}
-                      onChangeText={(t) => setFormData({ ...formData, endDate: t })}
-                      placeholder="YYYY-MM-DD"
-                    />
-                  </View>
+                  <DateField value={formData.startDate} onChange={(startDate) => setFormData({ ...formData, startDate })} label={isAr ? "البداية" : "Start"} isAr={isAr} />
+                  <DateField value={formData.endDate} onChange={(endDate) => setFormData({ ...formData, endDate })} label={isAr ? "النهاية" : "End"} isAr={isAr} />
                 </View>
 
                 {/* النتائج */}
@@ -621,17 +606,7 @@ export default function TasksScreen() {
                   </View>
                 )}
 
-                {formData.result === "extended" && (
-                  <View>
-                    <Text style={styles.fieldLabel}>{isAr ? "التاريخ الجديد" : "New Date"}</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={formData.extensionDate || ""}
-                      onChangeText={(t) => setFormData({ ...formData, extensionDate: t })}
-                      placeholder="YYYY-MM-DD"
-                    />
-                  </View>
-                )}
+                {formData.result === "extended" && <DateField value={formData.extensionDate || ""} onChange={(extensionDate) => setFormData({ ...formData, extensionDate })} label={isAr ? "التاريخ الجديد" : "New Date"} isAr={isAr} />}
 
                 {formData.result === "recommendations" && (
                   <View>

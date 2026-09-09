@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -329,26 +330,7 @@ export default function ProductionCostsScreen() {
             </Text>
 
             {/* Date Input */}
-            <View style={{ marginBottom: 12 }}>
-              <Text style={{ color: colors.foreground, marginBottom: 4 }}>
-                {isAr ? "التاريخ" : "Date"}
-              </Text>
-              <TextInput
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 8,
-                  padding: 8,
-                  color: colors.foreground,
-                  backgroundColor: colors.background,
-                }}
-                value={formData.date}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, date: text })
-                }
-                placeholder="YYYY-MM-DD"
-              />
-            </View>
+            <DateField value={formData.date} onChange={(date) => setFormData({ ...formData, date })} label={isAr ? "التاريخ" : "Date"} isAr={isAr} />
 
             {/* Raw Materials */}
             <Text style={{ color: colors.foreground, fontWeight: "bold", marginBottom: 8 }}>
