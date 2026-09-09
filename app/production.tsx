@@ -695,6 +695,21 @@ export default function ProductionScreen() {
     const totals = getEntryTotals(entry);
     const machineKeys = Object.keys(entry.machines);
     const totalShifts = machineKeys.reduce((sum, m) => sum + entry.machines[m].shifts.length, 0);
+    const dailyProducts: Record<string, { name: string; dozen: number; pairs: number; machines: string[]; count: number }> = {};
+    machineKeys.forEach((machine) => {
+      entry.machines[machine].shifts.forEach((shift) => {
+        shift.products.forEach((product) => {
+          const name = getFullProductName(product) || (isAr ? "بدون اسم" : "Unnamed product");
+          const key = `${product.itemName}|${product.itemSize}|${product.itemColor}`;
+          if (!dailyProducts[key]) dailyProducts[key] = { name, dozen: 0, pairs: 0, machines: [], count: 0 };
+          dailyProducts[key].dozen += parseFloat(product.productionDozen) || 0;
+          dailyProducts[key].pairs += parseFloat(product.productionPairs) || 0;
+          dailyProducts[key].count += 1;
+          if (!dailyProducts[key].machines.includes(machine)) dailyProducts[key].machines.push(machine);
+        });
+      });
+    });
+    const dailyProductRows = Object.values(dailyProducts).sort((a, b) => a.name.localeCompare(b.name, isAr ? "ar" : "en"));
 
     return (
       <View key={entry.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
@@ -735,6 +750,22 @@ export default function ProductionScreen() {
             </View>
           </View>
         ))}
+
+        {/* منتجات هذا اليوم مرتبة حسب تاريخ السجل */}
+        <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+            <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 13 }}>{isAr ? `منتجات يوم ${entry.date}` : `Products for ${entry.date}`}</Text>
+            <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>{dailyProductRows.length} {isAr ? "منتج" : "products"}</Text>
+          </View>
+          {dailyProductRows.map((row) => (
+            <View key={row.name} style={{ backgroundColor: colors.background, borderRadius: 8, padding: 9, marginBottom: 5, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 12, textAlign: "right" }}>{row.name}</Text>
+              <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 3 }}>
+                {isAr ? `الكمية: ${row.dozen} درزن + ${row.pairs} زوج | مرات الإدخال: ${row.count} | المكائن: ${row.machines.join("، ")}` : `Quantity: ${row.dozen} dz + ${row.pairs} pairs | Entries: ${row.count} | Machines: ${row.machines.join(", ")}`}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         {/* الإجماليات */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border }}>
@@ -1358,6 +1389,14 @@ export default function ProductionScreen() {
       {/* أدوات الإنتاج المسماة بوضوح */}
       {!showForm && (
         <View style={{ marginHorizontal: 16, marginTop: 10, marginBottom: 4, flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end", gap: 8 }}>
+          <TouchableOpacity
+            accessibilityLabel={isAr ? "دليل المنتجات" : "Product catalog"}
+            onPress={() => router.push("/products" as any)}
+            style={{ width: 104, minHeight: 62, borderRadius: 12, backgroundColor: "#ede9fe", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#7c3aed", paddingHorizontal: 4, paddingVertical: 6 }}
+          >
+            <MaterialIcons name="inventory-2" size={22} color="#7c3aed" />
+            <Text style={{ color: "#5b21b6", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 3 }}>{isAr ? "دليل المنتجات" : "Product catalog"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel={isAr ? "حساب التكاليف - منتج جديد" : "Cost calculation - New product"}
             onPress={() => router.push("/product-cost-calculator" as any)}
