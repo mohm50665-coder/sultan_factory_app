@@ -7,17 +7,19 @@
   ],
   "dev_command": "pnpm run dev",
   "env_vars": {
-    "DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}"
+    "DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}",
+    "DRIZZLE_DATABASE_URL": "mysql://Sux4mmRvFwAmXua.6fa38705623b:W5M8nrDmY7k56dRcp9BH@gateway04.us-east-1.prod.aws.tidbcloud.com:4000/PAoTpRZYv26mjfaeASDQLQ?ssl={\"rejectUnauthorized\":true}",
+    "MANUS_WEBDEV_PROJECT_ID": "PAoTpRZYv26mjfaeASDQLQ"
   },
   "experiments": [
     "no_db_push"
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663396423140/PAoTpRZYv26mjfaeASDQLQ",
-    "access_key_id": "ASIAZV3A2ECZOZ4IPZV6",
-    "secret_access_key": "ncHPGYtQgbyTN1pV5WqDPIipJdRXKI7F15tAVvZo",
-    "session_token": "IQoJb3JpZ2luX2VjENv//////////wEaCXVzLWVhc3QtMSJHMEUCIFzK0ciSCQG+GdKgTu9SJ45pfnENUaUEIrqhsl3iPBi9AiEAozj6QhlIGLeJqYCWy7UI/qYWQmhWqwDZitJAiDu9fpcq/wMIo///////////ARAEGgw2NjUzODYwOTg4NjYiDGU4fLexzwcCWceRjirTA8eQEfdpXLWe6QhH54dKVbXcMWZnhWNUf2L4jGwGx1TdLZ7erAsP+uFBAGBbUa/5F5j2DIWYwcGLj2+Hfw4CMI1U9fStbyvSmBYkZmKhGj+98ZHwE7abvwjV0//HVJHM516VjCzFi0qWVIEmzxgIrlzt4zX+sS4xv30QLX1FyKNzMeXEJ00ByLdCNNpbG0lGYN/EzH+yF65D8hl4du2o2LtM5J7x+u3/9aCT+/kMutWPbQPJFuSuEH0q6wsUFtFqThRkZFXXsaf2G/Mv+yEoDlcoZk5U1c+r5eeRCP1shlzXtbqE8ty0+SpZB1BEgDJx/tTFFmDKkz5QEfaHlvHNLhZg5LtrJYarBkkzbruJKCo/ZZ3MVCPc4AAvzQC9Ee7yCvfIJq4utaQx9MFoBAeSpdGpVG991bcSJq1QQcEwyhZBUIFaujoHJLVmAFDG+ijEQT0Q8Y0GK1fjyQECfP5Hb9dPLAwssfhXUJacupGFNK7HhmJPZx9ItPvvVyjQ0BvO7BAwYc8qnqr5XD134PIFUkAhPptvnkbE/6dyBNG+FgSelF1vEmtb9rogm5BnhNtnCHPoeXvdnkyo/LYGg2PwbxvhadqyMbHi4L3535MambJtfyi/MKTp2NQGOp0B5O9Blrgy7h1lHI0ZC/W6IZ1Cam7xmFCc9zt6nMNIxOV5FMkNHQhEMPO6kOOZGM7KgYaWeneUQA+Hqryyvtl6C7eoW/Bv6YWbb2RHErplVLJ8Hjdu/7LIr9V5uu7m8h8AY+UYpAHQ8uqJGpUCpxZLNcW9lnd3fV+7kJzixqF2ejbCpusAXJa0c5lcdyy6jDlPgaQrIp0doK6QmBJF6A==",
-    "expiration": "2026-09-01T14:12:52.000Z",
+    "access_key_id": "ASIAZV3A2ECZOQ7WNDQW",
+    "secret_access_key": "/9+pZlvDUpBkPxIJDpVaJ2ew+86OBXYzMfXQkpH5",
+    "session_token": "IQoJb3JpZ2luX2VjELv//////////wEaCXVzLWVhc3QtMSJGMEQCIEEIrLjl5Vs/NvFtKWEMO8OnJCBTmUOx47afo9RFb9KMAiAWSxAIQ8x5i+osZ1AqGf7HTRrggddqu/wGDla14RAieCr/AwiE//////////8BEAQaDDY2NTM4NjA5ODg2NiIMVuqFDybG86F31XW8KtMDtmj6pHf9UF/9oHGUkQE5i43aZUsSEZMGBtMix9koKcCsAL2rl7MTNKxqJH/V9OBxq4YDhFvny8/8ANUyHLtGQvG+7lJm9no4jBGK7oRSF+JDPEee7EeKDRk/nGDyIZkVl5HagYPE6Fk2RvKWRkRq6qYVXQMlYAmTdM04y/e5EjjdMPOyK/WhvYmFZ8TvrkeIN8rC3cjO8UF946qbJ/W6jBlLdzD8QxMEuesToymWFI5y2wnKvYIwukLJGr4NWRZSQLUIX8+HugVzGh7JdpoHfNSImEq3Hto7z3Uw/PlcOKWpCV2pGexi47BC0Bb0FHlTqd+hNuVGI1Fe0XsADOYoI2yP7RMQjyWPiE/Ht4pw9u9yaPgS8Y2zuRyVWUj+SMLa6UvYbWW5Rp5hoxPqq0MzZDD0shmaAJQ3y4ZTfgX/l/wrEfRaTf1D36iZpMmdVQEn4e0Uw9CmtPeaQ4NEPtkqIMU/lTL8zJJ2XghSiQTngivy0hGREyIJbCGE5ZB0bzgjZEyyYFGViS4vGoEeAZgT8XtyztV712ahI6qev2FXVQnYBeYhYMpc4WMOsM7Q3rJTRLQx1Knp68JmI9urCzu29aJFOWM6OifkzpJBfHs19nEkekkwq5WK1QY6ngEW7ARUk7ClTvGIcBZQArx/G6VLs5UpTyuD+I+BqI7l2OPETlTYBcFC1wRtJZxXs3vCBZ8o/Jp3ouoVy+aGzu3ExTc9TLPIBw5A55tL7QGY5OxaY4NCl+Po5zZRxv3mEtji/yGX+NT8LAM2wRoDCmaqVUH+08Fa4PMwOFqrYwWFhZyFR2Pdxz/6xa1ORjTZImAzfBMmYuicJAmLKH4toA==",
+    "expiration": "2026-09-10T22:47:07.000Z",
     "backend": "GIT_BACKEND_S3"
   },
   "name": "sultan_factory_app",
@@ -45,8 +47,8 @@
     "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
     "VITE_ANALYTICS_WEBSITE_ID": "993141ea-28f6-424d-9b70-e839018315f4",
     "VITE_APP_ID": "PAoTpRZYv26mjfaeASDQLQ",
-    "VITE_APP_LOGO": "",
-    "VITE_APP_TITLE": "تطبيق متابعة أداء مصنع السلطان",
+    "VITE_APP_LOGO": "https://d2xsxph8kpxj0f.cloudfront.net/310519663396423140/PAoTpRZYv26mjfaeASDQLQ/icon-5ZELJwzhNmnzHAeykK5T6w.png",
+    "VITE_APP_TITLE": "مصنع السلطان",
     "VITE_FRONTEND_FORGE_API_KEY": "eHk34NfiQatfY6CMjpbiho",
     "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
     "VITE_OAUTH_PORTAL_URL": "https://manus.im"

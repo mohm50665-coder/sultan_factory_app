@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, appSettingsService, productsService } from "@/lib/services/api.service";
+import { productionService, appSettingsService, productsService, manufacturingWorkersService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AttachmentPicker } from "@/components/attachment-picker";
@@ -52,6 +52,7 @@ interface ProductItem {
   yarnSpan: string;
   yarnWeightPerPair: string;
   movementStatus: "none" | "received" | "delivered";
+  expectedReceiver: string;
 }
 
 // ملاحظة 3: كل مكينة تتحمل 5 منتجات أو أكثر
@@ -108,6 +109,7 @@ const emptyProduct = (): ProductItem => ({
   yarnSpan: "",
   yarnWeightPerPair: "",
   movementStatus: "none",
+  expectedReceiver: "",
 });
 
 const emptyShiftData = (shiftNum: number): ShiftData => ({
@@ -162,10 +164,17 @@ export default function ProductionScreen() {
   const [savedProducts, setSavedProducts] = useState<SavedProductData[]>([]);
   const [productSuggestions, setProductSuggestions] = useState<SavedProductData[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number; productIndex: number} | null>(null);
+  const [machineWorkers, setMachineWorkers] = useState<string[]>([]);
+  const riyadhToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const automaticFlowActive = riyadhToday >= "2026-09-11" || selectedDate >= "2026-09-11";
+  const canCreateProduction = user?.role === "admin" || user?.department === "production" || user?.department === "الإنتاج" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
 
   useEffect(() => {
     loadEntries();
     loadSavedProducts();
+    manufacturingWorkersService.list("machines").then((rows: any[]) => {
+      setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || "").trim()).filter((name: string) => name && name !== "الجميع" && name.toLowerCase() !== "all"));
+    }).catch(() => setMachineWorkers([]));
   }, []);
 
   // تحميل بيانات المنتجات المحفوظة (ملاحظة 5)
@@ -306,6 +315,7 @@ export default function ProductionScreen() {
           yarnSpan: String(row.yarnSpan || 0),
           yarnWeightPerPair: String(row.yarnWeightPerPair || ""),
           movementStatus: row.movementStatus || "none",
+          expectedReceiver: "",
         });
       }
 
@@ -375,9 +385,11 @@ export default function ProductionScreen() {
               yarnBamboo: parseInt(product.yarnBamboo) || 0,
               yarnSpan: parseInt(product.yarnSpan) || 0,
               yarnWeightPerPair: parseFloat(product.yarnWeightPerPair) || 0,
-              movementStatus: product.movementStatus,
-              movementBy: product.movementStatus === "none" ? undefined : user?.name || undefined,
-              movementAt: product.movementStatus === "none" ? undefined : new Date(),
+              movementStatus: automaticFlowActive ? "delivered" : product.movementStatus,
+              movementBy: automaticFlowActive || product.movementStatus !== "none" ? user?.name || undefined : undefined,
+              movementAt: automaticFlowActive || product.movementStatus !== "none" ? new Date() : undefined,
+              expectedReceiver: automaticFlowActive ? product.expectedReceiver : undefined,
+              receiverStage: automaticFlowActive ? "machines" : undefined,
               userId,
             });
           });
@@ -546,6 +558,10 @@ export default function ProductionScreen() {
 
   const handleSave = async () => {
     if (isSaving) return;
+    if (automaticFlowActive && !canCreateProduction) {
+      showSaveMessage(isAr ? "غير مصرح" : "Not authorized", isAr ? "اعتباراً من 11/09/2026 إدخال المنتجات محصور على مدير الإنتاج والأدمن" : "Starting 11/09/2026, product entry is restricted to the Production Manager and Admin");
+      return;
+    }
     if (activeMachines.length === 0) {
       showSaveMessage(isAr ? "تنبيه" : "Alert", isAr ? "يرجى اختيار مكينة واحدة على الأقل" : "Please select at least one machine");
       return;
@@ -563,6 +579,18 @@ export default function ProductionScreen() {
     });
 
     const enteredProducts = activeMachines.flatMap((machine) => entry.machines[machine].shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim() || product.productionDozen || product.productionPairs)));
+    if (automaticFlowActive) {
+      const missingReceiver = enteredProducts.find((product) => !product.expectedReceiver.trim());
+      if (missingReceiver) {
+        showSaveMessage(isAr ? "حدد المستلم" : "Select receiver", isAr ? "اختر موظفاً من مرحلة إنتاج المكائن لكل منتج قبل الحفظ والتسليم" : "Choose a Machines Production receiver for every product before saving and delivery");
+        return;
+      }
+      const selfHandover = enteredProducts.find((product) => product.expectedReceiver.trim() === String(user?.name || "").trim());
+      if (selfHandover) {
+        showSaveMessage(isAr ? "تسليم غير مسموح" : "Invalid handover", isAr ? "لا يمكن تسليم المنتج لنفس الموظف الذي سجّل الإنتاج" : "The production recorder cannot hand the product to themselves");
+        return;
+      }
+    }
     // الحفظ الأساسي مستقل عن حركة الاستلام والتسليم؛ الحالة none تعني «بانتظار الحركة».
 
     setIsSaving(true);
@@ -881,17 +909,32 @@ export default function ProductionScreen() {
         )}
       </View>
 
-      {/* حالة الاستلام والتسليم */}
+      {/* التسليم من الإنتاج هو بداية سلسلة العهدة التلقائية */}
       <View style={{ marginBottom: 8 }}>
-        <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
-        <View style={{ flexDirection: "row", gap: 6 }}>
-          <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderWidth: 1, borderColor: "#dc2626", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}>
-            <Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontSize: 11, fontWeight: "800" }}>{isAr ? "استلمت" : "Received"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}>
-            <Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontSize: 11, fontWeight: "800" }}>{isAr ? "سلّمت" : "Delivered"}</Text>
-          </TouchableOpacity>
-        </View>
+        {automaticFlowActive ? (
+          <View style={{ backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#86efac", borderRadius: 9, padding: 9 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 5, marginBottom: 7 }}>
+              <Text style={{ color: "#166534", fontSize: 12, fontWeight: "900", textAlign: "right" }}>{isAr ? "آخر خطوة: تسليم تلقائي إلى إنتاج المكائن" : "Last step: automatic handover to Machines Production"}</Text>
+              <MaterialIcons name="move-to-inbox" size={18} color="#15803d" />
+            </View>
+            <Text style={{ color: "#166534", fontSize: 10, marginBottom: 6, textAlign: "right" }}>{isAr ? "اختر المستلم؛ سيظهر المنتج تلقائياً في قائمة استلامه بعد الحفظ" : "Choose the receiver; the product will appear automatically in their receipt queue"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
+              {machineWorkers.map((worker) => {
+                const selected = product.expectedReceiver === worker;
+                return <TouchableOpacity key={worker} onPress={() => updateProductField(machine, shiftIndex, productIndex, "expectedReceiver", worker)} style={{ backgroundColor: selected ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selected ? "#ffffff" : "#166534", fontSize: 10, fontWeight: "800" }}>{worker}</Text></TouchableOpacity>;
+              })}
+            </ScrollView>
+            {machineWorkers.length === 0 && <Text style={{ color: "#b45309", fontSize: 10, textAlign: "right" }}>{isAr ? "لا يوجد عمال مضافون لمرحلة إنتاج المكائن. أضفهم من لوحة الأدمن." : "No Machines Production workers configured. Add them from Admin."}</Text>}
+          </View>
+        ) : (
+          <>
+            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderWidth: 1, borderColor: "#dc2626", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontSize: 11, fontWeight: "800" }}>{isAr ? "استلمت" : "Received"}</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontSize: 11, fontWeight: "800" }}>{isAr ? "سلّمت" : "Delivered"}</Text></TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
       {/* وزن الخيط لكل زوج + إجمالي */}

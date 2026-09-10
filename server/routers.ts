@@ -52,11 +52,83 @@ import {
   internalMessages as internalMessagesTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte, isNull } from "drizzle-orm";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
 
 const COOKIE_NAME = "session_id";
+const AUTO_HANDOVER_START_DATE = "2026-09-11";
+const MANUFACTURING_STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
+
+function getRiyadhDate(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+function isAutomaticHandoverActive(recordDate?: string | null) {
+  return getRiyadhDate() >= AUTO_HANDOVER_START_DATE || String(recordDate || "") >= AUTO_HANDOVER_START_DATE;
+}
+
+function isProductionAuthority(user: any) {
+  const department = String(user?.department || "").trim().toLowerCase();
+  const position = String(user?.position || "").trim().toLowerCase();
+  return user?.role === "admin" || department === "production" || department === "الإنتاج" || position.includes("مدير الإنتاج") || position.includes("production manager");
+}
+
+function assertProductionAuthority(user: any, recordDate?: string | null) {
+  if (isAutomaticHandoverActive(recordDate) && !isProductionAuthority(user)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "اعتباراً من 11/09/2026 إنشاء المنتجات محصور على مدير الإنتاج والأدمن" });
+  }
+}
+
+function nextManufacturingStage(stageName: string) {
+  const index = MANUFACTURING_STAGE_ORDER.indexOf(stageName as any);
+  return index >= 0 && index < MANUFACTURING_STAGE_ORDER.length - 1 ? MANUFACTURING_STAGE_ORDER[index + 1] : null;
+}
+
+async function validateStageReceiver(db: any, stageName: string, receiverName: string) {
+  const name = receiverName.trim();
+  if (!name) throw new Error("يجب اختيار موظف مستلم من المرحلة التالية");
+  const configured = await db.select().from(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.stageId, stageName));
+  if (configured.length > 0 && !configured.some((worker: any) => String(worker.workerName || "").trim() === name)) {
+    throw new Error("المستلم المحدد لا ينتمي إلى المرحلة التالية");
+  }
+}
+
+function productionHandoverKey(entry: { date: string; machineNumber: string; shiftNumber?: number; productName?: string }) {
+  const productHash = createHash("sha1").update(normalizeCatalogPart(entry.productName)).digest("hex").slice(0, 12);
+  return `AUTO_PROD:${entry.date}:${entry.machineNumber}:${entry.shiftNumber || 1}:${productHash}`;
+}
+
+async function createInitialProductionHandover(db: any, entry: any, user: any) {
+  if (!isAutomaticHandoverActive(entry.date)) return;
+  const expectedReceiver = String(entry.expectedReceiver || "").trim();
+  await validateStageReceiver(db, "machines", expectedReceiver);
+  if (expectedReceiver === String(user?.name || "").trim()) throw new Error("لا يمكن لمدير الإنتاج تسليم المنتج لنفسه");
+  const sourceKey = productionHandoverKey(entry);
+  const existingRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, sourceKey)).limit(1);
+  const existing = existingRows[0];
+  const values = {
+    stageName: "production",
+    workerName: String(user?.name || "").trim(),
+    quantityDozen: entry.productionDozen || 0,
+    quantityPair: entry.productionPairs || 0,
+    productType: sourceKey,
+    productName: String(entry.productName || "").trim(),
+    date: entry.date,
+    movementStatus: "delivered" as const,
+    movementBy: String(user?.name || "").trim(),
+    movementAt: new Date(),
+    expectedReceiver,
+    receiverStage: "machines",
+    userId: user.id,
+  };
+  if (existing) {
+    if (!existing.receivedAt) await db.update(manufacturingStagesTable).set(values).where(eq(manufacturingStagesTable.id, existing.id));
+    return existing.id;
+  }
+  const result = await db.insert(manufacturingStagesTable).values(values);
+  return result[0].insertId;
+}
 
 // Helper to get authenticated user from cookie
 async function getUserFromCookie(cookieValue: string | undefined) {
@@ -589,7 +661,7 @@ export const appRouter = router({
       return db.select().from(productionTable).orderBy(desc(productionTable.createdAt));
     }),
 
-    create: publicProcedure
+    create: protectedProcedure
       .input(z.object({
         date: z.string(),
         machineNumber: z.string(),
@@ -617,13 +689,16 @@ export const appRouter = router({
           movementStatus: z.enum(["none", "received", "delivered"]).optional(),
           movementBy: z.string().optional(),
           movementAt: z.coerce.date().optional(),
+          expectedReceiver: z.string().optional(),
+          receiverStage: z.string().optional(),
           userId: z.number(),
         }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const { yarnWeightPerPair, ...productionInput } = input;
-        const result = await db.insert(productionTable).values(productionInput);
+        assertProductionAuthority(ctx.user, input.date);
+        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...productionInput } = input;
+        const result = await db.insert(productionTable).values({ ...productionInput, userId: ctx.user.id });
         const identity = parseLegacyProductName(input.productName);
         await ensureCatalogProduct(db, {
           ...identity,
@@ -637,13 +712,14 @@ export const appRouter = router({
             yarnBamboo: input.yarnBamboo || 0,
             yarnSpan: input.yarnSpan || 0,
           },
-          createdBy: input.userId,
+          createdBy: ctx.user.id,
         }, new Map());
+        await createInitialProductionHandover(db, input, ctx.user);
         return { success: true, id: result[0].insertId };
       }),
 
     // إنشاء عدة سجلات دفعة واحدة (لحفظ يوم كامل)
-    createBatch: publicProcedure
+    createBatch: protectedProcedure
       .input(z.object({
         entries: z.array(z.object({
           date: z.string(),
@@ -671,14 +747,17 @@ export const appRouter = router({
           movementStatus: z.enum(["none", "received", "delivered"]).optional(),
           movementBy: z.string().optional(),
           movementAt: z.coerce.date().optional(),
+          expectedReceiver: z.string().optional(),
+          receiverStage: z.string().optional(),
           userId: z.number(),
         })),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (input.entries.length === 0) return { success: true, count: 0 };
-        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, ...entry }) => entry);
+        input.entries.forEach((entry) => assertProductionAuthority(ctx.user, entry.date));
+        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...entry }) => ({ ...entry, userId: ctx.user.id }));
         await db.insert(productionTable).values(entriesForProduction);
         // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
         const cache = new Map<string, any>();
@@ -697,39 +776,47 @@ export const appRouter = router({
                 yarnBamboo: entry.yarnBamboo || 0,
                 yarnSpan: entry.yarnSpan || 0,
               },
-              createdBy: entry.userId,
+              createdBy: ctx.user.id,
             }, cache);
           } catch (catalogError) {
             console.error("Production saved, catalog sync failed:", catalogError);
           }
+          await createInitialProductionHandover(db, entry, ctx.user);
         }
         return { success: true, count: input.entries.length };
       }),
 
     // حذف كل سجلات يوم معين
-    deleteByDate: publicProcedure
+    deleteByDate: protectedProcedure
       .input(z.object({ date: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        assertProductionAuthority(ctx.user, input.date);
         await db.delete(productionTable).where(eq(productionTable.date, input.date));
         return { success: true };
       }),
 
-    update: publicProcedure
+    update: protectedProcedure
       .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const current = await db.select().from(productionTable).where(eq(productionTable.id, input.id)).limit(1);
+        if (!current[0]) throw new Error("سجل الإنتاج غير موجود");
+        assertProductionAuthority(ctx.user, current[0].date);
         await db.update(productionTable).set(input.data as any).where(eq(productionTable.id, input.id));
         return { success: true };
       }),
 
-    delete: publicProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const current = await db.select().from(productionTable).where(eq(productionTable.id, input.id)).limit(1);
+        if (!current[0]) throw new Error("سجل الإنتاج غير موجود");
+        assertProductionAuthority(ctx.user, current[0].date);
         await db.delete(productionTable).where(eq(productionTable.id, input.id));
         return { success: true };
       }),
@@ -743,13 +830,24 @@ export const appRouter = router({
       return db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.createdAt));
     }),
 
+    listReceiptQueue: protectedProcedure
+      .input(z.object({ stageName: z.string() }))
+      .query(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const receiverName = String(ctx.user.name || "").trim();
+        if (!receiverName) return [];
+        const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
+        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && String(record.expectedReceiver || "").trim() === receiverName && isAutomaticHandoverActive(record.date));
+      }),
+
     getDeleted: adminProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
       return db.select().from(manufacturingStagesTable).where(sql`deletedAt IS NOT NULL`).orderBy(desc(manufacturingStagesTable.deletedAt));
     }),
 
-    create: publicProcedure
+    create: protectedProcedure
       .input(z.object({
         stageName: z.string(),
         workerName: z.string(),
@@ -767,10 +865,11 @@ export const appRouter = router({
         receivedAt: z.coerce.date().optional(),
         userId: z.number(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const result = await db.insert(manufacturingStagesTable).values(input);
+        assertProductionAuthority(ctx.user, input.date);
+        const result = await db.insert(manufacturingStagesTable).values({ ...input, userId: ctx.user.id });
         return { success: true, id: result[0].insertId };
       }),
 
@@ -812,7 +911,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    confirmReceipt: publicProcedure
+    confirmReceipt: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
@@ -821,10 +920,117 @@ export const appRouter = router({
         const record = rows[0];
         if (!record || record.deletedAt) throw new Error("السجل غير موجود");
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
-        const receiverName = String((ctx.user as any)?.name || "").trim();
+        if (record.receivedAt) throw new Error("تم تأكيد استلام هذه العهدة مسبقاً");
+        const receiverName = String(ctx.user.name || "").trim();
         if (!receiverName || receiverName !== String(record.expectedReceiver || "").trim()) throw new Error("هذا السجل مخصص لموظف آخر");
-        await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
-        return { success: true };
+        if (!isAutomaticHandoverActive(record.date)) {
+          await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
+          return { success: true, mode: "legacy" as const };
+        }
+        const destinationStage = String(record.receiverStage || "").trim();
+        if (!MANUFACTURING_STAGE_ORDER.includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير صحيحة");
+        const receivedAt = new Date();
+        const destinationKey = `AUTO_STAGE:${record.id}`;
+        const destinationRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, destinationKey)).limit(1);
+        if (destinationRows[0]) throw new Error("تم إنشاء عهدة المرحلة الحالية مسبقاً");
+        const result = await db.transaction(async (tx: any) => {
+          await tx.update(manufacturingStagesTable).set({ receivedBy: receiverName, receivedAt }).where(eq(manufacturingStagesTable.id, record.id));
+          const created = await tx.insert(manufacturingStagesTable).values({
+            stageName: destinationStage,
+            workerName: receiverName,
+            quantityDozen: record.quantityDozen || 0,
+            quantityPair: record.quantityPair || 0,
+            productType: destinationKey,
+            productName: record.productName || "",
+            date: getRiyadhDate(receivedAt),
+            movementStatus: "received",
+            movementBy: receiverName,
+            movementAt: receivedAt,
+            receivedBy: receiverName,
+            receivedAt,
+            userId: ctx.user.id,
+          });
+          const identity = parseLegacyProductName(record.productName);
+          await tx.insert(productTrackingTable).values({
+            productName: record.productName || identity.name,
+            productSize: identity.size,
+            productColor: identity.color,
+            trackingDate: getRiyadhDate(receivedAt),
+            quantityDozen: record.quantityDozen || 0,
+            quantityPairs: record.quantityPair || 0,
+            currentStage: destinationStage,
+            previousStage: record.stageName,
+            deliveredBy: record.movementBy || record.workerName,
+            receivedBy: receiverName,
+            expectedReceiver: receiverName,
+            receiverStage: destinationStage,
+            handoverStatus: "received",
+            deliveredAt: record.movementAt,
+            receivedAt,
+            handoverDate: receivedAt,
+            notes: "استلام تلقائي من قائمة العهدة",
+            userId: ctx.user.id,
+          });
+          return created[0].insertId;
+        });
+        return { success: true, id: result, stageName: destinationStage, mode: "automatic" as const };
+      }),
+
+    deliverToNextStage: protectedProcedure
+      .input(z.object({ id: z.number(), expectedReceiver: z.string().min(1), quantityDozen: z.number().int().nonnegative().optional(), quantityPair: z.number().int().nonnegative().optional(), notes: z.string().max(1000).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        const record = rows[0];
+        if (!record || record.deletedAt) throw new Error("سجل العهدة غير موجود");
+        if (!isAutomaticHandoverActive(record.date)) throw new Error("هذا السجل يتبع المسار السابق");
+        if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
+        const actorName = String(ctx.user.name || "").trim();
+        if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تسليم عهدة موظف آخر");
+        const targetStage = nextManufacturingStage(record.stageName);
+        if (!targetStage) throw new Error("مرحلة التخزين هي المرحلة النهائية ولا يوجد تسليم بعدها");
+        const expectedReceiver = input.expectedReceiver.trim();
+        await validateStageReceiver(db, targetStage, expectedReceiver);
+        if (expectedReceiver === actorName) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
+        const quantityDozen = input.quantityDozen ?? record.quantityDozen ?? 0;
+        const quantityPair = input.quantityPair ?? record.quantityPair ?? 0;
+        const currentPairs = (record.quantityDozen || 0) * 12 + (record.quantityPair || 0);
+        const deliveredPairs = quantityDozen * 12 + quantityPair;
+        if (deliveredPairs <= 0) throw new Error("كمية التسليم يجب أن تكون أكبر من صفر");
+        if (deliveredPairs > currentPairs) throw new Error("لا يمكن أن تتجاوز كمية التسليم الكمية المستلمة");
+        const deliveredAt = new Date();
+        const identity = parseLegacyProductName(record.productName);
+        await db.transaction(async (tx: any) => {
+          await tx.update(manufacturingStagesTable).set({
+            quantityDozen,
+            quantityPair,
+            movementStatus: "delivered",
+            movementBy: actorName,
+            movementAt: deliveredAt,
+            expectedReceiver,
+            receiverStage: targetStage,
+            productType: record.productType,
+          }).where(eq(manufacturingStagesTable.id, record.id));
+          await tx.insert(productTrackingTable).values({
+            productName: record.productName || identity.name,
+            productSize: identity.size,
+            productColor: identity.color,
+            trackingDate: getRiyadhDate(deliveredAt),
+            quantityDozen,
+            quantityPairs: quantityPair,
+            currentStage: record.stageName,
+            previousStage: MANUFACTURING_STAGE_ORDER[Math.max(0, MANUFACTURING_STAGE_ORDER.indexOf(record.stageName as any) - 1)],
+            deliveredBy: actorName,
+            expectedReceiver,
+            receiverStage: targetStage,
+            handoverStatus: "delivered",
+            deliveredAt,
+            notes: input.notes || (deliveredPairs < currentPairs ? `نقص ${currentPairs - deliveredPairs} زوج` : "تسليم تلقائي للمرحلة التالية"),
+            userId: ctx.user.id,
+          });
+        });
+        return { success: true, receiverStage: targetStage, expectedReceiver, deliveredAt };
       }),
   }),
 
@@ -844,7 +1050,7 @@ export const appRouter = router({
         const rows = await db.select().from(productsTable).where(eq(productsTable.barcode, input.barcode.toUpperCase())).limit(1);
         return rows[0] ?? null;
       }),
-    create: publicProcedure
+    create: protectedProcedure
       .input(z.object({
         name: z.string().min(1).max(255),
         size: z.string().optional(),
@@ -855,9 +1061,10 @@ export const appRouter = router({
         attachments: z.array(z.string()).optional(),
         createdBy: z.number().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        assertProductionAuthority(ctx.user);
         const validationError = getCatalogProductValidationError(input);
         if (validationError) throw new Error(validationError);
         const product = await ensureCatalogProduct(db, {
@@ -866,7 +1073,7 @@ export const appRouter = router({
           color: input.color,
           weightGrams: input.weightGrams,
           yarnDetails: input.yarnDetails,
-          createdBy: input.createdBy,
+          createdBy: ctx.user.id,
         }, new Map());
         if (!product) throw new Error("اسم المنتج غير صالح");
         if (product.id && product.imageUrl === null && (input.imageUrl || input.attachments?.length)) {
@@ -925,7 +1132,7 @@ export const appRouter = router({
       if (!db) return [];
       return db.select().from(productTrackingTable).orderBy(desc(productTrackingTable.trackingDate), desc(productTrackingTable.createdAt));
     }),
-    create: publicProcedure
+    create: protectedProcedure
       .input(z.object({
         productName: z.string().min(1),
         productSize: z.string().optional(),
@@ -949,9 +1156,10 @@ export const appRouter = router({
         notes: z.string().optional(),
         userId: z.number(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        assertProductionAuthority(ctx.user, input.trackingDate);
         if (input.handoverStatus === "delivered" && (!input.deliveredBy || !input.expectedReceiver)) {
           throw new Error("يجب تحديد اسم المسلم واسم المستلم المتوقع قبل التسليم");
         }
@@ -961,7 +1169,7 @@ export const appRouter = router({
         if (input.handoverStatus === "received" && input.deliveredBy && input.receivedBy && input.deliveredBy === input.receivedBy) {
           throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
         }
-        const result = await db.insert(productTrackingTable).values({ ...input, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
+        const result = await db.insert(productTrackingTable).values({ ...input, userId: ctx.user.id, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
         return { success: true, id: result[0].insertId };
       }),
     update: publicProcedure

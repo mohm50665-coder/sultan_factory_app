@@ -61,6 +61,7 @@ export interface ManufacturingStageData {
   receiverStage?: string;
   receivedBy?: string;
   receivedAt?: string | Date;
+  userId?: number;
 }
 
 export interface SalesData {
@@ -194,6 +195,14 @@ export const manufacturingStageService = {
 
   async confirmReceipt(id: number): Promise<void> {
     await trpcCall("manufacturing.confirmReceipt", { id });
+  },
+
+  async listReceiptQueue(stageName: string): Promise<ManufacturingStageData[]> {
+    return await trpcCall("manufacturing.listReceiptQueue", { stageName }, "query") || [];
+  },
+
+  async deliverToNextStage(data: { id: number; expectedReceiver: string; quantityDozen?: number; quantityPair?: number; notes?: string }): Promise<{ success: boolean; receiverStage: string; expectedReceiver: string; deliveredAt: string | Date }> {
+    return await trpcCall("manufacturing.deliverToNextStage", data);
   },
 };
 
