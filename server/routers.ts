@@ -57,14 +57,14 @@ import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
 
 const COOKIE_NAME = "session_id";
-const AUTO_HANDOVER_START_DATE = "2026-09-11";
-const MANUFACTURING_STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
+const AUTO_HANDOVER_START_DATE = "2026-09-10";
+const MANUFACTURING_STAGE_ORDER = ["production", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
 const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
-  production: ["machines"],
+  production: ["rosso"],
   machines: ["rosso"],
   rosso: ["qalb"],
   qalb: ["kawiya"],
-  kawiya: ["inspection", "antislip"],
+  kawiya: ["inspection"],
   antislip: ["inspection"],
   inspection: ["packing", "antislip"],
   packing: ["storage"],
@@ -94,7 +94,7 @@ function isProductionAuthority(user: any) {
 
 function assertProductionAuthority(user: any, recordDate?: string | null) {
   if (isAutomaticHandoverActive(recordDate) && !isProductionAuthority(user)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "اعتباراً من 11/09/2026 إنشاء المنتجات محصور على مدير الإنتاج والأدمن" });
+    throw new TRPCError({ code: "FORBIDDEN", message: "اعتباراً من 10/09/2026 إنشاء المنتجات محصور على مدير الإنتاج والأدمن" });
   }
 }
 
@@ -119,24 +119,28 @@ function productionHandoverKey(entry: { date: string; machineNumber: string; shi
 async function createInitialProductionHandover(db: any, entry: any, user: any) {
   if (!isAutomaticHandoverActive(entry.date)) return;
   const expectedReceiver = String(entry.expectedReceiver || "").trim();
-  await validateStageReceiver(db, "machines", expectedReceiver);
+  await validateStageReceiver(db, "rosso", expectedReceiver);
   if (expectedReceiver === String(user?.name || "").trim()) throw new Error("لا يمكن لمدير الإنتاج تسليم المنتج لنفسه");
   const sourceKey = productionHandoverKey(entry);
+  const identity = parseLegacyProductName(entry.productName);
   const existingRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, sourceKey)).limit(1);
   const existing = existingRows[0];
   const values = {
     stageName: "production",
     workerName: String(user?.name || "").trim(),
-    quantityDozen: entry.productionDozen || 0,
-    quantityPair: entry.productionPairs || 0,
+    quantityDozen: Number(entry.productionDozen) || 0,
+    quantityPair: Number(entry.productionPairs) || 0,
     productType: sourceKey,
     productName: String(entry.productName || "").trim(),
+    productSize: String(entry.productSize || identity.size || "").trim() || null,
+    productColor: String(entry.productColor || identity.color || "").trim() || null,
+    barcode: String(entry.barcode || "").trim() || null,
     date: entry.date,
     movementStatus: "delivered" as const,
     movementBy: String(user?.name || "").trim(),
     movementAt: new Date(),
     expectedReceiver,
-    receiverStage: "machines",
+    receiverStage: "rosso",
     userId: user.id,
   };
   if (existing) {
@@ -683,6 +687,9 @@ export const appRouter = router({
         date: z.string(),
         machineNumber: z.string(),
         productName: z.string().optional(),
+        productSize: z.string().optional(),
+        productColor: z.string().optional(),
+        barcode: z.string().optional(),
         shiftNumber: z.number().optional(),
         shiftStart: z.string().optional(),
         shiftEnd: z.string().optional(),
@@ -714,7 +721,7 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
-        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...productionInput } = input;
+        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...productionInput } = input;
         const result = await db.insert(productionTable).values({ ...productionInput, userId: ctx.user.id });
         const identity = parseLegacyProductName(input.productName);
         await ensureCatalogProduct(db, {
@@ -742,6 +749,9 @@ export const appRouter = router({
           date: z.string(),
           machineNumber: z.string(),
           productName: z.string().optional(),
+          productSize: z.string().optional(),
+          productColor: z.string().optional(),
+          barcode: z.string().optional(),
           shiftNumber: z.number().optional(),
           shiftStart: z.string().optional(),
           shiftEnd: z.string().optional(),
@@ -779,7 +789,7 @@ export const appRouter = router({
           if (producedPairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون كمية فعلية بالدرزن أو الأزواج" });
           if (!String(entry.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون منتج محفوظ" });
         });
-        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...entry }) => ({ ...entry, userId: ctx.user.id }));
+        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...entry }) => ({ ...entry, userId: ctx.user.id }));
         await db.insert(productionTable).values(entriesForProduction);
         // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
         const cache = new Map<string, any>();
@@ -860,7 +870,7 @@ export const appRouter = router({
         const receiverName = String(ctx.user.name || "").trim();
         if (!receiverName) return [];
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
-        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && String(record.expectedReceiver || "").trim() === receiverName && isAutomaticHandoverActive(record.date));
+        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && String(record.expectedReceiver || "").trim() === receiverName && String(record.productName || "").trim() && ((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0) > 0) && isAutomaticHandoverActive(record.date));
       }),
 
     getDeleted: adminProcedure.query(async () => {
@@ -967,6 +977,8 @@ export const appRouter = router({
             quantityPair: record.quantityPair || 0,
             productType: `${destinationKey}:FROM:${record.stageName}`,
             productName: record.productName || "",
+            productSize: record.productSize || parseLegacyProductName(record.productName).size || null,
+            productColor: record.productColor || parseLegacyProductName(record.productName).color || null,
             barcode: record.barcode || null,
             date: getRiyadhDate(receivedAt),
             movementStatus: "received",
@@ -979,8 +991,8 @@ export const appRouter = router({
           const identity = parseLegacyProductName(record.productName);
           await tx.insert(productTrackingTable).values({
             productName: record.productName || identity.name,
-            productSize: identity.size,
-            productColor: identity.color,
+            productSize: record.productSize || identity.size,
+            productColor: record.productColor || identity.color,
             trackingDate: getRiyadhDate(receivedAt),
             quantityDozen: record.quantityDozen || 0,
             quantityPairs: record.quantityPair || 0,
@@ -1057,8 +1069,8 @@ export const appRouter = router({
           }).where(eq(manufacturingStagesTable.id, record.id));
           await tx.insert(productTrackingTable).values({
             productName: record.productName || identity.name,
-            productSize: identity.size,
-            productColor: identity.color,
+            productSize: record.productSize || identity.size,
+            productColor: record.productColor || identity.color,
             trackingDate: getRiyadhDate(deliveredAt),
             quantityDozen,
             quantityPairs: quantityPair,

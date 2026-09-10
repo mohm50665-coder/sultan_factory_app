@@ -53,6 +53,9 @@ export interface ManufacturingStageData {
   quantityPair: number;
   productType?: string;
   productName?: string;
+  productSize?: string;
+  productColor?: string;
+  barcode?: string;
   date?: string;
   movementStatus?: "none" | "received" | "delivered";
   movementBy?: string;

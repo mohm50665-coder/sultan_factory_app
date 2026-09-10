@@ -24,6 +24,8 @@ import { manufacturingWorkersService, productsService } from "@/lib/services/api
 interface ProductItem {
   id?: string;
   productName: string;
+  productSize?: string;
+  productColor?: string;
   quantityDozen: string;
   quantityPairs: string;
   movementStatus: "none" | "received" | "delivered";
@@ -240,7 +242,7 @@ export default function ManufacturingStageScreen() {
       ]);
       if (data) {
         const merged = [...(Array.isArray(data) ? data : []), ...(Array.isArray(queue) ? queue : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
-        let filtered = merged.filter((d: any) => d.stageName === stage && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
+        let filtered = merged.filter((d: any) => (d.stageName === stage || (d.receiverStage === stage && String(d.expectedReceiver || "").trim() === String(user?.name || "").trim())) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
         // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.
         if (user?.role !== "admin") {
           filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name || d.expectedReceiver === user?.name);
@@ -264,6 +266,8 @@ export default function ManufacturingStageScreen() {
           grouped[groupKey].products.push({
             id: String(d.id),
             productName: d.productName || "",
+            productSize: d.productSize || "",
+            productColor: d.productColor || "",
             quantityDozen: String(d.quantityDozen || 0),
             quantityPairs: String(d.quantityPair || 0),
             movementStatus: d.movementStatus || "none",
@@ -656,6 +660,11 @@ export default function ManufacturingStageScreen() {
                 </Text>
                 <MaterialIcons name="inventory" size={16} color={config.color} />
               </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+                <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `المقاس: ${product.productSize || "غير مسجل"}` : `Size: ${product.productSize || "Not recorded"}`}</Text>
+                <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `اللون: ${product.productColor || "غير مسجل"}` : `Color: ${product.productColor || "Not recorded"}`}</Text>
+                {product.barcode ? <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `الباركود: ${product.barcode}` : `Barcode: ${product.barcode}`}</Text> : null}
+              </View>
               {/* الكميات */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
                 <View style={{ alignItems: 'center' }}>
@@ -713,16 +722,6 @@ export default function ManufacturingStageScreen() {
       {/* رأس الصفحة */}
       <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        {!isQueueOnlyStage && !isViewOnly && (
-                  <TouchableOpacity
-
-              onPress={() => { resetForm(); setShowForm(true); }}
-              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-              accessibilityLabel={isAr ? "إضافة بيانات" : "Add data"}
-            >
-              <MaterialIcons name="add" size={24} color="white" />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             onPress={() => setShowStageReport((value) => !value)}
             style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
@@ -747,24 +746,9 @@ export default function ManufacturingStageScreen() {
         <BackButton onPress={showForm ? () => { resetForm(); setShowForm(false); } : undefined} />
       </View>
 
-      <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.background }}>
-        <TouchableOpacity
-          onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "deliver" } } as any)}
-          style={{ flex: 1, backgroundColor: "#fff7ed", borderWidth: 1, borderColor: "#d97706", borderRadius: 10, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}
-          accessibilityLabel={isAr ? `توقيع تسليم مرحلة ${config.name}` : `Sign delivery for ${config.name}`}
-        >
-          <MaterialIcons name="logout" size={18} color="#b45309" />
-          <Text style={{ color: "#92400e", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع التسليم" : "Sign delivery"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "receive" } } as any)}
-          style={{ flex: 1, backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 10, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}
-          accessibilityLabel={isAr ? `توقيع استلام مرحلة ${config.name}` : `Sign receipt for ${config.name}`}
-        >
-          <MaterialIcons name="login" size={18} color="#15803d" />
-          <Text style={{ color: "#166534", fontSize: 11, fontWeight: "800" }}>{isAr ? "توقيع الاستلام" : "Sign receipt"}</Text>
-        </TouchableOpacity>
-            </View>
+      <View style={{ marginHorizontal: 16, marginTop: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 }}>
+        <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "700", textAlign: isAr ? "right" : "left" }}>{isAr ? "تتم الحركة من بطاقة العهدة فقط: تأكيد الاستلام ثم التسليم. لا يوجد إدخال يدوي للمنتج." : "All movements are performed from the custody card: confirm receipt, then deliver. Manual product entry is disabled."}</Text>
+      </View>
       {showTrash && isAdmin && <View style={{ margin: 12, padding: 12, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: "#f59e0b" }}><Text style={{ color: "#b45309", fontWeight: "800", textAlign: isAr ? "right" : "left" }}>{isAr ? "سلة مهملات مراحل التسليم — الاسترجاع متاح خلال 30 يوماً" : "Stage trash — restore available for 30 days"}</Text>{trashEntries.length === 0 ? <Text style={{ color: colors.muted, textAlign: isAr ? "right" : "left", marginTop: 8 }}>{isAr ? "لا توجد سجلات محذوفة" : "No deleted records"}</Text> : trashEntries.map((entry: any) => <View key={String(entry.id)} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><TouchableOpacity onPress={() => handleRestore(entry)} style={{ backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{isAr ? "استرجاع" : "Restore"}</Text></TouchableOpacity><Text style={{ color: colors.foreground, flex: 1, textAlign: "right", marginRight: 8, fontSize: 11 }}>{[entry.productName, entry.workerName, entry.date].filter(Boolean).join(" | ")}</Text></View>)}</View>}
       {showStageReport && (() => {
         const report = getStageReport();

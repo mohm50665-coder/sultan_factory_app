@@ -90,6 +90,8 @@ export const manufacturingStages = mysqlTable("manufacturingStages", {
   quantityPair: int("quantityPair").default(0),
   productType: varchar("productType", { length: 100 }),
   productName: varchar("productName", { length: 255 }).default(""),
+  productSize: varchar("productSize", { length: 100 }),
+  productColor: varchar("productColor", { length: 100 }),
   barcode: varchar("barcode", { length: 64 }),
   date: varchar("date", { length: 20 }).default(""),
   movementStatus: mysqlEnum("movementStatus", ["none", "received", "delivered"]).default("none").notNull(),

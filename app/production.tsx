@@ -33,7 +33,8 @@ const MACHINES = [
 interface ProductItem {
   itemName: string;       // اسم الصنف
   itemSize: string;       // المقاس
-  itemColor: string;      // اللون
+    itemColor: string;       // اللون
+  barcode: string;
   productionDozen: string;
   productionPairs: string;
   wasteThreadGrams: string;
@@ -68,6 +69,7 @@ interface SavedProductData {
   itemName: string;
   itemSize: string;
   itemColor: string;
+  barcode: string;
   yarnWeightPerPair: string;
   yarnRubber: string;
   yarnSpandex: string;
@@ -91,6 +93,7 @@ const emptyProduct = (): ProductItem => ({
   itemName: "",
   itemSize: "",
   itemColor: "",
+  barcode: "",
   productionDozen: "",
   productionPairs: "",
   wasteThreadGrams: "",
@@ -172,7 +175,7 @@ export default function ProductionScreen() {
   useEffect(() => {
     loadEntries();
     loadSavedProducts();
-    manufacturingWorkersService.list("machines").then((rows: any[]) => {
+    manufacturingWorkersService.list("rosso").then((rows: any[]) => {
       setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || "").trim()).filter((name: string) => name && name !== "الجميع" && name.toLowerCase() !== "all"));
     }).catch(() => setMachineWorkers([]));
   }, []);
@@ -189,7 +192,7 @@ export default function ProductionScreen() {
       const central = catalog.map((p: any) => {
         const yarn = p.yarnDetails && typeof p.yarnDetails === "object" ? p.yarnDetails : {};
         return {
-          itemName: p.name || "", itemSize: p.size || "", itemColor: p.color || "",
+          itemName: p.name || "", itemSize: p.size || "", itemColor: p.color || "", barcode: p.barcode || "",
           yarnWeightPerPair: String(yarn.yarnWeightPerPair || ""),
           yarnRubber: String(yarn.yarnRubber || ""), yarnSpandex: String(yarn.yarnSpandex || ""),
           yarnNylon: String(yarn.yarnNylon || ""), yarnCotton: String(yarn.yarnCotton || ""),
@@ -211,6 +214,7 @@ export default function ProductionScreen() {
       itemName: product.itemName.trim(),
       itemSize: product.itemSize.trim(),
       itemColor: product.itemColor.trim(),
+      barcode: product.barcode,
       yarnWeightPerPair: product.yarnWeightPerPair,
       yarnRubber: product.yarnRubber,
       yarnSpandex: product.yarnSpandex,
@@ -297,6 +301,7 @@ export default function ProductionScreen() {
           itemName,
           itemSize,
           itemColor,
+          barcode: String((row as any).barcode || ""),
           productionDozen: String(row.productionDozen || 0),
           productionPairs: String(row.productionPairs || 0),
           wasteThreadGrams: String(row.wasteThreadGrams || 0),
@@ -365,6 +370,9 @@ export default function ProductionScreen() {
               date: entry.date,
               machineNumber: machine,
               productName: productName || (isAr ? "منتج غير محدد" : "Unnamed product"),
+              productSize: product.itemSize || undefined,
+              productColor: product.itemColor || undefined,
+              barcode: product.barcode || undefined,
               shiftNumber: shift.shiftNumber || 1,
               shiftStart: shift.shiftStart || "",
               shiftEnd: shift.shiftEnd || "",
@@ -389,7 +397,7 @@ export default function ProductionScreen() {
               movementBy: automaticFlowActive || product.movementStatus !== "none" ? user?.name || undefined : undefined,
               movementAt: automaticFlowActive || product.movementStatus !== "none" ? new Date() : undefined,
               expectedReceiver: automaticFlowActive ? product.expectedReceiver : undefined,
-              receiverStage: automaticFlowActive ? "machines" : undefined,
+              receiverStage: automaticFlowActive ? "rosso" : undefined,
               userId,
             });
           });
@@ -501,6 +509,7 @@ export default function ProductionScreen() {
           itemName: saved.itemName,
           itemSize: saved.itemSize,
           itemColor: saved.itemColor,
+          barcode: saved.barcode || "",
           yarnWeightPerPair: saved.yarnWeightPerPair,
           yarnRubber: saved.yarnRubber,
           yarnSpandex: saved.yarnSpandex,
@@ -533,6 +542,7 @@ export default function ProductionScreen() {
       itemName: saved.itemName,
       itemSize: saved.itemSize,
       itemColor: saved.itemColor,
+      barcode: saved.barcode || "",
       yarnWeightPerPair: saved.yarnWeightPerPair,
       yarnRubber: saved.yarnRubber,
       yarnSpandex: saved.yarnSpandex,
@@ -924,7 +934,7 @@ export default function ProductionScreen() {
                 return <TouchableOpacity key={worker} onPress={() => updateProductField(machine, shiftIndex, productIndex, "expectedReceiver", worker)} style={{ backgroundColor: selected ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selected ? "#ffffff" : "#166534", fontSize: 10, fontWeight: "800" }}>{worker}</Text></TouchableOpacity>;
               })}
             </ScrollView>
-            {machineWorkers.length === 0 && <Text style={{ color: "#b45309", fontSize: 10, textAlign: "right" }}>{isAr ? "لا يوجد عمال مضافون لمرحلة إنتاج المكائن. أضفهم من لوحة الأدمن." : "No Machines Production workers configured. Add them from Admin."}</Text>}
+            {machineWorkers.length === 0 && <Text style={{ color: "#b45309", fontSize: 10, textAlign: "right" }}>{isAr ? "لا يوجد عمال مضافون لمرحلة الروسو. أضفهم من لوحة الأدمن." : "No Rosso workers configured. Add them from Admin."}</Text>}
           </View>
         ) : (
           <>
