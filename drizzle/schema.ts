@@ -803,6 +803,8 @@ export const productTracking = mysqlTable("productTracking", {
   previousStage: varchar("previousStage", { length: 100 }),
   deliveredBy: varchar("deliveredBy", { length: 255 }),
   receivedBy: varchar("receivedBy", { length: 255 }),
+  expectedReceiver: varchar("expectedReceiver", { length: 255 }),
+  receiverStage: varchar("receiverStage", { length: 100 }),
   handoverStatus: mysqlEnum("handoverStatus", ["pending", "delivered", "received", "rejected"]).default("pending").notNull(),
   handoverDate: timestamp("handoverDate"),
   deliveredAt: timestamp("deliveredAt"),

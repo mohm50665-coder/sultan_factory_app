@@ -78,6 +78,13 @@
       "when": 1788817985442,
       "tag": "0010_eager_weapon_omega",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1789037328943,
+      "tag": "0011_pale_puff_adder",
+      "breakpoints": true
     }
   ]
 }

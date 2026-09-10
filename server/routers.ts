@@ -910,6 +910,8 @@ export const appRouter = router({
         previousStage: z.string().optional(),
         deliveredBy: z.string().optional(),
         receivedBy: z.string().optional(),
+        expectedReceiver: z.string().optional(),
+        receiverStage: z.string().optional(),
         handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
         deliveredAt: z.coerce.date().optional(),
         receivedAt: z.coerce.date().optional(),
@@ -919,6 +921,15 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        if (input.handoverStatus === "delivered" && (!input.deliveredBy || !input.expectedReceiver)) {
+          throw new Error("يجب تحديد اسم المسلم واسم المستلم المتوقع قبل التسليم");
+        }
+        if (input.handoverStatus === "delivered" && input.deliveredBy === input.expectedReceiver) {
+          throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
+        }
+        if (input.handoverStatus === "received" && input.deliveredBy && input.receivedBy && input.deliveredBy === input.receivedBy) {
+          throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
+        }
         const result = await db.insert(productTrackingTable).values({ ...input, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
         return { success: true, id: result[0].insertId };
       }),
@@ -930,6 +941,8 @@ export const appRouter = router({
           qualityGrade: z.enum(["first", "second"]).optional(),
           deliveredBy: z.string().optional(),
           receivedBy: z.string().optional(),
+          expectedReceiver: z.string().optional(),
+          receiverStage: z.string().optional(),
           deliveredAt: z.coerce.date().optional(),
           receivedAt: z.coerce.date().optional(),
           quantityDozen: z.number().optional(),
@@ -941,7 +954,20 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.update(productTrackingTable).set(input.data).where(eq(productTrackingTable.id, input.id));
+        const current = await db.select().from(productTrackingTable).where(eq(productTrackingTable.id, input.id)).limit(1);
+        const existing = current[0];
+        if (!existing) throw new Error("حركة التتبع غير موجودة");
+        const next = { ...existing, ...input.data } as any;
+        if (next.handoverStatus === "received" && (!next.deliveredBy || !next.receivedBy)) {
+          throw new Error("لا يمكن اعتماد الاستلام دون بيانات المسلم والمستلم");
+        }
+        if (next.deliveredBy && next.receivedBy && next.deliveredBy === next.receivedBy) {
+          throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
+        }
+        if (next.expectedReceiver && next.receivedBy && next.expectedReceiver !== next.receivedBy) {
+          throw new Error("لا يمكن اعتماد الاستلام إلا من الموظف المستلم المحدد");
+        }
+        await db.update(productTrackingTable).set({ ...input.data, handoverDate: next.handoverStatus === "received" ? (next.receivedAt || new Date()) : input.data.handoverDate }).where(eq(productTrackingTable.id, input.id));
         return { success: true };
       }),
   }),
