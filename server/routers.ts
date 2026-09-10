@@ -88,9 +88,31 @@ function parseLegacyProductName(rawName: unknown) {
   };
 }
 
+type CatalogProductInput = { name: string; size?: string | null; color?: string | null; weightGrams?: number | null; yarnDetails?: unknown; createdBy?: number | null };
+
+function getCatalogProductValidationError(input: CatalogProductInput) {
+  const name = String(input.name || "").trim();
+  const size = String(input.size || "").trim();
+  const color = String(input.color || "").trim();
+  if (!name) return "اسم المنتج إلزامي";
+  if (!size) return "مقاس المنتج إلزامي";
+  if (size.toUpperCase() === "FREE") return "لا يمكن حفظ المنتج بمقاس FREE. يجب إدخال المقاس الفعلي للمنتج";
+  if (!color) return "لون المنتج إلزامي";
+  if ((Number(input.weightGrams) || 0) <= 0) return "وزن المنتج يجب أن يكون أكبر من صفر";
+  let yarnDetails: any = input.yarnDetails;
+  if (typeof yarnDetails === "string") {
+    try { yarnDetails = JSON.parse(yarnDetails); } catch { yarnDetails = null; }
+  }
+  if ((Number(yarnDetails?.yarnWeightPerPair) || 0) <= 0) return "وزن الخيط لكل زوج إلزامي ويجب أن يكون أكبر من صفر";
+  const hasYarnTypeWeight = ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"]
+    .some((field) => (Number(yarnDetails?.[field]) || 0) > 0);
+  if (!hasYarnTypeWeight) return "يجب إدخال وزن نوع خيط واحد على الأقل";
+  return null;
+}
+
 async function ensureCatalogProduct(
   db: any,
-  input: { name: string; size?: string | null; color?: string | null; weightGrams?: number | null; yarnDetails?: unknown; createdBy?: number | null },
+  input: CatalogProductInput,
   cache: Map<string, any>,
 ) {
   const name = input.name.trim();
@@ -116,11 +138,7 @@ async function ensureCatalogProduct(
   if (typeof yarnDetails === "string") {
     try { yarnDetails = JSON.parse(yarnDetails); } catch { yarnDetails = null; }
   }
-  const yarnWeightPerPair = Number(yarnDetails?.yarnWeightPerPair) || 0;
-  const hasYarnTypeWeight = ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"]
-    .some((field) => (Number(yarnDetails?.[field]) || 0) > 0);
-  const isCompleteProduct = Boolean(size && color && size.toUpperCase() !== "FREE" && (Number(input.weightGrams) || 0) > 0 && yarnWeightPerPair > 0 && hasYarnTypeWeight);
-  if (!isCompleteProduct) return null;
+  if (getCatalogProductValidationError({ ...input, size, color, yarnDetails })) return null;
 
   const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
   const result = await db.insert(productsTable).values({
@@ -137,37 +155,6 @@ async function ensureCatalogProduct(
   const created = { id: result[0].insertId, barcode, ...input, isActive: 1 };
   cache.set(key, created);
   return created;
-}
-
-async function syncProductCatalogFromLegacy(db: any) {
-  const cache = new Map<string, any>();
-  const existing = await db.select().from(productsTable);
-  for (const row of existing) cache.set(catalogKey(row.name, row.size, row.color), row);
-
-  const [productionRows, manufacturingRows] = await Promise.all([
-    db.select().from(productionTable),
-    db.select().from(manufacturingStagesTable),
-  ]);
-  for (const row of productionRows) {
-    const identity = parseLegacyProductName(row.productName);
-    await ensureCatalogProduct(db, {
-      ...identity,
-      weightGrams: row.yarnWeightPerPair || 0,
-      yarnDetails: {
-        yarnRubber: row.yarnRubber || 0,
-        yarnSpandex: row.yarnSpandex || 0,
-        yarnNylon: row.yarnNylon || 0,
-        yarnCotton: row.yarnCotton || 0,
-        yarnBamboo: row.yarnBamboo || 0,
-        yarnSpan: row.yarnSpan || 0,
-      },
-      createdBy: row.userId,
-    }, cache);
-  }
-  for (const row of manufacturingRows) {
-    const identity = parseLegacyProductName(row.productName);
-    await ensureCatalogProduct(db, { ...identity, createdBy: row.userId }, cache);
-  }
 }
 
 export const appRouter = router({
@@ -784,8 +771,6 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(manufacturingStagesTable).values(input);
-        const identity = parseLegacyProductName(input.productName);
-        await ensureCatalogProduct(db, { ...identity, createdBy: input.userId }, new Map());
         return { success: true, id: result[0].insertId };
       }),
 
@@ -873,6 +858,8 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const validationError = getCatalogProductValidationError(input);
+        if (validationError) throw new Error(validationError);
         const product = await ensureCatalogProduct(db, {
           name: input.name,
           size: input.size,
@@ -907,6 +894,18 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(productsTable).where(eq(productsTable.id, input.id)).limit(1);
+        const current = rows[0];
+        if (!current) throw new Error("المنتج غير موجود");
+        const validationError = getCatalogProductValidationError({
+          name: input.data.name ?? current.name,
+          size: input.data.size ?? current.size,
+          color: input.data.color ?? current.color,
+          weightGrams: input.data.weightGrams ?? current.weightGrams,
+          yarnDetails: input.data.yarnDetails ?? current.yarnDetails,
+          createdBy: current.createdBy,
+        });
+        if (validationError) throw new Error(validationError);
         await db.update(productsTable).set(input.data).where(eq(productsTable.id, input.id));
         return { success: true };
       }),
