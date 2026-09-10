@@ -110,14 +110,26 @@ async function ensureCatalogProduct(
     return { ...existing, ...patch };
   }
 
+  const size = input.size?.trim() || "";
+  const color = input.color?.trim() || "";
+  let yarnDetails: any = input.yarnDetails;
+  if (typeof yarnDetails === "string") {
+    try { yarnDetails = JSON.parse(yarnDetails); } catch { yarnDetails = null; }
+  }
+  const yarnWeightPerPair = Number(yarnDetails?.yarnWeightPerPair) || 0;
+  const hasYarnTypeWeight = ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"]
+    .some((field) => (Number(yarnDetails?.[field]) || 0) > 0);
+  const isCompleteProduct = Boolean(size && color && size.toUpperCase() !== "FREE" && (Number(input.weightGrams) || 0) > 0 && yarnWeightPerPair > 0 && hasYarnTypeWeight);
+  if (!isCompleteProduct) return null;
+
   const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
   const result = await db.insert(productsTable).values({
     barcode,
     name,
-    size: input.size?.trim() || null,
-    color: input.color?.trim() || null,
+    size,
+    color,
     weightGrams: input.weightGrams || 0,
-    yarnDetails: input.yarnDetails ?? null,
+    yarnDetails,
     imageUrl: null,
     attachments: [],
     createdBy: input.createdBy || null,
@@ -630,6 +642,7 @@ export const appRouter = router({
           ...identity,
           weightGrams: yarnWeightPerPair || 0,
           yarnDetails: {
+            yarnWeightPerPair: yarnWeightPerPair || 0,
             yarnRubber: input.yarnRubber || 0,
             yarnSpandex: input.yarnSpandex || 0,
             yarnNylon: input.yarnNylon || 0,
@@ -689,6 +702,7 @@ export const appRouter = router({
               ...identity,
               weightGrams: entry.yarnWeightPerPair || 0,
               yarnDetails: {
+                yarnWeightPerPair: entry.yarnWeightPerPair || 0,
                 yarnRubber: entry.yarnRubber || 0,
                 yarnSpandex: entry.yarnSpandex || 0,
                 yarnNylon: entry.yarnNylon || 0,
@@ -835,7 +849,6 @@ export const appRouter = router({
     list: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      await syncProductCatalogFromLegacy(db);
       return db.select().from(productsTable).where(eq(productsTable.isActive, 1)).orderBy(desc(productsTable.updatedAt));
     }),
     getByBarcode: publicProcedure

@@ -7,6 +7,7 @@ type DateFieldProps = {
   label?: string;
   isAr?: boolean;
   style?: any;
+  defaultToToday?: boolean;
 };
 
 export function todayDate() {
@@ -15,11 +16,11 @@ export function todayDate() {
   return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-export function DateField({ value, onChange, label, isAr = true, style }: DateFieldProps) {
-  const resolvedValue = value || todayDate();
+export function DateField({ value, onChange, label, isAr = true, style, defaultToToday = true }: DateFieldProps) {
+  const resolvedValue = value || (defaultToToday ? todayDate() : "");
   useEffect(() => {
-    if (!value) onChange(resolvedValue);
-  }, [value, resolvedValue]);
+    if (defaultToToday && !value) onChange(resolvedValue);
+  }, [defaultToToday, value, resolvedValue, onChange]);
   return (
     <View style={{ gap: 5, flex: 1 }}>
       {label ? <Text style={{ color: "#334155", fontWeight: "800", textAlign: "right" }}>{label}</Text> : null}
