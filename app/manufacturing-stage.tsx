@@ -747,11 +747,6 @@ export default function ManufacturingStageScreen() {
         <BackButton onPress={showForm ? () => { resetForm(); setShowForm(false); } : undefined} />
       </View>
 
-      <View style={{ marginHorizontal: 16, marginTop: 10, padding: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 10 }}>
-        <Text style={{ color: config.color, fontWeight: "800", fontSize: 12, textAlign: "center" }}>{isAr ? "اتجاه المنتج الإجباري" : "Mandatory product direction"}</Text>
-        <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 5 }}>{isAr ? "الإنتاج → الروسو → القلب → الكاوية → الفحص → (التعبئة والتغليف أو مانع الانزلاق) → الفحص النهائي → التعبئة والتغليف → المستودع" : "Production → Rosso → Qalb → Kawiya → Inspection/Anti-slip → Inspection → Packing → Storage"}</Text>
-        <Text style={{ color: colors.muted, fontSize: 10, textAlign: "center", marginTop: 4 }}>{isAr ? "بيانات المنتج والكميات مصدرها الإنتاج فقط، ولا تظهر عهدة بلا كمية فعلية." : "Product identity and quantities come from Production only; empty-quantity custody is hidden."}</Text>
-      </View>
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.background }}>
         <TouchableOpacity
           onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "deliver" } } as any)}
