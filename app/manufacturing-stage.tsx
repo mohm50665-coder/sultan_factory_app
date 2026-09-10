@@ -29,6 +29,8 @@ interface ProductItem {
   movementStatus: "none" | "received" | "delivered";
   expectedReceiver?: string;
   receiverStage?: string;
+  productType?: string;
+  barcode?: string;
   receivedBy?: string;
   receivedAt?: string;
   movementAt?: string;
@@ -126,25 +128,31 @@ export default function ManufacturingStageScreen() {
   };
   // عمال المرحلة يمكنهم الإدخال، المستودعات view only فقط
   const isAdmin = user?.role === "admin";
-  const isViewOnly = user?.department === "warehouse" && !isAdmin && stage !== "storage";
+  // بعد بدء المسار الآلي لا ينشئ العامل سجلاً يدوياً؛ يرى فقط عهدته الواردة ويؤكدها ثم يسلمها.
+  const isQueueOnlyStage = !isAdmin;
+  const isViewOnly = isQueueOnlyStage || (user?.department === "warehouse" && !isAdmin && stage !== "storage");
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
-  const nextStageId = STAGE_ORDER[Math.min(STAGE_ORDER.indexOf(stage) + 1, STAGE_ORDER.length - 1)];
+  const ALLOWED_NEXT_STAGES: Record<string, string[]> = { machines: ["rosso"], rosso: ["qalb"], qalb: ["kawiya"], kawiya: ["inspection"], antislip: ["inspection"], inspection: ["packing", "antislip"], packing: ["storage"], storage: [] };
+  const nextStageOptions = ALLOWED_NEXT_STAGES[stage] || [];
+  const nextStageId = nextStageOptions[0] || "storage";
+  const getProductNextStageOptions = (product?: ProductItem) => (stage === "inspection" && String(product?.productType || "").includes(":FROM:antislip")) ? ["packing"] : nextStageOptions;
   const nextStageConfig = STAGE_CONFIG[nextStageId] || STAGE_CONFIG.storage;
   const isStorageStage = stage === "storage";
 
   // Load workers from server
   const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
   const [nextStageWorkers, setNextStageWorkers] = useState<string[]>(nextStageConfig.workers.filter((worker) => worker !== (isAr ? "الجميع" : "All")));
+  const [receiverStageWorkers, setReceiverStageWorkers] = useState<Record<string, string[]>>({});
   const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   useEffect(() => {
     const loadServerWorkers = async () => {
       try {
-        const [workers, nextWorkers] = await Promise.all([
+        const [workers, ...nextWorkersByStage] = await Promise.all([
           manufacturingWorkersService.list(stage),
-          manufacturingWorkersService.list(nextStageId),
+          ...nextStageOptions.map((stageId) => manufacturingWorkersService.list(stageId)),
         ]);
         if (workers && Array.isArray(workers) && workers.length > 0) {
           const names = workers.map((w: any) => w.workerName);
@@ -153,9 +161,14 @@ export default function ManufacturingStageScreen() {
           }
           setStageWorkers(names);
         }
-        if (nextWorkers && Array.isArray(nextWorkers) && nextWorkers.length > 0) {
-          setNextStageWorkers(nextWorkers.map((w: any) => w.workerName).filter((name: string) => name !== (isAr ? "الجميع" : "All")));
-        }
+        const workersByStage: Record<string, string[]> = {};
+        nextStageOptions.forEach((stageId, index) => {
+          const rows = nextWorkersByStage[index];
+          const names = Array.isArray(rows) ? rows.map((w: any) => w.workerName).filter((name: string) => name !== (isAr ? "الجميع" : "All")) : [];
+          workersByStage[stageId] = names;
+        });
+        setReceiverStageWorkers(workersByStage);
+        setNextStageWorkers(workersByStage[nextStageId] || []);
       } catch (e) {
         console.log("Error loading workers from server:", e);
         // fallback to config workers
@@ -221,12 +234,16 @@ export default function ManufacturingStageScreen() {
 
   const loadEntries = async () => {
     try {
-      const data = await manufacturingStageService.getAll();
+      const [data, queue] = await Promise.all([
+        manufacturingStageService.getAll(),
+        user?.role === "admin" ? Promise.resolve([]) : manufacturingStageService.listReceiptQueue(stage),
+      ]);
       if (data) {
-        let filtered = data.filter((d: any) => d.stageName === stage);
-        // العامل يشوف بياناته فقط، الأدمن يشوف الكل
-        if (user?.role !== 'admin' && !isProductionManager) {
-          filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name);
+        const merged = [...(Array.isArray(data) ? data : []), ...(Array.isArray(queue) ? queue : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
+        let filtered = merged.filter((d: any) => d.stageName === stage && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
+        // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.
+        if (user?.role !== "admin") {
+          filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name || d.expectedReceiver === user?.name);
         }
         // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)
         const grouped: Record<string, WorkerEntry> = {};
@@ -252,6 +269,8 @@ export default function ManufacturingStageScreen() {
             movementStatus: d.movementStatus || "none",
             expectedReceiver: d.expectedReceiver || "",
             receiverStage: d.receiverStage || "",
+            productType: d.productType || "",
+            barcode: d.barcode || "",
             receivedBy: d.receivedBy || "",
             receivedAt: d.receivedAt ? String(d.receivedAt) : "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
@@ -455,6 +474,8 @@ export default function ManufacturingStageScreen() {
         movementStatus: p.movementStatus || "none",
         expectedReceiver: p.expectedReceiver || "",
         receiverStage: p.receiverStage || nextStageId,
+        productType: p.productType || "",
+        barcode: p.barcode || "",
         receivedBy: p.receivedBy || "",
         receivedAt: p.receivedAt || "",
         movementAt: p.movementAt || "",
@@ -501,6 +522,39 @@ export default function ManufacturingStageScreen() {
       showStageMessage(isAr ? "تم تأكيد الاستلام ✓" : "Receipt confirmed ✓", isAr ? `تم تسجيل استلام ${product.productName}` : `${product.productName} receipt was confirmed`);
     } catch (error) {
       showStageMessage(isAr ? "فشل تأكيد الاستلام" : "Receipt confirmation failed", error instanceof Error ? error.message : (isAr ? "تعذر تأكيد الاستلام" : "Unable to confirm receipt"));
+    }
+  };
+
+  const handleDeliverProduct = async (product: ProductItem, receiverStage: string, expectedReceiver: string) => {
+    if (!product.id || !expectedReceiver) return;
+    try {
+      await manufacturingStageService.deliverToNextStage({
+        id: Number(product.id),
+        receiverStage,
+        expectedReceiver,
+        quantityDozen: Number(product.quantityDozen) || 0,
+        quantityPair: Number(product.quantityPairs) || 0,
+      });
+      await loadEntries();
+      showStageMessage(isAr ? "تم التسليم ✓" : "Delivered ✓", isAr ? `تم تسليم ${product.productName} إلى ${STAGE_CONFIG[receiverStage]?.name || receiverStage}` : `${product.productName} delivered to ${STAGE_CONFIG[receiverStage]?.name || receiverStage}`);
+    } catch (error) {
+      showStageMessage(isAr ? "فشل التسليم" : "Delivery failed", error instanceof Error ? error.message : (isAr ? "تعذر تسليم العهدة" : "Unable to deliver custody"));
+    }
+  };
+
+  const handleCompleteStorage = async (product: ProductItem) => {
+    if (!product.id) return;
+    const barcode = String(product.barcode || "").trim();
+    if (!barcode) {
+      showStageMessage(isAr ? "الباركود مطلوب" : "Barcode required", isAr ? "أدخل الباركود قبل حفظ المنتج في المستودع" : "Enter the barcode before storing the product");
+      return;
+    }
+    try {
+      await manufacturingStageService.completeStorage({ id: Number(product.id), barcode });
+      await loadEntries();
+      showStageMessage(isAr ? "تم التخزين ✓" : "Stored ✓", isAr ? "تمت إضافة الباركود وحفظ المنتج كمخزّن" : "Barcode added and product stored");
+    } catch (error) {
+      showStageMessage(isAr ? "فشل التخزين" : "Storage failed", error instanceof Error ? error.message : (isAr ? "تعذر إتمام التخزين" : "Unable to complete storage"));
     }
   };
 
@@ -624,6 +678,22 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "تأكيد الاستلام" : "Confirm receipt"}</Text>
                 </TouchableOpacity>
               )}
+              {isStorageStage && product.movementStatus === "received" && (
+                <View style={{ marginTop: 8, backgroundColor: "#eef2ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#818cf8" }}>
+                  <Text style={{ color: "#3730a3", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{product.barcode ? `باركود: ${product.barcode}` : (isAr ? "أضف الباركود قبل الحفظ" : "Add barcode before storing")}</Text>
+                  <TextInput value={product.barcode || ""} onChangeText={(value) => setEntries((current) => current.map((entry) => ({ ...entry, products: entry.products.map((item) => item.id === product.id ? { ...item, barcode: value } : item) })))} placeholder={isAr ? "اكتب الباركود" : "Enter barcode"} placeholderTextColor="#6b7280" style={{ marginTop: 7, backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#818cf8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: "#111827", textAlign: isAr ? "right" : "left" }} />
+                  <TouchableOpacity onPress={() => void handleCompleteStorage(product)} style={{ marginTop: 7, backgroundColor: "#4f46e5", borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "إضافة الباركود وحفظ التخزين" : "Add barcode and store"}</Text></TouchableOpacity>
+                </View>
+              )}
+              {product.movementStatus === "received" && !isStorageStage && (receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).length > 0 && (
+                <View style={{ marginTop: 8, backgroundColor: "#eff6ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#93c5fd" }}>
+                  <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "التسليم الإجباري للمرحلة التالية" : "Mandatory delivery to next stage"}</Text>
+                  {getProductNextStageOptions(product).length > 1 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>{getProductNextStageOptions(product).map((stageId) => <Text key={stageId} style={{ color: "#1d4ed8", fontSize: 10, fontWeight: "700" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text>)}</View>}
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    {(receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).map((receiver) => <TouchableOpacity key={receiver} onPress={() => void handleDeliverProduct(product, getProductNextStageOptions(product)[0], receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{receiver}</Text></TouchableOpacity>)}
+                  </View>
+                </View>
+              )}
             </View>
           ))}
         </View>
@@ -643,8 +713,9 @@ export default function ManufacturingStageScreen() {
       {/* رأس الصفحة */}
       <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {!isViewOnly && (
-            <TouchableOpacity
+                        {!isQueueOnlyStage && !isViewOnly && (
+                  <TouchableOpacity
+
               onPress={() => { resetForm(); setShowForm(true); }}
               style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
               accessibilityLabel={isAr ? "إضافة بيانات" : "Add data"}
@@ -676,6 +747,11 @@ export default function ManufacturingStageScreen() {
         <BackButton onPress={showForm ? () => { resetForm(); setShowForm(false); } : undefined} />
       </View>
 
+      <View style={{ marginHorizontal: 16, marginTop: 10, padding: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 10 }}>
+        <Text style={{ color: config.color, fontWeight: "800", fontSize: 12, textAlign: "center" }}>{isAr ? "اتجاه المنتج الإجباري" : "Mandatory product direction"}</Text>
+        <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 11, textAlign: "center", marginTop: 5 }}>{isAr ? "الإنتاج → الروسو → القلب → الكاوية → الفحص → (التعبئة والتغليف أو مانع الانزلاق) → الفحص النهائي → التعبئة والتغليف → المستودع" : "Production → Rosso → Qalb → Kawiya → Inspection/Anti-slip → Inspection → Packing → Storage"}</Text>
+        <Text style={{ color: colors.muted, fontSize: 10, textAlign: "center", marginTop: 4 }}>{isAr ? "بيانات المنتج والكميات مصدرها الإنتاج فقط، ولا تظهر عهدة بلا كمية فعلية." : "Product identity and quantities come from Production only; empty-quantity custody is hidden."}</Text>
+      </View>
       <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.background }}>
         <TouchableOpacity
           onPress={() => router.push({ pathname: "/product-tracking", params: { stage, action: "deliver" } } as any)}
@@ -978,9 +1054,17 @@ export default function ManufacturingStageScreen() {
                         </View>
                         {product.movementStatus === "delivered" && (
                           <View style={{ marginTop: 8, backgroundColor: "#f0fdf4", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#86efac" }}>
-                            <Text style={{ color: "#166534", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? `اختر مستلم المرحلة التالية: ${nextStageConfig.name}` : `Choose receiver for next stage: ${nextStageConfig.name}`}</Text>
+                            <Text style={{ color: "#166534", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "حدد المرحلة التالية ثم الموظف المستلم" : "Choose the next stage, then the receiver"}</Text>
+                            {nextStageOptions.length > 1 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
+                              {nextStageOptions.map((stageId) => {
+                                const stageOption = STAGE_CONFIG[stageId];
+                                const selectedStage = product.receiverStage || nextStageId;
+                                return <TouchableOpacity key={stageId} onPress={() => { updateProduct(index, "receiverStage", stageId); updateProduct(index, "expectedReceiver", ""); }} style={{ backgroundColor: selectedStage === stageId ? "#166534" : "#ffffff", borderWidth: 1, borderColor: "#166534", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selectedStage === stageId ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{stageOption?.name || stageId}</Text></TouchableOpacity>;
+                              })}
+                            </View>}
+                            <Text style={{ color: "#166534", fontWeight: "700", fontSize: 11, marginTop: 7, textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[product.receiverStage || nextStageId]?.name || nextStageConfig.name}</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
-                              {nextStageWorkers.map((receiver) => (
+                              {(receiverStageWorkers[product.receiverStage || nextStageId] || nextStageWorkers).map((receiver) => (
                                 <TouchableOpacity key={receiver} onPress={() => updateProduct(index, "expectedReceiver", receiver)} style={{ backgroundColor: product.expectedReceiver === receiver ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
                                   <Text style={{ color: product.expectedReceiver === receiver ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver}</Text>
                                 </TouchableOpacity>
@@ -1067,7 +1151,7 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: config.color, fontWeight: "700", fontSize: 15 }}>{user?.name || ""}</Text>
                 </View>
               </View>
-              {!isViewOnly && (
+              {!isQueueOnlyStage && !isViewOnly && (
                 <TouchableOpacity
                   onPress={() => { resetForm(); setShowForm(true); }}
                   style={{ backgroundColor: config.color, marginTop: 20, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 }}

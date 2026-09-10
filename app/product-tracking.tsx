@@ -10,8 +10,9 @@ import { useAuth } from "@/lib/auth-context";
 import { productionService, manufacturingService, productTrackingService, productsService, employeePerformanceService, alertsService } from "@/lib/services/api.service";
 
 const STAGES = [
-  { id: "machines", ar: "إنتاج", en: "Production", color: "#6B7280", icon: "precision-manufacturing" },
-  { id: "rosso", ar: "روسو", en: "Rosso", color: "#FACC15", icon: "loop" },
+  { id: "production", ar: "الإنتاج", en: "Production", color: "#0A7EA4", icon: "precision-manufacturing" },
+  { id: "machines", ar: "المكائن", en: "Machines", color: "#6B7280", icon: "precision-manufacturing" },
+  { id: "rosso", ar: "الروسو", en: "Rosso", color: "#FACC15", icon: "loop" },
   { id: "qalb", ar: "قلب", en: "Turning", color: "#FFFFFF", icon: "flip" },
   { id: "kawiya", ar: "كاوية", en: "Ironing", color: "#111827", icon: "local-fire-department" },
   { id: "inspection", ar: "فحص", en: "Inspection", color: "#DC2626", icon: "search" },
@@ -83,9 +84,9 @@ export default function ProductTrackingScreen() {
       const productionList = Array.isArray(productionRows) ? productionRows : [];
       const manufacturingList = Array.isArray(stageRows) ? stageRows : [];
       const movementSources = [
-        ...productionList.map((row: any) => ({ ...row, sourceStage: "machines", sourceWorker: row.movementBy || "", sourceKind: "production" })),
+        ...productionList.map((row: any) => ({ ...row, sourceStage: "production", sourceWorker: row.movementBy || "", sourceKind: "production" })),
         ...manufacturingList.map((row: any) => ({ ...row, sourceStage: row.stageName || "", sourceWorker: row.workerName || row.movementBy || "", sourceKind: "stage" })),
-      ].filter((row: any) => row.movementStatus && row.movementStatus !== "none" && row.productName);
+      ].filter((row: any) => row.movementStatus && row.movementStatus !== "none" && row.productName && ((numberValue(row.quantityDozen || row.productionDozen) * 12) + numberValue(row.quantityPair || row.productionPairs)) > 0);
       const movementHistory: any[] = [];
       const pendingReceived: Record<string, any> = {};
       movementSources

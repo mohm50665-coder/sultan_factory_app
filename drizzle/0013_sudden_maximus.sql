@@ -1,0 +1,1 @@
+ALTER TABLE `manufacturingStages` ADD `barcode` varchar(64);

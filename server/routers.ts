@@ -51,7 +51,7 @@ import {
   products as productsTable,
   internalMessages as internalMessagesTable,
 } from "../drizzle/schema.js";
-import { eq, desc, sql, and, gte, lte, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, isNull, like } from "drizzle-orm";
 import { createHash, randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
@@ -59,6 +59,24 @@ import { calculateAchievementPercentage, getPerformanceRating } from "../shared/
 const COOKIE_NAME = "session_id";
 const AUTO_HANDOVER_START_DATE = "2026-09-11";
 const MANUFACTURING_STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
+const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
+  production: ["machines"],
+  machines: ["rosso"],
+  rosso: ["qalb"],
+  qalb: ["kawiya"],
+  kawiya: ["inspection", "antislip"],
+  antislip: ["inspection"],
+  inspection: ["packing", "antislip"],
+  packing: ["storage"],
+  storage: [],
+};
+
+function allowedNextStages(stageName: string, productType?: string | null): readonly string[] {
+  const normalizedStage = String(stageName || "").trim();
+  if (normalizedStage === "inspection" && String(productType || "").includes(":FROM:antislip")) return ["packing"];
+  return MANUFACTURING_ALLOWED_TRANSITIONS[normalizedStage] || [];
+}
+
 
 function getRiyadhDate(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -81,8 +99,7 @@ function assertProductionAuthority(user: any, recordDate?: string | null) {
 }
 
 function nextManufacturingStage(stageName: string) {
-  const index = MANUFACTURING_STAGE_ORDER.indexOf(stageName as any);
-  return index >= 0 && index < MANUFACTURING_STAGE_ORDER.length - 1 ? MANUFACTURING_STAGE_ORDER[index + 1] : null;
+  return allowedNextStages(stageName)[0] || null;
 }
 
 async function validateStageReceiver(db: any, stageName: string, receiverName: string) {
@@ -756,7 +773,12 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (input.entries.length === 0) return { success: true, count: 0 };
-        input.entries.forEach((entry) => assertProductionAuthority(ctx.user, entry.date));
+        input.entries.forEach((entry) => {
+          assertProductionAuthority(ctx.user, entry.date);
+          const producedPairs = (Number(entry.productionDozen) || 0) * 12 + (Number(entry.productionPairs) || 0);
+          if (producedPairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون كمية فعلية بالدرزن أو الأزواج" });
+          if (!String(entry.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون منتج محفوظ" });
+        });
         const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...entry }) => ({ ...entry, userId: ctx.user.id }));
         await db.insert(productionTable).values(entriesForProduction);
         // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
@@ -869,6 +891,9 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
+        const stagePairs = (Number(input.quantityDozen) || 0) * 12 + (Number(input.quantityPair) || 0);
+        if (stagePairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون كمية فعلية" });
+        if (!String(input.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون منتج صادر من الإنتاج" });
         const result = await db.insert(manufacturingStagesTable).values({ ...input, userId: ctx.user.id });
         return { success: true, id: result[0].insertId };
       }),
@@ -931,7 +956,7 @@ export const appRouter = router({
         if (!MANUFACTURING_STAGE_ORDER.includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير صحيحة");
         const receivedAt = new Date();
         const destinationKey = `AUTO_STAGE:${record.id}`;
-        const destinationRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, destinationKey)).limit(1);
+        const destinationRows = await db.select().from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
         if (destinationRows[0]) throw new Error("تم إنشاء عهدة المرحلة الحالية مسبقاً");
         const result = await db.transaction(async (tx: any) => {
           await tx.update(manufacturingStagesTable).set({ receivedBy: receiverName, receivedAt }).where(eq(manufacturingStagesTable.id, record.id));
@@ -940,8 +965,9 @@ export const appRouter = router({
             workerName: receiverName,
             quantityDozen: record.quantityDozen || 0,
             quantityPair: record.quantityPair || 0,
-            productType: destinationKey,
+            productType: `${destinationKey}:FROM:${record.stageName}`,
             productName: record.productName || "",
+            barcode: record.barcode || null,
             date: getRiyadhDate(receivedAt),
             movementStatus: "received",
             movementBy: receiverName,
@@ -976,8 +1002,23 @@ export const appRouter = router({
         return { success: true, id: result, stageName: destinationStage, mode: "automatic" as const };
       }),
 
+    completeStorage: protectedProcedure
+      .input(z.object({ id: z.number(), barcode: z.string().min(2).max(64) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        const record = rows[0];
+        if (!record || record.deletedAt || record.stageName !== "storage") throw new Error("سجل التخزين غير موجود");
+        if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد استلام المستودع قبل التخزين");
+        const actorName = String(ctx.user.name || "").trim();
+        if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تخزين عهدة موظف آخر");
+        await db.update(manufacturingStagesTable).set({ barcode: input.barcode.trim().toUpperCase(), productType: `STORED:${input.barcode.trim().toUpperCase()}` }).where(eq(manufacturingStagesTable.id, record.id));
+        return { success: true, barcode: input.barcode.trim().toUpperCase(), storedAt: new Date() };
+      }),
+
     deliverToNextStage: protectedProcedure
-      .input(z.object({ id: z.number(), expectedReceiver: z.string().min(1), quantityDozen: z.number().int().nonnegative().optional(), quantityPair: z.number().int().nonnegative().optional(), notes: z.string().max(1000).optional() }))
+      .input(z.object({ id: z.number(), expectedReceiver: z.string().min(1), receiverStage: z.string().optional(), quantityDozen: z.number().int().nonnegative().optional(), quantityPair: z.number().int().nonnegative().optional(), notes: z.string().max(1000).optional() }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
@@ -988,8 +1029,10 @@ export const appRouter = router({
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تسليم عهدة موظف آخر");
-        const targetStage = nextManufacturingStage(record.stageName);
-        if (!targetStage) throw new Error("مرحلة التخزين هي المرحلة النهائية ولا يوجد تسليم بعدها");
+        const requestedStage = String((input as any).receiverStage || "").trim();
+        const allowedStages = allowedNextStages(record.stageName, record.productType);
+        const targetStage = requestedStage || allowedStages[0] || null;
+        if (!targetStage || !allowedStages.includes(targetStage)) throw new Error("التسليم إلى هذه المرحلة غير مسموح؛ يجب اتباع مسار التصنيع المحدد");
         const expectedReceiver = input.expectedReceiver.trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
         if (expectedReceiver === actorName) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
