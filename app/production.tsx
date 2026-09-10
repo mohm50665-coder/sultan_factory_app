@@ -169,7 +169,7 @@ export default function ProductionScreen() {
   const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number; productIndex: number} | null>(null);
   const [machineWorkers, setMachineWorkers] = useState<string[]>([]);
   const riyadhToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const automaticFlowActive = riyadhToday >= "2026-09-11" || selectedDate >= "2026-09-11";
+  const automaticFlowActive = riyadhToday >= "2026-09-10" || selectedDate >= "2026-09-10";
   const canCreateProduction = user?.role === "admin" || user?.department === "production" || user?.department === "الإنتاج" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
 
   useEffect(() => {
@@ -569,7 +569,7 @@ export default function ProductionScreen() {
   const handleSave = async () => {
     if (isSaving) return;
     if (automaticFlowActive && !canCreateProduction) {
-      showSaveMessage(isAr ? "غير مصرح" : "Not authorized", isAr ? "اعتباراً من 11/09/2026 إدخال المنتجات محصور على مدير الإنتاج والأدمن" : "Starting 11/09/2026, product entry is restricted to the Production Manager and Admin");
+      showSaveMessage(isAr ? "غير مصرح" : "Not authorized", isAr ? "اعتباراً من 10/09/2026 إدخال المنتجات محصور على مدير الإنتاج والأدمن" : "Starting 10/09/2026, product entry is restricted to the Production Manager and Admin");
       return;
     }
     if (activeMachines.length === 0) {
@@ -592,7 +592,7 @@ export default function ProductionScreen() {
     if (automaticFlowActive) {
       const missingReceiver = enteredProducts.find((product) => !product.expectedReceiver.trim());
       if (missingReceiver) {
-        showSaveMessage(isAr ? "حدد المستلم" : "Select receiver", isAr ? "اختر موظفاً من مرحلة إنتاج المكائن لكل منتج قبل الحفظ والتسليم" : "Choose a Machines Production receiver for every product before saving and delivery");
+        showSaveMessage(isAr ? "حدد المستلم" : "Select receiver", isAr ? "اختر موظفاً من مرحلة الروسو لكل منتج قبل الحفظ والتسليم" : "Choose a Rosso receiver for every product before saving and delivery");
         return;
       }
       const selfHandover = enteredProducts.find((product) => product.expectedReceiver.trim() === String(user?.name || "").trim());
@@ -924,7 +924,7 @@ export default function ProductionScreen() {
         {automaticFlowActive ? (
           <View style={{ backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#86efac", borderRadius: 9, padding: 9 }}>
             <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 5, marginBottom: 7 }}>
-              <Text style={{ color: "#166534", fontSize: 12, fontWeight: "900", textAlign: "right" }}>{isAr ? "آخر خطوة: تسليم تلقائي إلى إنتاج المكائن" : "Last step: automatic handover to Machines Production"}</Text>
+              <Text style={{ color: "#166534", fontSize: 12, fontWeight: "900", textAlign: "right" }}>{isAr ? "آخر خطوة: تسليم تلقائي إلى الروسو" : "Last step: automatic handover to Rosso"}</Text>
               <MaterialIcons name="move-to-inbox" size={18} color="#15803d" />
             </View>
             <Text style={{ color: "#166534", fontSize: 10, marginBottom: 6, textAlign: "right" }}>{isAr ? "اختر المستلم؛ سيظهر المنتج تلقائياً في قائمة استلامه بعد الحفظ" : "Choose the receiver; the product will appear automatically in their receipt queue"}</Text>
