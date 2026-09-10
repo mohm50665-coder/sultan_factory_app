@@ -52,6 +52,15 @@ export interface ManufacturingStageData {
   quantityDozen: number;
   quantityPair: number;
   productType?: string;
+  productName?: string;
+  date?: string;
+  movementStatus?: "none" | "received" | "delivered";
+  movementBy?: string;
+  movementAt?: string | Date;
+  expectedReceiver?: string;
+  receiverStage?: string;
+  receivedBy?: string;
+  receivedAt?: string | Date;
 }
 
 export interface SalesData {
@@ -181,6 +190,10 @@ export const manufacturingStageService = {
 
   async restore(id: number): Promise<void> {
     await trpcCall("manufacturing.restore", { id });
+  },
+
+  async confirmReceipt(id: number): Promise<void> {
+    await trpcCall("manufacturing.confirmReceipt", { id });
   },
 };
 

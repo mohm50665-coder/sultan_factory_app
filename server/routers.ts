@@ -760,6 +760,10 @@ export const appRouter = router({
         movementStatus: z.enum(["none", "received", "delivered"]).optional(),
         movementBy: z.string().optional(),
         movementAt: z.coerce.date().optional(),
+        expectedReceiver: z.string().optional(),
+        receiverStage: z.string().optional(),
+        receivedBy: z.string().optional(),
+        receivedAt: z.coerce.date().optional(),
         userId: z.number(),
       }))
       .mutation(async ({ input }) => {
@@ -806,6 +810,21 @@ export const appRouter = router({
         if (Date.now() - new Date(deleted[0].deletedAt).getTime() > restoreLimit) throw new Error("انتهت مدة استرجاع السجل");
         await db.update(manufacturingStagesTable).set({ deletedAt: null, deletedBy: null }).where(eq(manufacturingStagesTable.id, input.id));
         await db.insert(auditLogTable).values({ userId: ctx.user.id, action: "restore", tableName: "manufacturingStages", recordId: input.id, oldValue: deleted[0] as any, description: "استرجاع سجل مرحلة تسليم من سلة المهملات" });
+        return { success: true };
+      }),
+
+    confirmReceipt: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
+        const record = rows[0];
+        if (!record || record.deletedAt) throw new Error("السجل غير موجود");
+        if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
+        const receiverName = String((ctx.user as any)?.name || "").trim();
+        if (!receiverName || receiverName !== String(record.expectedReceiver || "").trim()) throw new Error("هذا السجل مخصص لموظف آخر");
+        await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
         return { success: true };
       }),
   }),

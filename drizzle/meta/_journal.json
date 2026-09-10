@@ -85,6 +85,13 @@
       "when": 1789037328943,
       "tag": "0011_pale_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1789042993908,
+      "tag": "0012_gray_talisman",
+      "breakpoints": true
     }
   ]
 }

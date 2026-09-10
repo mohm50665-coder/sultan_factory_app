@@ -22,10 +22,15 @@ import { useLanguage } from "@/lib/language-context";
 import { manufacturingWorkersService, productsService } from "@/lib/services/api.service";
 
 interface ProductItem {
+  id?: string;
   productName: string;
   quantityDozen: string;
   quantityPairs: string;
   movementStatus: "none" | "received" | "delivered";
+  expectedReceiver?: string;
+  receiverStage?: string;
+  receivedBy?: string;
+  receivedAt?: string;
   movementAt?: string;
 }
 
@@ -124,23 +129,32 @@ export default function ManufacturingStageScreen() {
   const isViewOnly = user?.department === "warehouse" && !isAdmin && stage !== "storage";
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
+  const STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+  const nextStageId = STAGE_ORDER[Math.min(STAGE_ORDER.indexOf(stage) + 1, STAGE_ORDER.length - 1)];
+  const nextStageConfig = STAGE_CONFIG[nextStageId] || STAGE_CONFIG.storage;
   const isStorageStage = stage === "storage";
 
   // Load workers from server
   const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
+  const [nextStageWorkers, setNextStageWorkers] = useState<string[]>(nextStageConfig.workers.filter((worker) => worker !== (isAr ? "الجميع" : "All")));
   const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   useEffect(() => {
     const loadServerWorkers = async () => {
       try {
-        const workers = await manufacturingWorkersService.list(stage);
+        const [workers, nextWorkers] = await Promise.all([
+          manufacturingWorkersService.list(stage),
+          manufacturingWorkersService.list(nextStageId),
+        ]);
         if (workers && Array.isArray(workers) && workers.length > 0) {
           const names = workers.map((w: any) => w.workerName);
-          // Add "الجميع" for stages that had it
           if (config.workers.includes(isAr ? "الجميع" : "All") && !names.includes(isAr ? "الجميع" : "All")) {
             names.push(isAr ? "الجميع" : "All");
           }
           setStageWorkers(names);
+        }
+        if (nextWorkers && Array.isArray(nextWorkers) && nextWorkers.length > 0) {
+          setNextStageWorkers(nextWorkers.map((w: any) => w.workerName).filter((name: string) => name !== (isAr ? "الجميع" : "All")));
         }
       } catch (e) {
         console.log("Error loading workers from server:", e);
@@ -148,7 +162,7 @@ export default function ManufacturingStageScreen() {
       }
     };
     loadServerWorkers();
-  }, [stage]);
+  }, [stage, nextStageId, isAr]);
 
   const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
   const isStageWorker = user?.department && MANUFACTURING_STAGE_IDS.includes(user.department) && user.department === stage;
@@ -163,7 +177,7 @@ export default function ManufacturingStageScreen() {
   const [selectedWorker, setSelectedWorker] = useState(user?.name || "");
   // منتجات (حتى 10)
   const [products, setProducts] = useState<ProductItem[]>([
-    { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" },
+    { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none", expectedReceiver: "", receiverStage: nextStageId },
   ]);
   const [productSearch, setProductSearch] = useState<Record<number, string>>({});
   const [durationHours, setDurationHours] = useState("");
@@ -231,10 +245,15 @@ export default function ManufacturingStageScreen() {
             };
           }
           grouped[groupKey].products.push({
+            id: String(d.id),
             productName: d.productName || "",
             quantityDozen: String(d.quantityDozen || 0),
             quantityPairs: String(d.quantityPair || 0),
             movementStatus: d.movementStatus || "none",
+            expectedReceiver: d.expectedReceiver || "",
+            receiverStage: d.receiverStage || "",
+            receivedBy: d.receivedBy || "",
+            receivedAt: d.receivedAt ? String(d.receivedAt) : "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
           });
           if (d.movementStatus === "received" && d.movementAt) grouped[groupKey].receivedAt = String(d.movementAt);
@@ -282,7 +301,7 @@ export default function ManufacturingStageScreen() {
 
   const resetForm = () => {
     setSelectedWorker(user?.name || "");
-    setProducts([{ productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" }]);
+    setProducts([{ productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none", expectedReceiver: "", receiverStage: nextStageId }]);
     setProductSearch({});
     setDurationHours("");
     setDurationMinutes("");
@@ -303,7 +322,7 @@ export default function ManufacturingStageScreen() {
       Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "الحد الأقصى 10 منتجات لكل إدخال" : "Maximum 10 products per entry");
       return;
     }
-    setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none" }]);
+    setProducts([...products, { productName: "", quantityDozen: "", quantityPairs: "", movementStatus: "none", expectedReceiver: "", receiverStage: nextStageId }]);
   };
 
   // حذف منتج
@@ -351,6 +370,11 @@ export default function ManufacturingStageScreen() {
         return;
       }
       const hasQuantity = validProducts.some(p => p.quantityDozen || p.quantityPairs);
+      const invalidDelivery = validProducts.find((p) => p.movementStatus === "delivered" && (!p.expectedReceiver || p.expectedReceiver === workerName));
+      if (invalidDelivery) {
+        showStageMessage(isAr ? "بيانات التسليم ناقصة" : "Delivery details required", isAr ? "اختر موظفاً مختلفاً من المرحلة التالية لكل منتج تم تسليمه" : "Choose a different worker from the next stage for every delivered product");
+        return;
+      }
       if (!hasQuantity) {
         Alert.alert(isAr ? "تنبيه" : "Warning", isAr ? "يرجى إدخال كمية لمنتج واحد على الأقل" : "Please enter a quantity for at least one product");
         return;
@@ -399,6 +423,10 @@ export default function ManufacturingStageScreen() {
             movementStatus: product.movementStatus,
             movementBy: product.movementStatus === "none" ? undefined : workerName,
             movementAt: product.movementStatus === "none" ? undefined : new Date(),
+            expectedReceiver: product.movementStatus === "delivered" ? product.expectedReceiver : undefined,
+            receiverStage: product.movementStatus === "delivered" ? (product.receiverStage || nextStageId) : undefined,
+            receivedBy: product.movementStatus === "received" ? workerName : undefined,
+            receivedAt: product.movementStatus === "received" ? new Date() : undefined,
             userId: user?.id || 1,
           };
           const result = await manufacturingStageService.create(apiData);
@@ -425,6 +453,10 @@ export default function ManufacturingStageScreen() {
         quantityDozen: p.quantityDozen,
         quantityPairs: p.quantityPairs,
         movementStatus: p.movementStatus || "none",
+        expectedReceiver: p.expectedReceiver || "",
+        receiverStage: p.receiverStage || nextStageId,
+        receivedBy: p.receivedBy || "",
+        receivedAt: p.receivedAt || "",
         movementAt: p.movementAt || "",
       })));
     }
@@ -456,6 +488,20 @@ export default function ManufacturingStageScreen() {
       { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
       { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: () => { void executeDelete(); } },
     ]);
+  };
+
+  const handleConfirmReceipt = async (product: ProductItem) => {
+    if (!product.id) {
+      showStageMessage(isAr ? "تعذر التأكيد" : "Unable to confirm", isAr ? "معرف الحركة غير متوفر" : "Movement id is missing");
+      return;
+    }
+    try {
+      await manufacturingStageService.confirmReceipt(Number(product.id));
+      await loadEntries();
+      showStageMessage(isAr ? "تم تأكيد الاستلام ✓" : "Receipt confirmed ✓", isAr ? `تم تسجيل استلام ${product.productName}` : `${product.productName} receipt was confirmed`);
+    } catch (error) {
+      showStageMessage(isAr ? "فشل تأكيد الاستلام" : "Receipt confirmation failed", error instanceof Error ? error.message : (isAr ? "تعذر تأكيد الاستلام" : "Unable to confirm receipt"));
+    }
   };
 
   const getReportWindow = (anchor: string, period: "daily" | "weekly" | "monthly") => {
@@ -569,9 +615,15 @@ export default function ManufacturingStageScreen() {
               </View>
               <View style={{ marginTop: 8, backgroundColor: product.movementStatus === "received" ? "#fef2f2" : product.movementStatus === "delivered" ? "#f0fdf4" : "#fffbeb", borderRadius: 6, paddingVertical: 6, alignItems: "center" }}>
                 <Text style={{ color: product.movementStatus === "received" ? "#dc2626" : product.movementStatus === "delivered" ? "#16a34a" : "#b45309", fontWeight: "800", fontSize: 12 }}>
-                  {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "مسلّم" : "Delivered") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
+                  {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "بانتظار تأكيد المستلم" : "Awaiting receiver confirmation") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
                 </Text>
               </View>
+              {product.movementStatus === "delivered" && product.expectedReceiver === user?.name && (
+                <TouchableOpacity onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
+                  <MaterialIcons name="verified" size={18} color="#ffffff" />
+                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "تأكيد الاستلام" : "Confirm receipt"}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
         </View>
@@ -889,19 +941,6 @@ export default function ManufacturingStageScreen() {
                         {product.productName && <Text style={{ color: "#16a34a", fontSize: 11, marginTop: 5, textAlign: isAr ? "right" : "left" }}>{isAr ? "تم اختيار منتج محفوظ من الدليل" : "Saved catalog product selected"}</Text>}
                       </View>
 
-                      {/* حالة التسليم والاستلام */}
-                      <View style={{ marginBottom: 10 }}>
-                        <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
-                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderColor: "#dc2626", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
-                            <Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "Received"}</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderColor: "#16a34a", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
-                            <Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontWeight: "800", fontSize: 12 }}>{isAr ? "سلّمت" : "Delivered"}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-
                       {/* الكميات */}
                       <View style={{ flexDirection: 'row', gap: 12 }}>
                         <View style={{ flex: 1 }}>
@@ -924,6 +963,32 @@ export default function ManufacturingStageScreen() {
                             keyboardType="numeric" returnKeyType="next"
                           />
                         </View>
+                      </View>
+
+                      {/* حركة الاستلام والتسليم — آخر خطوة قبل الحفظ */}
+                      <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 13, marginBottom: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "آخر خطوة: الاستلام أو التسليم" : "Last step: receipt or delivery"}</Text>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderColor: "#dc2626", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
+                            <Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "Received"}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => updateProduct(index, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderColor: "#16a34a", borderWidth: 1, borderRadius: 8, paddingVertical: 9, alignItems: "center" }}>
+                            <Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontWeight: "800", fontSize: 12 }}>{isAr ? "سلّمت" : "Delivered"}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {product.movementStatus === "delivered" && (
+                          <View style={{ marginTop: 8, backgroundColor: "#f0fdf4", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#86efac" }}>
+                            <Text style={{ color: "#166534", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? `اختر مستلم المرحلة التالية: ${nextStageConfig.name}` : `Choose receiver for next stage: ${nextStageConfig.name}`}</Text>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
+                              {nextStageWorkers.map((receiver) => (
+                                <TouchableOpacity key={receiver} onPress={() => updateProduct(index, "expectedReceiver", receiver)} style={{ backgroundColor: product.expectedReceiver === receiver ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
+                                  <Text style={{ color: product.expectedReceiver === receiver ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                            {product.expectedReceiver ? <Text style={{ color: "#166534", fontSize: 11, marginTop: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? `المستلم المحدد: ${product.expectedReceiver}` : `Selected receiver: ${product.expectedReceiver}`}</Text> : <Text style={{ color: "#b45309", fontSize: 11, marginTop: 6, textAlign: isAr ? "right" : "left" }}>{isAr ? "يجب اختيار مستلم مختلف قبل الحفظ" : "Choose a different receiver before saving"}</Text>}
+                          </View>
+                        )}
                       </View>
                     </View>
                   ))}
