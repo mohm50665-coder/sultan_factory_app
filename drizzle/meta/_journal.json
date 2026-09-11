@@ -113,6 +113,20 @@
       "when": 1789134611017,
       "tag": "0015_mushy_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1789136830659,
+      "tag": "0016_confused_stephen_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1789138165497,
+      "tag": "0017_faulty_sunspot",
+      "breakpoints": true
     }
   ]
 }

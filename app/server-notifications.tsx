@@ -147,6 +147,7 @@ export default function ServerNotifications() {
       case "pending_procedure": return "pending-actions";
       case "quality_issue": return "report-problem";
       case "safety_alert": return "health-and-safety";
+      case "sample_delivery": return "local-shipping";
       default: return "notifications";
     }
   };

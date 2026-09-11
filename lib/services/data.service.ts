@@ -450,4 +450,5 @@ export const sampleRequestsService = {
   updateStatus: (input: { id: number; status: string; notes?: string }) => trpcCall("sampleRequests.updateStatus", input),
   update: (input: { id: number; clientName: string; productName: string; productSize: string; productColor: string; quantity: number; quantityUnit: "dozen" | "pair"; specifications: string; notes?: string }) => trpcCall("sampleRequests.update", input),
   delete: (input: { id: number }) => trpcCall("sampleRequests.delete", input),
+  completeDelivery: (input: { id: number; deliveredTo: string; receivedBy: string }) => trpcCall("sampleRequests.completeDelivery", input),
 };

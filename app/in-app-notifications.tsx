@@ -29,6 +29,7 @@ const TYPE_CONFIG: Record<NotificationType, { icon: string; color: string; label
   system: { icon: "info", color: "#6366f1", labelAr: "نظام", labelEn: "System" },
   admin: { icon: "admin-panel-settings", color: "#8b5cf6", labelAr: "إداري", labelEn: "Admin" },
   performance: { icon: "assessment", color: "#0f766e", labelAr: "تقييم أداء", labelEn: "Performance" },
+  sample_delivery: { icon: "local-shipping", color: "#0ea5e9", labelAr: "تسليم عينة", labelEn: "Sample delivery" },
 };
 
 export default function InAppNotificationsScreen() {
@@ -49,7 +50,7 @@ export default function InAppNotificationsScreen() {
       const serverRows = user?.id ? await alertsService.getByUser(Number(user.id)) : [];
       const server: AppNotification[] = (Array.isArray(serverRows) ? serverRows : []).map((row: any) => ({
         id: `server_${row.id}`,
-        type: row.data?.category === "employee_performance" ? "performance" : "admin",
+        type: row.type === "sample_delivery" ? "sample_delivery" : row.data?.category === "employee_performance" ? "performance" : "admin",
         title: row.title,
         message: row.message,
         isRead: Boolean(row.read),
@@ -182,6 +183,7 @@ export default function InAppNotificationsScreen() {
     { key: "maintenance", labelAr: "صيانة", labelEn: "Maintenance" },
     { key: "admin", labelAr: "إداري", labelEn: "Admin" },
     { key: "performance", labelAr: "تقييم أداء", labelEn: "Performance" },
+    { key: "sample_delivery", labelAr: "تسليم عينة", labelEn: "Sample delivery" },
   ];
 
   return (

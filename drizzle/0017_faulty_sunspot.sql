@@ -1,0 +1,1 @@
+ALTER TABLE `alerts` MODIFY COLUMN `type` enum('cost_exceeded','low_productivity','pending_procedure','quality_issue','safety_alert','sample_delivery') NOT NULL;

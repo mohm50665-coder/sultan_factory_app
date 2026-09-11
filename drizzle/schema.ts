@@ -358,7 +358,7 @@ export type InsertProductionCost = typeof productionCosts.$inferInsert;
 // جدول التنبيهات
 export const alerts = mysqlTable("alerts", {
   id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert"]).notNull(),
+  type: mysqlEnum("type", ["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert", "sample_delivery"]).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   severity: mysqlEnum("severity", ["info", "warning", "critical"]).notNull(),
@@ -885,7 +885,9 @@ export const sampleRequests = mysqlTable("sampleRequests", {
   productionId: int("productionId"),
   currentStage: varchar("currentStage", { length: 100 }),
   deliveredAt: timestamp("deliveredAt"),
+  deliveredTo: varchar("deliveredTo", { length: 255 }),
   receivedAt: timestamp("receivedAt"),
+  receivedBy: varchar("receivedBy", { length: 255 }),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

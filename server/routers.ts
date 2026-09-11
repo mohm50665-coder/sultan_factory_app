@@ -1263,6 +1263,30 @@ export const appRouter = router({
         await db.delete(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id));
         return { success: true };
       }),
+
+    completeDelivery: protectedProcedure
+      .input(z.object({ id: z.number(), deliveredTo: z.string().min(1), receivedBy: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new Error("طلب العينة غير موجود");
+        if (ctx.user.role !== "admin" && request.requesterId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية تسليم طلب العينة" });
+        if (request.status !== "ready_for_requester") throw new Error("لا يمكن تسليم العينة قبل وصولها للتخزين واعتماد جاهز للتسليم");
+        const deliveredAt = new Date();
+        await db.update(sampleRequestsTable).set({ status: "completed", deliveredTo: input.deliveredTo.trim(), receivedBy: input.receivedBy.trim(), deliveredAt, receivedAt: deliveredAt }).where(eq(sampleRequestsTable.id, input.id));
+        await db.insert(alertsTable).values({
+          type: "sample_delivery",
+          title: "تم تسليم طلب العينة",
+          message: `تم تسليم العينة ${request.referenceCode} إلى ${input.receivedBy.trim()} لصالح ${input.deliveredTo.trim()}`,
+          severity: "info",
+          read: 0,
+          data: { category: "sample_delivery", route: "/sample-requests", sampleRequestId: request.id, referenceCode: request.referenceCode, deliveredTo: input.deliveredTo.trim(), receivedBy: input.receivedBy.trim(), deliveredAt: deliveredAt.toISOString() },
+          userId: request.requesterId,
+        });
+        return { success: true, status: "completed", deliveredAt };
+      }),
   }),
 
   // ===== PRODUCT TRACKING ROUTER =====

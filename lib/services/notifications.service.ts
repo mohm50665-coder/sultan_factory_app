@@ -4,7 +4,7 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type NotificationType = "production" | "waste" | "task" | "maintenance" | "system" | "admin" | "performance";
+export type NotificationType = "production" | "waste" | "task" | "maintenance" | "system" | "admin" | "performance" | "sample_delivery";
 
 export interface AppNotification {
   id: string;
