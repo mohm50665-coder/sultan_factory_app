@@ -50,6 +50,7 @@ import {
   productTracking as productTrackingTable,
   products as productsTable,
   internalMessages as internalMessagesTable,
+  sampleRequests as sampleRequestsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte, isNull, like } from "drizzle-orm";
 import { createHash, randomUUID } from "crypto";
@@ -89,7 +90,7 @@ function isAutomaticHandoverActive(recordDate?: string | null) {
 function isProductionAuthority(user: any) {
   const department = String(user?.department || "").trim().toLowerCase();
   const position = String(user?.position || "").trim().toLowerCase();
-  return user?.role === "admin" || department === "production" || department === "الإنتاج" || position.includes("مدير الإنتاج") || position.includes("production manager");
+  return user?.role === "admin" || position.includes("مدير الإنتاج") || position.includes("production manager") || position.includes("production director");
 }
 
 function assertProductionAuthority(user: any, recordDate?: string | null) {
@@ -135,6 +136,9 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
     productSize: String(entry.productSize || identity.size || "").trim() || null,
     productColor: String(entry.productColor || identity.color || "").trim() || null,
     barcode: String(entry.barcode || "").trim() || null,
+    qualityGrade: entry.qualityGrade || "first",
+    sampleRequestId: entry.sampleRequestId || null,
+    productionId: entry.productionId || null,
     date: entry.date,
     movementStatus: "delivered" as const,
     movementBy: String(user?.name || "").trim(),
@@ -148,6 +152,18 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
     return existing.id;
   }
   const result = await db.insert(manufacturingStagesTable).values(values);
+  const receiver = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.name, expectedReceiver)).limit(1);
+  if (receiver[0]) {
+    await db.insert(internalMessagesTable).values({
+      subject: "عهدة إنتاج جديدة بانتظار الاستلام",
+      body: `تم تسليم المنتج ${String(entry.productName || "")} بكمية ${Number(entry.productionDozen) || 0} درزن و${Number(entry.productionPairs) || 0} زوج إلى مرحلة الروسو. يرجى تأكيد الاستلام.`,
+      senderId: user.id,
+      recipientUserId: receiver[0].id,
+      relatedType: "manufacturingStage",
+      relatedId: result[0].insertId,
+      attachments: [],
+    });
+  }
   return result[0].insertId;
 }
 
@@ -687,6 +703,9 @@ export const appRouter = router({
         date: z.string(),
         machineNumber: z.string(),
         productName: z.string().optional(),
+        qualityGrade: z.enum(["first", "second", "sample"]).default("first"),
+        sampleRequestId: z.number().optional(),
+        sampleReference: z.string().optional(),
         productSize: z.string().optional(),
         productColor: z.string().optional(),
         barcode: z.string().optional(),
@@ -721,7 +740,7 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
-        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...productionInput } = input;
+        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, userId: _userId, ...productionInput } = input;
         const result = await db.insert(productionTable).values({ ...productionInput, userId: ctx.user.id });
         const identity = parseLegacyProductName(input.productName);
         await ensureCatalogProduct(db, {
@@ -738,7 +757,7 @@ export const appRouter = router({
           },
           createdBy: ctx.user.id,
         }, new Map());
-        await createInitialProductionHandover(db, input, ctx.user);
+        await createInitialProductionHandover(db, { ...input, productionId: result[0].insertId }, ctx.user);
         return { success: true, id: result[0].insertId };
       }),
 
@@ -749,6 +768,9 @@ export const appRouter = router({
           date: z.string(),
           machineNumber: z.string(),
           productName: z.string().optional(),
+          qualityGrade: z.enum(["first", "second", "sample"]).default("first"),
+          sampleRequestId: z.number().optional(),
+          sampleReference: z.string().optional(),
           productSize: z.string().optional(),
           productColor: z.string().optional(),
           barcode: z.string().optional(),
@@ -791,6 +813,11 @@ export const appRouter = router({
         });
         const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...entry }) => ({ ...entry, userId: ctx.user.id }));
         await db.insert(productionTable).values(entriesForProduction);
+        for (const entry of input.entries) {
+          if (entry.sampleRequestId) {
+            await db.update(sampleRequestsTable).set({ status: "in_production" }).where(eq(sampleRequestsTable.id, entry.sampleRequestId));
+          }
+        }
         // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
         const cache = new Map<string, any>();
         for (const entry of input.entries) {
@@ -1006,6 +1033,8 @@ export const appRouter = router({
             deliveredAt: record.movementAt,
             receivedAt,
             handoverDate: receivedAt,
+            shortageDozen: 0,
+            shortagePairs: 0,
             notes: "استلام تلقائي من قائمة العهدة",
             userId: ctx.user.id,
           });
@@ -1025,8 +1054,12 @@ export const appRouter = router({
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد استلام المستودع قبل التخزين");
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تخزين عهدة موظف آخر");
-        await db.update(manufacturingStagesTable).set({ barcode: input.barcode.trim().toUpperCase(), productType: `STORED:${input.barcode.trim().toUpperCase()}` }).where(eq(manufacturingStagesTable.id, record.id));
-        return { success: true, barcode: input.barcode.trim().toUpperCase(), storedAt: new Date() };
+        const storedAt = new Date();
+        await db.update(manufacturingStagesTable).set({ barcode: input.barcode.trim().toUpperCase(), productType: `STORED:${input.barcode.trim().toUpperCase()}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
+        if (record.sampleRequestId) {
+          await db.update(sampleRequestsTable).set({ status: "ready_for_requester" }).where(eq(sampleRequestsTable.id, record.sampleRequestId));
+        }
+        return { success: true, barcode: input.barcode.trim().toUpperCase(), storedAt };
       }),
 
     deliverToNextStage: protectedProcedure
@@ -1061,6 +1094,7 @@ export const appRouter = router({
             quantityDozen,
             quantityPair,
             movementStatus: "delivered",
+            stageCompletedAt: deliveredAt,
             movementBy: actorName,
             movementAt: deliveredAt,
             expectedReceiver,
@@ -1074,6 +1108,12 @@ export const appRouter = router({
             trackingDate: getRiyadhDate(deliveredAt),
             quantityDozen,
             quantityPairs: quantityPair,
+            qualityGrade: record.qualityGrade || "first",
+            sampleRequestId: record.sampleRequestId || null,
+            stageStartedAt: record.stageStartedAt || null,
+            stageCompletedAt: deliveredAt,
+            shortageDozen: Math.max(0, Number(record.quantityDozen || 0) - quantityDozen),
+            shortagePairs: Math.max(0, Number(record.quantityPair || 0) - quantityPair),
             currentStage: record.stageName,
             previousStage: MANUFACTURING_STAGE_ORDER[Math.max(0, MANUFACTURING_STAGE_ORDER.indexOf(record.stageName as any) - 1)],
             deliveredBy: actorName,
@@ -1085,7 +1125,143 @@ export const appRouter = router({
             userId: ctx.user.id,
           });
         });
+        const receiver = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.name, expectedReceiver)).limit(1);
+        if (receiver[0]) {
+          await db.insert(internalMessagesTable).values({
+            subject: "عهدة جديدة بانتظار الاستلام",
+            body: `تم تسليم ${String(record.productName || "المنتج")} من مرحلة ${record.stageName} إلى مرحلة ${targetStage} بكمية ${quantityDozen} درزن و${quantityPair} زوج. يرجى تأكيد الاستلام.`,
+            senderId: ctx.user.id,
+            recipientUserId: receiver[0].id,
+            relatedType: "manufacturingStage",
+            relatedId: record.id,
+            attachments: [],
+          });
+        }
         return { success: true, receiverStage: targetStage, expectedReceiver, deliveredAt };
+      }),
+  }),
+
+  // ===== SAMPLE REQUESTS ROUTER =====
+  sampleRequests: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(sampleRequestsTable).orderBy(desc(sampleRequestsTable.createdAt));
+    }),
+
+    create: protectedProcedure
+      .input(z.object({
+        clientName: z.string().min(1),
+        productName: z.string().min(1),
+        productSize: z.string().min(1),
+        productColor: z.string().min(1),
+        quantity: z.number().int().positive().max(10),
+        quantityUnit: z.enum(["dozen", "pair"]),
+        specifications: z.string().min(10),
+        designAttachments: z.array(z.unknown()).min(1),
+        manufacturingFormAttachments: z.array(z.unknown()).min(1),
+        transferReceiptAttachments: z.array(z.unknown()).min(1),
+        signatureAttachments: z.array(z.unknown()).min(1),
+        sampleMediaAttachments: z.array(z.unknown()).optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const referenceCode = `SMP-${getRiyadhDate().replace(/-/g, "")}-${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+        const result = await db.insert(sampleRequestsTable).values({
+          referenceCode,
+          requesterId: ctx.user.id,
+          requesterName: ctx.user.name,
+          requesterDepartment: ctx.user.department || null,
+          clientName: input.clientName,
+          productName: input.productName,
+          productSize: input.productSize,
+          productColor: input.productColor,
+          quantity: input.quantity,
+          quantityUnit: input.quantityUnit,
+          specifications: input.specifications,
+          designAttachments: input.designAttachments,
+          manufacturingFormAttachments: input.manufacturingFormAttachments,
+          transferReceiptAttachments: input.transferReceiptAttachments,
+          signatureAttachments: input.signatureAttachments,
+          sampleMediaAttachments: input.sampleMediaAttachments || [],
+          status: "pending_sales",
+          notes: input.notes || null,
+        });
+        return { success: true, id: result[0].insertId, referenceCode };
+      }),
+
+    updateStatus: protectedProcedure
+      .input(z.object({ id: z.number(), status: z.enum(["approved_sales", "rejected_sales", "approved_production", "in_production", "ready_for_requester", "completed"]), notes: z.string().optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new Error("طلب العينة غير موجود");
+        const department = String(ctx.user.department || "").toLowerCase();
+        const isSales = ctx.user.role === "admin" || department === "sales" || department === "المبيعات" || String(ctx.user.position || "").includes("مدير المبيعات");
+        const isProduction = ctx.user.role === "admin" || isProductionAuthority(ctx.user);
+        if (input.status === "approved_sales" || input.status === "rejected_sales") {
+          if (!isSales) throw new TRPCError({ code: "FORBIDDEN", message: "اعتماد طلب العينة من صلاحية مدير المبيعات فقط" });
+          if (request.status !== "pending_sales") throw new Error("الطلب ليس بانتظار اعتماد المبيعات");
+        }
+        if (["approved_production", "in_production"].includes(input.status)) {
+          if (!isProduction) throw new TRPCError({ code: "FORBIDDEN", message: "هذه الخطوة من صلاحية مدير الإنتاج أو الأدمن" });
+          if (request.status !== "approved_sales") throw new Error("لا يمكن تحويل الطلب للإنتاج قبل اعتماد المبيعات");
+        }
+        await db.update(sampleRequestsTable).set({ status: input.status, notes: input.notes || request.notes }).where(eq(sampleRequestsTable.id, input.id));
+        return { success: true, status: input.status };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        clientName: z.string().min(1),
+        productName: z.string().min(1),
+        productSize: z.string().min(1),
+        productColor: z.string().min(1),
+        quantity: z.number().int().min(1).max(10),
+        quantityUnit: z.enum(["dozen", "pair"]),
+        specifications: z.string().min(1),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new Error("طلب العينة غير موجود");
+        const canEdit = ctx.user.role === "admin" || request.requesterId === ctx.user.id;
+        if (!canEdit) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية تعديل طلب العينة" });
+        if (!["incomplete", "pending_sales", "rejected_sales"].includes(request.status)) throw new Error("لا يمكن تعديل الطلب بعد بدء الإنتاج");
+        await db.update(sampleRequestsTable).set({
+          clientName: input.clientName,
+          productName: input.productName,
+          productSize: input.productSize,
+          productColor: input.productColor,
+          quantity: input.quantity,
+          quantityUnit: input.quantityUnit,
+          specifications: input.specifications,
+          notes: input.notes || null,
+          status: "pending_sales",
+        }).where(eq(sampleRequestsTable.id, input.id));
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new Error("طلب العينة غير موجود");
+        if (ctx.user.role !== "admin" && request.requesterId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية حذف طلب العينة" });
+        if (!["incomplete", "pending_sales", "rejected_sales"].includes(request.status)) throw new Error("لا يمكن حذف الطلب بعد اعتماده أو بدء الإنتاج");
+        await db.delete(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id));
+        return { success: true };
       }),
   }),
 

@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
+import { sampleRequestsService } from "@/lib/services/data.service";
 
 
 // أرقام المكائن
@@ -54,6 +55,8 @@ interface ProductItem {
   yarnWeightPerPair: string;
   movementStatus: "none" | "received" | "delivered";
   expectedReceiver: string;
+  qualityGrade: "first" | "second" | "sample";
+  sampleRequestId: string;
 }
 
 // ملاحظة 3: كل مكينة تتحمل 5 منتجات أو أكثر
@@ -113,6 +116,8 @@ const emptyProduct = (): ProductItem => ({
   yarnWeightPerPair: "",
   movementStatus: "none",
   expectedReceiver: "",
+  qualityGrade: "first",
+  sampleRequestId: "",
 });
 
 const emptyShiftData = (shiftNum: number): ShiftData => ({
@@ -168,9 +173,10 @@ export default function ProductionScreen() {
   const [productSuggestions, setProductSuggestions] = useState<SavedProductData[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<{machine: string; shiftIndex: number; productIndex: number} | null>(null);
   const [machineWorkers, setMachineWorkers] = useState<string[]>([]);
+  const [approvedSampleRequests, setApprovedSampleRequests] = useState<any[]>([]);
   const riyadhToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const automaticFlowActive = riyadhToday >= "2026-09-10" || selectedDate >= "2026-09-10";
-  const canCreateProduction = user?.role === "admin" || user?.department === "production" || user?.department === "الإنتاج" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
+  const canCreateProduction = user?.role === "admin" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager") || String(user?.position || "").toLowerCase().includes("production director");
 
   useEffect(() => {
     loadEntries();
@@ -178,6 +184,9 @@ export default function ProductionScreen() {
     manufacturingWorkersService.list("rosso").then((rows: any[]) => {
       setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || "").trim()).filter((name: string) => name && name !== "الجميع" && name.toLowerCase() !== "all"));
     }).catch(() => setMachineWorkers([]));
+    sampleRequestsService.list().then((rows: any) => {
+      setApprovedSampleRequests((Array.isArray(rows) ? rows : []).filter((row: any) => ["approved_sales", "approved_production", "in_production"].includes(row.status)));
+    }).catch(() => setApprovedSampleRequests([]));
   }, []);
 
   // تحميل بيانات المنتجات المحفوظة (ملاحظة 5)
@@ -321,6 +330,8 @@ export default function ProductionScreen() {
           yarnWeightPerPair: String(row.yarnWeightPerPair || ""),
           movementStatus: row.movementStatus || "none",
           expectedReceiver: "",
+          qualityGrade: row.qualityGrade || "first",
+          sampleRequestId: String(row.sampleRequestId || ""),
         });
       }
 
@@ -373,6 +384,8 @@ export default function ProductionScreen() {
               productSize: product.itemSize || undefined,
               productColor: product.itemColor || undefined,
               barcode: product.barcode || undefined,
+              qualityGrade: product.qualityGrade || "first",
+              sampleRequestId: product.sampleRequestId ? Number(product.sampleRequestId) : undefined,
               shiftNumber: shift.shiftNumber || 1,
               shiftStart: shift.shiftStart || "",
               shiftEnd: shift.shiftEnd || "",
@@ -917,6 +930,19 @@ export default function ProductionScreen() {
             </ScrollView>
           </View>
         )}
+      </View>
+
+      {/* تصنيف المنتج الموحد */}
+      <View style={{ marginBottom: 8, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: colors.border, borderRadius: 9, padding: 9 }}>
+        <Text style={{ color: colors.foreground, fontSize: 11, fontWeight: "800", textAlign: "right", marginBottom: 6 }}>{isAr ? "تصنيف المنتج (إلزامي)" : "Product classification (required)"}</Text>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {(["first", "second", "sample"] as const).map((grade) => {
+            const label = grade === "first" ? (isAr ? "نخب أول" : "First grade") : grade === "second" ? (isAr ? "نخب ثاني" : "Second grade") : (isAr ? "عينة" : "Sample");
+            const active = product.qualityGrade === grade;
+            return <TouchableOpacity key={grade} onPress={() => updateProductField(machine, shiftIndex, productIndex, "qualityGrade", grade)} style={{ flex: 1, backgroundColor: active ? "#0f766e" : colors.background, borderWidth: 1, borderColor: active ? "#0f766e" : colors.border, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: active ? "#fff" : colors.foreground, fontWeight: "800", fontSize: 10 }}>{label}</Text></TouchableOpacity>;
+          })}
+        </View>
+        {approvedSampleRequests.length > 0 && <View style={{ marginTop: 8 }}><Text style={{ color: colors.foreground, fontSize: 10, fontWeight: "800", textAlign: "right", marginBottom: 4 }}>{isAr ? "طلب العينة المرتبط (اختياري للمنتج العادي)" : "Linked sample request (optional for regular products)"}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>{approvedSampleRequests.map((request: any) => { const active = product.sampleRequestId === String(request.id); return <TouchableOpacity key={request.id} onPress={() => updateProductField(machine, shiftIndex, productIndex, "sampleRequestId", active ? "" : String(request.id))} style={{ backgroundColor: active ? "#0f766e" : colors.background, borderWidth: 1, borderColor: active ? "#0f766e" : colors.border, borderRadius: 15, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: active ? "#fff" : colors.foreground, fontSize: 10, fontWeight: "800" }}>{request.referenceCode}</Text></TouchableOpacity>; })}</ScrollView></View>}
       </View>
 
       {/* التسليم من الإنتاج هو بداية سلسلة العهدة التلقائية */}

@@ -134,6 +134,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["production", "warehouse"],
   },
   {
+    id: "sample_requests",
+    labelAr: "طلبات العينات",
+    labelEn: "Sample Requests",
+    icon: "science",
+    color: "#0f766e",
+    route: "/sample-requests",
+    descriptionAr: "رفع طلب عينة واعتماده وربطه بالإنتاج والعهدة والتسليم",
+    descriptionEn: "Submit, approve and track sample requests through production and custody",
+    section: "sales",
+    departments: ["sales", "production", "customer_service"],
+  },
+  {
     id: "sales",
     labelAr: "المبيعات والتحصيل",
     labelEn: "Sales & Collection",

@@ -428,3 +428,26 @@ export const warehouseEntriesService = {
     await trpcCall("warehouseEntries.delete", { id });
   },
 };
+
+
+export const sampleRequestsService = {
+  list: () => trpcCall("sampleRequests.list", undefined, "query"),
+  create: (input: {
+    clientName: string;
+    productName: string;
+    productSize: string;
+    productColor: string;
+    quantity: number;
+    quantityUnit: "dozen" | "pair";
+    specifications: string;
+    designAttachments: unknown[];
+    manufacturingFormAttachments: unknown[];
+    transferReceiptAttachments: unknown[];
+    signatureAttachments: unknown[];
+    sampleMediaAttachments?: unknown[];
+    notes?: string;
+  }) => trpcCall("sampleRequests.create", input),
+  updateStatus: (input: { id: number; status: string; notes?: string }) => trpcCall("sampleRequests.updateStatus", input),
+  update: (input: { id: number; clientName: string; productName: string; productSize: string; productColor: string; quantity: number; quantityUnit: "dozen" | "pair"; specifications: string; notes?: string }) => trpcCall("sampleRequests.update", input),
+  delete: (input: { id: number }) => trpcCall("sampleRequests.delete", input),
+};
