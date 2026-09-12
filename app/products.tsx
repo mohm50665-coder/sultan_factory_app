@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
@@ -143,7 +143,27 @@ export default function ProductsScreen() {
     try { if (editing) await productsService.update(editing, data); else await productsService.create({ ...data, createdBy: user?.id }); Alert.alert(isAr ? "تم" : "Done", editing ? (isAr ? "تم تحديث بيان المنتج" : "Product details updated") : (isAr ? "تم حفظ المنتج وإنشاء الباركود" : "Product saved and barcode created")); reset(); await load(); } catch (error: any) { Alert.alert(isAr ? "خطأ" : "Error", error?.message || (isAr ? "تعذر حفظ المنتج" : "Unable to save product")); }
   };
   const edit = (product: Product) => { if (user?.role !== "admin") return Alert.alert(isAr ? "التعديل غير مسموح" : "Editing not allowed", isAr ? "لا يقبل التعديل على المنتج إلا من قبل مدير النظام" : "Only the system administrator can edit saved products"); const details: any = typeof product.yarnDetails === "string" ? (() => { try { return JSON.parse(product.yarnDetails); } catch { return {}; } })() : product.yarnDetails || {}; setEditing(product.id); setName(product.name); setSize(product.size || ""); setColor(product.color || ""); setWeight(String(product.weightGrams || "")); setYarnWeightPerPair(String(details.yarnWeightPerPair || "")); setYarnRubber(String(details.yarnRubber || "")); setYarnSpandex(String(details.yarnSpandex || "")); setYarnNylon(String(details.yarnNylon || "")); setYarnCotton(String(details.yarnCotton || "")); setYarnBamboo(String(details.yarnBamboo || "")); setYarnSpan(String(details.yarnSpan || "")); setImageUrl(product.imageUrl || ""); setAttachment(product.attachments?.join("\\n") || ""); };
-  const remove = (product: Product) => Alert.alert(isAr ? "تأكيد الحذف" : "Confirm deletion", isAr ? `حذف ${product.name} من دليل المنتجات؟` : `Delete ${product.name} from the product catalog?`, [{ text: isAr ? "إلغاء" : "Cancel", style: "cancel" }, { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: async () => { try { await productsService.delete(product.id); await load(); Alert.alert(isAr ? "تم" : "Done", isAr ? "تم حذف المنتج" : "Product deleted"); } catch (error: any) { Alert.alert(isAr ? "خطأ" : "Error", error?.message || (isAr ? "تعذر حذف المنتج" : "Unable to delete product")); } } }]);
+  const remove = (product: Product) => {
+    const message = isAr ? `حذف ${product.name} من دليل المنتجات؟ سيتم نقله إلى حالة غير نشط مع الاحتفاظ بالسجلات المرتبطة.` : `Delete ${product.name} from the product catalog? It will be deactivated while linked records are preserved.`;
+    const executeDelete = async () => {
+      try {
+        await productsService.delete(product.id);
+        await load();
+        Alert.alert(isAr ? "تم الحذف" : "Deleted", isAr ? "تم حذف المنتج من الدليل بنجاح" : "The product was deleted from the catalog");
+      } catch (error: any) {
+        Alert.alert(isAr ? "تعذر الحذف" : "Deletion failed", error?.message || (isAr ? "تعذر حذف المنتج" : "Unable to delete product"));
+      }
+    };
+    if (Platform.OS === "web") {
+      const confirmed = typeof window === "undefined" ? true : window.confirm(message);
+      if (confirmed) void executeDelete();
+      return;
+    }
+    Alert.alert(isAr ? "تأكيد الحذف" : "Confirm deletion", message, [
+      { text: isAr ? "إلغاء" : "Cancel", style: "cancel" },
+      { text: isAr ? "حذف" : "Delete", style: "destructive", onPress: () => void executeDelete() },
+    ]);
+  };
   const hasActiveSearch = Boolean(normalize(searchQuery) || dateFrom || dateTo);
   const sortedItems = useMemo(() => {
     const query = normalize(searchQuery);

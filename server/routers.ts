@@ -1373,11 +1373,26 @@ export const appRouter = router({
       }),
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(productsTable).where(eq(productsTable.id, input.id)).limit(1);
+        const current = rows[0];
+        if (!current) throw new Error("المنتج غير موجود");
+        if (Number(current.isActive) === 0) throw new Error("المنتج محذوف أو غير نشط مسبقاً");
         await db.update(productsTable).set({ isActive: 0 }).where(eq(productsTable.id, input.id));
-        return { success: true };
+        await db.insert(auditLogTable).values({
+          userId: ctx.user.id,
+          action: "delete",
+          tableName: "products",
+          recordId: input.id,
+          oldValue: current as any,
+          newValue: { isActive: 0 },
+          description: "نقل المنتج إلى حالة غير نشط من دليل المنتجات مع الحفاظ على السجلات المرتبطة",
+        });
+        const remaining = await db.select({ id: productsTable.id }).from(productsTable).where(and(eq(productsTable.id, input.id), eq(productsTable.isActive, 1))).limit(1);
+        if (remaining.length) throw new Error("تعذر حذف المنتج من الدليل");
+        return { success: true, deletedProductId: input.id };
       }),
   }),
 
