@@ -31,4 +31,14 @@ describe("Active receiver directory contract", () => {
     expect(manufacturing).not.toContain("حسين السوري");
     expect(manufacturing).not.toContain("Hussein Al-Suri");
   });
+
+  it("keeps legacy delivered records visible to eligible next-stage accounts", () => {
+    const router = read("server/routers.ts");
+    const stage = read("app/manufacturing-stage.tsx");
+
+    expect(router).toContain("isLegacyUnassigned");
+    expect(router).toContain("allowedNextStages(record.stageName, record.productType).includes(input.stageName");
+    expect(router).toContain("legacyUnassigned: true");
+    expect(stage).toContain("[...(Array.isArray(queue) ? queue : []), ...(Array.isArray(data) ? data : [])]");
+  });
 });

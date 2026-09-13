@@ -956,9 +956,40 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) return [];
         const receiverName = String(ctx.user.name || "").trim();
-        if (!receiverName) return [];
+        const receiverUsername = String((ctx.user as any).username || "").trim();
+        if (!receiverName && !receiverUsername) return [];
+
+        // The first versions of the automatic chain stored only the stage and quantity,
+        // without receiverStage/expectedReceiver. Let an active account in the next
+        // stage claim those records instead of making them disappear from the queue.
+        const eligibleAccounts = await getEligibleStageAccounts(db, input.stageName);
+        const isEligibleReceiver = eligibleAccounts.some((account: any) =>
+          Number(account.id) === Number(ctx.user.id) ||
+          samePersonName(account.workerName, receiverName) ||
+          samePersonName(account.username, receiverUsername),
+        );
+        if (!isEligibleReceiver) return [];
+
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
-        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && samePersonName(record.expectedReceiver, receiverName) && String(record.productName || "").trim() && ((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0) > 0) && isAutomaticHandoverActive(record.date));
+        return rows
+          .filter((record: any) => {
+            if (record.movementStatus !== "delivered" || record.receivedAt) return false;
+            if (!String(record.productName || "").trim()) return false;
+            if (((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0)) <= 0) return false;
+            if (!isAutomaticHandoverActive(record.date)) return false;
+            const hasExplicitReceiver = String(record.receiverStage || "").trim() && String(record.expectedReceiver || "").trim();
+            const isAssignedToCurrentUser = record.receiverStage === input.stageName && (
+              samePersonName(record.expectedReceiver, receiverName) || samePersonName(record.expectedReceiver, receiverUsername)
+            );
+            const isLegacyUnassigned = !hasExplicitReceiver && allowedNextStages(record.stageName, record.productType).includes(input.stageName as any);
+            return isAssignedToCurrentUser || isLegacyUnassigned;
+          })
+          .map((record: any) => {
+            const isLegacyUnassigned = !String(record.receiverStage || "").trim() || !String(record.expectedReceiver || "").trim();
+            return isLegacyUnassigned
+              ? { ...record, expectedReceiver: receiverName, receiverStage: input.stageName, legacyUnassigned: true }
+              : record;
+          });
       }),
 
     getDeleted: adminProcedure.query(async () => {
@@ -1045,19 +1076,33 @@ export const appRouter = router({
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
         if (record.receivedAt) throw new Error("تم تأكيد استلام هذه العهدة مسبقاً");
         const receiverName = String(ctx.user.name || "").trim();
-        if (!receiverName || !samePersonName(receiverName, record.expectedReceiver)) throw new Error("هذا السجل مخصص لموظف آخر");
+        const receiverUsername = String((ctx.user as any).username || "").trim();
+        const expectedReceiver = String(record.expectedReceiver || "").trim();
+        const receiverStage = String(record.receiverStage || "").trim();
+        const isExplicitlyAssigned = Boolean(expectedReceiver && receiverStage) && (
+          samePersonName(expectedReceiver, receiverName) || samePersonName(expectedReceiver, receiverUsername)
+        );
+        const legacyDestinationStage = allowedNextStages(record.stageName, record.productType)[0] || null;
+        const isLegacyUnassigned = !expectedReceiver || !receiverStage;
+        if (!isExplicitlyAssigned && !isLegacyUnassigned) throw new Error("هذا السجل مخصص لموظف آخر");
         if (!isAutomaticHandoverActive(record.date)) {
           await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
           return { success: true, mode: "legacy" as const };
         }
-        const destinationStage = String(record.receiverStage || "").trim();
+        const destinationStage = receiverStage || legacyDestinationStage || "";
         if (!MANUFACTURING_STAGE_ORDER.includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير صحيحة");
+        if (!allowedNextStages(record.stageName, record.productType).includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير مسموحة");
+        if (isLegacyUnassigned) {
+          const eligibleAccounts = await getEligibleStageAccounts(db, destinationStage);
+          const canClaim = eligibleAccounts.some((account: any) => Number(account.id) === Number(ctx.user.id));
+          if (!canClaim) throw new Error("لا يمكن إلا لموظف المرحلة التالية تأكيد الاستلام");
+        }
         const receivedAt = new Date();
         const destinationKey = `AUTO_STAGE:${record.id}`;
         const destinationRows = await db.select().from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
         if (destinationRows[0]) throw new Error("تم إنشاء عهدة المرحلة الحالية مسبقاً");
         const result = await db.transaction(async (tx: any) => {
-          await tx.update(manufacturingStagesTable).set({ receivedBy: receiverName, receivedAt }).where(eq(manufacturingStagesTable.id, record.id));
+          await tx.update(manufacturingStagesTable).set({ receivedBy: receiverName, receivedAt, expectedReceiver: expectedReceiver || receiverName, receiverStage: receiverStage || destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
             workerName: receiverName,

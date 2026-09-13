@@ -252,7 +252,8 @@ export default function ManufacturingStageScreen() {
         user?.role === "admin" ? Promise.resolve([]) : manufacturingStageService.listReceiptQueue(stage),
       ]);
       if (data) {
-        const merged = [...(Array.isArray(data) ? data : []), ...(Array.isArray(queue) ? queue : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
+        // ضع قائمة العهدة أولاً حتى تحتفظ السجلات القديمة بمرحلة ومستلم الطابور المحسوبين للخدمة.
+        const merged = [...(Array.isArray(queue) ? queue : []), ...(Array.isArray(data) ? data : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
         let filtered = merged.filter((d: any) => (d.stageName === stage || (d.receiverStage === stage && samePersonName(d.expectedReceiver, user?.name))) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
         // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.
         if (user?.role !== "admin") {
