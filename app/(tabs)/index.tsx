@@ -17,14 +17,13 @@ import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import RolesService, { type UserRole } from "@/lib/services/roles.service";
 import notificationsService from "@/lib/services/notifications.service";
-import { alertsService, employeePerformanceService, productionService, salesService, collectionService, taskService } from "@/lib/services/api.service";
+import { alertsService, employeePerformanceService, productionService, salesService, collectionService } from "@/lib/services/api.service";
 import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
 import { moveVisibleDashboardItem, normalizeDashboardOrder } from "../../lib/dashboard-order";
 
 // Helper function to check tool permissions
-const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | undefined): boolean => {
+const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | null | undefined): boolean => {
   if (!userPermissions) return false;
   return userPermissions[toolId] === true;
 };
@@ -38,7 +37,7 @@ interface DashboardItem {
   route: string;
   descriptionAr: string;
   descriptionEn: string;
-  section: string; // maps to RolesService.canAccessSection
+  section: string; // informational grouping only; visibility is controlled by the role policy below
   departments: string[]; // which departments can see this item (empty = all)
   isShared?: boolean; // if true, visible to all departments
 }
@@ -328,7 +327,6 @@ export default function HomeScreen() {
   const { t, language, toggleLanguage, isRtl } = useLanguage();
 
   const isAr = language === "ar";
-  const userRole = (user?.role || "user") as UserRole;
   const [unreadCount, setUnreadCount] = useState(0);
   const [performanceNewCount, setPerformanceNewCount] = useState(0);
   const [pendingUsersCount, setPendingUsersCount] = useState(0);
@@ -386,6 +384,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const loadPerformanceCount = async () => {
+      if (user?.role !== "admin") {
+        setPerformanceNewCount(0);
+        return;
+      }
       try {
         const rows = await employeePerformanceService.list();
         const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -400,7 +402,7 @@ export default function HomeScreen() {
       }
     };
     loadPerformanceCount();
-  }, [user?.id]);
+  }, [user?.id, user?.role]);
 
   // Load pending users count for admin
   useEffect(() => {
@@ -426,6 +428,10 @@ export default function HomeScreen() {
     };
 
     const loadDailyStats = async () => {
+      if (user?.role !== "admin") {
+        setDailyStats(null);
+        return;
+      }
       const today = new Date();
       try {
         const results = await Promise.allSettled([
@@ -479,83 +485,61 @@ export default function HomeScreen() {
     };
 
     loadDailyStats();
-  }, []);
+  }, [user?.role]);
 
-  // Manufacturing stage departments that map to production
-  const MANUFACTURING_STAGES = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+  // سياسة لوحة التحكم: الأدمن فقط يرى جميع العناصر، أما بقية الحسابات فتأخذ قائمة ثابتة وآمنة.
+  const rawDepartment = String(user?.department || "").trim().toLowerCase();
+  const position = String(user?.position || "").trim().toLowerCase();
+  const isDepartmentManager = user?.role === "manager" || position.includes("مدير") || position.includes("manager");
 
-  // Filter dashboard items based on user department + admin sees all
-  const userDepartment = user?.department || "";
-  const isManufacturingWorker = MANUFACTURING_STAGES.includes(userDepartment);
-  const isProductionManager = userDepartment === "production" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
-  // الأيقونات الثابتة المشتركة لجميع المستخدمين: الإجراءات الإدارية، الإشعارات الفورية، المهام
-  const SHARED_ITEMS = ["administrative", "server_notifications", "tasks", "mail_center"];
-  
-  // Load user tool permissions (server first, then local fallback)
+  const normalizeDepartment = (department: string) => {
+    if (["sales", "marketing", "collection", "customer_service", "تسويق", "المبيعات", "التحصيل"].includes(department)) return "sales";
+    if (["warehouse", "warehouses", "المستودعات", "مستودعات"].includes(department)) return "warehouse";
+    if (["production", "الإنتاج", "انتاج"].includes(department)) return "production";
+    if (["maintenance", "الصيانة"].includes(department)) return "maintenance";
+    if (["administrative", "hr", "الإدارة", "الشؤون الإدارية"].includes(department)) return "administrative";
+    if (["government_tenders", "المناقصات"].includes(department)) return "government_tenders";
+    if (["board_representative", "ممثل مجلس الإدارة"].includes(department)) return "board_representative";
+    return department;
+  };
+
+  const normalizedDepartment = normalizeDepartment(rawDepartment);
+  const managerDepartmentIcon = normalizedDepartment === "sales"
+    ? "sales"
+    : normalizedDepartment === "warehouse"
+      ? "warehouse"
+      : normalizedDepartment === "production"
+        ? "production"
+        : normalizedDepartment === "maintenance"
+          ? "maintenance"
+          : normalizedDepartment === "administrative"
+            ? "administrative"
+            : normalizedDepartment === "government_tenders"
+              ? "government_tenders"
+              : undefined;
+  const baseEmployeeItems = new Set(["manufacturing", "tasks", "server_notifications"]);
+
+  // Load tool permissions for the admin-only Extra Tools section. Non-admin accounts never render it.
   const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
   useEffect(() => {
-    const loadToolPermissions = () => {
-      try {
-        // Use server-stored permissions from user object
-        if (user?.toolPermissions && Object.keys(user.toolPermissions).length > 0) {
-          setUserToolPermissions(user.toolPermissions);
-        } else {
-          // Default: all tools visible
-          const defaultPermissions: Record<string, boolean> = {};
-          const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
-          toolIds.forEach(id => {
-            defaultPermissions[id] = true;
-          });
-          setUserToolPermissions(defaultPermissions);
-        }
-      } catch (error) {
-        console.error('Error loading tool permissions:', error);
-      }
-    };
-    loadToolPermissions();
+    setUserToolPermissions(user?.toolPermissions || {});
   }, [user?.id, user?.toolPermissions]);
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
-    // Admin sees everything
     if (user?.role === "admin") return true;
-    
-    // عند وجود قائمة صلاحيات يدوية، تكون هي المصدر الوحيد لعرض الأيقونات.
-    // لا تتجاوزها الأيقونات المشتركة أو صلاحيات مدير الإنتاج التلقائية.
-    if (user?.allowedSections && user.allowedSections.length > 0) {
-      const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
-      if (toolIds.includes(item.id) && !userToolPermissions[item.id]) return false;
-      return user.allowedSections.includes(item.id);
+
+    // Keep the board representative's dedicated view, but do not expose Extra Tools.
+    if (normalizedDepartment === "board_representative") {
+      return baseEmployeeItems.has(item.id) || item.id === "board_representative_old";
     }
 
-    // قبل تحديد أي صلاحيات يدوياً، حافظ على السلوك الافتراضي الحالي.
-    const toolIds = ['advanced_analytics', 'export_reports', 'cost_comparison', 'product_cost_calculator', 'activity_log', 'global_search', 'data_backup', 'user_management'];
-    if (toolIds.includes(item.id) && !userToolPermissions[item.id]) return false;
-    if (SHARED_ITEMS.includes(item.id)) return true;
-    if (item.id === "products_catalog") return false;
-    if (isProductionManager && ["manufacturing", "product_tracking", "daily_summary"].includes(item.id)) return true;
-    // No specific sections assigned - show all sections by default
-    return true;
-    // Manufacturing stage workers: see manufacturing section + shared
-    if (isManufacturingWorker) {
-      return item.id === "manufacturing" || item.isShared;
+    // Department managers see only Notifications, Tasks, and their department icon.
+    if (isDepartmentManager) {
+      return item.id === "server_notifications" || item.id === "tasks" || item.id === managerDepartmentIcon;
     }
-    // Employees department: only shared items
-    if (userDepartment === "employees") {
-      return item.isShared;
-    }
-    // Board representative sees shared items + reports
-    if (userDepartment === "board_representative") {
-      return item.isShared || item.section === "reports";
-    }
-    // Government tenders department
-    if (userDepartment === "government_tenders") {
-      return item.id === "government_tenders" || item.isShared;
-    }
-    // Shared items visible to all
-    if (item.isShared) return true;
-    // Department-specific items
-    if (item.departments.length === 0) return true;
-    return item.departments.includes(userDepartment);
+
+    // Regular employees, including manufacturing-stage workers, see only these three items.
+    return baseEmployeeItems.has(item.id);
   });
 
   const orderedVisibleDashboardItems = [...visibleDashboardItems].sort((a, b) => {
@@ -727,7 +711,7 @@ export default function HomeScreen() {
       )}
 
       {/* Daily operational statistics: compact trigger on mobile */}
-      {dailyStats && (
+      {user?.role === "admin" && dailyStats && (
         <>
           <TouchableOpacity
             onPress={() => setShowDailySummary((visible) => !visible)}
@@ -836,14 +820,14 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Extra Tools */}
-        {user?.toolPermissions && Object.values(user.toolPermissions).some(v => v === true) && (
+        {/* Extra Tools: visible to administrators only */}
+        {user?.role === "admin" && Object.values(userToolPermissions).some(v => v === true) && (
           <>
             <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
               {t("extra_tools")}
             </Text>
             <View style={styles.toolsGrid}>
-              {canAccessTool('reports', user?.toolPermissions) && (
+              {canAccessTool('reports', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports")}
                   style={styles.toolItem}
@@ -855,7 +839,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('notifications_center', user?.toolPermissions) && (
+              {canAccessTool('notifications_center', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/notifications-center")}
                   style={styles.toolItem}
@@ -867,7 +851,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('export_data', user?.toolPermissions) && (
+              {canAccessTool('export_data', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/export-data")}
                   style={styles.toolItem}
@@ -879,7 +863,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('activity_log', user?.toolPermissions) && (
+              {canAccessTool('activity_log', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/activity-log-viewer")}
                   style={styles.toolItem}
@@ -891,7 +875,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('production_export', user?.toolPermissions) && (
+              {canAccessTool('production_export', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/production-export")}
                   style={styles.toolItem}
@@ -903,7 +887,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('waste_alerts', user?.toolPermissions) && (
+              {canAccessTool('waste_alerts', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/waste-alerts")}
                   style={styles.toolItem}
@@ -915,7 +899,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('reports_analytics', user?.toolPermissions) && (
+              {canAccessTool('reports_analytics', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports-analytics")}
                   style={styles.toolItem}
@@ -927,7 +911,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('section_reports', user?.toolPermissions) && (
+              {canAccessTool('section_reports', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/section-reports")}
                   style={styles.toolItem}
@@ -939,7 +923,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('users_management', user?.toolPermissions) && (
+              {user?.role === "admin" && canAccessTool('users_management', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/users-management")}
                   style={styles.toolItem}
@@ -951,7 +935,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('backup_restore', user?.toolPermissions) && (
+              {user?.role === "admin" && canAccessTool('backup_restore', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/backup-restore")}
                   style={styles.toolItem}
@@ -963,7 +947,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('machines_comparison', user?.toolPermissions) && (
+              {canAccessTool('machines_comparison', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/machines-comparison")}
                   style={styles.toolItem}
@@ -975,7 +959,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('share_reports', user?.toolPermissions) && (
+              {canAccessTool('share_reports', userToolPermissions) && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/share-reports")}
                   style={styles.toolItem}
