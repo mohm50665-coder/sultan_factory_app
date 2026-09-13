@@ -89,56 +89,56 @@ export default function ManufacturingStageScreen() {
       name: isAr ? "إنتاج المكائن" : "Machines Production",
       color: "#0a7ea4",
       icon: "precision-manufacturing",
-      workers: isAr ? ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق", "الجميع"] : ["Rana", "Mohammed Ahmed", "Afzal", "Atallah", "Shafiq", "All"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     rosso: {
       name: isAr ? "الروسو" : "Rosso",
       color: "#7c3aed",
       icon: "loop",
-      workers: isAr ? ["فريدو", "قيوم", "الجميع"] : ["Fredo", "Qayyum", "All"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     qalb: {
       name: isAr ? "القلب" : "Qalb",
       color: "#059669",
       icon: "flip",
-      workers: isAr ? ["حسين السوري"] : ["Hussein Al-Suri"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     kawiya: {
       name: isAr ? "الكاوية" : "Kawiya",
       color: "#dc2626",
       icon: "local-fire-department",
-      workers: isAr ? ["جنيد"] : ["Junaid"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     inspection: {
       name: isAr ? "الفحص" : "Inspection",
       color: "#d97706",
       icon: "search",
-      workers: isAr ? ["عارف", "انام الدين", "الجميع"] : ["Aref", "Anamuddin", "All"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     packing: {
       name: isAr ? "التغليف" : "Packing",
       color: "#2563eb",
       icon: "inventory-2",
-      workers: isAr ? ["محمد عمر", "غلام", "بشير", "الجميع"] : ["Mohammed Omar", "Ghulam", "Bashir", "All"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     antislip: {
       name: isAr ? "مانع الانزلاق" : "Anti-slip",
       color: "#0891b2",
       icon: "layers",
-      workers: isAr ? ["محمد عمر", "مرتضى", "أوجيل", "الجميع"] : ["Mohammed Omar", "Murtaza", "Ogil", "All"],
+      workers: [],
       fields: ["dozen", "pairs"],
     },
     storage: {
       name: isAr ? "التخزين" : "Storage",
       color: "#4f46e5",
       icon: "warehouse",
-      workers: isAr ? ["شميم"] : ["Shamim"],
+      workers: [],
       fields: ["storage"],
     },
   };
@@ -158,8 +158,8 @@ export default function ManufacturingStageScreen() {
   const isStorageStage = stage === "storage";
 
   // Load workers from server
-  const [stageWorkers, setStageWorkers] = useState<string[]>(config.workers);
-  const [nextStageWorkers, setNextStageWorkers] = useState<string[]>(nextStageConfig.workers.filter((worker) => worker !== (isAr ? "الجميع" : "All")));
+  const [stageWorkers, setStageWorkers] = useState<string[]>([]);
+  const [nextStageWorkers, setNextStageWorkers] = useState<string[]>([]);
   const [receiverStageWorkers, setReceiverStageWorkers] = useState<Record<string, string[]>>({});
   const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -167,27 +167,24 @@ export default function ManufacturingStageScreen() {
     const loadServerWorkers = async () => {
       try {
         const [workers, ...nextWorkersByStage] = await Promise.all([
-          manufacturingWorkersService.list(stage),
-          ...nextStageOptions.map((stageId) => manufacturingWorkersService.list(stageId)),
+          manufacturingWorkersService.eligible(stage),
+          ...nextStageOptions.map((stageId) => manufacturingWorkersService.eligible(stageId)),
         ]);
-        if (workers && Array.isArray(workers) && workers.length > 0) {
-          const names = workers.map((w: any) => w.workerName);
-          if (config.workers.includes(isAr ? "الجميع" : "All") && !names.includes(isAr ? "الجميع" : "All")) {
-            names.push(isAr ? "الجميع" : "All");
-          }
-          setStageWorkers(names);
-        }
+        const names = Array.isArray(workers) ? workers.map((w: any) => String(w.workerName || w.name || "").trim()).filter(Boolean) : [];
+        setStageWorkers(names);
         const workersByStage: Record<string, string[]> = {};
         nextStageOptions.forEach((stageId, index) => {
           const rows = nextWorkersByStage[index];
-          const names = Array.isArray(rows) ? rows.map((w: any) => w.workerName).filter((name: string) => name !== (isAr ? "الجميع" : "All")) : [];
+          const names = Array.isArray(rows) ? rows.map((w: any) => String(w.workerName || w.name || "").trim()).filter(Boolean) : [];
           workersByStage[stageId] = names;
         });
         setReceiverStageWorkers(workersByStage);
         setNextStageWorkers(workersByStage[nextStageId] || []);
       } catch (e) {
         console.log("Error loading workers from server:", e);
-        // fallback to config workers
+        setStageWorkers([]);
+        setReceiverStageWorkers({});
+        setNextStageWorkers([]);
       }
     };
     loadServerWorkers();

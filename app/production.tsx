@@ -181,8 +181,8 @@ export default function ProductionScreen() {
   useEffect(() => {
     loadEntries();
     loadSavedProducts();
-    manufacturingWorkersService.list("rosso").then((rows: any[]) => {
-      setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || "").trim()).filter((name: string) => name && name !== "الجميع" && name.toLowerCase() !== "all"));
+    manufacturingWorkersService.eligible("rosso").then((rows: any[]) => {
+      setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || row.name || "").trim()).filter(Boolean));
     }).catch(() => setMachineWorkers([]));
     sampleRequestsService.list().then((rows: any) => {
       setApprovedSampleRequests((Array.isArray(rows) ? rows : []).filter((row: any) => ["approved_sales", "approved_production", "in_production"].includes(row.status)));

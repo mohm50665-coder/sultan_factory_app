@@ -23,14 +23,14 @@ const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspect
 
 // Default stage config (used as fallback if server has no workers)
 const DEFAULT_STAGES = {
-  machines: { labelAr: "إنتاج المكائن", labelEn: "Machine Production", icon: "precision-manufacturing", color: "#0a7ea4", workersAr: ["رنا", "محمد احمد", "أفضل", "عطالله", "شفيق"], workersEn: ["Rana", "Mohammed Ahmed", "Afzal", "Atallah", "Shafiq"] },
-  rosso: { labelAr: "الروسو", labelEn: "Rosso", icon: "loop", color: "#7c3aed", workersAr: ["فريدو", "قيوم"], workersEn: ["Fredo", "Qayyum"] },
-  qalb: { labelAr: "القلب", labelEn: "Turning", icon: "flip", color: "#059669", workersAr: ["حسين السوري"], workersEn: ["Hussein Al-Suri"] },
-  kawiya: { labelAr: "الكاوية", labelEn: "Ironing", icon: "local-fire-department", color: "#dc2626", workersAr: ["جنيد"], workersEn: ["Junaid"] },
-  inspection: { labelAr: "الفحص", labelEn: "Inspection", icon: "search", color: "#d97706", workersAr: ["عارف", "انام الدين"], workersEn: ["Aref", "Anamuddin"] },
-  packing: { labelAr: "التغليف", labelEn: "Packing", icon: "inventory-2", color: "#2563eb", workersAr: ["محمد عمر", "غلام", "بشير"], workersEn: ["Mohammed Omar", "Ghulam", "Bashir"] },
-  antislip: { labelAr: "مانع الانزلاق", labelEn: "Anti-slip", icon: "layers", color: "#0891b2", workersAr: ["محمد عمر", "مرتضى", "أوجيل"], workersEn: ["Mohammed Omar", "Murtadha", "Ogil"] },
-  storage: { labelAr: "التخزين", labelEn: "Storage", icon: "warehouse", color: "#4f46e5", workersAr: ["شميم"], workersEn: ["Shamim"] },
+  machines: { labelAr: "إنتاج المكائن", labelEn: "Machine Production", icon: "precision-manufacturing", color: "#0a7ea4", workersAr: [], workersEn: [] },
+  rosso: { labelAr: "الروسو", labelEn: "Rosso", icon: "loop", color: "#7c3aed", workersAr: [], workersEn: [] },
+  qalb: { labelAr: "القلب", labelEn: "Turning", icon: "flip", color: "#059669", workersAr: [], workersEn: [] },
+  kawiya: { labelAr: "الكاوية", labelEn: "Ironing", icon: "local-fire-department", color: "#dc2626", workersAr: [], workersEn: [] },
+  inspection: { labelAr: "الفحص", labelEn: "Inspection", icon: "search", color: "#d97706", workersAr: [], workersEn: [] },
+  packing: { labelAr: "التغليف", labelEn: "Packing", icon: "inventory-2", color: "#2563eb", workersAr: [], workersEn: [] },
+  antislip: { labelAr: "مانع الانزلاق", labelEn: "Anti-slip", icon: "layers", color: "#0891b2", workersAr: [], workersEn: [] },
+  storage: { labelAr: "التخزين", labelEn: "Storage", icon: "warehouse", color: "#4f46e5", workersAr: [], workersEn: [] },
 };
 
 export default function ManufacturingScreen() {
@@ -53,7 +53,7 @@ export default function ManufacturingScreen() {
   useEffect(() => {
     const loadWorkers = async () => {
       try {
-        const allWorkers = await manufacturingWorkersService.list();
+        const allWorkers = await manufacturingWorkersService.eligible();
         // Group workers by stageId
         const workersByStage: Record<string, string[]> = {};
         if (allWorkers && Array.isArray(allWorkers)) {
@@ -69,9 +69,7 @@ export default function ManufacturingScreen() {
         const builtStages: ManufacturingStage[] = MANUFACTURING_STAGE_IDS.map((id) => {
           const def = DEFAULT_STAGES[id as keyof typeof DEFAULT_STAGES];
           const serverWorkers = workersByStage[id];
-          const workers = serverWorkers && serverWorkers.length > 0
-            ? serverWorkers
-            : (isAr ? def.workersAr : def.workersEn);
+          const workers = serverWorkers || [];
           return {
             id,
             label: isAr ? def.labelAr : def.labelEn,
@@ -83,18 +81,10 @@ export default function ManufacturingScreen() {
         setStages(builtStages);
       } catch (e) {
         console.log("Error loading workers from server:", e);
-        // Fallback to defaults
-        const builtStages: ManufacturingStage[] = MANUFACTURING_STAGE_IDS.map((id) => {
+        setStages(MANUFACTURING_STAGE_IDS.map((id) => {
           const def = DEFAULT_STAGES[id as keyof typeof DEFAULT_STAGES];
-          return {
-            id,
-            label: isAr ? def.labelAr : def.labelEn,
-            icon: def.icon,
-            color: def.color,
-            workers: isAr ? def.workersAr : def.workersEn,
-          };
-        });
-        setStages(builtStages);
+          return { id, label: isAr ? def.labelAr : def.labelEn, icon: def.icon, color: def.color, workers: [] };
+        }));
       } finally {
         setLoading(false);
       }

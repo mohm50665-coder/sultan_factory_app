@@ -118,13 +118,58 @@ function nextManufacturingStage(stageName: string) {
   return allowedNextStages(stageName)[0] || null;
 }
 
+const STAGE_DEPARTMENT_ALIASES: Record<string, string[]> = {
+  production: ["production", "الإنتاج", "قسم الإنتاج"],
+  machines: ["machines", "المكائن", "مرحلة المكائن"],
+  rosso: ["rosso", "الروسو", "مرحلة الروسو"],
+  qalb: ["qalb", "القلب", "مرحلة القلب"],
+  kawiya: ["kawiya", "الكاوية", "مرحلة الكاوية"],
+  inspection: ["inspection", "الفحص", "مرحلة الفحص"],
+  packing: ["packing", "التغليف", "التعبئة والتغليف", "مرحلة التغليف"],
+  antislip: ["antislip", "مانع الانزلاق", "مرحلة مانع الانزلاق"],
+  storage: ["storage", "التخزين", "warehouse", "المستودعات", "المستودع", "مرحلة التخزين"],
+};
+
+function normalizeAccountValue(value: unknown) {
+  return String(value || "").trim().toLowerCase().replace(/\\s+/g, " ");
+}
+
+function stageDepartmentValues(stageName: string) {
+  const aliases = STAGE_DEPARTMENT_ALIASES[String(stageName || "").trim()] || [];
+  return new Set([String(stageName || "").trim(), ...aliases].map(normalizeAccountValue).filter(Boolean));
+}
+
+async function getEligibleStageAccounts(db: any, stageName: string) {
+  const allowedDepartments = stageDepartmentValues(stageName);
+  const users = await db.select().from(usersTable).where(eq(usersTable.isActive, 1));
+  return users
+    .filter((user: any) => user.role !== "admin" && allowedDepartments.has(normalizeAccountValue(user.department)))
+    .filter((user: any) => String(user.name || "").trim() || String(user.username || "").trim())
+    .map((user: any) => ({
+      id: user.id,
+      stageId: stageName,
+      workerName: String(user.name || user.username || "").trim(),
+      username: String(user.username || "").trim(),
+      department: String(user.department || "").trim(),
+      role: user.role,
+      isActive: true,
+    }));
+}
+
 async function validateStageReceiver(db: any, stageName: string, receiverName: string) {
   const name = receiverName.trim();
   if (!name) throw new Error("يجب اختيار موظف مستلم من المرحلة التالية");
-  const configured = await db.select().from(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.stageId, stageName));
-  if (configured.length > 0 && !configured.some((worker: any) => samePersonName(worker.workerName, name))) {
-    throw new Error("المستلم المحدد لا ينتمي إلى المرحلة التالية");
+  const eligible = await getEligibleStageAccounts(db, stageName);
+  if (!eligible.some((worker: any) => samePersonName(worker.workerName, name) || samePersonName(worker.username, name))) {
+    throw new Error("المستلم المحدد لا يملك حساباً مفعلاً أو لا ينتمي إلى القسم التالي");
   }
+}
+
+async function listEligibleStageWorkers(db: any, stageName?: string) {
+  if (stageName) return getEligibleStageAccounts(db, stageName);
+  const stages = Object.keys(STAGE_DEPARTMENT_ALIASES);
+  const all = await Promise.all(stages.map((stage) => getEligibleStageAccounts(db, stage)));
+  return all.flat();
 }
 
 function productionHandoverKey(entry: { date: string; machineNumber: string; shiftNumber?: number; productName?: string }) {
@@ -3218,6 +3263,13 @@ export const appRouter = router({
 
   // ========== Manufacturing Workers ==========
   manufacturingWorkers: router({
+    eligible: protectedProcedure
+      .input(z.object({ stageId: z.string().optional() }).optional())
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        return listEligibleStageWorkers(db, input?.stageId);
+      }),
     list: protectedProcedure
       .input(z.object({ stageId: z.string().optional() }).optional())
       .query(async ({ input }) => {

@@ -214,6 +214,7 @@ export const boardDataService = {
 
 // ===== Manufacturing Workers (Server) =====
 export const manufacturingWorkersService = {
+  eligible: (stageId?: string) => trpcCall("manufacturingWorkers.eligible", stageId ? { stageId } : undefined, "query"),
   list: (stageId?: string) => trpcCall("manufacturingWorkers.list", stageId ? { stageId } : undefined, "query"),
   create: (data: { stageId: string; workerName: string; role?: string; sortOrder?: number }) =>
     trpcCall("manufacturingWorkers.create", data),
