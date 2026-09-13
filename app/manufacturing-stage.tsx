@@ -261,42 +261,34 @@ export default function ManufacturingStageScreen() {
         if (user?.role !== "admin") {
           filtered = filtered.filter((d: any) => d.userId === user?.id || samePersonName(d.workerName, user?.name) || samePersonName(d.expectedReceiver, user?.name));
         }
-        // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)
-        const grouped: Record<string, WorkerEntry> = {};
-        filtered.forEach((d: any) => {
-          // نستخدم groupKey لتجميع المنتجات التي أُدخلت معاً
-          const groupKey = `${d.workerName}_${d.date || ""}_${d.id}`;
-          if (!grouped[groupKey]) {
-            grouped[groupKey] = {
-              id: String(d.id),
-              workerName: d.workerName || "",
-              products: [],
-              receivedAt: "",
-              deliveredAt: "",
-              date: d.date || (d.createdAt ? new Date(d.createdAt).toLocaleDateString("ar-SA") : ""),
-              notes: d.productType || "",
-            };
-          }
-          grouped[groupKey].products.push({
+        // كل سجل عهدة يمثل منتجاً واحداً؛ لا ندمج عدة منتجات في بطاقة أو زر واحد.
+        const individualEntries: WorkerEntry[] = filtered.map((d: any) => ({
+          id: String(d.id),
+          workerName: d.workerName || d.receivedBy || d.expectedReceiver || "",
+          products: [{
             id: String(d.id),
             productName: d.productName || "",
             productSize: d.productSize || "",
             productColor: d.productColor || "",
-            quantityDozen: String(d.quantityDozen || 0),
-            quantityPairs: String(d.quantityPair || 0),
+            quantityDozen: String(d.quantityDozen ?? 0),
+            quantityPairs: String(d.quantityPair ?? 0),
             movementStatus: d.movementStatus || "none",
             expectedReceiver: d.expectedReceiver || "",
             receiverStage: d.receiverStage || "",
             productType: d.productType || "",
             barcode: d.barcode || "",
+            qualityGrade: d.qualityGrade || "",
+            sampleRequestId: d.sampleRequestId || null,
             receivedBy: d.receivedBy || "",
             receivedAt: d.receivedAt ? String(d.receivedAt) : "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
-          });
-          if (d.movementStatus === "received" && d.movementAt) grouped[groupKey].receivedAt = String(d.movementAt);
-          if (d.movementStatus === "delivered" && d.movementAt) grouped[groupKey].deliveredAt = String(d.movementAt);
-        });
-        setEntries(Object.values(grouped));
+          }],
+          receivedAt: d.receivedAt ? String(d.receivedAt) : "",
+          deliveredAt: d.movementStatus === "delivered" && d.movementAt ? String(d.movementAt) : "",
+          date: d.date || (d.createdAt ? new Date(d.createdAt).toLocaleDateString("ar-SA") : ""),
+          notes: d.productType || "",
+        }));
+        setEntries(individualEntries);
       } else {
         setEntries([]);
       }
@@ -655,7 +647,7 @@ export default function ManufacturingStageScreen() {
       {item.products && item.products.length > 0 && (
         <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12 }}>
           <Text style={{ color: config.color, fontWeight: 'bold', fontSize: 14, marginBottom: 10, textAlign: isAr ? "right" : "left" }}>
-            {isAr ? `المنتجات (${item.products.length})` : `Products (${item.products.length})`}
+            {isAr ? "بيانات المنتج والعهدة" : "Product and custody details"}
           </Text>
           {item.products.map((product, idx) => (
             <View key={idx} style={{ 
@@ -698,7 +690,7 @@ export default function ManufacturingStageScreen() {
               {product.movementStatus === "delivered" && samePersonName(product.expectedReceiver, user?.name) && (
                 <TouchableOpacity onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
-                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "تأكيد الاستلام" : "Confirm receipt"}</Text>
+                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "I received it"}</Text>
                 </TouchableOpacity>
               )}
               {isStorageStage && product.movementStatus === "received" && (
@@ -710,7 +702,7 @@ export default function ManufacturingStageScreen() {
               )}
               {product.movementStatus === "received" && !isStorageStage && (receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).length > 0 && (
                 <View style={{ marginTop: 8, backgroundColor: "#eff6ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#93c5fd" }}>
-                  <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "التسليم الإجباري للمرحلة التالية" : "Mandatory delivery to next stage"}</Text>
+                  <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "سلّمت إلى الموظف التالي" : "Delivered to next employee"}</Text>
                   {getProductNextStageOptions(product).length > 1 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>{getProductNextStageOptions(product).map((stageId) => <Text key={stageId} style={{ color: "#1d4ed8", fontSize: 10, fontWeight: "700" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text>)}</View>}
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                     {(receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).map((receiver) => <TouchableOpacity key={receiver} onPress={() => void handleDeliverProduct(product, getProductNextStageOptions(product)[0], receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{receiver}</Text></TouchableOpacity>)}
