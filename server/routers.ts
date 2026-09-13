@@ -83,6 +83,21 @@ function getRiyadhDate(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+function normalizePersonName(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function samePersonName(left: unknown, right: unknown) {
+  const normalizedLeft = normalizePersonName(left);
+  const normalizedRight = normalizePersonName(right);
+  return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
+}
+
 function isAutomaticHandoverActive(recordDate?: string | null) {
   return getRiyadhDate() >= AUTO_HANDOVER_START_DATE || String(recordDate || "") >= AUTO_HANDOVER_START_DATE;
 }
@@ -107,7 +122,7 @@ async function validateStageReceiver(db: any, stageName: string, receiverName: s
   const name = receiverName.trim();
   if (!name) throw new Error("يجب اختيار موظف مستلم من المرحلة التالية");
   const configured = await db.select().from(manufacturingWorkersTable).where(eq(manufacturingWorkersTable.stageId, stageName));
-  if (configured.length > 0 && !configured.some((worker: any) => String(worker.workerName || "").trim() === name)) {
+  if (configured.length > 0 && !configured.some((worker: any) => samePersonName(worker.workerName, name))) {
     throw new Error("المستلم المحدد لا ينتمي إلى المرحلة التالية");
   }
 }
@@ -121,7 +136,7 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
   if (!isAutomaticHandoverActive(entry.date)) return;
   const expectedReceiver = String(entry.expectedReceiver || "").trim();
   await validateStageReceiver(db, "rosso", expectedReceiver);
-  if (expectedReceiver === String(user?.name || "").trim()) throw new Error("لا يمكن لمدير الإنتاج تسليم المنتج لنفسه");
+  if (samePersonName(expectedReceiver, user?.name)) throw new Error("لا يمكن لمدير الإنتاج تسليم المنتج لنفسه");
   const sourceKey = productionHandoverKey(entry);
   const identity = parseLegacyProductName(entry.productName);
   const existingRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, sourceKey)).limit(1);
@@ -152,13 +167,14 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
     return existing.id;
   }
   const result = await db.insert(manufacturingStagesTable).values(values);
-  const receiver = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.name, expectedReceiver)).limit(1);
-  if (receiver[0]) {
+  const receiverCandidates = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
+  const receiver = receiverCandidates.find((candidate: any) => samePersonName(candidate.name, expectedReceiver));
+  if (receiver) {
     await db.insert(internalMessagesTable).values({
       subject: "عهدة إنتاج جديدة بانتظار الاستلام",
       body: `تم تسليم المنتج ${String(entry.productName || "")} بكمية ${Number(entry.productionDozen) || 0} درزن و${Number(entry.productionPairs) || 0} زوج إلى مرحلة الروسو. يرجى تأكيد الاستلام.`,
       senderId: user.id,
-      recipientUserId: receiver[0].id,
+      recipientUserId: receiver.id,
       relatedType: "manufacturingStage",
       relatedId: result[0].insertId,
       attachments: [],
@@ -897,7 +913,7 @@ export const appRouter = router({
         const receiverName = String(ctx.user.name || "").trim();
         if (!receiverName) return [];
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
-        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && String(record.expectedReceiver || "").trim() === receiverName && String(record.productName || "").trim() && ((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0) > 0) && isAutomaticHandoverActive(record.date));
+        return rows.filter((record: any) => record.movementStatus === "delivered" && !record.receivedAt && record.receiverStage === input.stageName && samePersonName(record.expectedReceiver, receiverName) && String(record.productName || "").trim() && ((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0) > 0) && isAutomaticHandoverActive(record.date));
       }),
 
     getDeleted: adminProcedure.query(async () => {
@@ -984,7 +1000,7 @@ export const appRouter = router({
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
         if (record.receivedAt) throw new Error("تم تأكيد استلام هذه العهدة مسبقاً");
         const receiverName = String(ctx.user.name || "").trim();
-        if (!receiverName || receiverName !== String(record.expectedReceiver || "").trim()) throw new Error("هذا السجل مخصص لموظف آخر");
+        if (!receiverName || !samePersonName(receiverName, record.expectedReceiver)) throw new Error("هذا السجل مخصص لموظف آخر");
         if (!isAutomaticHandoverActive(record.date)) {
           await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
           return { success: true, mode: "legacy" as const };
@@ -1053,7 +1069,7 @@ export const appRouter = router({
         if (!record || record.deletedAt || record.stageName !== "storage") throw new Error("سجل التخزين غير موجود");
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد استلام المستودع قبل التخزين");
         const actorName = String(ctx.user.name || "").trim();
-        if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تخزين عهدة موظف آخر");
+        if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تخزين عهدة موظف آخر");
         const storedAt = new Date();
         await db.update(manufacturingStagesTable).set({ barcode: input.barcode.trim().toUpperCase(), productType: `STORED:${input.barcode.trim().toUpperCase()}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
         if (record.sampleRequestId) {
@@ -1073,14 +1089,14 @@ export const appRouter = router({
         if (!isAutomaticHandoverActive(record.date)) throw new Error("هذا السجل يتبع المسار السابق");
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
         const actorName = String(ctx.user.name || "").trim();
-        if (ctx.user.role !== "admin" && String(record.receivedBy || record.workerName).trim() !== actorName) throw new Error("لا يمكن تسليم عهدة موظف آخر");
+        if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
         const requestedStage = String((input as any).receiverStage || "").trim();
         const allowedStages = allowedNextStages(record.stageName, record.productType);
         const targetStage = requestedStage || allowedStages[0] || null;
         if (!targetStage || !allowedStages.includes(targetStage)) throw new Error("التسليم إلى هذه المرحلة غير مسموح؛ يجب اتباع مسار التصنيع المحدد");
         const expectedReceiver = input.expectedReceiver.trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
-        if (expectedReceiver === actorName) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
+        if (samePersonName(expectedReceiver, actorName)) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
         const quantityDozen = input.quantityDozen ?? record.quantityDozen ?? 0;
         const quantityPair = input.quantityPair ?? record.quantityPair ?? 0;
         const currentPairs = (record.quantityDozen || 0) * 12 + (record.quantityPair || 0);
@@ -1125,13 +1141,14 @@ export const appRouter = router({
             userId: ctx.user.id,
           });
         });
-        const receiver = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.name, expectedReceiver)).limit(1);
-        if (receiver[0]) {
+        const receiverCandidates = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
+        const receiver = receiverCandidates.find((candidate: any) => samePersonName(candidate.name, expectedReceiver));
+        if (receiver) {
           await db.insert(internalMessagesTable).values({
             subject: "عهدة جديدة بانتظار الاستلام",
             body: `تم تسليم ${String(record.productName || "المنتج")} من مرحلة ${record.stageName} إلى مرحلة ${targetStage} بكمية ${quantityDozen} درزن و${quantityPair} زوج. يرجى تأكيد الاستلام.`,
             senderId: ctx.user.id,
-            recipientUserId: receiver[0].id,
+            recipientUserId: receiver.id,
             relatedType: "manufacturingStage",
             relatedId: record.id,
             attachments: [],

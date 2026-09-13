@@ -56,6 +56,20 @@ interface WorkerEntry {
 }
 
 // بيانات العمال لكل مرحلة - سيتم تعريفها داخل الدالة
+function normalizePersonName(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function samePersonName(left: unknown, right: unknown) {
+  const normalizedLeft = normalizePersonName(left);
+  const normalizedRight = normalizePersonName(right);
+  return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
+}
 
 export default function ManufacturingStageScreen() {
   const router = useRouter();
@@ -242,10 +256,10 @@ export default function ManufacturingStageScreen() {
       ]);
       if (data) {
         const merged = [...(Array.isArray(data) ? data : []), ...(Array.isArray(queue) ? queue : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
-        let filtered = merged.filter((d: any) => (d.stageName === stage || (d.receiverStage === stage && String(d.expectedReceiver || "").trim() === String(user?.name || "").trim())) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
+        let filtered = merged.filter((d: any) => (d.stageName === stage || (d.receiverStage === stage && samePersonName(d.expectedReceiver, user?.name))) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
         // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.
         if (user?.role !== "admin") {
-          filtered = filtered.filter((d: any) => d.userId === user?.id || d.workerName === user?.name || d.expectedReceiver === user?.name);
+          filtered = filtered.filter((d: any) => d.userId === user?.id || samePersonName(d.workerName, user?.name) || samePersonName(d.expectedReceiver, user?.name));
         }
         // تجميع السجلات حسب workerName + date + createdAt (نفس الإدخال)
         const grouped: Record<string, WorkerEntry> = {};
@@ -393,7 +407,7 @@ export default function ManufacturingStageScreen() {
         return;
       }
       const hasQuantity = validProducts.some(p => p.quantityDozen || p.quantityPairs);
-      const invalidDelivery = validProducts.find((p) => p.movementStatus === "delivered" && (!p.expectedReceiver || p.expectedReceiver === workerName));
+      const invalidDelivery = validProducts.find((p) => p.movementStatus === "delivered" && (!p.expectedReceiver || samePersonName(p.expectedReceiver, workerName)));
       if (invalidDelivery) {
         showStageMessage(isAr ? "بيانات التسليم ناقصة" : "Delivery details required", isAr ? "اختر موظفاً مختلفاً من المرحلة التالية لكل منتج تم تسليمه" : "Choose a different worker from the next stage for every delivered product");
         return;
@@ -681,7 +695,7 @@ export default function ManufacturingStageScreen() {
                   {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "بانتظار تأكيد المستلم" : "Awaiting receiver confirmation") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
                 </Text>
               </View>
-              {product.movementStatus === "delivered" && product.expectedReceiver === user?.name && (
+              {product.movementStatus === "delivered" && samePersonName(product.expectedReceiver, user?.name) && (
                 <TouchableOpacity onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
                   <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "تأكيد الاستلام" : "Confirm receipt"}</Text>
@@ -819,8 +833,8 @@ export default function ManufacturingStageScreen() {
         );
       })()}
 
-      {/* نموذج الإدخال */}
-      {showForm ? (
+      {/* نموذج الإدخال — متاح للأدمن فقط، أما الموظفون فيتعاملون مع بطاقة العهدة الواردة */}
+      {showForm && isAdmin ? (
         <ScrollView style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 16 }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: colors.border }}>
             <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 18, marginBottom: 20, textAlign: isAr ? "right" : "left" }}>
@@ -1044,8 +1058,8 @@ export default function ManufacturingStageScreen() {
                             <Text style={{ color: "#166534", fontWeight: "700", fontSize: 11, marginTop: 7, textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[product.receiverStage || nextStageId]?.name || nextStageConfig.name}</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
                               {(receiverStageWorkers[product.receiverStage || nextStageId] || nextStageWorkers).map((receiver) => (
-                                <TouchableOpacity key={receiver} onPress={() => updateProduct(index, "expectedReceiver", receiver)} style={{ backgroundColor: product.expectedReceiver === receiver ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
-                                  <Text style={{ color: product.expectedReceiver === receiver ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver}</Text>
+                                <TouchableOpacity key={receiver} onPress={() => updateProduct(index, "expectedReceiver", receiver)} style={{ backgroundColor: samePersonName(product.expectedReceiver, receiver) ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
+                                  <Text style={{ color: samePersonName(product.expectedReceiver, receiver) ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver}</Text>
                                 </TouchableOpacity>
                               ))}
                             </View>
@@ -1120,7 +1134,7 @@ export default function ManufacturingStageScreen() {
               </View>
               <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{config.name}</Text>
               <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
-                {isViewOnly ? (isAr ? "لا توجد بيانات مسجلة بعد." : "No data recorded yet.") : (isAr ? "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة." : "No data recorded yet.\nPress the (+) button above to add new production data.")}
+                {isViewOnly ? (isAr ? "لا توجد عهدة واردة لهذا الحساب حالياً." : "No incoming custody is assigned to this account yet.") : (isAr ? "لا توجد بيانات مسجلة بعد.\nاضغط على زر (+) في الأعلى لإضافة بيانات إنتاج جديدة." : "No data recorded yet.\nPress the (+) button above to add new production data.")}
               </Text>
               <View style={{ marginTop: 20, backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, width: '100%' }}>
                 <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 12, textAlign: isAr ? "right" : "left" }}>
@@ -1130,7 +1144,7 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: config.color, fontWeight: "700", fontSize: 15 }}>{user?.name || ""}</Text>
                 </View>
               </View>
-              {!isQueueOnlyStage && !isViewOnly && (
+              {isAdmin && (
                 <TouchableOpacity
                   onPress={() => { resetForm(); setShowForm(true); }}
                   style={{ backgroundColor: config.color, marginTop: 20, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 }}
