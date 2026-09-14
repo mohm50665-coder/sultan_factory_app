@@ -318,6 +318,11 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
 ];
 
+// هذه العناصر إضافية وحساسة: لا يكفي وجودها في allowedSections، بل تحتاج منحاً صريحاً من صلاحيات الأدوات.
+const EXTRA_DASHBOARD_PERMISSION_IDS = new Set([
+  "employee_performance", "product_tracking", "daily_summary", "products_catalog", "production_costs", "sample_requests", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
+]);
+
 const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboard_order_${userId || "guest"}`;
 
 export default function HomeScreen() {
@@ -517,9 +522,11 @@ export default function HomeScreen() {
             : normalizedDepartment === "government_tenders"
               ? "government_tenders"
               : undefined;
-  const baseEmployeeItems = new Set(["manufacturing", "tasks", "server_notifications"]);
+  // الصلاحيات المحفوظة هي المصدر الوحيد للموظف أو مدير القسم؛ القائمة الفارغة تعني عدم منح أي قائمة.
+  const explicitAllowedSections = new Set(Array.isArray(user?.allowedSections) ? user.allowedSections : []);
+  const hasExplicitAllowedSections = Array.isArray(user?.allowedSections);
 
-  // Load tool permissions for the admin-only Extra Tools section. Non-admin accounts never render it.
+  // الأدوات الإضافية لا تُعرض إلا للأدمن أو عند منحها صراحة من شاشة الصلاحيات.
   const [userToolPermissions, setUserToolPermissions] = useState<Record<string, boolean>>({});
   useEffect(() => {
     setUserToolPermissions(user?.toolPermissions || {});
@@ -527,20 +534,14 @@ export default function HomeScreen() {
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     if (user?.role === "admin") return true;
-
-    // Keep the board representative's dedicated view, but do not expose Extra Tools.
-    if (normalizedDepartment === "board_representative") {
-      return baseEmployeeItems.has(item.id) || item.id === "board_representative_old";
-    }
-
-    // Department managers see only Notifications, Tasks, and their department icon.
-    if (isDepartmentManager) {
-      return item.id === "server_notifications" || item.id === "tasks" || item.id === managerDepartmentIcon;
-    }
-
-    // Regular employees, including manufacturing-stage workers, see only these three items.
-    return baseEmployeeItems.has(item.id);
+    if (EXTRA_DASHBOARD_PERMISSION_IDS.has(item.id)) return userToolPermissions[item.id] === true;
+    // القوائم التشغيلية الأساسية لا تظهر إلا إذا حفظها الأدمن صراحةً.
+    return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);
   });
+
+  const extraToolsAdminOnly = new Set(["users_management", "backup_restore"]);
+  const canRenderExtraTool = (toolId: string) => user?.role === "admin" || (userToolPermissions[toolId] === true && !extraToolsAdminOnly.has(toolId));
+  const hasVisibleExtraTools = ["reports", "notifications_center", "export_data", "activity_log", "production_export", "waste_alerts", "reports_analytics", "section_reports", "users_management", "backup_restore", "machines_comparison", "share_reports"].some(canRenderExtraTool);
 
   const orderedVisibleDashboardItems = [...visibleDashboardItems].sort((a, b) => {
     const aIndex = dashboardOrder.indexOf(a.id);
@@ -820,14 +821,14 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Extra Tools: visible to administrators only */}
-        {user?.role === "admin" && Object.values(userToolPermissions).some(v => v === true) && (
+        {/* الأدوات الإضافية: الأدمن يرى الكل، وبقية الحسابات ترى ما مُنح لها صراحة فقط */}
+        {hasVisibleExtraTools && (
           <>
             <Text style={[{ color: colors.foreground, fontWeight: 'bold', fontSize: 16 }, styles.toolsTitle, { textAlign: isRtl ? "right" : "left" }]}>
               {t("extra_tools")}
             </Text>
             <View style={styles.toolsGrid}>
-              {canAccessTool('reports', userToolPermissions) && (
+              {canRenderExtraTool('reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports")}
                   style={styles.toolItem}
@@ -839,7 +840,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('notifications_center', userToolPermissions) && (
+              {canRenderExtraTool('notifications_center') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/notifications-center")}
                   style={styles.toolItem}
@@ -851,7 +852,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('export_data', userToolPermissions) && (
+              {canRenderExtraTool('export_data') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/export-data")}
                   style={styles.toolItem}
@@ -863,7 +864,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('activity_log', userToolPermissions) && (
+              {canRenderExtraTool('activity_log') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/activity-log-viewer")}
                   style={styles.toolItem}
@@ -875,7 +876,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('production_export', userToolPermissions) && (
+              {canRenderExtraTool('production_export') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/production-export")}
                   style={styles.toolItem}
@@ -887,7 +888,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('waste_alerts', userToolPermissions) && (
+              {canRenderExtraTool('waste_alerts') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/waste-alerts")}
                   style={styles.toolItem}
@@ -899,7 +900,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('reports_analytics', userToolPermissions) && (
+              {canRenderExtraTool('reports_analytics') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports-analytics")}
                   style={styles.toolItem}
@@ -911,7 +912,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('section_reports', userToolPermissions) && (
+              {canRenderExtraTool('section_reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/section-reports")}
                   style={styles.toolItem}
@@ -923,7 +924,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('users_management', userToolPermissions) && (
+              {canRenderExtraTool('users_management') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/users-management")}
                   style={styles.toolItem}
@@ -935,7 +936,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {user?.role === "admin" && canAccessTool('backup_restore', userToolPermissions) && (
+              {canRenderExtraTool('backup_restore') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/backup-restore")}
                   style={styles.toolItem}
@@ -947,7 +948,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('machines_comparison', userToolPermissions) && (
+              {canRenderExtraTool('machines_comparison') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/machines-comparison")}
                   style={styles.toolItem}
@@ -959,7 +960,7 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
               )}
-              {canAccessTool('share_reports', userToolPermissions) && (
+              {canRenderExtraTool('share_reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/share-reports")}
                   style={styles.toolItem}

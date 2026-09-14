@@ -40,14 +40,33 @@ type ActiveSection = "stages" | "permissions" | "board" | "settings";
 
 // ===== AVAILABLE TOOLS (for permissions) =====
 const AVAILABLE_TOOLS = [
+  { id: "reports", labelAr: "التقارير", labelEn: "Reports", icon: "bar-chart", color: "#059669" },
+  { id: "notifications_center", labelAr: "مركز الإشعارات", labelEn: "Notifications Center", icon: "notifications", color: "#d97706" },
+  { id: "export_data", labelAr: "تصدير البيانات", labelEn: "Export Data", icon: "file-download", color: "#6366f1" },
+  { id: "activity_log", labelAr: "سجل التعديلات", labelEn: "Activity Log", icon: "history", color: "#0891b2" },
+  { id: "production_export", labelAr: "طباعة الإنتاج", labelEn: "Production Export", icon: "print", color: "#16a34a" },
+  { id: "waste_alerts", labelAr: "تنبيهات الهدر", labelEn: "Waste Alerts", icon: "warning-amber", color: "#dc2626" },
+  { id: "reports_analytics", labelAr: "التحليلات", labelEn: "Analytics", icon: "bar-chart", color: "#059669" },
+  { id: "section_reports", labelAr: "تقارير الأقسام", labelEn: "Section Reports", icon: "summarize", color: "#0891b2" },
+  { id: "users_management", labelAr: "إدارة المستخدمين", labelEn: "User Management", icon: "people", color: "#7c3aed" },
+  { id: "employee_performance", labelAr: "أداء الموظفين", labelEn: "Employee Performance", icon: "assessment", color: "#059669" },
+  { id: "backup_restore", labelAr: "نسخ احتياطي", labelEn: "Backup & Restore", icon: "backup", color: "#6366f1" },
+  { id: "machines_comparison", labelAr: "مقارنة المكائن", labelEn: "Machines Comparison", icon: "precision-manufacturing", color: "#8b5cf6" },
+  { id: "share_reports", labelAr: "مشاركة التقارير", labelEn: "Share Reports", icon: "share", color: "#0ea5e9" },
+  { id: "product_tracking", labelAr: "تتبع المنتجات", labelEn: "Product Tracking", icon: "timeline", color: "#8b5a2b" },
+  { id: "daily_summary", labelAr: "ملخص اليوم الشامل", labelEn: "Comprehensive Daily Summary", icon: "summarize", color: "#0f766e" },
+  { id: "products_catalog", labelAr: "دليل المنتجات", labelEn: "Products Catalog", icon: "inventory-2", color: "#0a7ea4" },
+  { id: "production_costs", labelAr: "حساب التكاليف", labelEn: "Production Costs", icon: "calculate", color: "#10b981" },
+  { id: "sample_requests", labelAr: "طلبات العينات", labelEn: "Sample Requests", icon: "science", color: "#0f766e" },
+  { id: "cost_comparison", labelAr: "تقرير مقارنة التكاليف", labelEn: "Cost Comparison", icon: "trending-down", color: "#f97316" },
+  { id: "board_representative_old", labelAr: "لوحة ممثل مجلس الإدارة", labelEn: "Board Representative Dashboard", icon: "dashboard", color: "#8b5cf6" },
   { id: "advanced_analytics", labelAr: "التحليلات المتقدمة", labelEn: "Advanced Analytics", icon: "insights", color: "#0891b2" },
   { id: "export_reports", labelAr: "تصدير التقارير PDF", labelEn: "Export Reports PDF", icon: "picture-as-pdf", color: "#dc2626" },
-  { id: "cost_comparison", labelAr: "تقرير مقارنة التكاليف", labelEn: "Cost Comparison Report", icon: "trending-down", color: "#f97316" },
-  { id: "product_cost_calculator", labelAr: "حساب تكاليف منتج جديد", labelEn: "Product Cost Calculator", icon: "calculate", color: "#8b5cf6" },
-  { id: "activity_log", labelAr: "سجل التعديلات", labelEn: "Activity Log", icon: "history", color: "#6366f1" },
-  { id: "global_search", labelAr: "البحث الشامل", labelEn: "Global Search", icon: "search", color: "#06b6d4" },
-  { id: "data_backup", labelAr: "النسخ الاحتياطي", labelEn: "Data Backup", icon: "backup", color: "#14b8a6" },
-  { id: "user_management", labelAr: "إدارة المستخدمين", labelEn: "User Management", icon: "people", color: "#f59e0b" },
+  { id: "board_monthly_report", labelAr: "التقرير الشهري لمجلس الإدارة", labelEn: "Board Monthly Report", icon: "summarize", color: "#7c3aed" },
+  { id: "mail_center", labelAr: "البريد والمراسلات", labelEn: "Mail and Correspondence", icon: "mail", color: "#0ea5e9" },
+  { id: "government_tenders", labelAr: "المناقصات الحكومية والعسكرية", labelEn: "Government and Military Tenders", icon: "gavel", color: "#1e3a5f" },
+  { id: "financial", labelAr: "المصروفات", labelEn: "Expenses", icon: "payments", color: "#6366f1" },
+  { id: "administrative", labelAr: "الإجراءات الإدارية", labelEn: "Administrative Procedures", icon: "assignment", color: "#06b6d4" },
 ];
 
 // ===== DEFAULT STAGES =====
@@ -317,16 +336,14 @@ export default function ComprehensiveAdminPanel() {
       if (u.toolPermissions && Object.keys(u.toolPermissions).length > 0) {
         setUserPermissions(u.toolPermissions);
       } else {
-        const defaults: Record<string, boolean> = {};
-        AVAILABLE_TOOLS.forEach((t) => { defaults[t.id] = true; });
-        setUserPermissions(defaults);
+        // لا تُمنح الأدوات الإضافية تلقائياً عند غياب سجل الصلاحيات.
+        setUserPermissions({});
       }
-    } catch (e) {
-      console.error("Error loading permissions:", e);
-      const defaults: Record<string, boolean> = {};
-      AVAILABLE_TOOLS.forEach((t) => { defaults[t.id] = true; });
-      setUserPermissions(defaults);
-    }
+      } catch (e) {
+        console.error("Error loading permissions:", e);
+        // في حال تعذر التحميل، لا نعرض أي أداة حساسة بدلاً من منحها.
+        setUserPermissions({});
+      }
   };
 
   const togglePermission = (toolId: string) => {

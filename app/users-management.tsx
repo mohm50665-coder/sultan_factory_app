@@ -35,46 +35,22 @@ const ROLES_EN = [
 
 const ALL_SECTIONS_AR = [
   { id: "production", label: "الإنتاج" },
-  { id: "product_tracking", label: "تتبع المنتجات" },
-  { id: "daily_summary", label: "ملخص اليوم الشامل" },
-  { id: "products_catalog", label: "دليل المنتجات" },
-  { id: "production_costs", label: "حساب التكاليف" },
   { id: "manufacturing", label: "مراحل تسليم الإنتاج" },
   { id: "sales", label: "المبيعات والتحصيل" },
   { id: "warehouse", label: "المستودعات" },
   { id: "maintenance", label: "الصيانة" },
-  { id: "financial", label: "المصروفات" },
-  { id: "administrative", label: "الإجراءات الإدارية" },
   { id: "tasks", label: "المهام" },
-  { id: "cost_comparison", label: "تقرير مقارنة التكاليف" },
-  { id: "board_representative_old", label: "لوحة تحكم ممثل مجلس الإدارة" },
-  { id: "advanced_analytics", label: "التحليلات المتقدمة" },
-  { id: "export_reports", label: "تصدير التقارير PDF" },
-  { id: "board_monthly_report", label: "التقرير الشهري لمجلس الإدارة" },
   { id: "server_notifications", label: "الإشعارات الفورية" },
-  { id: "government_tenders", label: "المناقصات الحكومية والعسكرية" },
 ];
 
 const ALL_SECTIONS_EN = [
   { id: "production", label: "Production" },
-  { id: "product_tracking", label: "Product Tracking" },
-  { id: "daily_summary", label: "Comprehensive Daily Summary" },
-  { id: "products_catalog", label: "Products Catalog" },
-  { id: "production_costs", label: "Cost Calculation" },
   { id: "manufacturing", label: "Manufacturing Delivery Stages" },
   { id: "sales", label: "Sales and Collection" },
   { id: "warehouse", label: "Warehouses" },
   { id: "maintenance", label: "Maintenance" },
-  { id: "financial", label: "Expenses" },
-  { id: "administrative", label: "Administrative Procedures" },
   { id: "tasks", label: "Tasks" },
-  { id: "cost_comparison", label: "Cost Comparison Report" },
-  { id: "board_representative_old", label: "Board Representative Dashboard" },
-  { id: "advanced_analytics", label: "Advanced Analytics" },
-  { id: "export_reports", label: "Export Reports PDF" },
-  { id: "board_monthly_report", label: "Board Monthly Report" },
   { id: "server_notifications", label: "Instant Notifications" },
-  { id: "government_tenders", label: "Government and Military Tenders" },
 ];
 
 export default function UsersManagementScreen() {
@@ -455,7 +431,7 @@ export default function UsersManagementScreen() {
           <View style={[styles.modalContent, { maxHeight: "80%" }]}>
             <Text style={styles.modalTitle}>{isAr ? "تحديد الأيقونات المسموحة: " : "Select Allowed Icons: "}{sectionsUser?.name}</Text>
             <Text style={{ fontSize: 12, color: "#687076", textAlign: "center", marginBottom: 12 }}>
-              {isAr ? "اختر الأقسام التي يمكن للمستخدم الوصول إليها. إذا لم تختر شيئاً سيتم استخدام الصلاحيات الافتراضية حسب القسم." : "Select the sections the user can access. If nothing is selected, default permissions based on the section will be used."}
+              {isAr ? "لا تظهر إلا القوائم المحددة صراحةً. ترك جميع الخيارات دون تحديد يعني عدم منح أي قائمة." : "Only explicitly selected menus are visible. Leaving all options clear grants no menu access."}
             </Text>
             <View style={{ flexDirection: isAr ? "row" : "row-reverse", gap: 8, marginBottom: 10 }}>
               <TouchableOpacity onPress={() => setSelectedSections((isAr ? ALL_SECTIONS_AR : ALL_SECTIONS_EN).map((section) => section.id))} style={[styles.saveBtn, { flex: 1 }]}>
@@ -468,6 +444,9 @@ export default function UsersManagementScreen() {
             <Text style={{ fontSize: 12, color: "#687076", textAlign: isAr ? "right" : "left", marginBottom: 8 }}>
               {isAr ? `${selectedSections.length} من ${(isAr ? ALL_SECTIONS_AR : ALL_SECTIONS_EN).length} قائمة محددة` : `${selectedSections.length} of ${(isAr ? ALL_SECTIONS_AR : ALL_SECTIONS_EN).length} menus selected`}
             </Text>
+            <TouchableOpacity onPress={() => { setShowSectionsModal(false); router.push("/admin-tools-permissions" as any); }} style={[styles.cancelBtn, { marginBottom: 10, alignItems: "center" }]}>
+              <Text style={styles.cancelBtnText}>{isAr ? "فتح صلاحيات الأدوات الإضافية" : "Open extra tools permissions"}</Text>
+            </TouchableOpacity>
             <ScrollView style={{ maxHeight: 300 }}>
               {(isAr ? ALL_SECTIONS_AR : ALL_SECTIONS_EN).map((section) => (
                 <TouchableOpacity

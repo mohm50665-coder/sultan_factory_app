@@ -223,8 +223,8 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Permissions Card */}
-        <View style={styles.section}>
+        {/* لا نعرض قائمة صلاحيات الدور العامة للموظف؛ التفاصيل الحساسة للأدمن فقط. */}
+        {user?.role === "admin" && <View style={styles.section}>
           <Text style={[styles.sectionTitle, { textAlign }]}>
             {t("permissions")} ({permissions.length})
           </Text>
@@ -245,7 +245,7 @@ export default function ProfileScreen() {
               )}
             </View>
           </View>
-        </View>
+        </View>}
 
         {/* Actions */}
         <View style={styles.section}>

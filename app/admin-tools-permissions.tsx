@@ -36,6 +36,20 @@ const AVAILABLE_TOOLS: Tool[] = [
   { id: 'backup_restore', labelAr: 'نسخ احتياطي', labelEn: 'Backup & Restore', icon: 'backup', color: '#6366f1' },
   { id: 'machines_comparison', labelAr: 'مقارنة المكائن', labelEn: 'Machines Comparison', icon: 'precision-manufacturing', color: '#8b5cf6' },
   { id: 'share_reports', labelAr: 'مشاركة التقارير', labelEn: 'Share Reports', icon: 'share', color: '#0ea5e9' },
+  { id: 'product_tracking', labelAr: 'تتبع المنتجات', labelEn: 'Product Tracking', icon: 'timeline', color: '#8b5a2b' },
+  { id: 'daily_summary', labelAr: 'ملخص اليوم الشامل', labelEn: 'Comprehensive Daily Summary', icon: 'summarize', color: '#0f766e' },
+  { id: 'products_catalog', labelAr: 'دليل المنتجات', labelEn: 'Products Catalog', icon: 'inventory-2', color: '#0a7ea4' },
+  { id: 'production_costs', labelAr: 'حساب التكاليف', labelEn: 'Production Costs', icon: 'calculate', color: '#10b981' },
+  { id: 'sample_requests', labelAr: 'طلبات العينات', labelEn: 'Sample Requests', icon: 'science', color: '#0f766e' },
+  { id: 'cost_comparison', labelAr: 'تقرير مقارنة التكاليف', labelEn: 'Cost Comparison', icon: 'trending-down', color: '#f97316' },
+  { id: 'board_representative_old', labelAr: 'لوحة ممثل مجلس الإدارة', labelEn: 'Board Representative Dashboard', icon: 'dashboard', color: '#8b5cf6' },
+  { id: 'advanced_analytics', labelAr: 'التحليلات المتقدمة', labelEn: 'Advanced Analytics', icon: 'insights', color: '#0891b2' },
+  { id: 'export_reports', labelAr: 'تصدير التقارير PDF', labelEn: 'Export Reports PDF', icon: 'picture-as-pdf', color: '#dc2626' },
+  { id: 'board_monthly_report', labelAr: 'التقرير الشهري لمجلس الإدارة', labelEn: 'Board Monthly Report', icon: 'summarize', color: '#7c3aed' },
+  { id: 'mail_center', labelAr: 'البريد والمراسلات', labelEn: 'Mail and Correspondence', icon: 'mail', color: '#0ea5e9' },
+  { id: 'government_tenders', labelAr: 'المناقصات الحكومية والعسكرية', labelEn: 'Government and Military Tenders', icon: 'gavel', color: '#1e3a5f' },
+  { id: 'financial', labelAr: 'المصروفات', labelEn: 'Expenses', icon: 'payments', color: '#6366f1' },
+  { id: 'administrative', labelAr: 'الإجراءات الإدارية', labelEn: 'Administrative Procedures', icon: 'assignment', color: '#06b6d4' },
 ];
 
 export default function AdminToolsPermissionsScreen() {
@@ -70,15 +84,8 @@ export default function AdminToolsPermissionsScreen() {
   const selectUser = (userData: any): void => {
     setSelectedUser(userData);
     // Load from server toolPermissions field
-    if (userData.toolPermissions && Object.keys(userData.toolPermissions).length > 0) {
-      setUserPermissions(userData.toolPermissions);
-    } else {
-      const defaultPermissions: Record<string, boolean> = {};
-      AVAILABLE_TOOLS.forEach(tool => {
-        defaultPermissions[tool.id] = true;
-      });
-      setUserPermissions(defaultPermissions);
-    }
+    // لا يوجد افتراضي للأدوات الإضافية: غياب القيمة يعني عدم منح أي أداة.
+    setUserPermissions(userData.toolPermissions && typeof userData.toolPermissions === "object" ? userData.toolPermissions : {});
   };
 
   const toggleToolPermission = (toolId: string): void => {
@@ -107,19 +114,13 @@ export default function AdminToolsPermissionsScreen() {
   const resetToDefaults = () => {
     Alert.alert(
       isAr ? 'تأكيد' : 'Confirm',
-      isAr ? 'هل تريد إعادة تعيين جميع الأدوات للظهور الافتراضي؟' : 'Do you want to reset all tools to default visibility?',
+      isAr ? 'سيؤدي ذلك إلى إلغاء جميع الأدوات لهذا المستخدم. هل تريد المتابعة؟' : 'This will revoke all extra tools for this user. Continue?',
       [
         { text: isAr ? 'إلغاء' : 'Cancel', style: 'cancel' },
         {
           text: isAr ? 'تأكيد' : 'Confirm',
           style: 'destructive',
-          onPress: () => {
-            const defaultPermissions: Record<string, boolean> = {};
-            AVAILABLE_TOOLS.forEach(tool => {
-              defaultPermissions[tool.id] = true;
-            });
-            setUserPermissions(defaultPermissions);
-          }
+          onPress: () => setUserPermissions({})
         }
       ]
     );

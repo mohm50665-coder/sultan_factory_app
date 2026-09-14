@@ -58,6 +58,32 @@ import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
 
 const COOKIE_NAME = "session_id";
+
+// قوائم الصلاحيات الرسمية: لا تُضاف أي صلاحية تلقائياً، وأي قيمة خارجها تُرفض من الخادم.
+const DASHBOARD_PERMISSION_IDS = new Set([
+  "production", "employee_performance", "product_tracking", "daily_summary", "products_catalog", "production_costs", "manufacturing", "sample_requests", "sales", "warehouse", "maintenance", "financial", "administrative", "tasks", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "server_notifications", "government_tenders",
+]);
+const EXTRA_TOOL_PERMISSION_IDS = new Set([
+  "reports", "notifications_center", "export_data", "activity_log", "production_export", "waste_alerts", "reports_analytics", "section_reports", "users_management", "employee_performance", "backup_restore", "machines_comparison", "share_reports",
+  "product_tracking", "daily_summary", "products_catalog", "production_costs", "sample_requests", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
+]);
+
+const parseJsonPermissionValue = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  try { return JSON.parse(value); } catch { return null; }
+};
+const normalizeAllowedSections = (value: unknown): string[] => {
+  const parsed = parseJsonPermissionValue(value);
+  return Array.from(new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && DASHBOARD_PERMISSION_IDS.has(item)) : []));
+};
+const normalizeToolPermissions = (value: unknown): Record<string, boolean> => {
+  const parsed = parseJsonPermissionValue(value);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  // all=true was written by the previous unsafe default and is not an explicit grant.
+  if ((parsed as Record<string, unknown>).all === true) return {};
+  return Object.fromEntries(Object.entries(parsed).filter(([id, enabled]) => EXTRA_TOOL_PERMISSION_IDS.has(id) && enabled === true).map(([id]) => [id, true]));
+};
+
 const AUTO_HANDOVER_START_DATE = "2026-09-10";
 const MANUFACTURING_STAGE_ORDER = ["production", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
 const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
@@ -351,8 +377,8 @@ export const appRouter = router({
         department: user.department,
         role: user.role,
         isActive: user.isActive,
-        allowedSections: user.allowedSections,
-        toolPermissions: user.toolPermissions,
+        allowedSections: normalizeAllowedSections(user.allowedSections),
+        toolPermissions: normalizeToolPermissions(user.toolPermissions),
       };
     }),
 
@@ -466,8 +492,8 @@ export const appRouter = router({
             department: user.department,
             role: user.role,
             isActive: user.isActive,
-            allowedSections: user.allowedSections,
-            toolPermissions: user.toolPermissions,
+            allowedSections: normalizeAllowedSections(user.allowedSections),
+            toolPermissions: normalizeToolPermissions(user.toolPermissions),
           },
         };
       }),
@@ -518,7 +544,7 @@ export const appRouter = router({
 
   // ===== ADMIN / USER MANAGEMENT ROUTER =====
   admin: router({
-    getAllUsers: publicProcedure.query(async ({ ctx }) => {
+    getAllUsers: adminProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) return [];
       const result = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
@@ -532,13 +558,13 @@ export const appRouter = router({
         department: u.department,
         role: u.role,
         isActive: u.isActive,
-        allowedSections: u.allowedSections,
-        toolPermissions: u.toolPermissions,
+        allowedSections: normalizeAllowedSections(u.allowedSections),
+        toolPermissions: normalizeToolPermissions(u.toolPermissions),
         createdAt: u.createdAt?.toISOString(),
       }));
     }),
 
-    toggleUserActive: publicProcedure
+    toggleUserActive: adminProcedure
       .input(z.object({ userId: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -550,7 +576,7 @@ export const appRouter = router({
         return { success: true, isActive: !user.isActive };
       }),
 
-    changeUserRole: publicProcedure
+    changeUserRole: adminProcedure
       .input(z.object({ userId: z.number(), role: z.enum(["user", "admin", "manager", "supervisor"]) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -559,7 +585,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    renameUser: publicProcedure
+    renameUser: adminProcedure
       .input(z.object({ userId: z.number(), username: z.string().min(1).max(100) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -571,7 +597,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updatePosition: publicProcedure
+    updatePosition: adminProcedure
       .input(z.object({ userId: z.number(), position: z.string() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -580,16 +606,16 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updateToolPermissions: publicProcedure
+    updateToolPermissions: adminProcedure
       .input(z.object({ userId: z.number(), toolPermissions: z.record(z.string(), z.boolean()) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.update(usersTable).set({ toolPermissions: input.toolPermissions }).where(eq(usersTable.id, input.userId));
+        await db.update(usersTable).set({ toolPermissions: normalizeToolPermissions(input.toolPermissions) }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
 
-    getPendingUsers: publicProcedure.query(async () => {
+    getPendingUsers: adminProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
       return db.select().from(usersTable).where(eq(usersTable.isActive, 0));
@@ -609,7 +635,7 @@ export const appRouter = router({
         return { success: true, deletedUserId: input.userId };
       }),
 
-    resetUserPassword: publicProcedure
+    resetUserPassword: adminProcedure
       .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
@@ -618,16 +644,16 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updateAllowedSections: publicProcedure
+    updateAllowedSections: adminProcedure
       .input(z.object({ userId: z.number(), allowedSections: z.array(z.string()) }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.update(usersTable).set({ allowedSections: input.allowedSections }).where(eq(usersTable.id, input.userId));
+        await db.update(usersTable).set({ allowedSections: normalizeAllowedSections(input.allowedSections) }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
 
-    updateUserDepartment: publicProcedure
+    updateUserDepartment: adminProcedure
       .input(z.object({ userId: z.number(), department: z.string() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
