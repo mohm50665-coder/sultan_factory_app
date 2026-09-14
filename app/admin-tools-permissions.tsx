@@ -32,7 +32,6 @@ const AVAILABLE_TOOLS: Tool[] = [
   { id: 'reports_analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: 'bar-chart', color: '#059669' },
   { id: 'section_reports', labelAr: 'تقارير الأقسام', labelEn: 'Section Reports', icon: 'summarize', color: '#0891b2' },
   { id: 'users_management', labelAr: 'إدارة المستخدمين', labelEn: 'User Management', icon: 'people', color: '#7c3aed' },
-  { id: 'employee_performance', labelAr: 'أداء الموظفين', labelEn: 'Employee Performance', icon: 'assessment', color: '#059669' },
   { id: 'backup_restore', labelAr: 'نسخ احتياطي', labelEn: 'Backup & Restore', icon: 'backup', color: '#6366f1' },
   { id: 'machines_comparison', labelAr: 'مقارنة المكائن', labelEn: 'Machines Comparison', icon: 'precision-manufacturing', color: '#8b5cf6' },
   { id: 'share_reports', labelAr: 'مشاركة التقارير', labelEn: 'Share Reports', icon: 'share', color: '#0ea5e9' },

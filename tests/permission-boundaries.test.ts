@@ -37,11 +37,11 @@ describe("Permission boundary contract", () => {
     expect(router).toContain("allowedSections: normalizeAllowedSections(input.allowedSections)");
   });
 
-  it("keeps extra dashboard tools in the dedicated tools-permissions picker", () => {
-    expect(toolsPermissions).toContain("id: 'employee_performance'");
+  it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {
+    expect(toolsPermissions).not.toContain("id: 'employee_performance'");
     expect(toolsPermissions).toContain("id: 'sample_requests'");
     expect(toolsPermissions).toContain("id: 'mail_center'");
     expect(usersManagement).toContain("Open extra tools permissions");
-    expect(usersManagement).not.toContain('id: "employee_performance"');
+    expect(usersManagement).toContain('id: "employee_performance"');
   });
 });

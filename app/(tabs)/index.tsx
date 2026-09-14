@@ -58,8 +58,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
 
   {
     id: "employee_performance",
-    labelAr: "تقييم أداء الموظفين",
-    labelEn: "Employee Performance",
+    labelAr: "أداء المندوب",
+    labelEn: "Representative Performance",
     icon: "assessment",
     color: "#059669",
     route: "/employee-performance",
@@ -320,7 +320,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
 
 // هذه العناصر إضافية وحساسة: لا يكفي وجودها في allowedSections، بل تحتاج منحاً صريحاً من صلاحيات الأدوات.
 const EXTRA_DASHBOARD_PERMISSION_IDS = new Set([
-  "employee_performance", "product_tracking", "daily_summary", "products_catalog", "production_costs", "sample_requests", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
+  "product_tracking", "daily_summary", "products_catalog", "production_costs", "sample_requests", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
 ]);
 
 const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboard_order_${userId || "guest"}`;

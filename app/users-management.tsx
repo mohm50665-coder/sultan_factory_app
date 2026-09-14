@@ -40,6 +40,7 @@ const ALL_SECTIONS_AR = [
   { id: "warehouse", label: "المستودعات" },
   { id: "maintenance", label: "الصيانة" },
   { id: "tasks", label: "المهام" },
+  { id: "employee_performance", label: "أداء المندوب" },
   { id: "server_notifications", label: "الإشعارات الفورية" },
 ];
 
@@ -50,6 +51,7 @@ const ALL_SECTIONS_EN = [
   { id: "warehouse", label: "Warehouses" },
   { id: "maintenance", label: "Maintenance" },
   { id: "tasks", label: "Tasks" },
+  { id: "employee_performance", label: "Representative Performance" },
   { id: "server_notifications", label: "Instant Notifications" },
 ];
 
