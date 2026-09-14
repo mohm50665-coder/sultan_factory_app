@@ -10,7 +10,8 @@ import {
   FlatList,
   Platform,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -295,6 +296,13 @@ export default function ManufacturingStageScreen() {
       setEntries([]);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadEntries();
+      return undefined;
+    }, [stage, user?.id])
+  );
 
   const loadTrash = async () => {
     if (!isAdmin) return;
