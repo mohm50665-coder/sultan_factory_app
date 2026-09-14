@@ -83,6 +83,54 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["sales", "marketing"],
   },
   {
+    id: "daily_sales_collection_report",
+    labelAr: "التقرير اليومي للمبيعات والتحصيل",
+    labelEn: "Daily Sales & Collection Report",
+    icon: "today",
+    color: "#0f766e",
+    route: "/daily-summary",
+    descriptionAr: "التقرير اليومي وفق نموذج إدارة المبيعات والتحصيل",
+    descriptionEn: "Daily report based on the Sales and Collection management template",
+    section: "sales_management",
+    departments: ["sales", "marketing"],
+  },
+  {
+    id: "representative_evaluation",
+    labelAr: "تقييم أداء المندوب",
+    labelEn: "Representative Evaluation",
+    icon: "percent",
+    color: "#7c3aed",
+    route: "/representative-performance",
+    descriptionAr: "نسبة الإنجاز ومعايير تقييم المندوبين",
+    descriptionEn: "Achievement percentage and representative evaluation criteria",
+    section: "sales_management",
+    departments: ["sales", "marketing"],
+  },
+  {
+    id: "sales_approvals_requests",
+    labelAr: "الاعتمادات والطلبات",
+    labelEn: "Approvals & Requests",
+    icon: "fact-check",
+    color: "#2563eb",
+    route: "/orders-visits",
+    descriptionAr: "طلبات واعتمادات إدارة التسويق والمبيعات",
+    descriptionEn: "Marketing and Sales requests and approvals",
+    section: "sales_management",
+    departments: ["sales", "marketing"],
+  },
+  {
+    id: "representative_comprehensive_report",
+    labelAr: "تقرير أداء المندوب الشامل",
+    labelEn: "Comprehensive Representative Report",
+    icon: "analytics",
+    color: "#b45309",
+    route: "/representative-performance",
+    descriptionAr: "تقرير تفصيلي للطلبات والزيارات والتصنيع والتحصيل",
+    descriptionEn: "Detailed orders, visits, custom manufacturing and collection report",
+    section: "sales_management",
+    departments: ["sales", "marketing"],
+  },
+  {
     id: "product_tracking",
     labelAr: "تتبع المنتجات",
     labelEn: "Product Tracking",
@@ -551,8 +599,19 @@ export default function HomeScreen() {
     setUserToolPermissions(user?.toolPermissions || {});
   }, [user?.id, user?.toolPermissions]);
 
+  const salesManagerOfficialItems = new Set([
+    "daily_sales_collection_report",
+    "representative_evaluation",
+    "sales_approvals_requests",
+    "representative_comprehensive_report",
+  ]);
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     if (user?.role === "admin") return true;
+    // بعد نقل الطلبات والزيارات والتصنيع الخاص والتحصيل إلى أداء المندوب، لا يظهر مدخل المبيعات القديم لمدير الإدارة.
+    if (isDepartmentManager && normalizedDepartment === "sales") {
+      if (item.id === "sales" || item.id === "representative_performance") return false;
+      if (salesManagerOfficialItems.has(item.id)) return true;
+    }
     if (EXTRA_DASHBOARD_PERMISSION_IDS.has(item.id)) return userToolPermissions[item.id] === true;
     // القوائم التشغيلية الأساسية لا تظهر إلا إذا حفظها الأدمن صراحةً.
     return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);
