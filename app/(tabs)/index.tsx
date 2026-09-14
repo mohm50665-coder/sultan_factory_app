@@ -565,7 +565,7 @@ export default function HomeScreen() {
   const isDepartmentManager = user?.role === "manager" || position.includes("مدير") || position.includes("manager");
 
   const normalizeDepartment = (department: string) => {
-    if (["sales", "marketing", "collection", "customer_service", "تسويق", "المبيعات", "التحصيل"].includes(department)) return "sales";
+    if (["sales", "marketing", "sales_management", "marketing_sales", "collection", "customer_service", "تسويق", "التسويق", "المبيعات", "إدارة التسويق والمبيعات", "التحصيل"].includes(department)) return "sales";
     if (["warehouse", "warehouses", "المستودعات", "مستودعات"].includes(department)) return "warehouse";
     if (["production", "الإنتاج", "انتاج"].includes(department)) return "production";
     if (["maintenance", "الصيانة"].includes(department)) return "maintenance";

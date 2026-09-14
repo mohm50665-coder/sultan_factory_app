@@ -8,6 +8,11 @@ const collection = readFileSync(resolve(process.cwd(), "app/collection.tsx"), "u
 const custom = readFileSync(resolve(process.cwd(), "app/custom-manufacturing.tsx"), "utf8");
 
 describe("Sales management separation", () => {
+  it("normalizes the Arabic and technical sales-management department values", () => {
+    expect(dashboard).toContain('"sales_management"');
+    expect(dashboard).toContain('"إدارة التسويق والمبيعات"');
+  });
+
   it("hides the legacy sales entry for the sales manager", () => {
     expect(dashboard).toContain('if (item.id === "sales" || item.id === "representative_performance") return false;');
   });

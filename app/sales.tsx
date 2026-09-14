@@ -54,7 +54,7 @@ export default function SalesScreen() {
   const isAr = language === "ar";
     const { user } = useAuth();
   const normalizedDepartment = String(user?.department || "").trim().toLowerCase();
-  const isSalesManager = user?.role === "manager" && ["sales", "marketing", "المبيعات", "التسويق"].includes(normalizedDepartment);
+  const isSalesManager = user?.role === "manager" && ["sales", "marketing", "sales_management", "marketing_sales", "المبيعات", "التسويق", "إدارة التسويق والمبيعات"].includes(normalizedDepartment);
 
   useEffect(() => {
     if (isSalesManager) {
