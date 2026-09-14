@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
 import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
 import {
@@ -81,6 +82,13 @@ export default function CustomManufacturingScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const { user } = useAuth();
+  const router = useRouter();
+  const normalizedDepartment = String(user?.department || "").trim().toLowerCase();
+  const isSalesManager = user?.role === "manager" && ["sales", "marketing", "المبيعات", "التسويق"].includes(normalizedDepartment);
+
+  useEffect(() => {
+    if (isSalesManager) router.replace("/representative-performance" as any);
+  }, [isSalesManager, router]);
 
   const [entries, setEntries] = useState<CustomManufacturingEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -960,6 +968,10 @@ export default function CustomManufacturingScreen() {
       </View>
     </ScrollView>
   );
+
+  if (isSalesManager) {
+    return <ScreenContainer><View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}><MaterialIcons name="lock" size={42} color={colors.muted} /><Text style={{ color: colors.foreground, textAlign: "center", marginTop: 12, fontWeight: "800" }}>{isAr ? "تم نقل التصنيع الخاص إلى وحدة أداء المندوب" : "Custom manufacturing moved to Representative Performance"}</Text></View></ScreenContainer>;
+  }
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>

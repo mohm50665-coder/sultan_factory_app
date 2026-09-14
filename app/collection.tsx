@@ -19,6 +19,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 import { useLanguage } from "@/lib/language-context";
+import { useAuth } from "@/lib/auth-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 
@@ -28,6 +29,13 @@ export default function CollectionScreen() {
   const colors = useColors();
   const { language } = useLanguage();
   const isAr = language === "ar";
+  const { user } = useAuth();
+  const normalizedDepartment = String(user?.department || "").trim().toLowerCase();
+  const isSalesManager = user?.role === "manager" && ["sales", "marketing", "المبيعات", "التسويق"].includes(normalizedDepartment);
+
+  useEffect(() => {
+    if (isSalesManager) router.replace("/representative-performance" as any);
+  }, [isSalesManager, router]);
 
   const [collections, setCollections] = useState<CollectionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,6 +167,10 @@ export default function CollectionScreen() {
       </View>
     </View>
   );
+
+  if (isSalesManager) {
+    return <ScreenContainer><View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}><MaterialIcons name="lock" size={42} color={colors.muted} /><Text style={{ color: colors.foreground, textAlign: "center", marginTop: 12, fontWeight: "800" }}>{isAr ? "تم نقل التحصيل إلى وحدة أداء المندوب" : "Collection moved to Representative Performance"}</Text></View></ScreenContainer>;
+  }
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>

@@ -52,12 +52,19 @@ export default function SalesScreen() {
   const colors = useColors();
   const { language } = useLanguage();
   const isAr = language === "ar";
-  const { user } = useAuth();
+    const { user } = useAuth();
+  const normalizedDepartment = String(user?.department || "").trim().toLowerCase();
+  const isSalesManager = user?.role === "manager" && ["sales", "marketing", "المبيعات", "التسويق"].includes(normalizedDepartment);
+
+  useEffect(() => {
+    if (isSalesManager) {
+      router.replace("/daily-summary" as any);
+    }
+  }, [isSalesManager, router]);
 
   const SELLERS = isAr ? ["شلبي", "عمر", "المغربي", "ياسر", "متجر فالكون", "عادل", "تصنيع خاص"] : ["Shalaby", "Omar", "Al-Maghrabi", "Yasser", "Falcon Store", "Adel", "Special Manufacturing"];
   const CUSTOMER_CATEGORIES = isAr ? ["كلاو", "فالكون", "جملة", "تجزئة", "تصنيع خاص شركات", "تصنيع خاص افراد"] : ["Claw", "Falcon", "Wholesale", "Retail", "Special Manufacturing Companies", "Special Manufacturing Individuals"];
-  const PAYMENT_METHODS = isAr ? ["نقداً", "آجل"] : ["Cash", "Credit"];
-
+    const PAYMENT_METHODS = isAr ? ["نقداً", "آجل"] : ["Cash", "Credit"];
   const [activeTab, setActiveTab] = useState<"sales" | "collection">("sales");
 
   // بيانات المبيعات
@@ -981,6 +988,10 @@ export default function SalesScreen() {
       </View>
     </ScrollView>
   );
+
+  if (isSalesManager) {
+    return <ScreenContainer><View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}><MaterialIcons name="lock" size={42} color={colors.muted} /><Text style={{ color: colors.foreground, textAlign: "center", marginTop: 12, fontWeight: "800" }}>{isAr ? "تم نقل المبيعات والتحصيل إلى وحدة أداء المندوب" : "Sales and collection moved to Representative Performance"}</Text></View></ScreenContainer>;
+  }
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
