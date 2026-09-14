@@ -1147,7 +1147,7 @@ export const appRouter = router({
         const destinationRows = await db.select().from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
         if (destinationRows[0]) throw new Error("تم إنشاء عهدة المرحلة الحالية مسبقاً");
         const result = await db.transaction(async (tx: any) => {
-          await tx.update(manufacturingStagesTable).set({ receivedBy: receiverName, receivedAt, expectedReceiver: expectedReceiver || receiverName, receiverStage: receiverStage || destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
+          await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: expectedReceiver || receiverName, receiverStage: receiverStage || destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
             workerName: receiverName,

@@ -519,6 +519,8 @@ export default function ManufacturingStageScreen() {
     ]);
   };
 
+  const isCurrentUserReceiver = (product: ProductItem) => samePersonName(product.expectedReceiver, user?.name) || samePersonName(product.expectedReceiver, (user as any)?.username);
+
   const handleConfirmReceipt = async (product: ProductItem) => {
     if (!product.id) {
       showStageMessage(isAr ? "تعذر التأكيد" : "Unable to confirm", isAr ? "معرف الحركة غير متوفر" : "Movement id is missing");
@@ -685,7 +687,7 @@ export default function ManufacturingStageScreen() {
                   {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "بانتظار تأكيد المستلم" : "Awaiting receiver confirmation") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
                 </Text>
               </View>
-              {product.movementStatus === "delivered" && samePersonName(product.expectedReceiver, user?.name) && (
+              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && (
                 <TouchableOpacity onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
                   <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "I received it"}</Text>
