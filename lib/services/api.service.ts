@@ -252,6 +252,7 @@ export const meetingOutputsService = {
 // ===== Reports Center (Server) =====
 export const reportsService = {
   list: () => trpcCall("reports.getAll", undefined, "query"),
+  create: (data: { reportName: string; reportType: "sales"; startDate: string; endDate: string; data: any; generatedBy: number }) => trpcCall("reports.create", data),
   updateResponse: (data: { id: number; response: string; notes?: string; recommendations?: string; requiredAction?: string; assignedUserId?: number; assignedDepartment?: string; respondedBy: number }) => trpcCall("reports.updateResponse", data),
 };
 
