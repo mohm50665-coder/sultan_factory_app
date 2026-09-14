@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCallback } from "react";
 import {
   View,
   Text,
@@ -11,7 +12,7 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
@@ -355,6 +356,12 @@ export default function HomeScreen() {
     // جلب أحدث الصلاحيات من الخادم بدلاً من الاعتماد على نسخة الجلسة القديمة.
     void refreshUser();
   }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUser();
+      return undefined;
+    }, [refreshUser])
+  );
 
   useEffect(() => {
     let active = true;
