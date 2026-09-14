@@ -59,8 +59,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
 
   {
     id: "employee_performance",
-    labelAr: "أداء المندوب",
-    labelEn: "Representative Performance",
+    labelAr: "تقييم أداء الموظفين",
+    labelEn: "Employee Performance",
     icon: "assessment",
     color: "#059669",
     route: "/employee-performance",
@@ -69,6 +69,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     section: "reports",
     departments: [],
     isShared: true,
+  },
+  {
+    id: "representative_performance",
+    labelAr: "أداء المندوب",
+    labelEn: "Representative Performance",
+    icon: "badge",
+    color: "#c2410c",
+    route: "/representative-performance",
+    descriptionAr: "طلبات وزيارات وتحصيل وتصنيع خاص لكل مندوب",
+    descriptionEn: "Orders, visits, collection and custom manufacturing by representative",
+    section: "sales",
+    departments: ["sales", "marketing"],
   },
   {
     id: "product_tracking",

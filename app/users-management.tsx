@@ -37,10 +37,11 @@ const ALL_SECTIONS_AR = [
   { id: "production", label: "الإنتاج" },
   { id: "manufacturing", label: "مراحل تسليم الإنتاج" },
   { id: "sales", label: "المبيعات والتحصيل" },
+  { id: "representative_performance", label: "أداء المندوب" },
   { id: "warehouse", label: "المستودعات" },
   { id: "maintenance", label: "الصيانة" },
   { id: "tasks", label: "المهام" },
-  { id: "employee_performance", label: "أداء المندوب" },
+  { id: "employee_performance", label: "تقييم أداء الموظفين" },
   { id: "server_notifications", label: "الإشعارات الفورية" },
 ];
 
@@ -48,10 +49,11 @@ const ALL_SECTIONS_EN = [
   { id: "production", label: "Production" },
   { id: "manufacturing", label: "Manufacturing Delivery Stages" },
   { id: "sales", label: "Sales and Collection" },
+  { id: "representative_performance", label: "Representative Performance" },
   { id: "warehouse", label: "Warehouses" },
   { id: "maintenance", label: "Maintenance" },
   { id: "tasks", label: "Tasks" },
-  { id: "employee_performance", label: "Representative Performance" },
+  { id: "employee_performance", label: "Employee Performance" },
   { id: "server_notifications", label: "Instant Notifications" },
 ];
 

@@ -61,7 +61,7 @@ const COOKIE_NAME = "session_id";
 
 // قوائم الصلاحيات الرسمية: لا تُضاف أي صلاحية تلقائياً، وأي قيمة خارجها تُرفض من الخادم.
 const DASHBOARD_PERMISSION_IDS = new Set([
-  "production", "employee_performance", "product_tracking", "daily_summary", "products_catalog", "production_costs", "manufacturing", "sample_requests", "sales", "warehouse", "maintenance", "financial", "administrative", "tasks", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "server_notifications", "government_tenders",
+  "production", "employee_performance", "representative_performance", "product_tracking", "daily_summary", "products_catalog", "production_costs", "manufacturing", "sample_requests", "sales", "warehouse", "maintenance", "financial", "administrative", "tasks", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "server_notifications", "government_tenders",
 ]);
 const EXTRA_TOOL_PERMISSION_IDS = new Set([
   "reports", "notifications_center", "export_data", "activity_log", "production_export", "waste_alerts", "reports_analytics", "section_reports", "users_management", "backup_restore", "machines_comparison", "share_reports",

@@ -6,12 +6,18 @@ const dashboard = readFileSync(resolve(process.cwd(), "app/(tabs)/index.tsx"), "
 const usersManagement = readFileSync(resolve(process.cwd(), "app/users-management.tsx"), "utf8");
 const server = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
 const extraTools = readFileSync(resolve(process.cwd(), "app/admin-tools-permissions.tsx"), "utf8");
+const representativeScreen = readFileSync(resolve(process.cwd(), "app/representative-performance.tsx"), "utf8");
 
 describe("Official representative performance permission", () => {
-  it("keeps the feature in the main dashboard definition", () => {
+  it("keeps separate employee and representative performance icons", () => {
     expect(dashboard).toContain('id: "employee_performance"');
-    expect(dashboard).toContain('labelAr: "أداء المندوب"');
+    expect(dashboard).toContain('labelAr: "تقييم أداء الموظفين"');
     expect(dashboard).toContain('route: "/employee-performance"');
+    expect(dashboard).toContain('id: "representative_performance"');
+    expect(dashboard).toContain('labelAr: "أداء المندوب"');
+    expect(dashboard).toContain('route: "/representative-performance"');
+    expect(representativeScreen).toContain("orders_visits");
+    expect(representativeScreen).toContain("custom_manufacturing");
   });
 
   it("does not classify the feature as an extra tool", () => {
@@ -25,7 +31,9 @@ describe("Official representative performance permission", () => {
   });
 
   it("exposes the official permission in Arabic and English user management lists", () => {
-    expect(usersManagement).toContain('{ id: "employee_performance", label: "أداء المندوب" }');
-    expect(usersManagement).toContain('{ id: "employee_performance", label: "Representative Performance" }');
+    expect(usersManagement).toContain('{ id: "employee_performance", label: "تقييم أداء الموظفين" }');
+    expect(usersManagement).toContain('{ id: "representative_performance", label: "أداء المندوب" }');
+    expect(usersManagement).toContain('{ id: "employee_performance", label: "Employee Performance" }');
+    expect(usersManagement).toContain('{ id: "representative_performance", label: "Representative Performance" }');
   });
 });
