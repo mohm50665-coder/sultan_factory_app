@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { employeePerformanceService } from "@/lib/services/api.service";
+import { collectionService, maintenanceEntriesService } from "@/lib/services/data.service";
 import { calculateAchievementPercentage, getPerformanceRating, getPerformanceRatingLabel } from "@/shared/performance";
 
 const PERIODS = [
@@ -132,6 +133,7 @@ export default function EmployeePerformanceScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [activityRows, setActivityRows] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -140,11 +142,16 @@ export default function EmployeePerformanceScreen() {
     setLoading(true);
     setError("");
     try {
-      const [employeeRows, reportRows] = await Promise.all([
+      const [employeeRows, reportRows, orderRows, customRows, collectionRows] = await Promise.all([
         employeePerformanceService.listEmployees(),
         employeePerformanceService.list(),
+        maintenanceEntriesService.getBySection("orders_visits"),
+        maintenanceEntriesService.getBySection("custom_manufacturing"),
+        collectionService.getAll(),
       ]);
       const safeEmployees = Array.isArray(employeeRows) ? employeeRows : [];
+      const normalizeRows = (rows: any[]) => rows.map((row: any) => ({ ...row, ...(row.data || {}) }));
+      setActivityRows([...normalizeRows(Array.isArray(orderRows) ? orderRows : []), ...normalizeRows(Array.isArray(customRows) ? customRows : []), ...normalizeRows(Array.isArray(collectionRows) ? collectionRows : [])]);
       setEmployees(safeEmployees);
       setReports(Array.isArray(reportRows) ? reportRows : []);
       if (!selectedUserId && !canManage && safeEmployees[0]?.id) setSelectedUserId(Number(safeEmployees[0].id));
@@ -300,12 +307,20 @@ export default function EmployeePerformanceScreen() {
       {loading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 30 }} /> : error ? <Text style={{ color: colors.error, textAlign: "right", padding: 16 }}>{error}</Text> : summaries.map((summary) => {
         const employee = summary.employee;
         const rating = getPerformanceRating(summary.achievement);
+        const employeeActivities = activityRows.filter((row) => {
+          const owner = String(row.userId ?? row.createdBy ?? row.salesRepName ?? row.collectorName ?? row.sellerName ?? row.workerName ?? "");
+          return owner === String(employee.id) || owner === String(employee.name || employee.username || "");
+        });
+        const orderVisitCount = employeeActivities.filter((row) => row.customerName || row.customerStatus || row.visitReport).length;
+        const customManufacturingCount = employeeActivities.filter((row) => row.clientCommercialName || row.productName && row.requestType).length;
+        const collectionCount = employeeActivities.filter((row) => row.receiptNumber || row.receiptDate || row.collectorName).length;
         return <View key={employee.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={[styles.cardHeader, { flexDirection: isRtl ? "row-reverse" : "row" }]}>
             <View style={{ flex: 1 }}><Text style={[styles.name, { color: colors.foreground, textAlign: isRtl ? "right" : "left" }]}>{employee.name || employee.username}</Text><Text style={[styles.meta, { color: colors.muted, textAlign: isRtl ? "right" : "left" }]}>{isAr ? "اسم المستخدم: " : "Username: "}{employee.username || "—"}</Text><Text style={[styles.meta, { color: colors.muted, textAlign: isRtl ? "right" : "left" }]}>{employee.phone || "—"} · {employee.email || "—"}</Text><Text style={[styles.meta, { color: colors.muted, textAlign: isRtl ? "right" : "left" }]}>{employee.department || "—"} · {employee.position || "—"}</Text></View>
             <View style={[styles.rateBadge, { backgroundColor: `${ratingColor(summary.achievement)}18` }]}><Text style={{ fontSize: 18, fontWeight: "800", color: ratingColor(summary.achievement) }}>{summary.achievement.toFixed(2)}%</Text><Text style={{ fontSize: 10, color: ratingColor(summary.achievement), fontWeight: "700" }}>{getPerformanceRatingLabel(rating, isAr ? "ar" : "en")}</Text></View>
           </View>
           <View style={styles.dataGrid}>{[[isAr ? "عدد الأهداف" : "Goals", summary.goalCount], [isAr ? "أهداف مكتملة" : "Completed Goals", summary.completedGoals], [isAr ? "أهداف غير مكتملة" : "Pending Goals", summary.pendingGoals], [isAr ? "ساعات العمل" : "Work Hours", summary.hours]].map(([label, value]) => <View key={String(label)} style={[styles.dataCell, { borderColor: colors.border }]}><Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text><Text style={{ color: colors.foreground, fontWeight: "800", marginTop: 3 }}>{value}</Text></View>)}</View>
+          <View style={[styles.dataGrid, { marginTop: 8 }]}>{[[isAr ? "الطلبات والزيارات" : "Orders & Visits", orderVisitCount], [isAr ? "التصنيع الخاص" : "Custom Manufacturing", customManufacturingCount], [isAr ? "عمليات التحصيل" : "Collections", collectionCount]].map(([label, value]) => <View key={String(label)} style={[styles.dataCell, { borderColor: colors.border }]}><Text style={{ color: colors.muted, fontSize: 10 }}>{label}</Text><Text style={{ color: colors.foreground, fontWeight: "800", marginTop: 3 }}>{value}</Text></View>)}</View>
           <View style={styles.separateCards}>
             <View style={[styles.rewardCard, { backgroundColor: "#f0fdf4", borderColor: "#86efac" }]}><MaterialIcons name="workspace-premium" size={24} color="#15803d" /><Text style={styles.rewardTitle}>{isAr ? "المكافآت" : "Rewards"}</Text><Text style={styles.rewardValue}>{summary.rewards} {isAr ? "ر.س" : "SAR"}</Text></View>
             <View style={[styles.rewardCard, { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }]}><MaterialIcons name="gavel" size={24} color="#b91c1c" /><Text style={[styles.rewardTitle, { color: "#991b1b" }]}>{isAr ? "الجزاءات" : "Penalties"}</Text><Text style={[styles.rewardValue, { color: "#b91c1c" }]}>{summary.penalties} {isAr ? "ر.س" : "SAR"}</Text></View>
