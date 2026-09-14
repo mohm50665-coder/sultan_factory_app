@@ -625,6 +625,13 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 24 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -784,7 +791,7 @@ export default function HomeScreen() {
       )}
 
       {/* Grid */}
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <View>
         <View style={[styles.reorderToolbar, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start" }}>
             <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 13 }}>{isAr ? "ترتيب الأيقونات الرئيسية" : "Arrange Main Icons"}</Text>
@@ -994,6 +1001,7 @@ export default function HomeScreen() {
             </View>
           </>
         )}
+      </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -1057,7 +1065,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     padding: 10,
+    paddingBottom: 32,
   },
   reorderToolbar: {
     flexDirection: "row",
