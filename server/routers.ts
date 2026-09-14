@@ -84,6 +84,25 @@ const normalizeToolPermissions = (value: unknown): Record<string, boolean> => {
   return Object.fromEntries(Object.entries(parsed).filter(([id, enabled]) => EXTRA_TOOL_PERMISSION_IDS.has(id) && enabled === true).map(([id]) => [id, true]));
 };
 
+const REPRESENTATIVE_SECTIONS = new Set(["orders_visits", "custom_manufacturing", "collection"]);
+
+function hasPermission(user: any, permission: string) {
+  if (user?.role === "admin") return true;
+  const sections = normalizeAllowedSections(user?.allowedSections);
+  const tools = normalizeToolPermissions(user?.toolPermissions);
+  return sections.includes(permission) || tools[permission] === true;
+}
+
+function canUseRepresentativeModule(user: any) {
+  return hasPermission(user, "representative_performance") || hasPermission(user, "sales");
+}
+
+function assertRepresentativeAccess(user: any, section: string) {
+  if (REPRESENTATIVE_SECTIONS.has(section) && !canUseRepresentativeModule(user)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية وحدة أداء المندوب" });
+  }
+}
+
 const AUTO_HANDOVER_START_DATE = "2026-09-10";
 const MANUFACTURING_STAGE_ORDER = ["production", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"] as const;
 const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
@@ -1941,9 +1960,10 @@ export const appRouter = router({
 
   // ===== MAINTENANCE ENTRIES ROUTER (generic JSON) =====
   maintenanceEntries: router({
-    getBySection: publicProcedure
+    getBySection: protectedProcedure
       .input(z.object({ section: z.string() }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        assertRepresentativeAccess(ctx.user, input.section);
         const db = await getDb();
         if (!db) return [];
         const result = await db.execute(
@@ -1952,7 +1972,7 @@ export const appRouter = router({
         return result[0] || [];
       }),
 
-    create: publicProcedure
+    create: protectedProcedure
       .input(z.object({
         section: z.string(),
         entryPerson: z.string().optional(),
@@ -1960,7 +1980,8 @@ export const appRouter = router({
         data: z.any(),
         userId: z.number().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
+        assertRepresentativeAccess(ctx.user, input.section);
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
         const result = await db.execute(
@@ -1969,26 +1990,32 @@ export const appRouter = router({
         return { success: true, id: (result[0] as any).insertId };
       }),
 
-    update: publicProcedure
+    update: protectedProcedure
       .input(z.object({
         id: z.number(),
         data: z.any(),
         date: z.string().optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const existing = await db.execute(sql`SELECT section FROM maintenance_entries WHERE id = ${input.id} LIMIT 1`);
+        const section = String((existing[0] as unknown as any[])?.[0]?.section || "");
+        assertRepresentativeAccess(ctx.user, section);
         await db.execute(
           sql`UPDATE maintenance_entries SET data = ${JSON.stringify(input.data)}, date = ${input.date || ''} WHERE id = ${input.id}`
         );
         return { success: true };
       }),
 
-    delete: publicProcedure
+    delete: protectedProcedure
       .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ ctx, input }) => {
         const db = await getDb();
         if (!db) throw new Error("\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a \u063a\u064a\u0631 \u0645\u062a\u0627\u062d\u0629");
+        const existing = await db.execute(sql`SELECT section FROM maintenance_entries WHERE id = ${input.id} LIMIT 1`);
+        const section = String((existing[0] as unknown as any[])?.[0]?.section || "");
+        assertRepresentativeAccess(ctx.user, section);
         await db.execute(sql`DELETE FROM maintenance_entries WHERE id = ${input.id}`);
         return { success: true };
       }),

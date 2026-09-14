@@ -46,14 +46,33 @@ interface OrderVisitEntry {
   shopLicense: string;
   ownerName: string;
   ownerPhone: string;
+  clientEmail: string;
+  taxNumber: string;
+  mapLocation: string;
+  deliveryDate: string;
+  paymentMethod: "cash" | "transfer" | "credit";
+  paymentAmount: string;
+  paymentReceiptNumber: string;
+  paymentReceiptDate: string;
+  creditDays: "30" | "60" | "90";
+  customerSignature: string;
+  representativeSignature: string;
   // بيانات المندوب (تلقائية)
   salesRepName: string;
   salesRepPhone: string;
   // حالة الاعتماد
   approvalStatus: string; // "pending" | "approved" | "rejected"
+  approvalTime?: string;
+  rejectionReason?: string;
   // حالة التجهيز من المستودع
   warehouseStatus: string; // "" | "ready" | "not_ready" | "partial"
   warehouseNotes: string;
+  warehouseResponseTime?: string;
+  invoiceNumber?: string;
+  invoiceAttachment?: AttachmentFile[];
+  representativeReceived?: boolean;
+  representativeReceivedAt?: string;
+  closedAt?: string;
   date: string;
 }
 
@@ -83,6 +102,17 @@ export default function OrdersVisitsScreen() {
   const [shopLicense, setShopLicense] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [taxNumber, setTaxNumber] = useState("");
+  const [mapLocation, setMapLocation] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "credit">("cash");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentReceiptNumber, setPaymentReceiptNumber] = useState("");
+  const [paymentReceiptDate, setPaymentReceiptDate] = useState("");
+  const [creditDays, setCreditDays] = useState<"30" | "60" | "90">("30");
+  const [customerSignature, setCustomerSignature] = useState("");
+  const [representativeSignature, setRepresentativeSignature] = useState("");
 
   useEffect(() => {
     loadEntries();
@@ -118,6 +148,17 @@ export default function OrdersVisitsScreen() {
     setShopLicense("");
     setOwnerName("");
     setOwnerPhone("");
+    setClientEmail("");
+    setTaxNumber("");
+    setMapLocation("");
+    setDeliveryDate("");
+    setPaymentMethod("cash");
+    setPaymentAmount("");
+    setPaymentReceiptNumber("");
+    setPaymentReceiptDate("");
+    setCreditDays("30");
+    setCustomerSignature("");
+    setRepresentativeSignature("");
     setEditingEntry(null);
   };
 
@@ -142,11 +183,30 @@ export default function OrdersVisitsScreen() {
       shopLicense,
       ownerName,
       ownerPhone,
+      clientEmail,
+      taxNumber,
+      mapLocation,
+      deliveryDate,
+      paymentMethod,
+      paymentAmount,
+      paymentReceiptNumber,
+      paymentReceiptDate,
+      creditDays,
+      customerSignature,
+      representativeSignature,
       salesRepName: user?.name || "",
       salesRepPhone: user?.phone || "",
       approvalStatus: "pending",
+      approvalTime: "",
+      rejectionReason: "",
       warehouseStatus: "",
       warehouseNotes: "",
+      warehouseResponseTime: "",
+      invoiceNumber: "",
+      invoiceAttachment: [],
+      representativeReceived: false,
+      representativeReceivedAt: "",
+      closedAt: "",
     };
 
     try {
@@ -186,6 +246,17 @@ export default function OrdersVisitsScreen() {
     setShopLicense(entry.shopLicense || "");
     setOwnerName(entry.ownerName || "");
     setOwnerPhone(entry.ownerPhone || "");
+    setClientEmail(entry.clientEmail || "");
+    setTaxNumber(entry.taxNumber || "");
+    setMapLocation(entry.mapLocation || "");
+    setDeliveryDate(entry.deliveryDate || "");
+    setPaymentMethod(entry.paymentMethod || "cash");
+    setPaymentAmount(entry.paymentAmount || "");
+    setPaymentReceiptNumber(entry.paymentReceiptNumber || "");
+    setPaymentReceiptDate(entry.paymentReceiptDate || "");
+    setCreditDays(entry.creditDays || "30");
+    setCustomerSignature(entry.customerSignature || "");
+    setRepresentativeSignature(entry.representativeSignature || "");
     setEditingEntry(entry);
     setShowForm(true);
   };
@@ -229,6 +300,8 @@ export default function OrdersVisitsScreen() {
       await maintenanceEntriesService.update(Number(entry.id), {
         ...entry,
         approvalStatus: decision,
+        approvalTime: new Date().toISOString(),
+        rejectionReason: decision === "rejected" ? "تم الرفض من شاشة الاعتماد" : "",
       });
       await notificationsService.add({
         type: "admin",
@@ -270,6 +343,7 @@ export default function OrdersVisitsScreen() {
         ...entry,
         warehouseStatus: status,
         warehouseNotes: notes,
+        warehouseResponseTime: new Date().toISOString(),
       });
       await notificationsService.add({
         type: "admin",
@@ -329,6 +403,9 @@ export default function OrdersVisitsScreen() {
           {isAr ? "الحالة: " : "Status: "}
           {isAr ? (item.customerStatus === "order" ? "طلب" : item.customerStatus === "visit" ? "زيارة" : "مرتجع") : item.customerStatus}
         </Text>
+        {item.deliveryDate && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "موعد التسليم: " : "Delivery date: "}{item.deliveryDate}</Text>}
+        {item.paymentMethod && <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>{isAr ? "الدفع: " : "Payment: "}{item.paymentMethod === "cash" ? "نقدي" : item.paymentMethod === "transfer" ? "تحويل" : `آجل ${item.creditDays} يوم`}</Text>}
+        {item.closedAt && <Text style={{ color: "#15803d", fontSize: 12, textAlign: "right" }}>{isAr ? "مغلق بتاريخ: " : "Closed: "}{new Date(item.closedAt).toLocaleString("ar-SA")}</Text>}
         <Text style={{ color: "#687076", fontSize: 13, textAlign: "right" }}>
           {isAr ? "المندوب: " : "Rep: "}{item.salesRepName}
         </Text>
@@ -465,6 +542,22 @@ export default function OrdersVisitsScreen() {
         style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }}
       />
 
+      {/* موعد التسليم */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "موعد التسليم" : "Delivery Date"}</Text>
+      <TextInput value={deliveryDate} onChangeText={setDeliveryDate} placeholder="YYYY-MM-DD" style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }} />
+
+      {/* طريقة الدفع */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 10, justifyContent: "flex-end" }}>
+        {(["cash", "transfer", "credit"] as const).map((method) => <TouchableOpacity key={method} onPress={() => setPaymentMethod(method)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: paymentMethod === method ? "#0a7ea4" : "#f1f5f9" }}><Text style={{ color: paymentMethod === method ? "white" : "#687076", fontWeight: "600" }}>{method === "cash" ? (isAr ? "نقدي" : "Cash") : method === "transfer" ? (isAr ? "تحويل" : "Transfer") : (isAr ? "آجل" : "Credit")}</Text></TouchableOpacity>)}
+      </View>
+      <TextInput value={paymentAmount} onChangeText={setPaymentAmount} placeholder={isAr ? "المبلغ" : "Amount"} keyboardType="numeric" style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
+      {paymentMethod === "credit" ? <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>{(["30", "60", "90"] as const).map((days) => <TouchableOpacity key={days} onPress={() => setCreditDays(days)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: creditDays === days ? "#0a7ea4" : "#f1f5f9" }}><Text style={{ color: creditDays === days ? "white" : "#687076" }}>{days} {isAr ? "يوم" : "days"}</Text></TouchableOpacity>)}</View> : <View style={{ marginBottom: 12 }}><TextInput value={paymentReceiptNumber} onChangeText={setPaymentReceiptNumber} placeholder={isAr ? "رقم سند القبض أو التحويل" : "Receipt / transfer number"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} /><TextInput value={paymentReceiptDate} onChangeText={setPaymentReceiptDate} placeholder={isAr ? "تاريخ السند" : "Receipt date"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }} /></View>}
+
+      {/* التوقيعات */}
+      <TextInput value={customerSignature} onChangeText={setCustomerSignature} placeholder={isAr ? "اسم/توقيع العميل" : "Customer signature"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
+      <TextInput value={representativeSignature} onChangeText={setRepresentativeSignature} placeholder={isAr ? "اسم/توقيع المندوب" : "Representative signature"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }} />
+
       {/* نوع العميل */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "نوع العميل" : "Customer Type"}</Text>
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>
@@ -592,8 +685,11 @@ export default function OrdersVisitsScreen() {
             onChangeText={setOwnerPhone}
             placeholder={isAr ? "جوال المالك" : "Owner Phone"}
             keyboardType="phone-pad"
-            style={{ backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
+            style={{ backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }}
           />
+          <TextInput value={taxNumber} onChangeText={setTaxNumber} placeholder={isAr ? "الرقم الضريبي" : "Tax Number"} style={{ backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
+          <TextInput value={clientEmail} onChangeText={setClientEmail} placeholder={isAr ? "البريد الإلكتروني" : "Email"} keyboardType="email-address" style={{ backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
+          <TextInput value={mapLocation} onChangeText={setMapLocation} placeholder={isAr ? "رابط موقع العميل على الخريطة" : "Customer map location"} style={{ backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }} />
         </View>
       )}
 

@@ -42,9 +42,17 @@ interface CustomManufacturingEntry {
   size: string;
   orderType: string; // "sample" | "product"
   quantity: string;
-  unit: string;
+  unit: string; // "dozen" | "pair"
+  productType: string;
+  yarnRatios: { cotton: string; bamboo: string; nylon: string; polyester: string; elastic: string; spandex: string };
   dateFrom: string;
   dateTo: string;
+  sampleQuantity?: number;
+  transferReceiptAttachment?: AttachmentFile[];
+  customerSignature?: string;
+  representativeSignature?: string;
+  rejectionReason?: string;
+  resolutionAction?: string;
   // المرفقات المطلوبة
   attachments: AttachmentFile[];
   manufacturingFormAttachment: AttachmentFile[];
@@ -88,10 +96,18 @@ export default function CustomManufacturingScreen() {
   const [orderType, setOrderType] = useState<"sample" | "product">("product");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState<"dozen" | "pair">("dozen");
+  const [productType, setProductType] = useState("");
+  const [yarnRatios, setYarnRatios] = useState({ cotton: "", bamboo: "", nylon: "", polyester: "", elastic: "", spandex: "" });
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [sampleQuantity, setSampleQuantity] = useState("1");
+  const [transferReceiptAttachment, setTransferReceiptAttachment] = useState<AttachmentFile[]>([]);
+  const [customerSignature, setCustomerSignature] = useState("");
+  const [representativeSignature, setRepresentativeSignature] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [resolutionAction, setResolutionAction] = useState("");
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [manufacturingFormAttachment, setManufacturingFormAttachment] = useState<AttachmentFile[]>([]);
   const [commercialRegAttachment, setCommercialRegAttachment] = useState<AttachmentFile[]>([]);
@@ -223,10 +239,18 @@ export default function CustomManufacturingScreen() {
     setOrderType("product");
     setQuantity("");
     setUnit("dozen");
+    setProductType("");
+    setYarnRatios({ cotton: "", bamboo: "", nylon: "", polyester: "", elastic: "", spandex: "" });
     setDateFrom("");
     setDateTo("");
     setOrderDate(new Date().toISOString().split("T")[0]);
     setDeliveryDate("");
+    setSampleQuantity("1");
+    setTransferReceiptAttachment([]);
+    setCustomerSignature("");
+    setRepresentativeSignature("");
+    setRejectionReason("");
+    setResolutionAction("");
     setAttachments([]);
     setManufacturingFormAttachment([]);
     setCommercialRegAttachment([]);
@@ -257,10 +281,18 @@ export default function CustomManufacturingScreen() {
       orderType,
       quantity,
       unit,
+      productType,
+      yarnRatios,
       dateFrom,
       dateTo,
       orderDate,
       deliveryDate,
+      sampleQuantity: orderType === "sample" ? Math.min(5, Math.max(1, Number(sampleQuantity) || 1)) : undefined,
+      transferReceiptAttachment,
+      customerSignature,
+      representativeSignature,
+      rejectionReason,
+      resolutionAction,
       attachments,
       manufacturingFormAttachment,
       commercialRegAttachment,
@@ -311,10 +343,18 @@ export default function CustomManufacturingScreen() {
     setOrderType((entry.orderType as any) || "product");
     setQuantity(entry.quantity || "");
     setUnit((entry.unit as any) || "dozen");
+    setProductType(entry.productType || "");
+    setYarnRatios(entry.yarnRatios || { cotton: "", bamboo: "", nylon: "", polyester: "", elastic: "", spandex: "" });
     setDateFrom(entry.dateFrom || "");
     setDateTo(entry.dateTo || "");
     setOrderDate(entry.orderDate || new Date().toISOString().split("T")[0]);
     setDeliveryDate(entry.deliveryDate || "");
+    setSampleQuantity(String(entry.sampleQuantity || 1));
+    setTransferReceiptAttachment(entry.transferReceiptAttachment || []);
+    setCustomerSignature(entry.customerSignature || "");
+    setRepresentativeSignature(entry.representativeSignature || "");
+    setRejectionReason(entry.rejectionReason || "");
+    setResolutionAction(entry.resolutionAction || "");
     setAttachments(entry.attachments || []);
     setManufacturingFormAttachment(entry.manufacturingFormAttachment || []);
     setCommercialRegAttachment(entry.commercialRegAttachment || []);
@@ -765,6 +805,16 @@ export default function CustomManufacturingScreen() {
         ))}
       </View>
 
+      {/* نوع المنتج */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "نوع المنتج" : "Product Type"}</Text>
+      <TextInput value={productType} onChangeText={setProductType} placeholder={isAr ? "صيفي، شتوي، رياضي، مانع انزلاق، عسكري" : "Summer, winter, sports, antislip, military"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }} />
+
+      {orderType === "sample" && <View style={{ backgroundColor: "#fff7ed", borderRadius: 10, padding: 12, marginBottom: 12 }}><Text style={{ color: "#9a3412", fontWeight: "700", textAlign: "right", marginBottom: 6 }}>{isAr ? "كمية العينة (من 1 إلى 5 أزواج)" : "Sample quantity (1 to 5 pairs)"}</Text><TextInput value={sampleQuantity} onChangeText={(value) => setSampleQuantity(String(Math.min(5, Math.max(1, Number(value) || 1))))} keyboardType="numeric" style={{ backgroundColor: "white", borderRadius: 8, padding: 10, textAlign: "right" }} /><Text style={{ color: "#9a3412", fontSize: 11, textAlign: "right", marginTop: 5 }}>{isAr ? "يُرفق إيصال التحويل بقيمة 80 ريال" : "Attach the SAR 80 transfer receipt"}</Text><AttachmentPicker attachments={transferReceiptAttachment} onAttachmentsChange={setTransferReceiptAttachment} maxAttachments={1} /></View>}
+
+      {/* التوقيعات */}
+      <TextInput value={customerSignature} onChangeText={setCustomerSignature} placeholder={isAr ? "توقيع العميل" : "Customer signature"} style={{ backgroundColor: "white", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
+      <TextInput value={representativeSignature} onChangeText={setRepresentativeSignature} placeholder={isAr ? "توقيع المندوب" : "Representative signature"} style={{ backgroundColor: "white", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }} />
+
       {/* الكمية والوحدة */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "الكمية *" : "Quantity *"}</Text>
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
@@ -790,6 +840,10 @@ export default function CustomManufacturingScreen() {
           style={{ flex: 1, backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
         />
       </View>
+
+      {/* نسب الخيوط */}
+      <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "نسب الخيوط المطلوبة (%)" : "Required Yarn Ratios (%)"}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>{Object.entries(yarnRatios).map(([key, value]) => <TextInput key={key} value={value} onChangeText={(next) => setYarnRatios((current) => ({ ...current, [key]: next }))} placeholder={key === "cotton" ? "قطن %" : key === "bamboo" ? "بامبو %" : key === "nylon" ? "نايلون %" : key === "polyester" ? "بوليستر %" : key === "elastic" ? "مطاط %" : "اسباندكس %"} keyboardType="numeric" style={{ flexGrow: 1, minWidth: "30%", backgroundColor: "white", borderRadius: 8, padding: 10, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }} />)}</View>
 
       {/* مدة الإنتاج */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "مدة الإنتاج المطلوبة" : "Required Production Period"}</Text>
@@ -872,6 +926,10 @@ export default function CustomManufacturingScreen() {
         onAttachmentsChange={setAttachments}
         maxAttachments={10}
       />
+
+      {/* الحل والرفض */}
+      <TextInput value={rejectionReason} onChangeText={setRejectionReason} placeholder={isAr ? "سبب الرفض (إن وجد)" : "Rejection reason (if any)"} multiline style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8, minHeight: 55 }} />
+      <TextInput value={resolutionAction} onChangeText={setResolutionAction} placeholder={isAr ? "الحل أو الإجراء المتخذ لإعادة التوجيه" : "Resolution or corrective action"} multiline style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12, minHeight: 55 }} />
 
       {/* ملاحظات */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6, marginTop: 12 }}>{isAr ? "ملاحظات" : "Notes"}</Text>
