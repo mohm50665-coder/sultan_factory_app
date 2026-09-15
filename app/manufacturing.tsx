@@ -20,6 +20,8 @@ interface ManufacturingStage {
 }
 
 const MANUFACTURING_STAGE_IDS = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
+// إنتاج المكائن يتم إدخاله من شاشة الإنتاج وينتقل آلياً إلى الروسو؛ لا يظهر كبطاقة إدخال مستقلة هنا.
+const VISIBLE_HANDOVER_STAGE_IDS = MANUFACTURING_STAGE_IDS.filter((stageId) => stageId !== "machines");
 
 // Default stage config (used as fallback if server has no workers)
 const DEFAULT_STAGES = {
@@ -66,7 +68,7 @@ export default function ManufacturingScreen() {
         }
 
         // Build stages array
-        const builtStages: ManufacturingStage[] = MANUFACTURING_STAGE_IDS.map((id) => {
+        const builtStages: ManufacturingStage[] = VISIBLE_HANDOVER_STAGE_IDS.map((id) => {
           const def = DEFAULT_STAGES[id as keyof typeof DEFAULT_STAGES];
           const serverWorkers = workersByStage[id];
           const workers = serverWorkers || [];
@@ -81,7 +83,7 @@ export default function ManufacturingScreen() {
         setStages(builtStages);
       } catch (e) {
         console.log("Error loading workers from server:", e);
-        setStages(MANUFACTURING_STAGE_IDS.map((id) => {
+        setStages(VISIBLE_HANDOVER_STAGE_IDS.map((id) => {
           const def = DEFAULT_STAGES[id as keyof typeof DEFAULT_STAGES];
           return { id, label: isAr ? def.labelAr : def.labelEn, icon: def.icon, color: def.color, workers: [] };
         }));

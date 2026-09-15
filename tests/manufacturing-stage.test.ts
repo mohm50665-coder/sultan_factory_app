@@ -1,4 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const manufacturingScreen = readFileSync(resolve(process.cwd(), "app/manufacturing.tsx"), "utf8");
+const routersSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
 
 // بيانات العمال لكل مرحلة (نسخة من الشاشة للاختبار)
 const STAGE_CONFIG: Record<
@@ -121,6 +126,18 @@ describe("Manufacturing Stage Configuration", () => {
       expect(storageKey).toBeTruthy();
       expect(storageKey).toContain("sultan_manufacturing_");
     });
+  });
+});
+
+describe("Automatic production handover visibility", () => {
+  it("hides machine production from the handover stage cards while retaining Rosso", () => {
+    expect(manufacturingScreen).toContain('VISIBLE_HANDOVER_STAGE_IDS = MANUFACTURING_STAGE_IDS.filter((stageId) => stageId !== "machines")');
+    expect(manufacturingScreen).toContain('const builtStages: ManufacturingStage[] = VISIBLE_HANDOVER_STAGE_IDS.map');
+    expect(manufacturingScreen).toContain('router.push(`/manufacturing-stage?stage=${stageId}` as any)');
+    expect(routersSource).toContain('await createInitialProductionHandover(db, entry, ctx.user);');
+    expect(routersSource).toContain('stageName: "production"');
+    expect(routersSource).toContain('movementStatus: "delivered" as const');
+    expect(routersSource).toContain('receiverStage: "rosso"');
   });
 });
 
