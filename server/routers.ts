@@ -1153,7 +1153,10 @@ export const appRouter = router({
           samePersonName(account.workerName, receiverName) ||
           samePersonName(account.username, receiverUsername),
         );
-        if (!isEligibleReceiver) return [];
+        // إذا كانت المرحلة التالية مرتبطة بحساب واحد فعّال فقط، فالمعرف هو مصدر الحقيقة
+        // حتى لو كان السجل القديم محفوظاً باسم مختصر/قديم مختلف عن اسم الحساب الحالي.
+        const isSoleStageReceiver = eligibleAccounts.length === 1 && Number(eligibleAccounts[0].id) === Number(ctx.user.id);
+        if (!isEligibleReceiver && !isSoleStageReceiver) return [];
 
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
         return rows
@@ -1167,7 +1170,8 @@ export const appRouter = router({
               samePersonName(record.expectedReceiver, receiverName) || samePersonName(record.expectedReceiver, receiverUsername)
             );
             const isLegacyUnassigned = !hasExplicitReceiver && allowedNextStages(record.stageName, record.productType).includes(input.stageName as any);
-            return isAssignedToCurrentUser || isLegacyUnassigned;
+            const isSoleStageAssignment = eligibleAccounts.length === 1 && Number(eligibleAccounts[0].id) === Number(ctx.user.id);
+            return isAssignedToCurrentUser || isLegacyUnassigned || (isSoleStageAssignment && record.receiverStage === input.stageName);
           })
           .map((record: any) => {
             const isLegacyUnassigned = !String(record.receiverStage || "").trim() || !String(record.expectedReceiver || "").trim();
@@ -1269,12 +1273,16 @@ export const appRouter = router({
         );
         const legacyDestinationStage = allowedNextStages(record.stageName, record.productType)[0] || null;
         const isLegacyUnassigned = !expectedReceiver || !receiverStage;
-        if (!isExplicitlyAssigned && !isLegacyUnassigned) throw new Error("هذا السجل مخصص لموظف آخر");
+        const assignedStage = receiverStage || legacyDestinationStage || "";
+        const eligibleAssignedAccounts = assignedStage ? await getEligibleStageAccounts(db, assignedStage) : [];
+        const isSoleStageReceiver = eligibleAssignedAccounts.length === 1 && Number(eligibleAssignedAccounts[0].id) === Number(ctx.user.id);
+        if (!isExplicitlyAssigned && !isLegacyUnassigned && !isSoleStageReceiver) throw new Error("هذا السجل مخصص لموظف آخر");
         if (!isAutomaticHandoverActive(record.date)) {
           await db.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt: new Date() }).where(eq(manufacturingStagesTable.id, input.id));
           return { success: true, mode: "legacy" as const };
         }
-        const destinationStage = receiverStage || legacyDestinationStage || "";
+        const destinationStage = assignedStage;
+        const canonicalReceiverName = isSoleStageReceiver ? receiverName : (expectedReceiver || receiverName);
         if (!MANUFACTURING_STAGE_ORDER.includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير صحيحة");
         if (!allowedNextStages(record.stageName, record.productType).includes(destinationStage as any)) throw new Error("مرحلة الاستلام التالية غير مسموحة");
         if (isLegacyUnassigned) {
@@ -1285,9 +1293,16 @@ export const appRouter = router({
         const receivedAt = new Date();
         const destinationKey = `AUTO_STAGE:${record.id}`;
         const destinationRows = await db.select().from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
-        if (destinationRows[0]) throw new Error("تم إنشاء عهدة المرحلة الحالية مسبقاً");
+        if (destinationRows[0]) {
+          const existing = destinationRows[0];
+          const sourceNow = await db.select({ movementStatus: manufacturingStagesTable.movementStatus, receivedAt: manufacturingStagesTable.receivedAt }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, record.id)).limit(1);
+          if (sourceNow[0]?.movementStatus === "received" && sourceNow[0]?.receivedAt && existing.stageName === destinationStage && existing.movementStatus === "received") {
+            return { success: true, id: existing.id, stageName: destinationStage, mode: "automatic" as const, idempotent: true };
+          }
+          throw new Error("تعذر مطابقة عهدة المرحلة التالية؛ لم يتم تسجيل نجاح العملية");
+        }
         const result = await db.transaction(async (tx: any) => {
-          await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: expectedReceiver || receiverName, receiverStage: receiverStage || destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
+          await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: canonicalReceiverName, receiverStage: destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
             workerName: receiverName,
@@ -1331,6 +1346,11 @@ export const appRouter = router({
           });
           return created[0].insertId;
         });
+        const verifiedSource = await db.select({ movementStatus: manufacturingStagesTable.movementStatus, receivedAt: manufacturingStagesTable.receivedAt }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, record.id)).limit(1);
+        const verifiedDestination = await db.select({ id: manufacturingStagesTable.id, stageName: manufacturingStagesTable.stageName, movementStatus: manufacturingStagesTable.movementStatus, quantityDozen: manufacturingStagesTable.quantityDozen, quantityPair: manufacturingStagesTable.quantityPair }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, result)).limit(1);
+        if (verifiedSource[0]?.movementStatus !== "received" || !verifiedSource[0]?.receivedAt || verifiedDestination[0]?.stageName !== destinationStage || verifiedDestination[0]?.movementStatus !== "received") {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "لم يثبت النظام انتقال العهدة فعلياً؛ لم يتم تسجيل نجاح العملية" });
+        }
         return { success: true, id: result, stageName: destinationStage, mode: "automatic" as const };
       }),
 
@@ -1416,6 +1436,10 @@ export const appRouter = router({
             userId: ctx.user.id,
           });
         });
+        const verifiedDelivery = await db.select({ movementStatus: manufacturingStagesTable.movementStatus, receiverStage: manufacturingStagesTable.receiverStage, expectedReceiver: manufacturingStagesTable.expectedReceiver }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, record.id)).limit(1);
+        if (verifiedDelivery[0]?.movementStatus !== "delivered" || verifiedDelivery[0]?.receiverStage !== targetStage || !verifiedDelivery[0]?.expectedReceiver) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "لم يثبت النظام حفظ التسليم؛ لم يتم تسجيل نجاح العملية" });
+        }
         const receiverCandidates = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
         const receiver = receiverCandidates.find((candidate: any) => samePersonName(candidate.name, expectedReceiver));
         if (receiver) {

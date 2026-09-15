@@ -196,8 +196,10 @@ export const manufacturingStageService = {
     await trpcCall("manufacturing.restore", { id });
   },
 
-  async confirmReceipt(id: number): Promise<void> {
-    await trpcCall("manufacturing.confirmReceipt", { id });
+  async confirmReceipt(id: number): Promise<{ success: boolean; id?: number; stageName?: string; mode?: string; idempotent?: boolean }> {
+    const result = await trpcCall("manufacturing.confirmReceipt", { id });
+    if (!result?.success) throw new Error("لم يثبت الخادم الاستلام؛ لم يتم تسجيل نجاح العملية");
+    return result;
   },
 
   async listReceiptQueue(stageName: string): Promise<ManufacturingStageData[]> {
