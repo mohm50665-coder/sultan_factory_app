@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import notificationsService from "@/lib/services/notifications.service";
-import { alertsService, employeePerformanceService, productionService, salesService, collectionService } from "@/lib/services/api.service";
+import { alertsService, appSettingsService, employeePerformanceService, productionService, salesService, collectionService } from "@/lib/services/api.service";
 import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
 import { moveVisibleDashboardItem, normalizeDashboardOrder } from "../../lib/dashboard-order";
 
@@ -385,6 +385,7 @@ const EXTRA_DASHBOARD_PERMISSION_IDS = new Set([
 ]);
 
 const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboard_order_${userId || "guest"}`;
+const administrativeIconSettingKey = "show_administrative_icon";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -410,6 +411,7 @@ export default function HomeScreen() {
   const [statsUnavailable, setStatsUnavailable] = useState<string[]>([]);
   const [showDailySummary, setShowDailySummary] = useState(false);
   const [isReorderingIcons, setIsReorderingIcons] = useState(false);
+  const [showAdministrativeIcon, setShowAdministrativeIcon] = useState(false);
   const [dashboardOrder, setDashboardOrder] = useState<string[]>(DASHBOARD_ITEMS.map((item) => item.id));
 
   useEffect(() => {
@@ -422,6 +424,22 @@ export default function HomeScreen() {
       return undefined;
     }, [refreshUser])
   );
+
+  useEffect(() => {
+    let active = true;
+    const loadAdministrativeIconSetting = async () => {
+      try {
+        const result = await appSettingsService.get(administrativeIconSettingKey);
+        const value = typeof result === "string" ? result : result?.value;
+        if (active) setShowAdministrativeIcon(value === "true");
+      } catch (error) {
+        console.error("Error loading administrative icon setting:", error);
+        if (active) setShowAdministrativeIcon(false);
+      }
+    };
+    if (user?.id) void loadAdministrativeIconSetting();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -608,6 +626,7 @@ export default function HomeScreen() {
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
     if (salesManagerOfficialItems.has(item.id)) return false;
+    if (item.id === "administrative" && !showAdministrativeIcon) return false;
     if (user?.role === "admin") return true;
     if (isDepartmentManager && normalizedDepartment === "sales") {
       if (item.id === "sales") return true;
@@ -653,7 +672,24 @@ export default function HomeScreen() {
     Alert.alert(isAr ? "تمت الاستعادة" : "Order restored", isAr ? "تمت استعادة الترتيب الافتراضي للأيقونات." : "The default icon order has been restored.");
   };
 
-    const handleLogout = async () => {
+  const toggleAdministrativeIcon = async () => {
+    if (user?.role !== "admin") return;
+    const nextValue = !showAdministrativeIcon;
+    try {
+      await appSettingsService.set(administrativeIconSettingKey, String(nextValue));
+      setShowAdministrativeIcon(nextValue);
+      Alert.alert(
+        isAr ? "تم تحديث الظهور" : "Visibility updated",
+        nextValue
+          ? (isAr ? "تم إظهار أيقونة الإجراءات الإدارية." : "Administrative Procedures is now visible.")
+          : (isAr ? "تم إخفاء أيقونة الإجراءات الإدارية مع الاحتفاظ بالشاشة والبيانات." : "Administrative Procedures is hidden while its screen and data remain available.")
+      );
+    } catch (error: any) {
+      Alert.alert(isAr ? "تعذر الحفظ" : "Could not save", error?.message || (isAr ? "حاول مرة أخرى." : "Please try again."));
+    }
+  };
+
+  const handleLogout = async () => {
     const confirmMessage = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
     if (Platform.OS === "web") {
       const confirmed = window.confirm(confirmMessage);
@@ -859,12 +895,20 @@ export default function HomeScreen() {
             <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>{isAr ? "يُحفظ ترتيب مستقل لهذا المستخدم تلقائياً" : "A separate order is saved automatically for this user"}</Text>
           </View>
           {isReorderingIcons && (
-            <TouchableOpacity onPress={resetDashboardOrder} style={[styles.reorderAction, { borderColor: colors.border }]}>
+            <TouchableOpacity onPress={resetDashboardOrder} style={[styles.reorderAction, { borderColor: colors.border }]}> 
               <MaterialIcons name="restart-alt" size={18} color="#dc2626" />
               <Text style={{ color: "#dc2626", fontSize: 10, fontWeight: "700" }}>{isAr ? "افتراضي" : "Reset"}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => setIsReorderingIcons((value) => !value)} style={[styles.reorderAction, { backgroundColor: isReorderingIcons ? "#dcfce7" : `${colors.primary}12`, borderColor: isReorderingIcons ? "#86efac" : colors.primary }]}>
+          {user?.role === "admin" && (
+            <TouchableOpacity onPress={toggleAdministrativeIcon} style={[styles.reorderAction, { backgroundColor: showAdministrativeIcon ? "#fef2f2" : "#ecfdf5", borderColor: showAdministrativeIcon ? "#fca5a5" : "#86efac" }]}> 
+              <MaterialIcons name={showAdministrativeIcon ? "visibility-off" : "visibility"} size={18} color={showAdministrativeIcon ? "#dc2626" : "#15803d"} />
+              <Text style={{ color: showAdministrativeIcon ? "#dc2626" : "#15803d", fontSize: 10, fontWeight: "700" }}>
+                {showAdministrativeIcon ? (isAr ? "إخفاء الإدارة" : "Hide Admin") : (isAr ? "إظهار الإدارة" : "Show Admin")}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setIsReorderingIcons((value) => !value)} style={[styles.reorderAction, { backgroundColor: isReorderingIcons ? "#dcfce7" : `${colors.primary}12`, borderColor: isReorderingIcons ? "#86efac" : colors.primary }]}> 
             <MaterialIcons name={isReorderingIcons ? "check" : "reorder"} size={18} color={isReorderingIcons ? "#15803d" : colors.primary} />
             <Text style={{ color: isReorderingIcons ? "#15803d" : colors.primary, fontSize: 10, fontWeight: "700" }}>{isReorderingIcons ? (isAr ? "تم" : "Done") : (isAr ? "ترتيب" : "Arrange")}</Text>
           </TouchableOpacity>

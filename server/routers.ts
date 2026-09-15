@@ -3852,7 +3852,10 @@ export const appRouter = router({
       }),
     set: protectedProcedure
       .input(z.object({ key: z.string(), value: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        if (input.key === "show_administrative_icon" && ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "تغيير ظهور الإجراءات الإدارية من صلاحية الأدمن فقط" });
+        }
         const db = await getDb();
         if (!db) return { success: false };
         const existing = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, input.key)).limit(1);

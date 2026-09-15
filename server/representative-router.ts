@@ -31,7 +31,14 @@ const isAdmin = (user: any) => user?.role === "admin";
 const isSalesManager = (user: any) => isAdmin(user) || (["manager", "supervisor"].includes(user?.role) && matchesDepartment(user?.department, SALES_NAMES)) || normalize(user?.position).includes("مدير المبيعات") || normalize(user?.position).includes("مدير التسويق");
 const isWarehouseManager = (user: any) => isAdmin(user) || (["manager", "supervisor"].includes(user?.role) && matchesDepartment(user?.department, WAREHOUSE_NAMES)) || normalize(user?.position).includes("مدير المستودع");
 const isProductionManager = (user: any) => isAdmin(user) || (["manager", "supervisor"].includes(user?.role) && matchesDepartment(user?.department, PRODUCTION_NAMES)) || normalize(user?.position).includes("مدير الانتاج") || normalize(user?.position).includes("مدير الإنتاج");
-const isRepresentative = (user: any) => isAdmin(user) || matchesDepartment(user?.department, SALES_NAMES) || normalize(user?.position).includes("مندوب");
+const isRepresentativeEmployee = (user: any) => {
+  const role = normalize(user?.role);
+  const position = normalize(user?.position);
+  if (["admin", "manager", "supervisor"].includes(role)) return false;
+  if (position.includes("مدير") || position.includes("مشرف") || position.includes("manager") || position.includes("supervisor")) return false;
+  return position.includes("مندوب") || position.includes("representative") || position.includes("sales rep");
+};
+const isRepresentative = (user: any) => isAdmin(user) || isRepresentativeEmployee(user);
 
 const parseArray = (value: unknown): any[] => {
   if (Array.isArray(value)) return value;
@@ -517,7 +524,7 @@ export const representativeRouter = router({
       if (input?.endDate) collectionConditions.push(lte(representativeCollections.collectionDate, input.endDate));
       const allCollections = await db.select().from(representativeCollections).where(collectionConditions.length ? and(...collectionConditions) : undefined);
       const activeUsers = await db.select().from(users).where(eq(users.isActive, 1));
-      const reps = activeUsers.filter((candidate) => matchesDepartment(candidate.department, SALES_NAMES) && (!input?.representativeId || Number(candidate.id) === input.representativeId));
+      const reps = activeUsers.filter((candidate) => isRepresentativeEmployee(candidate) && (!input?.representativeId || Number(candidate.id) === input.representativeId));
       const visibleReps = isAdmin(ctx.user) || isSalesManager(ctx.user) ? reps : reps.filter((candidate) => Number(candidate.id) === Number(ctx.user.id));
       const representatives = visibleReps.map((rep) => {
         const tx = allTransactions.filter((row) => Number(row.representativeId) === Number(rep.id));
