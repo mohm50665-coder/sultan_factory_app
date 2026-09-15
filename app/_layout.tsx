@@ -101,6 +101,7 @@ function NavigationContent() {
       <Stack.Screen name="production" />
       <Stack.Screen name="production-totals" />
       <Stack.Screen name="sales" />
+      <Stack.Screen name="sales-management" />
       <Stack.Screen name="collection" />
       <Stack.Screen name="warehouse" />
       <Stack.Screen name="warehouse-finished" />

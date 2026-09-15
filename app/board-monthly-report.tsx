@@ -578,7 +578,7 @@ export default function BoardMonthlyReport() {
               <View style={styles.detailHeader}>
                 <MaterialIcons name="point-of-sale" size={20} color="#16A34A" />
                 <Text style={[styles.detailTitle, { color: colors.foreground }]}>
-                  {isAr ? "المبيعات والتحصيل" : "Sales & Collection"}
+                  {isAr ? "إدارة التسويق والمبيعات" : "Marketing & Sales Management"}
                 </Text>
               </View>
               <View style={styles.detailRow}>

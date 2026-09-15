@@ -85,7 +85,7 @@ export default function AdminControlPanel() {
 
   const sections: AdminSection[] = [
     { id: "production", title: isAr ? "الإنتاج" : "Production", icon: "precision-manufacturing", color: "#3B82F6", count: summary?.production || 0 },
-    { id: "sales", title: isAr ? "المبيعات" : "Sales", icon: "point-of-sale", color: "#10B981", count: summary?.sales || 0 },
+    { id: "sales", title: isAr ? "إدارة التسويق والمبيعات" : "Marketing & Sales Management", icon: "business-center", color: "#10B981", count: summary?.sales || 0 },
     { id: "expenses", title: isAr ? "المصروفات" : "Expenses", icon: "account-balance-wallet", color: "#F59E0B", count: summary?.expenses || 0 },
     { id: "tasks", title: isAr ? "المهام" : "Tasks", icon: "assignment", color: "#8B5CF6", count: summary?.tasks || 0 },
     { id: "users", title: isAr ? "المستخدمين" : "Users", icon: "people", color: "#EC4899", count: summary?.users || 0 },
@@ -177,7 +177,7 @@ export default function AdminControlPanel() {
   const navigateToSection = (sectionId: string) => {
     switch (sectionId) {
       case "production": router.push("/production" as any); break;
-      case "sales": router.push("/sales" as any); break;
+      case "sales": router.push("/sales-management" as any); break;
       case "expenses": router.push("/expenses" as any); break;
       case "tasks": router.push("/tasks" as any); break;
       case "users": router.push("/admin-dashboard" as any); break;
@@ -336,7 +336,7 @@ export default function AdminControlPanel() {
       {/* Data Management Cards */}
       {[
         { title: isAr ? "إدارة الإنتاج" : "Production Management", icon: "precision-manufacturing", color: "#3B82F6", desc: isAr ? "عرض وتعديل وحذف بيانات الإنتاج" : "View, edit, and delete production data", route: "/production" },
-        { title: isAr ? "إدارة المبيعات" : "Sales Management", icon: "point-of-sale", color: "#10B981", desc: isAr ? "عرض وتعديل وحذف بيانات المبيعات" : "View, edit, and delete sales data", route: "/sales" },
+        { title: isAr ? "إدارة التسويق والمبيعات" : "Marketing & Sales Management", icon: "business-center", color: "#10B981", desc: isAr ? "التقارير والتقييم والاعتمادات ومتابعة أداء المندوبين" : "Reports, evaluations, approvals and representative oversight", route: "/sales-management" },
         { title: isAr ? "إدارة المصروفات" : "Expenses Management", icon: "account-balance-wallet", color: "#F59E0B", desc: isAr ? "عرض وتعديل وحذف المصروفات" : "View, edit, and delete expenses", route: "/expenses" },
         { title: isAr ? "إدارة المهام" : "Tasks Management", icon: "assignment", color: "#8B5CF6", desc: isAr ? "عرض وتعديل وحذف المهام" : "View, edit, and delete tasks", route: "/tasks" },
         { title: isAr ? "إدارة التكاليف" : "Costs Management", icon: "calculate", color: "#06B6D4", desc: isAr ? "عرض وتعديل وحذف بيانات التكاليف" : "View, edit, and delete costs data", route: "/production-costs" },

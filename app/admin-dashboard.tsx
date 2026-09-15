@@ -51,7 +51,7 @@ const DEFAULT_DEPARTMENTS: Department[] = [
   { id: "antislip", labelAr: "مرحلة مانع الانزلاق", labelEn: "Anti-slip Stage", icon: "layers", isActive: true, parentId: "production" },
   { id: "storage", labelAr: "مرحلة التخزين", labelEn: "Storage Stage", icon: "warehouse", isActive: true, parentId: "production" },
   { id: "administrative", labelAr: "الإجراءات الإدارية والمصروفات", labelEn: "Administrative & Expenses", icon: "admin-panel-settings", isActive: true },
-  { id: "sales", labelAr: "المبيعات والتحصيل", labelEn: "Sales & Collection", icon: "point-of-sale", isActive: true },
+  { id: "sales", labelAr: "إدارة التسويق والمبيعات", labelEn: "Marketing & Sales Management", icon: "business-center", isActive: true },
   { id: "maintenance", labelAr: "الصيانة", labelEn: "Maintenance", icon: "build", isActive: true },
   { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", icon: "groups", isActive: true },
   { id: "warehouse", labelAr: "المستودعات", labelEn: "Warehouse", icon: "warehouse", isActive: true },

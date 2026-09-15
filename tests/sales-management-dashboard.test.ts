@@ -13,8 +13,11 @@ describe("Sales and Marketing management dashboard", () => {
     expect(dashboardSource).toContain('id: "representative_comprehensive_report"');
   });
 
-  it("removes the moved sales entry from the sales manager dashboard", () => {
-    expect(dashboardSource).toContain('if (item.id === "sales" || item.id === "representative_performance") return false;');
+  it("replaces the moved sales entry with one management gateway", () => {
+    expect(dashboardSource).toContain('labelAr: "إدارة التسويق والمبيعات"');
+    expect(dashboardSource).toContain('route: "/sales-management"');
+    expect(dashboardSource).toContain('if (item.id === "sales") return true;');
+    expect(dashboardSource).toContain('if (salesManagerOfficialItems.has(item.id)) return false;');
   });
 
   it("exposes the new entries in the admin permission selector", () => {

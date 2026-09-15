@@ -31,7 +31,7 @@ interface SearchResult {
 const APP_SECTIONS = [
   { id: "production", titleAr: "الإنتاج", titleEn: "Production", icon: "factory", color: "#3b82f6", route: "/production", section: "production", keywords: ["إنتاج", "مكينة", "درزن", "production", "machine"] },
   { id: "manufacturing", titleAr: "مراحل تسليم الإنتاج", titleEn: "Manufacturing Stages", icon: "precision-manufacturing", color: "#8b5cf6", route: "/manufacturing", section: "manufacturing", keywords: ["تصنيع", "مراحل", "manufacturing"] },
-  { id: "sales", titleAr: "المبيعات والتحصيل", titleEn: "Sales & Collection", icon: "shopping-cart", color: "#ec4899", route: "/sales", section: "sales", keywords: ["مبيعات", "تحصيل", "sales"] },
+  { id: "sales", titleAr: "إدارة التسويق والمبيعات", titleEn: "Marketing & Sales Management", icon: "business-center", color: "#ec4899", route: "/sales-management", section: "sales", keywords: ["تسويق", "مبيعات", "اعتمادات", "تقارير", "marketing", "sales"] },
   { id: "warehouse", titleAr: "المستودعات", titleEn: "Warehouse", icon: "warehouse", color: "#f59e0b", route: "/warehouse", section: "warehouse", keywords: ["مستودع", "مخزن", "warehouse"] },
   { id: "maintenance", titleAr: "الصيانة", titleEn: "Maintenance", icon: "build", color: "#ef4444", route: "/maintenance", section: "maintenance", keywords: ["صيانة", "إصلاح", "maintenance"] },
   { id: "financial", titleAr: "المصروفات", titleEn: "Expenses", icon: "payments", color: "#6366f1", route: "/financial", section: "financial", keywords: ["مصروفات", "مالية", "expenses"] },

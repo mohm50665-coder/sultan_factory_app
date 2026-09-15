@@ -36,7 +36,7 @@ const ROLES_EN = [
 const ALL_SECTIONS_AR = [
   { id: "production", label: "الإنتاج" },
   { id: "manufacturing", label: "مراحل تسليم الإنتاج" },
-  { id: "sales", label: "المبيعات والتحصيل" },
+  { id: "sales", label: "إدارة التسويق والمبيعات" },
   { id: "representative_performance", label: "أداء المندوب" },
   { id: "daily_sales_collection_report", label: "التقرير اليومي للمبيعات والتحصيل" },
   { id: "representative_evaluation", label: "تقييم أداء المندوب" },
@@ -52,7 +52,7 @@ const ALL_SECTIONS_AR = [
 const ALL_SECTIONS_EN = [
   { id: "production", label: "Production" },
   { id: "manufacturing", label: "Manufacturing Delivery Stages" },
-  { id: "sales", label: "Sales and Collection" },
+  { id: "sales", label: "Marketing & Sales Management" },
   { id: "representative_performance", label: "Representative Performance" },
   { id: "daily_sales_collection_report", label: "Daily Sales & Collection Report" },
   { id: "representative_evaluation", label: "Representative Evaluation" },

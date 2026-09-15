@@ -31,7 +31,7 @@ const SECTIONS: SectionConfig[] = [
   { key: "production", titleAr: "الإنتاج", titleEn: "Production", icon: "factory", color: "#3b82f6" },
   { key: "manufacturing", titleAr: "مراحل التسليم", titleEn: "Manufacturing", icon: "precision-manufacturing", color: "#8b5cf6" },
   { key: "warehouse", titleAr: "المستودعات", titleEn: "Warehouse", icon: "warehouse", color: "#f59e0b" },
-  { key: "sales", titleAr: "المبيعات والتحصيل", titleEn: "Sales & Collection", icon: "shopping-cart", color: "#ec4899" },
+  { key: "sales", titleAr: "إدارة التسويق والمبيعات", titleEn: "Marketing & Sales Management", icon: "business-center", color: "#ec4899" },
   { key: "expenses", titleAr: "المصروفات", titleEn: "Expenses", icon: "payments", color: "#6366f1" },
   { key: "maintenance", titleAr: "الصيانة", titleEn: "Maintenance", icon: "build", color: "#ef4444" },
   { key: "tasks", titleAr: "المهام", titleEn: "Tasks", icon: "checklist", color: "#14b8a6" },

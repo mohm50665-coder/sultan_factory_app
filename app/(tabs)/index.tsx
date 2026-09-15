@@ -207,14 +207,14 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
   },
   {
     id: "sales",
-    labelAr: "المبيعات والتحصيل",
-    labelEn: "Sales & Collection",
-    icon: "shopping-cart",
+    labelAr: "إدارة التسويق والمبيعات",
+    labelEn: "Marketing & Sales Management",
+    icon: "business-center",
     color: "#ec4899",
-    route: "/sales",
-    descriptionAr: "تسجيل المبيعات وتحصيل المبالغ",
-    descriptionEn: "Record sales and collect payments",
-    section: "sales",
+    route: "/sales-management",
+    descriptionAr: "التقارير والتقييم والاعتمادات ومتابعة أداء المندوبين",
+    descriptionEn: "Reports, evaluations, approvals and representative performance oversight",
+    section: "sales_management",
     departments: ["sales"],
   },
   {
@@ -606,12 +606,14 @@ export default function HomeScreen() {
     "representative_comprehensive_report",
   ]);
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
+    // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
+    if (salesManagerOfficialItems.has(item.id)) return false;
     if (user?.role === "admin") return true;
-    // بعد نقل الطلبات والزيارات والتصنيع الخاص والتحصيل إلى أداء المندوب، لا يظهر مدخل المبيعات القديم لمدير الإدارة.
     if (isDepartmentManager && normalizedDepartment === "sales") {
-      if (item.id === "sales" || item.id === "representative_performance") return false;
-      if (salesManagerOfficialItems.has(item.id)) return true;
+      if (item.id === "sales") return true;
+      if (item.id === "representative_performance") return false;
     }
+    if (item.id === "sales") return false;
     if (EXTRA_DASHBOARD_PERMISSION_IDS.has(item.id)) return userToolPermissions[item.id] === true;
     // القوائم التشغيلية الأساسية لا تظهر إلا إذا حفظها الأدمن صراحةً.
     return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);
