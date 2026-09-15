@@ -12,6 +12,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("لم يثبت النظام انتقال العهدة فعلياً");
   });
 
+  it("does not treat the previous-stage receipt timestamp as a duplicate next-stage receipt", () => {
+    expect(source).toContain("if (record.movementStatus !== \"delivered\") return false;");
+    expect(source).toContain("receivedAt هو وقت استلام هذه المرحلة من المرحلة السابقة");
+    expect(source).not.toContain("if (record.receivedAt) throw new Error(\"تم تأكيد استلام هذه العهدة مسبقاً\")");
+  });
+
   it("treats retrying an already-created next-stage custody as idempotent", () => {
     expect(source).toContain("idempotent: true");
     expect(source).toContain("تعذر مطابقة عهدة المرحلة التالية؛ لم يتم تسجيل نجاح العملية");

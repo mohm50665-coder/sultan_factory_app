@@ -1161,7 +1161,9 @@ export const appRouter = router({
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
         return rows
           .filter((record: any) => {
-            if (record.movementStatus !== "delivered" || record.receivedAt) return false;
+            // receivedAt يخص استلام السجل من المرحلة السابقة، ولا يمنع استلام المرحلة التالية.
+            // شرط انتظار الاستلام الحالي هو movementStatus=delivered فقط.
+            if (record.movementStatus !== "delivered") return false;
             if (!String(record.productName || "").trim()) return false;
             if (((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0)) <= 0) return false;
             if (!isAutomaticHandoverActive(record.date)) return false;
@@ -1263,7 +1265,8 @@ export const appRouter = router({
         const record = rows[0];
         if (!record || record.deletedAt) throw new Error("السجل غير موجود");
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
-        if (record.receivedAt) throw new Error("تم تأكيد استلام هذه العهدة مسبقاً");
+        // receivedAt هو وقت استلام هذه المرحلة من المرحلة السابقة، وليس دليلاً على استلام التسليم الحالي.
+        // منع التكرار يتم حصراً عبر destinationRows والمعاملة الذرية أدناه.
         const receiverName = String(ctx.user.name || "").trim();
         const receiverUsername = String((ctx.user as any).username || "").trim();
         const expectedReceiver = String(record.expectedReceiver || "").trim();
