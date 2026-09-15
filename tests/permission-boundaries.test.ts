@@ -39,7 +39,8 @@ describe("Permission boundary contract", () => {
 
   it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {
     expect(toolsPermissions).not.toContain("id: 'employee_performance'");
-    expect(toolsPermissions).toContain("id: 'sample_requests'");
+    expect(toolsPermissions).not.toContain("id: 'sample_requests'");
+    expect(dashboard).not.toContain('id: "sample_requests"');
     expect(toolsPermissions).toContain("id: 'mail_center'");
     expect(usersManagement).toContain("Open extra tools permissions");
     expect(usersManagement).toContain('id: "employee_performance"');

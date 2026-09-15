@@ -195,18 +195,6 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["production", "warehouse"],
   },
   {
-    id: "sample_requests",
-    labelAr: "طلبات العينات",
-    labelEn: "Sample Requests",
-    icon: "science",
-    color: "#0f766e",
-    route: "/sample-requests",
-    descriptionAr: "رفع طلب عينة واعتماده وربطه بالإنتاج والعهدة والتسليم",
-    descriptionEn: "Submit, approve and track sample requests through production and custody",
-    section: "sales",
-    departments: ["sales", "production", "customer_service"],
-  },
-  {
     id: "sales",
     labelAr: "إدارة التسويق والمبيعات",
     labelEn: "Marketing & Sales Management",
@@ -382,7 +370,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
 
 // هذه العناصر إضافية وحساسة: لا يكفي وجودها في allowedSections، بل تحتاج منحاً صريحاً من صلاحيات الأدوات.
 const EXTRA_DASHBOARD_PERMISSION_IDS = new Set([
-  "product_tracking", "daily_summary", "products_catalog", "production_costs", "sample_requests", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
+  "product_tracking", "daily_summary", "products_catalog", "production_costs", "cost_comparison", "board_representative_old", "advanced_analytics", "export_reports", "board_monthly_report", "mail_center", "government_tenders", "financial", "administrative",
 ]);
 
 const dashboardOrderStorageKey = (userId: number | undefined) => `sultan_dashboard_order_${userId || "guest"}`;

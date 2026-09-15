@@ -39,7 +39,6 @@ const AVAILABLE_TOOLS: Tool[] = [
   { id: 'daily_summary', labelAr: 'ملخص اليوم الشامل', labelEn: 'Comprehensive Daily Summary', icon: 'summarize', color: '#0f766e' },
   { id: 'products_catalog', labelAr: 'دليل المنتجات', labelEn: 'Products Catalog', icon: 'inventory-2', color: '#0a7ea4' },
   { id: 'production_costs', labelAr: 'حساب التكاليف', labelEn: 'Production Costs', icon: 'calculate', color: '#10b981' },
-  { id: 'sample_requests', labelAr: 'طلبات العينات', labelEn: 'Sample Requests', icon: 'science', color: '#0f766e' },
   { id: 'cost_comparison', labelAr: 'تقرير مقارنة التكاليف', labelEn: 'Cost Comparison', icon: 'trending-down', color: '#f97316' },
   { id: 'board_representative_old', labelAr: 'لوحة ممثل مجلس الإدارة', labelEn: 'Board Representative Dashboard', icon: 'dashboard', color: '#8b5cf6' },
   { id: 'advanced_analytics', labelAr: 'التحليلات المتقدمة', labelEn: 'Advanced Analytics', icon: 'insights', color: '#0891b2' },
