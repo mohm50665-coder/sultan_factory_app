@@ -59,6 +59,10 @@ import {
   representativeWorkflowEvents as representativeWorkflowEventsTable,
   representativeCollections as representativeCollectionsTable,
   representativePerformanceWeights as representativePerformanceWeightsTable,
+  financialCustodies as financialCustodiesTable,
+  administrativeWorkItems as administrativeWorkItemsTable,
+  administrativeDailyReports as administrativeDailyReportsTable,
+  financialDailyReports as financialDailyReportsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte, isNull, like } from "drizzle-orm";
 import { createHash, randomUUID } from "crypto";
@@ -1903,6 +1907,8 @@ export const appRouter = router({
         amount: z.number(),
         expenseDetails: z.string(),
         paymentMethod: z.enum(["bankTransfer", "cash", "cardHaydar", "cardDirector"]),
+        expenseDate: z.string().optional(),
+        notes: z.string().optional(),
         requiresApproval: z.number().optional(),
         approvedBy: z.string().optional(),
         userId: z.number(),
@@ -2948,12 +2954,127 @@ export const appRouter = router({
       return db.select().from(bankBalanceTable).orderBy(desc(bankBalanceTable.createdAt));
     }),
 
-    createBankBalance: publicProcedure
+    createBankBalance: protectedProcedure
       .input(z.object({ amount: z.number(), userId: z.number() }))
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const result = await db.insert(bankBalanceTable).values(input);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    listCustodies: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(financialCustodiesTable).orderBy(desc(financialCustodiesTable.createdAt));
+    }),
+
+    createCustody: protectedProcedure
+      .input(z.object({
+        custodyAmount: z.number().nonnegative(),
+        recipientName: z.string().min(1),
+        recipientUserId: z.number().optional(),
+        custodyDate: z.string().min(1),
+        settlementDate: z.string().optional(),
+        shortageAmount: z.number().nonnegative().optional(),
+        shortageAction: z.string().optional(),
+        notes: z.string().optional(),
+        attachments: z.array(z.unknown()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(financialCustodiesTable).values({ ...input, createdBy: ctx.user.id, shortageAmount: input.shortageAmount ?? 0, attachments: input.attachments ?? [] } as any);
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateCustody: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(financialCustodiesTable).set(input.data as any).where(eq(financialCustodiesTable.id, input.id));
+        return { success: true };
+      }),
+
+    deleteCustody: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(financialCustodiesTable).where(eq(financialCustodiesTable.id, input.id));
+        return { success: true };
+      }),
+
+    listAdministrativeWork: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(administrativeWorkItemsTable).orderBy(desc(administrativeWorkItemsTable.createdAt));
+    }),
+
+    createAdministrativeWork: protectedProcedure
+      .input(z.object({
+        workDescription: z.string().min(1),
+        procedureType: z.enum(["electronic", "manual"]),
+        status: z.enum(["completed", "not_completed", "partial"]).optional(),
+        nonCompletionReason: z.string().optional(),
+        targetDate: z.string().optional(),
+        assignedTo: z.string().optional(),
+        assignedUserId: z.number().optional(),
+        department: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(administrativeWorkItemsTable).values({ ...input, status: input.status ?? "not_completed", createdBy: ctx.user.id });
+        return { success: true, id: result[0].insertId };
+      }),
+
+    updateAdministrativeWork: protectedProcedure
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.update(administrativeWorkItemsTable).set(input.data as any).where(eq(administrativeWorkItemsTable.id, input.id));
+        return { success: true };
+      }),
+
+    deleteAdministrativeWork: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        await db.delete(administrativeWorkItemsTable).where(eq(administrativeWorkItemsTable.id, input.id));
+        return { success: true };
+      }),
+
+    listFinancialDailyReports: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(financialDailyReportsTable).orderBy(desc(financialDailyReportsTable.createdAt));
+    }),
+
+    createFinancialDailyReport: protectedProcedure
+      .input(z.object({ reportDate: z.string(), bankBalance: z.number().default(0), totalExpenses: z.number().default(0), totalCustodies: z.number().default(0), totalShortages: z.number().default(0), details: z.any().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(financialDailyReportsTable).values({ ...input, createdBy: ctx.user.id });
+        return { success: true, id: result[0].insertId };
+      }),
+
+    listAdministrativeDailyReports: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(administrativeDailyReportsTable).orderBy(desc(administrativeDailyReportsTable.createdAt));
+    }),
+
+    createAdministrativeDailyReport: protectedProcedure
+      .input(z.object({ reportDate: z.string(), summary: z.string().min(1), workItemsSnapshot: z.any().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(administrativeDailyReportsTable).values({ ...input, createdBy: ctx.user.id });
         return { success: true, id: result[0].insertId };
       }),
   }),

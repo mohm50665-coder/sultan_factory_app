@@ -34,7 +34,7 @@ const APP_SECTIONS = [
   { id: "sales", titleAr: "إدارة التسويق والمبيعات", titleEn: "Marketing & Sales Management", icon: "business-center", color: "#ec4899", route: "/sales-management", section: "sales", keywords: ["تسويق", "مبيعات", "اعتمادات", "تقارير", "marketing", "sales"] },
   { id: "warehouse", titleAr: "المستودعات", titleEn: "Warehouse", icon: "warehouse", color: "#f59e0b", route: "/warehouse", section: "warehouse", keywords: ["مستودع", "مخزن", "warehouse"] },
   { id: "maintenance", titleAr: "الصيانة", titleEn: "Maintenance", icon: "build", color: "#ef4444", route: "/maintenance", section: "maintenance", keywords: ["صيانة", "إصلاح", "maintenance"] },
-  { id: "financial", titleAr: "المصروفات", titleEn: "Expenses", icon: "payments", color: "#6366f1", route: "/financial", section: "financial", keywords: ["مصروفات", "مالية", "expenses"] },
+  { id: "financial", titleAr: "الشؤون الإدارية والمالية", titleEn: "Administrative & Financial Affairs", icon: "payments", color: "#6366f1", route: "/financial", section: "financial", keywords: ["مصروفات", "مالية", "شؤون إدارية", "عهد", "expenses", "administrative affairs"] },
   { id: "tasks", titleAr: "المهام", titleEn: "Tasks", icon: "checklist", color: "#14b8a6", route: "/tasks", section: "tasks", keywords: ["مهام", "تكليف", "tasks"] },
   { id: "administrative", titleAr: "الإجراءات الإدارية", titleEn: "Administrative", icon: "assignment", color: "#06b6d4", route: "/administrative", section: "hr", keywords: ["إدارية", "طلبات", "administrative"] },
   { id: "reports", titleAr: "التقارير والتحليلات", titleEn: "Reports & Analytics", icon: "bar-chart", color: "#059669", route: "/reports-analytics", section: "reports", keywords: ["تقارير", "تحليلات", "reports"] },

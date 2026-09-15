@@ -65,7 +65,7 @@ const AVAILABLE_TOOLS = [
   { id: "board_monthly_report", labelAr: "التقرير الشهري لمجلس الإدارة", labelEn: "Board Monthly Report", icon: "summarize", color: "#7c3aed" },
   { id: "mail_center", labelAr: "البريد والمراسلات", labelEn: "Mail and Correspondence", icon: "mail", color: "#0ea5e9" },
   { id: "government_tenders", labelAr: "المناقصات الحكومية والعسكرية", labelEn: "Government and Military Tenders", icon: "gavel", color: "#1e3a5f" },
-  { id: "financial", labelAr: "المصروفات", labelEn: "Expenses", icon: "payments", color: "#6366f1" },
+  { id: "financial", labelAr: "الشؤون الإدارية والمالية", labelEn: "Administrative & Financial Affairs", icon: "payments", color: "#6366f1" },
   { id: "administrative", labelAr: "الإجراءات الإدارية", labelEn: "Administrative Procedures", icon: "assignment", color: "#06b6d4" },
 ];
 

@@ -247,6 +247,8 @@ export const expenses = mysqlTable("expenses", {
   id: int("id").autoincrement().primaryKey(),
   amount: int("amount").notNull(),
   expenseDetails: text("expenseDetails").notNull(),
+  expenseDate: varchar("expenseDate", { length: 20 }),
+  notes: text("notes"),
   paymentMethod: mysqlEnum("paymentMethod", ["bankTransfer", "cash", "cardHaydar", "cardDirector"]).notNull(),
   requiresApproval: int("requiresApproval").default(0),
   approvedBy: varchar("approvedBy", { length: 255 }),
@@ -1070,3 +1072,68 @@ export const representativePerformanceWeights = mysqlTable("representativePerfor
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type RepresentativePerformanceWeight = typeof representativePerformanceWeights.$inferSelect;
+
+
+// سجل العهد المالية: المبلغ، المستلم، التصفية والعجز وإجراء المعالجة
+export const financialCustodies = mysqlTable("financialCustodies", {
+  id: int("id").autoincrement().primaryKey(),
+  custodyAmount: decimal("custodyAmount", { precision: 14, scale: 2, mode: "number" }).notNull(),
+  recipientName: varchar("recipientName", { length: 255 }).notNull(),
+  recipientUserId: int("recipientUserId"),
+  custodyDate: varchar("custodyDate", { length: 20 }).notNull(),
+  settlementDate: varchar("settlementDate", { length: 20 }),
+  shortageAmount: decimal("shortageAmount", { precision: 14, scale: 2, mode: "number" }).default(0),
+  shortageAction: text("shortageAction"),
+  notes: text("notes"),
+  attachments: json("attachments"),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type FinancialCustody = typeof financialCustodies.$inferSelect;
+export type InsertFinancialCustody = typeof financialCustodies.$inferInsert;
+
+// الأعمال الإدارية وجدول الأعمال المطلوب إنجازها
+export const administrativeWorkItems = mysqlTable("administrativeWorkItems", {
+  id: int("id").autoincrement().primaryKey(),
+  workDescription: text("workDescription").notNull(),
+  procedureType: mysqlEnum("procedureType", ["electronic", "manual"]).notNull(),
+  status: mysqlEnum("status", ["completed", "not_completed", "partial"]).default("not_completed").notNull(),
+  nonCompletionReason: text("nonCompletionReason"),
+  targetDate: varchar("targetDate", { length: 20 }),
+  assignedTo: varchar("assignedTo", { length: 255 }),
+  assignedUserId: int("assignedUserId"),
+  department: varchar("department", { length: 100 }),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AdministrativeWorkItem = typeof administrativeWorkItems.$inferSelect;
+export type InsertAdministrativeWorkItem = typeof administrativeWorkItems.$inferInsert;
+
+// التقرير الإداري اليومي المحفوظ مع ملخص الأعمال المنجزة والمتأخرة
+export const administrativeDailyReports = mysqlTable("administrativeDailyReports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportDate: varchar("reportDate", { length: 20 }).notNull(),
+  summary: text("summary").notNull(),
+  workItemsSnapshot: json("workItemsSnapshot"),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AdministrativeDailyReport = typeof administrativeDailyReports.$inferSelect;
+
+// التقرير المالي اليومي المحفوظ مع لقطة الرصيد والمصروفات والعهد
+export const financialDailyReports = mysqlTable("financialDailyReports", {
+  id: int("id").autoincrement().primaryKey(),
+  reportDate: varchar("reportDate", { length: 20 }).notNull(),
+  bankBalance: decimal("bankBalance", { precision: 14, scale: 2, mode: "number" }).default(0),
+  totalExpenses: decimal("totalExpenses", { precision: 14, scale: 2, mode: "number" }).default(0),
+  totalCustodies: decimal("totalCustodies", { precision: 14, scale: 2, mode: "number" }).default(0),
+  totalShortages: decimal("totalShortages", { precision: 14, scale: 2, mode: "number" }).default(0),
+  details: json("details"),
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type FinancialDailyReport = typeof financialDailyReports.$inferSelect;

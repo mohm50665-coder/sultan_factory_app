@@ -134,6 +134,20 @@
       "when": 1789438418474,
       "tag": "0018_wonderful_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1789481952111,
+      "tag": "0019_natural_wiccan",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1789482079469,
+      "tag": "0020_lonely_sphinx",
+      "breakpoints": true
     }
   ]
 }

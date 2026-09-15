@@ -183,6 +183,18 @@ export const warehouseService = {
 export const financialService = {
   getBankBalance: () => trpcCall("financial.getBankBalance", undefined, "query"),
   createBankBalance: (data: any) => trpcCall("financial.createBankBalance", data),
+  listCustodies: () => trpcCall("financial.listCustodies", undefined, "query"),
+  createCustody: (data: any) => trpcCall("financial.createCustody", data),
+  updateCustody: (id: number, data: any) => trpcCall("financial.updateCustody", { id, data }),
+  deleteCustody: (id: number) => trpcCall("financial.deleteCustody", { id }),
+  listAdministrativeWork: () => trpcCall("financial.listAdministrativeWork", undefined, "query"),
+  createAdministrativeWork: (data: any) => trpcCall("financial.createAdministrativeWork", data),
+  updateAdministrativeWork: (id: number, data: any) => trpcCall("financial.updateAdministrativeWork", { id, data }),
+  deleteAdministrativeWork: (id: number) => trpcCall("financial.deleteAdministrativeWork", { id }),
+  listFinancialDailyReports: () => trpcCall("financial.listFinancialDailyReports", undefined, "query"),
+  createFinancialDailyReport: (data: any) => trpcCall("financial.createFinancialDailyReport", data),
+  listAdministrativeDailyReports: () => trpcCall("financial.listAdministrativeDailyReports", undefined, "query"),
+  createAdministrativeDailyReport: (data: any) => trpcCall("financial.createAdministrativeDailyReport", data),
 };
 
 // ===== Auth (for password reset) =====
