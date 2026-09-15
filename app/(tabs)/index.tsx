@@ -11,6 +11,7 @@ import {
   Alert,
   StyleSheet,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -389,6 +390,10 @@ const administrativeIconSettingKey = "show_administrative_icon";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  const dashboardColumns = screenWidth >= 1280 ? 4 : screenWidth >= 860 ? 3 : 2;
+  const dashboardItemWidth = dashboardColumns === 4 ? "23.5%" : dashboardColumns === 3 ? "31.5%" : "48.5%";
+  const toolItemWidth = screenWidth >= 1280 ? "23.5%" : screenWidth >= 860 ? "31.5%" : "48.5%";
   const colors = useColors();
   const { user, logout, refreshUser } = useAuth();
   const { t, language, toggleLanguage, isRtl } = useLanguage();
@@ -918,7 +923,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               key={item.id}
               onPress={() => isReorderingIcons ? undefined : handleNavigate(item.route)}
-              style={styles.gridItem}
+              style={[styles.gridItem, { width: dashboardItemWidth }]}
               activeOpacity={0.7}
             >
                   <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: isReorderingIcons ? 2 : 1, borderColor: isReorderingIcons ? colors.primary : colors.border }, styles.card]}>
@@ -962,7 +967,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -974,7 +979,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('notifications_center') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/notifications-center")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -986,7 +991,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('export_data') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/export-data")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -998,7 +1003,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('activity_log') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/activity-log-viewer")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1010,7 +1015,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('production_export') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/production-export")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1022,7 +1027,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('waste_alerts') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/waste-alerts")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1034,7 +1039,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('reports_analytics') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/reports-analytics")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1046,7 +1051,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('section_reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/section-reports")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1058,7 +1063,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('users_management') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/users-management")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1070,7 +1075,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('backup_restore') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/backup-restore")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1082,7 +1087,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('machines_comparison') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/machines-comparison")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1094,7 +1099,7 @@ export default function HomeScreen() {
               {canRenderExtraTool('share_reports') && (
                 <TouchableOpacity
                   onPress={() => handleNavigate("/share-reports")}
-                  style={styles.toolItem}
+                  style={[styles.toolItem, { width: toolItemWidth }]}
                   activeOpacity={0.7}
                 >
                   <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
@@ -1196,14 +1201,16 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    columnGap: 8,
+    rowGap: 8,
   },
   gridItem: {
-    width: "48.5%",
-    marginBottom: 8,
+    marginBottom: 0,
   },
   card: {
-    minHeight: 96,
+    minHeight: 0,
+    padding: 9,
   },
   reorderCardControls: {
     flexDirection: "row",
@@ -1228,16 +1235,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconContainer: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 7,
+    marginBottom: 5,
   },
   description: {
-    lineHeight: 13,
-    fontSize: 10,
+    lineHeight: 12,
+    fontSize: 9,
   },
   toolsTitle: {
     marginTop: 10,
@@ -1246,12 +1253,13 @@ const styles = StyleSheet.create({
   toolsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    columnGap: 8,
+    rowGap: 8,
     marginBottom: 12,
   },
   toolItem: {
-    width: "31.5%",
-    marginBottom: 8,
+    marginBottom: 0,
   },
   badge: {
     position: "absolute",
