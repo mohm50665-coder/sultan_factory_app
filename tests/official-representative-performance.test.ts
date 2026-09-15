@@ -16,8 +16,10 @@ describe("Official representative performance permission", () => {
     expect(dashboard).toContain('id: "representative_performance"');
     expect(dashboard).toContain('labelAr: "أداء المندوب"');
     expect(dashboard).toContain('route: "/representative-performance"');
-    expect(representativeScreen).toContain("orders_visits");
-    expect(representativeScreen).toContain("custom_manufacturing");
+    expect(representativeScreen).toContain("دليل العملاء");
+    expect(representativeScreen).toContain("الطلبات والزيارات");
+    expect(representativeScreen).toContain("التصنيع الخاص والعينات");
+    expect(representativeScreen).toContain("المتابعة والاعتمادات");
   });
 
   it("does not classify the feature as an extra tool", () => {

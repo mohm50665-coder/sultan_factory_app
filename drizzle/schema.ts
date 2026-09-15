@@ -894,3 +894,179 @@ export const sampleRequests = mysqlTable("sampleRequests", {
 });
 export type SampleRequest = typeof sampleRequests.$inferSelect;
 export type InsertSampleRequest = typeof sampleRequests.$inferInsert;
+
+// دليل العملاء المركزي: تحفظ بيانات العميل وموقعه ومرفقاته مرة واحدة وتستدعى في جميع معاملات المندوب
+export const customers = mysqlTable("customers", {
+  id: int("id").autoincrement().primaryKey(),
+  customerCode: varchar("customerCode", { length: 40 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  commercialRegister: varchar("commercialRegister", { length: 100 }).notNull(),
+  taxNumber: varchar("taxNumber", { length: 100 }),
+  isTaxRegistered: int("isTaxRegistered").default(0).notNull(),
+  municipalLicense: varchar("municipalLicense", { length: 100 }),
+  nationalAddress: text("nationalAddress").notNull(),
+  city: varchar("city", { length: 100 }).notNull(),
+  district: varchar("district", { length: 100 }).notNull(),
+  street: varchar("street", { length: 150 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  ownerName: varchar("ownerName", { length: 255 }).notNull(),
+  ownerPhone: varchar("ownerPhone", { length: 30 }).notNull(),
+  contactName: varchar("contactName", { length: 255 }).notNull(),
+  contactPhone: varchar("contactPhone", { length: 30 }).notNull(),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  latitude: decimal("latitude", { precision: 10, scale: 7, mode: "number" }).notNull(),
+  longitude: decimal("longitude", { precision: 10, scale: 7, mode: "number" }).notNull(),
+  attachments: json("attachments").notNull(),
+  version: int("version").default(1).notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  createdBy: int("createdBy").notNull(),
+  updatedBy: int("updatedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = typeof customers.$inferInsert;
+
+// المعاملة الموحدة للمندوب: طلب، زيارة، مرتجع، تصنيع خاص أو عينة
+export const representativeTransactions = mysqlTable("representativeTransactions", {
+  id: int("id").autoincrement().primaryKey(),
+  referenceCode: varchar("referenceCode", { length: 40 }).notNull().unique(),
+  transactionType: mysqlEnum("transactionType", ["order", "visit", "return", "custom", "sample"]).notNull(),
+  representativeId: int("representativeId").notNull(),
+  representativeName: varchar("representativeName", { length: 255 }).notNull(),
+  customerId: int("customerId").notNull(),
+  customerName: varchar("customerName", { length: 255 }).notNull(),
+  customerVersion: int("customerVersion").default(1).notNull(),
+  status: varchar("status", { length: 80 }).default("DRAFT").notNull(),
+  currentDepartment: varchar("currentDepartment", { length: 100 }).default("sales_representative").notNull(),
+  currentAssigneeId: int("currentAssigneeId"),
+  currentAssigneeName: varchar("currentAssigneeName", { length: 255 }),
+  orderDate: varchar("orderDate", { length: 20 }),
+  deliveryDate: varchar("deliveryDate", { length: 20 }),
+  paymentMethod: mysqlEnum("paymentMethod", ["cash", "transfer", "credit"]),
+  paymentAmount: decimal("paymentAmount", { precision: 14, scale: 2, mode: "number" }).default(0),
+  receiptNumber: varchar("receiptNumber", { length: 100 }),
+  receiptDate: varchar("receiptDate", { length: 20 }),
+  creditDays: int("creditDays"),
+  visitReport: text("visitReport"),
+  productData: json("productData").notNull(),
+  yarnRatios: json("yarnRatios"),
+  attachments: json("attachments").notNull(),
+  signedSnapshot: json("signedSnapshot"),
+  invoiceNumber: varchar("invoiceNumber", { length: 100 }),
+  invoiceAttachments: json("invoiceAttachments"),
+  rejectionReason: text("rejectionReason"),
+  correctiveAction: json("correctiveAction"),
+  submittedAt: timestamp("submittedAt"),
+  closedAt: timestamp("closedAt"),
+  deletedAt: timestamp("deletedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RepresentativeTransaction = typeof representativeTransactions.$inferSelect;
+export type InsertRepresentativeTransaction = typeof representativeTransactions.$inferInsert;
+
+// بنود المنتجات المتعددة داخل الطلب أو التصنيع الخاص أو العينة
+export const representativeTransactionItems = mysqlTable("representativeTransactionItems", {
+  id: int("id").autoincrement().primaryKey(),
+  transactionId: int("transactionId").notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  size: varchar("size", { length: 100 }).notNull(),
+  color: varchar("color", { length: 100 }).notNull(),
+  quantity: int("quantity").notNull(),
+  quantityUnit: mysqlEnum("quantityUnit", ["dozen", "pair"]).notNull(),
+  productType: varchar("productType", { length: 100 }),
+  yarnRatios: json("yarnRatios"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RepresentativeTransactionItem = typeof representativeTransactionItems.$inferSelect;
+export type InsertRepresentativeTransactionItem = typeof representativeTransactionItems.$inferInsert;
+
+// مرفقات العملاء والمعاملات مع الاحتفاظ بنوع الملف والنسخة وتاريخ الصلاحية
+export const representativeAttachments = mysqlTable("representativeAttachments", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId"),
+  transactionId: int("transactionId"),
+  attachmentType: varchar("attachmentType", { length: 80 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  mimeType: varchar("mimeType", { length: 120 }),
+  expiresAt: varchar("expiresAt", { length: 20 }),
+  version: int("version").default(1).notNull(),
+  isActive: int("isActive").default(1).notNull(),
+  uploadedBy: int("uploadedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type RepresentativeAttachment = typeof representativeAttachments.$inferSelect;
+
+// الإقرارات والتوقيعات الإلكترونية المرتبطة بنسخة ثابتة من بيانات المعاملة وقت التوقيع
+export const representativeDeclarations = mysqlTable("representativeDeclarations", {
+  id: int("id").autoincrement().primaryKey(),
+  transactionId: int("transactionId").notNull(),
+  declarationType: varchar("declarationType", { length: 80 }).notNull(),
+  declarationText: text("declarationText").notNull(),
+  declarerName: varchar("declarerName", { length: 255 }).notNull(),
+  declarerRole: varchar("declarerRole", { length: 100 }).notNull(),
+  signerUserId: int("signerUserId"),
+  signatureData: text("signatureData").notNull(),
+  signatureAttachmentUrl: text("signatureAttachmentUrl"),
+  signedSnapshot: json("signedSnapshot").notNull(),
+  signedAt: timestamp("signedAt").defaultNow().notNull(),
+});
+export type RepresentativeDeclaration = typeof representativeDeclarations.$inferSelect;
+
+// سجل زمني غير قابل للحذف من المستخدمين العاديين لكل انتقال أو اعتماد أو رفض أو مرفق
+export const representativeWorkflowEvents = mysqlTable("representativeWorkflowEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  transactionId: int("transactionId").notNull(),
+  fromStatus: varchar("fromStatus", { length: 80 }),
+  toStatus: varchar("toStatus", { length: 80 }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
+  actorId: int("actorId").notNull(),
+  actorName: varchar("actorName", { length: 255 }).notNull(),
+  actorDepartment: varchar("actorDepartment", { length: 100 }),
+  notes: text("notes"),
+  attachments: json("attachments"),
+  previousEventAt: timestamp("previousEventAt"),
+  durationMinutes: int("durationMinutes").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type RepresentativeWorkflowEvent = typeof representativeWorkflowEvents.$inferSelect;
+
+// تحصيلات المندوب المرتبطة بملف العميل والفاتورة والمعاملة
+export const representativeCollections = mysqlTable("representativeCollections", {
+  id: int("id").autoincrement().primaryKey(),
+  referenceCode: varchar("referenceCode", { length: 40 }).notNull().unique(),
+  representativeId: int("representativeId").notNull(),
+  representativeName: varchar("representativeName", { length: 255 }).notNull(),
+  customerId: int("customerId").notNull(),
+  customerName: varchar("customerName", { length: 255 }).notNull(),
+  transactionId: int("transactionId"),
+  invoiceNumber: varchar("invoiceNumber", { length: 100 }),
+  invoiceAmount: decimal("invoiceAmount", { precision: 14, scale: 2, mode: "number" }).default(0),
+  collectedAmount: decimal("collectedAmount", { precision: 14, scale: 2, mode: "number" }).notNull(),
+  remainingAmount: decimal("remainingAmount", { precision: 14, scale: 2, mode: "number" }).default(0),
+  collectionMethod: mysqlEnum("collectionMethod", ["cash", "transfer"]).notNull(),
+  receiptNumber: varchar("receiptNumber", { length: 100 }),
+  collectionDate: varchar("collectionDate", { length: 20 }).notNull(),
+  notes: text("notes"),
+  attachments: json("attachments").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RepresentativeCollection = typeof representativeCollections.$inferSelect;
+
+// أوزان معايير تقييم المندوب القابلة للضبط من الإدارة
+export const representativePerformanceWeights = mysqlTable("representativePerformanceWeights", {
+  id: int("id").autoincrement().primaryKey(),
+  criterionKey: varchar("criterionKey", { length: 80 }).notNull().unique(),
+  criterionName: varchar("criterionName", { length: 255 }).notNull(),
+  weight: int("weight").notNull(),
+  targetValue: decimal("targetValue", { precision: 14, scale: 2, mode: "number" }).default(0),
+  isActive: int("isActive").default(1).notNull(),
+  updatedBy: int("updatedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RepresentativePerformanceWeight = typeof representativePerformanceWeights.$inferSelect;

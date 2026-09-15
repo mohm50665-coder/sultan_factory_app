@@ -135,6 +135,11 @@ function NavigationContent() {
       <Stack.Screen name="section-reports" />
       <Stack.Screen name="employee-performance" />
       <Stack.Screen name="representative-performance" />
+      <Stack.Screen name="representative-customers" />
+      <Stack.Screen name="representative-transactions" />
+      <Stack.Screen name="representative-collections" />
+      <Stack.Screen name="representative-approvals" />
+      <Stack.Screen name="representative-reports" />
       <Stack.Screen name="backup-restore" />
       <Stack.Screen name="machines-comparison" />
       <Stack.Screen name="share-reports" />

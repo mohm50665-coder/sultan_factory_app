@@ -51,11 +51,20 @@ import {
   products as productsTable,
   internalMessages as internalMessagesTable,
   sampleRequests as sampleRequestsTable,
+  customers as customersTable,
+  representativeTransactions as representativeTransactionsTable,
+  representativeTransactionItems as representativeTransactionItemsTable,
+  representativeAttachments as representativeAttachmentsTable,
+  representativeDeclarations as representativeDeclarationsTable,
+  representativeWorkflowEvents as representativeWorkflowEventsTable,
+  representativeCollections as representativeCollectionsTable,
+  representativePerformanceWeights as representativePerformanceWeightsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, gte, lte, isNull, like } from "drizzle-orm";
 import { createHash, randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
+import { representativeRouter } from "./representative-router.js";
 
 const COOKIE_NAME = "session_id";
 
@@ -372,8 +381,139 @@ async function ensureCatalogProduct(
   return created;
 }
 
+const SALES_DEPARTMENT_NAMES = ["sales", "marketing", "sales and marketing", "المبيعات", "التسويق", "التسويق والمبيعات", "إدارة التسويق والمبيعات"];
+const WAREHOUSE_DEPARTMENT_NAMES = ["warehouse", "warehouses", "storage", "المستودع", "المستودعات", "إدارة المستودعات"];
+
+function departmentMatches(value: unknown, aliases: string[]) {
+  const normalized = normalizeAccountValue(value);
+  return aliases.some((alias) => normalized === normalizeAccountValue(alias) || normalized.includes(normalizeAccountValue(alias)));
+}
+
+function isSalesManager(user: any) {
+  const position = normalizeAccountValue(user?.position);
+  return user?.role === "admin" || ((user?.role === "manager" || user?.role === "supervisor" || position.includes("مدير")) && departmentMatches(user?.department, SALES_DEPARTMENT_NAMES));
+}
+
+function isWarehouseManager(user: any) {
+  const position = normalizeAccountValue(user?.position);
+  return user?.role === "admin" || ((user?.role === "manager" || user?.role === "supervisor" || position.includes("مدير")) && departmentMatches(user?.department, WAREHOUSE_DEPARTMENT_NAMES));
+}
+
+function isRepresentativeAccount(user: any) {
+  return user?.role === "admin" || canUseRepresentativeModule(user) || departmentMatches(user?.department, SALES_DEPARTMENT_NAMES);
+}
+
+function assertRepresentativeModuleAccess(user: any) {
+  if (!isRepresentativeAccount(user) && !isWarehouseManager(user) && !isProductionAuthority(user)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية الوصول إلى دورة أداء المندوب" });
+  }
+}
+
+function createRepresentativeReference(prefix: string) {
+  const date = getRiyadhDate().replace(/-/g, "");
+  return `${prefix}-${date}-${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+}
+
+const ORDER_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  DRAFT: ["PENDING_SALES_APPROVAL"],
+  PENDING_SALES_APPROVAL: ["REJECTED_SALES", "PENDING_WAREHOUSE_INVOICE"],
+  PENDING_WAREHOUSE_INVOICE: ["RETURNED_TO_REPRESENTATIVE"],
+  RETURNED_TO_REPRESENTATIVE: ["CLOSED"],
+};
+
+const CUSTOM_STATUS_TRANSITIONS: Record<string, readonly string[]> = {
+  DRAFT: ["PENDING_SALES_APPROVAL"],
+  PENDING_SALES_APPROVAL: ["REJECTED_SALES", "PENDING_PRODUCTION_APPROVAL"],
+  PENDING_PRODUCTION_APPROVAL: ["REJECTED_PRODUCTION", "IN_PRODUCTION"],
+  REJECTED_PRODUCTION: ["PENDING_SALES_RESOLUTION"],
+  PENDING_SALES_RESOLUTION: ["PENDING_PRODUCTION_APPROVAL", "CLOSED_REJECTED"],
+  IN_PRODUCTION: ["READY_FOR_REPRESENTATIVE"],
+  READY_FOR_REPRESENTATIVE: ["CLOSED"],
+};
+
+function allowedRepresentativeTransitions(transactionType: string, status: string) {
+  return transactionType === "order" || transactionType === "visit" || transactionType === "return"
+    ? ORDER_STATUS_TRANSITIONS[status] || []
+    : CUSTOM_STATUS_TRANSITIONS[status] || [];
+}
+
+function targetDepartmentForStatus(status: string) {
+  if (["PENDING_SALES_APPROVAL", "PENDING_SALES_RESOLUTION"].includes(status)) return "sales_management";
+  if (status === "PENDING_WAREHOUSE_INVOICE") return "warehouse";
+  if (["PENDING_PRODUCTION_APPROVAL", "IN_PRODUCTION"].includes(status)) return "production";
+  if (["RETURNED_TO_REPRESENTATIVE", "READY_FOR_REPRESENTATIVE"].includes(status)) return "sales_representative";
+  return "closed";
+}
+
+async function insertRepresentativeEvent(
+  db: any,
+  transactionId: number,
+  fromStatus: string | null,
+  toStatus: string,
+  action: string,
+  actor: any,
+  notes = "",
+  attachments: unknown[] = [],
+) {
+  const previousRows = await db.select().from(representativeWorkflowEventsTable)
+    .where(eq(representativeWorkflowEventsTable.transactionId, transactionId))
+    .orderBy(desc(representativeWorkflowEventsTable.createdAt)).limit(1);
+  const previousAt = previousRows[0]?.createdAt || null;
+  const durationMinutes = previousAt ? Math.max(0, Math.floor((Date.now() - new Date(previousAt).getTime()) / 60000)) : 0;
+  await db.insert(representativeWorkflowEventsTable).values({
+    transactionId,
+    fromStatus,
+    toStatus,
+    action,
+    actorId: Number(actor.id),
+    actorName: String(actor.name || actor.username || "مستخدم"),
+    actorDepartment: String(actor.department || ""),
+    notes,
+    attachments,
+    previousEventAt: previousAt || undefined,
+    durationMinutes,
+  });
+}
+
+async function notifyRepresentativeWorkflow(
+  db: any,
+  sender: any,
+  relatedId: number,
+  status: string,
+  referenceCode: string,
+  representativeId: number,
+  notes = "",
+) {
+  const targetDepartment = targetDepartmentForStatus(status);
+  const base = {
+    subject: `تحديث معاملة مندوب ${referenceCode}`,
+    body: `انتقلت المعاملة ${referenceCode} إلى حالة ${status}${notes ? ` — ${notes}` : ""}`,
+    senderId: Number(sender.id),
+    relatedType: "representative_transaction",
+    relatedId,
+    attachments: [],
+  };
+  if (targetDepartment === "sales_representative") {
+    await db.insert(internalMessagesTable).values({ ...base, recipientUserId: representativeId });
+    return;
+  }
+  const departmentAliases = targetDepartment === "warehouse"
+    ? WAREHOUSE_DEPARTMENT_NAMES
+    : targetDepartment === "production"
+      ? ["production", "الإنتاج", "قسم الإنتاج"]
+      : SALES_DEPARTMENT_NAMES;
+  const activeUsers = await db.select().from(usersTable).where(eq(usersTable.isActive, 1));
+  const recipients = activeUsers.filter((candidate: any) => departmentMatches(candidate.department, departmentAliases));
+  if (recipients.length === 0) {
+    await db.insert(internalMessagesTable).values({ ...base, recipientUserId: representativeId });
+    return;
+  }
+  await db.insert(internalMessagesTable).values(recipients.map((candidate: any) => ({ ...base, recipientUserId: candidate.id })));
+}
+
 export const appRouter = router({
   system: systemRouter,
+  representative: representativeRouter,
 
   // ===== AUTH ROUTER =====
   auth: router({
