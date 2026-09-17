@@ -623,7 +623,10 @@ export default function HomeScreen() {
     if (user?.role === "admin") return true;
     if (isDepartmentManager && normalizedDepartment === "sales") {
       if (item.id === "sales") return true;
-      if (item.id === "representative_performance") return false;
+      // لا نحجب أداء المندوب تلقائياً: إذا منحه الأدمن صراحةً يظهر لمدير التسويق أيضاً.
+      if (item.id === "representative_performance") {
+        return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);
+      }
     }
     if (item.id === "sales") return false;
     if (EXTRA_DASHBOARD_PERMISSION_IDS.has(item.id)) return userToolPermissions[item.id] === true;

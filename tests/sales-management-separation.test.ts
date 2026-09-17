@@ -14,9 +14,10 @@ describe("Sales management separation", () => {
     expect(dashboard).toContain('"إدارة التسويق والمبيعات"');
   });
 
-  it("shows the new management entry and hides the representative operational entry from the manager", () => {
+  it("shows the new management entry and requires explicit permission for representative operations", () => {
     expect(dashboard).toContain('if (item.id === "sales") return true;');
-    expect(dashboard).toContain('if (item.id === "representative_performance") return false;');
+    expect(dashboard).toContain('if (item.id === "representative_performance") {');
+    expect(dashboard).toContain('return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);');
     expect(dashboard).toContain('labelAr: "إدارة التسويق والمبيعات"');
     expect(dashboard).toContain('route: "/sales-management"');
   });

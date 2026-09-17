@@ -4,7 +4,7 @@ export interface ActivityLogEntry {
   id: string;
   userId: string;
   userName: string;
-  action: "create" | "update" | "delete" | "login" | "logout" | "export" | "alert";
+  action: "create" | "update" | "delete" | "login" | "logout" | "export" | "print" | "alert";
   module: string; // production, sales, warehouse, maintenance, financial, users, etc.
   description: string;
   details?: string;

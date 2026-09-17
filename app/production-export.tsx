@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Platform,
   TextInput,
   ActivityIndicator,
 } from "react-native";
@@ -18,6 +19,7 @@ import { activityLogService } from "@/lib/services/activity-log";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { productionService } from "@/lib/services/api.service";
+import * as Print from "expo-print";
 
 export default function ProductionExportScreen() {
   const router = useRouter();
@@ -43,6 +45,44 @@ export default function ProductionExportScreen() {
       setRecords(filtered as ProductionRecord[]);
     } catch (error) {
       console.error("Failed to load production data:", error);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (records.length === 0) {
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const html = productionExportService.generateHTML(records, date);
+      if (Platform.OS === "web") {
+        const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1100,height=800");
+        if (!printWindow) throw new Error("PRINT_WINDOW_BLOCKED");
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        window.setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      } else {
+        await Print.printAsync({ html, orientation: Print.Orientation.landscape });
+      }
+      await activityLogService.addEntry({
+        userId: String(user?.id || "unknown"),
+        userName: user?.name || (isAr ? "مجهول" : "Unknown"),
+        action: "print",
+        module: "production",
+        description: isAr ? `طباعة تقرير إنتاج المكائن ليوم ${date}` : `Print machine production report for ${date}`,
+        details: isAr ? `عدد السجلات: ${records.length}` : `Number of records: ${records.length}`,
+      });
+    } catch (error) {
+      Alert.alert(isAr ? "خطأ في الطباعة" : "Print error", isAr ? "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى." : "Unable to open printing. Allow pop-ups and try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -98,8 +138,10 @@ export default function ProductionExportScreen() {
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
-        <Text style={styles.headerTitle}>{isAr ? "تصدير بيانات الإنتاج" : "Export Production Data"}</Text>
-        <View style={{ width: 40 }} />
+        <Text style={styles.headerTitle}>{isAr ? "تقرير إنتاج المكائن" : "Machine Production Report"}</Text>
+        <TouchableOpacity onPress={handlePrint} disabled={isLoading || records.length === 0} style={styles.headerPrintButton} accessibilityLabel={isAr ? "طباعة التقرير" : "Print report"}>
+          <MaterialIcons name="print" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -176,6 +218,16 @@ export default function ProductionExportScreen() {
           )}
         </View>
 
+        {/* Print Button */}
+        <TouchableOpacity
+          onPress={handlePrint}
+          disabled={isLoading || records.length === 0}
+          style={[styles.printBtn, (isLoading || records.length === 0) && styles.exportBtnDisabled]}
+        >
+          <MaterialIcons name="print" size={22} color="white" />
+          <Text style={styles.exportBtnText}>{isAr ? "طباعة التقرير" : "Print Report"}</Text>
+        </TouchableOpacity>
+
         {/* Export Button */}
         <TouchableOpacity
           onPress={handleExport}
@@ -211,9 +263,18 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
+    flex: 1,
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  headerPrintButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff26",
   },
   content: {
     flex: 1,
@@ -308,6 +369,16 @@ const styles = StyleSheet.create({
     color: "#687076",
     marginTop: 4,
     textAlign: "center",
+  },
+  printBtn: {
+    backgroundColor: "#15803d",
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   exportBtn: {
     backgroundColor: "#0a7ea4",
