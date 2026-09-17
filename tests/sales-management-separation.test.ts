@@ -16,8 +16,8 @@ describe("Sales management separation", () => {
 
   it("shows the new management entry and requires explicit permission for representative operations", () => {
     expect(dashboard).toContain('if (item.id === "sales") return true;');
-    expect(dashboard).toContain('if (item.id === "representative_performance") {');
-    expect(dashboard).toContain('return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);');
+    expect(dashboard).toContain('if (item.id === "representative_performance") return hasRepresentativePermission;');
+    expect(dashboard).toContain('explicitAllowedSections.has("representative_performance")');
     expect(dashboard).toContain('labelAr: "إدارة التسويق والمبيعات"');
     expect(dashboard).toContain('route: "/sales-management"');
   });

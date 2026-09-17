@@ -617,16 +617,16 @@ export default function HomeScreen() {
     "representative_comprehensive_report",
   ]);
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
+    const hasRepresentativePermission =
+      hasExplicitAllowedSections && explicitAllowedSections.has("representative_performance");
+    // أداء المندوب صلاحية مستقلة؛ لا تُحجب بسبب قسم المدير أو ترتيب أيقونات إدارة التسويق.
+    if (item.id === "representative_performance") return hasRepresentativePermission;
     // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
     if (salesManagerOfficialItems.has(item.id)) return false;
     if (item.id === "administrative" && !showAdministrativeIcon) return false;
     if (user?.role === "admin") return true;
     if (isDepartmentManager && normalizedDepartment === "sales") {
       if (item.id === "sales") return true;
-      // لا نحجب أداء المندوب تلقائياً: إذا منحه الأدمن صراحةً يظهر لمدير التسويق أيضاً.
-      if (item.id === "representative_performance") {
-        return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);
-      }
     }
     if (item.id === "sales") return false;
     if (EXTRA_DASHBOARD_PERMISSION_IDS.has(item.id)) return userToolPermissions[item.id] === true;
