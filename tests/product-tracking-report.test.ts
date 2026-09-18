@@ -27,6 +27,8 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("وقت التسليم");
     expect(source).toContain("وقت الاستلام");
     expect(source).toContain("النقص");
-    expect(source).toContain("colspan=\"17\"");
+    expect(source).toContain("الفارق بين التسليم والاستلام:");
+    expect(source).toContain("المستلم الفعلي:");
+    expect(source).toContain("colspan=\"7\"");
   });
 });
