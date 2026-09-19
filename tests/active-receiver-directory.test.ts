@@ -23,6 +23,15 @@ describe("Active receiver directory contract", () => {
     expect(stage).toContain("manufacturingWorkersService.eligible(stageId)");
   });
 
+  it("reloads Rosso receivers after the authenticated production manager becomes available", () => {
+    const production = read("app/production.tsx");
+    const router = read("server/routers.ts");
+
+    expect(production).toContain("if (!user?.id)");
+    expect(production).toContain("}, [user?.id]);");
+    expect(router).toContain('(user?.role === "manager" && isProductionDepartment)');
+  });
+
   it("does not keep the removed static Qalb worker in active receiver UI sources", () => {
     const stage = read("app/manufacturing-stage.tsx");
     const manufacturing = read("app/manufacturing.tsx");

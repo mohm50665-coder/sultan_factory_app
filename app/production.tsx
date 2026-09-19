@@ -176,18 +176,28 @@ export default function ProductionScreen() {
   const [approvedSampleRequests, setApprovedSampleRequests] = useState<any[]>([]);
   const riyadhToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const automaticFlowActive = riyadhToday >= "2026-09-10" || selectedDate >= "2026-09-10";
-  const canCreateProduction = user?.role === "admin" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager") || String(user?.position || "").toLowerCase().includes("production director");
+  const normalizedDepartment = String(user?.department || "").trim().toLowerCase();
+  const normalizedPosition = String(user?.position || "").trim().toLowerCase();
+  const isProductionDepartment = ["production", "الإنتاج", "قسم الإنتاج"].includes(normalizedDepartment);
+  const isProductionManager = normalizedPosition.includes("مدير الإنتاج") || normalizedPosition.includes("مدير الانتاج") || normalizedPosition.includes("production manager") || normalizedPosition.includes("production director");
+  const canCreateProduction = user?.role === "admin" || (user?.role === "manager" && isProductionDepartment) || isProductionManager;
 
   useEffect(() => {
     loadEntries();
     loadSavedProducts();
+    // قد يصل المستخدم بعد أول render؛ إعادة التحميل عند توفر user.id تمنع
+    // ظهور قائمة الروسو فارغة لحساب مدير الإنتاج رنا.
+    if (!user?.id) {
+      setMachineWorkers([]);
+      return;
+    }
     manufacturingWorkersService.eligible("rosso").then((rows: any[]) => {
       setMachineWorkers((Array.isArray(rows) ? rows : []).map((row: any) => String(row.workerName || row.name || "").trim()).filter(Boolean));
     }).catch(() => setMachineWorkers([]));
     sampleRequestsService.list().then((rows: any) => {
       setApprovedSampleRequests((Array.isArray(rows) ? rows : []).filter((row: any) => ["approved_sales", "approved_production", "in_production"].includes(row.status)));
     }).catch(() => setApprovedSampleRequests([]));
-  }, []);
+  }, [user?.id]);
 
   // تحميل بيانات المنتجات المحفوظة (ملاحظة 5)
   const loadSavedProducts = async () => {

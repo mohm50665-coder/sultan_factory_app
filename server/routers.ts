@@ -163,7 +163,12 @@ function isAutomaticHandoverActive(recordDate?: string | null) {
 function isProductionAuthority(user: any) {
   const department = String(user?.department || "").trim().toLowerCase();
   const position = String(user?.position || "").trim().toLowerCase();
-  return user?.role === "admin" || position.includes("مدير الإنتاج") || position.includes("production manager") || position.includes("production director");
+  const isProductionDepartment = ["production", "الإنتاج", "قسم الإنتاج"].includes(department);
+  const isProductionManager = position.includes("مدير الإنتاج") || position.includes("مدير الانتاج") || position.includes("production manager") || position.includes("production director");
+  // بعض حسابات مديري الإنتاج، ومنها حساب رنا، مصنفة بالدور manager
+  // وقسمها production بينما المسمى الوظيفي الإداري غير موحد؛ القسم والدور
+  // معاً كافيان لمنح صلاحية إدخال الإنتاج.
+  return user?.role === "admin" || (user?.role === "manager" && isProductionDepartment) || (isProductionDepartment && isProductionManager) || isProductionManager;
 }
 
 function assertProductionAuthority(user: any, recordDate?: string | null) {
