@@ -72,6 +72,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "@react-native-community/datetimepicker",
     [
       "expo-audio",
       { microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone." },

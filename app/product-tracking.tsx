@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { useColors } from "@/hooks/use-colors";
@@ -23,6 +24,12 @@ const STAGES = [
 
 const numberValue = (value: unknown) => Number(value || 0) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
+const toDateInputValue = (value: Date) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const formatActionTime = (value: unknown) => value ? new Date(String(value)).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : "—";
 const elapsedMinutes = (deliveredAt: unknown, receivedAt: unknown = new Date()) => {
   if (!deliveredAt) return null;
@@ -390,8 +397,28 @@ export default function ProductTrackingScreen() {
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right", marginBottom: 7 }}>{isAr ? "نطاق تاريخ التقرير (اختياري)" : "Report date range (optional)"}</Text>
           <View style={{ flexDirection: "row", gap: 8 }}>
-            <TextInput value={dateFilter} onChangeText={setDateFilter} placeholder={isAr ? "من تاريخ YYYY-MM-DD" : "From YYYY-MM-DD"} placeholderTextColor={colors.muted} style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right" }} />
-            <TextInput value={dateToFilter} onChangeText={setDateToFilter} placeholder={isAr ? "إلى تاريخ YYYY-MM-DD" : "To YYYY-MM-DD"} placeholderTextColor={colors.muted} style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right" }} />
+            <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, alignItems: "center", backgroundColor: colors.background }}>
+              <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2 }}>{isAr ? "من تاريخ" : "From date"}</Text>
+              <DateTimePicker
+                value={dateFilter ? new Date(`${dateFilter}T12:00:00`) : new Date()}
+                mode="date"
+                display={Platform.OS === "android" ? "calendar" : "default"}
+                onChange={(_, selectedDate) => { if (selectedDate) setDateFilter(toDateInputValue(selectedDate)); }}
+                accentColor={colors.primary}
+                accessibilityLabel={isAr ? "اختيار تاريخ بداية التقرير" : "Select report start date"}
+              />
+            </View>
+            <View style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5, alignItems: "center", backgroundColor: colors.background }}>
+              <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 2 }}>{isAr ? "إلى تاريخ" : "To date"}</Text>
+              <DateTimePicker
+                value={dateToFilter ? new Date(`${dateToFilter}T12:00:00`) : new Date()}
+                mode="date"
+                display={Platform.OS === "android" ? "calendar" : "default"}
+                onChange={(_, selectedDate) => { if (selectedDate) setDateToFilter(toDateInputValue(selectedDate)); }}
+                accentColor={colors.primary}
+                accessibilityLabel={isAr ? "اختيار تاريخ نهاية التقرير" : "Select report end date"}
+              />
+            </View>
           </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", marginTop: 10, gap: 6 }}>
             {STAGES.map((stage) => (

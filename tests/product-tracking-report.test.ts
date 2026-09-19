@@ -14,6 +14,15 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("مسح كل الفلاتر");
   });
 
+  it("uses a date picker for both report range boundaries", () => {
+    expect(source).toContain("@react-native-community/datetimepicker");
+    expect(source).toContain('accessibilityLabel={isAr ? "اختيار تاريخ بداية التقرير"');
+    expect(source).toContain('accessibilityLabel={isAr ? "اختيار تاريخ نهاية التقرير"');
+    expect(source).toContain("toDateInputValue(selectedDate)");
+    expect(source).not.toContain('placeholder={isAr ? "من تاريخ YYYY-MM-DD"');
+    expect(source).not.toContain('placeholder={isAr ? "إلى تاريخ YYYY-MM-DD"');
+  });
+
   it("renders a current location and status marker for every tracked product", () => {
     expect(source).toContain("locationForProduct");
     expect(source).toContain("بانتظار الاستلام");
