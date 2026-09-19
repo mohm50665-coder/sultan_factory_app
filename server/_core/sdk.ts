@@ -2,9 +2,10 @@ import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.j
 import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
+import { eq } from "drizzle-orm";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import type { User } from "../../drizzle/schema";
+import { appSettings, type User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
 import type {
@@ -249,7 +250,23 @@ class SDKServer {
     const localUserId = Array.isArray(localSessionId) ? localSessionId[0] : localSessionId;
     if (typeof localUserId === "string" && /^\d+$/.test(localUserId)) {
       const localUser = await db.getUserById(Number(localUserId));
-      if (localUser) return localUser;
+      if (localUser) {
+        // Local sessions are represented by the user id cookie. A server-side
+        // revocation marker is therefore required to invalidate old admin
+        // cookies after a global security action.
+        if (localUser.role === "admin") {
+          const database = await db.getDb();
+          const revocation = database
+            ? await database.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.key, "admin_sessions_revoked_at")).limit(1)
+            : [];
+          const revokedAt = revocation[0]?.value ? new Date(String(revocation[0].value)).getTime() : 0;
+          const signedInAt = localUser.lastSignedIn ? new Date(localUser.lastSignedIn).getTime() : 0;
+          if (revokedAt > 0 && (!signedInAt || signedInAt < revokedAt)) {
+            throw ForbiddenError("Admin session revoked. Please sign in again.");
+          }
+        }
+        return localUser;
+      }
     }
 
     const session = await this.verifySession(sessionCookie);

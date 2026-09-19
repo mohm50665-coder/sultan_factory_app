@@ -639,6 +639,8 @@ export const appRouter = router({
           throw new Error("حسابك غير مفعّل. يرجى التواصل مع المدير لتفعيل حسابك.");
         }
 
+        await db.update(usersTable).set({ lastSignedIn: new Date() }).where(eq(usersTable.id, user.id));
+
         // Set session cookie
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, user.id.toString(), cookieOptions);
