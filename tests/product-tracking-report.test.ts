@@ -7,8 +7,8 @@ const source = readFileSync(resolve(process.cwd(), "app/product-tracking.tsx"), 
 describe("Product tracking location and handover report", () => {
   it("supports optional date ranges and independent product or employee filtering", () => {
     expect(source).toContain("dateToFilter");
-    expect(source).toContain("rowDate >= dateFilter");
-    expect(source).toContain("rowDate <= dateToFilter");
+    expect(source).toContain("rowDate >= appliedDateFilter");
+    expect(source).toContain("rowDate <= appliedDateToFilter");
     expect(source).toContain("setProductFilter");
     expect(source).toContain("setEmployeeFilter");
     expect(source).toContain("مسح كل الفلاتر");
@@ -17,7 +17,11 @@ describe("Product tracking location and handover report", () => {
   it("uses a date picker for both report range boundaries", () => {
     expect(source).toContain("<DateField value={dateFilter}");
     expect(source).toContain("<DateField value={dateToFilter}");
-    expect(source).toContain("اضغط لاختيار التاريخ من التقويم");
+    expect(source).toContain("اضغط داخل خانة التاريخ لفتح التقويم، ثم اضغط بحث لعرض النتائج");
+    expect(source).toContain("applyDateFilter");
+    expect(source).toContain("بحث وعرض التقرير");
+    expect(source).toContain("appliedDateFilter");
+    expect(source).toContain("appliedDateToFilter");
     expect(source).not.toContain('placeholder={isAr ? "من تاريخ YYYY-MM-DD"');
     expect(source).not.toContain('placeholder={isAr ? "إلى تاريخ YYYY-MM-DD"');
   });

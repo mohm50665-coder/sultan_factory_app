@@ -55,6 +55,8 @@ export default function ProductTrackingScreen() {
   const isAr = language === "ar";
   const [dateFilter, setDateFilter] = useState("");
   const [dateToFilter, setDateToFilter] = useState("");
+  const [appliedDateFilter, setAppliedDateFilter] = useState("");
+  const [appliedDateToFilter, setAppliedDateToFilter] = useState("");
   const [production, setProduction] = useState<any[]>([]);
   const [manufacturing, setManufacturing] = useState<any[]>([]);
   const [handoverRecords, setHandoverRecords] = useState<any[]>([]);
@@ -147,7 +149,7 @@ export default function ProductTrackingScreen() {
     production
       .filter((row) => {
         const rowDate = String(row.date || row.createdAt || "").slice(0, 10);
-        return (!dateFilter || rowDate >= dateFilter) && (!dateToFilter || rowDate <= dateToFilter);
+        return (!appliedDateFilter || rowDate >= appliedDateFilter) && (!appliedDateToFilter || rowDate <= appliedDateToFilter);
       })
       .forEach((row) => {
         const name = String(row.productName || (isAr ? "صنف غير محدد" : "Unnamed product"));
@@ -167,7 +169,7 @@ export default function ProductTrackingScreen() {
         item.yarn.rubber += numberValue(row.yarnRubber);
       });
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name, isAr ? "ar" : "en"));
-  }, [production, dateFilter, dateToFilter, isAr]);
+  }, [production, appliedDateFilter, appliedDateToFilter, isAr]);
 
   const catalogForProduct = (productName: string) => catalogProducts.find((item) => String(item.name || "") === productName) || {};
   const employeeFor = (name: unknown) => employees.find((employee) => String(employee.name || "") === String(name || "") || String(employee.username || "") === String(name || "")) || {};
@@ -219,7 +221,7 @@ export default function ProductTrackingScreen() {
     const product = productFilter.trim().toLowerCase();
     return handoverRecords.filter((row) => {
       const rowDate = String(row.trackingDate || row.deliveredAt || row.receivedAt || row.createdAt || "").slice(0, 10);
-      const dateMatches = (!dateFilter || rowDate >= dateFilter) && (!dateToFilter || rowDate <= dateToFilter);
+      const dateMatches = (!appliedDateFilter || rowDate >= appliedDateFilter) && (!appliedDateToFilter || rowDate <= appliedDateToFilter);
       const productMatches = !product || [row.productName, row.productBarcode, row.productColor, row.productSize].some((value) => String(value || "").toLowerCase().includes(product));
       const stageMatches = stageFilter === "all" || String(row.previousStage || "") === stageFilter || String(row.currentStage || "") === stageFilter || String(row.receiverStage || "") === stageFilter;
       const employeeMatches = !employee || [row.deliveredBy, row.receivedBy, row.expectedReceiver].some((name) => String(name || "").toLowerCase().includes(employee));
@@ -227,7 +229,7 @@ export default function ProductTrackingScreen() {
       const delayedMatches = traceFilter !== "delayed" || (() => { const minutes = elapsedMinutes(row.deliveredAt, row.receivedAt); return minutes !== null && minutes >= 24 * 60; })();
       return dateMatches && productMatches && stageMatches && employeeMatches && shortageMatches && delayedMatches;
     });
-  }, [handoverRecords, dateFilter, dateToFilter, stageFilter, employeeFilter, productFilter, traceFilter]);
+  }, [handoverRecords, appliedDateFilter, appliedDateToFilter, stageFilter, employeeFilter, productFilter, traceFilter]);
 
   const employeeSummary = useMemo(() => {
     const summary: Record<string, { name: string; deliveredCount: number; receivedCount: number; deliveredDozen: number; receivedDozen: number; deliveredPairs: number; receivedPairs: number }> = {};
@@ -241,6 +243,15 @@ export default function ProductTrackingScreen() {
     });
     return Object.values(summary).sort((a, b) => a.name.localeCompare(b.name, "ar"));
   }, [filteredHandovers]);
+
+  const applyDateFilter = () => {
+    if (dateFilter && dateToFilter && dateFilter > dateToFilter) {
+      showTrackingMessage(isAr ? "نطاق التاريخ غير صحيح" : "Invalid date range", isAr ? "اختر تاريخ البداية قبل تاريخ النهاية" : "Choose the start date before the end date");
+      return;
+    }
+    setAppliedDateFilter(dateFilter);
+    setAppliedDateToFilter(dateToFilter);
+  };
 
   const stageLabel = (id: string) => STAGES.find((stage) => stage.id === id)?.ar || id || "غير محددة";
   const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\\\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\\"": "&quot;", "'": "&#039;" } as Record<string, string>)[char] || char);
@@ -263,7 +274,7 @@ export default function ProductTrackingScreen() {
     const summaryRows = employeeSummary.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.deliveredCount}</td><td>${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج</td><td>${item.receivedCount}</td><td>${item.receivedDozen} درزن + ${item.receivedPairs} زوج</td></tr>`).join("");
     const printWindow = window.open("", "_blank", "width=1400,height=900");
     if (!printWindow) return;
-    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير تفصيلي للتسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:22px;color:#17202a;line-height:1.55}h1,h2{text-align:right;color:#075985;margin:8px 0}.meta{background:#eff8fb;border:1px solid #b8dce8;padding:12px;border-radius:8px;text-align:right}.note{background:#fff7ed;border:1px solid #fed7aa;padding:10px;margin:12px 0;text-align:right}table{width:100%;border-collapse:collapse;margin:10px 0 24px;font-size:11px;page-break-inside:auto}th,td{border:1px solid #9fb5bd;padding:8px;text-align:right;vertical-align:top}th{background:#075985;color:white;font-size:12px}tr{page-break-inside:avoid}tr:nth-child(even){background:#f7fbfc}hr{border:0;border-top:1px solid #d7e2e6;margin:5px 0}.danger{color:#b91c1c}.ok{color:#15803d}@page{size:landscape;margin:12mm}@media print{button{display:none}}</style></head><body><h1>التقرير التفصيلي للتسليم والاستلام في مراحل الإنتاج</h1><div class="meta"><strong>نطاق التقرير:</strong> ${escapeHtml(dateFilter || dateToFilter ? `${dateFilter || "بداية غير محددة"} إلى ${dateToFilter || "نهاية غير محددة"}` : "جميع التواريخ")}<br/><strong>المنتج:</strong> ${escapeHtml(productFilter || "جميع المنتجات")} | <strong>المرحلة:</strong> ${escapeHtml(stageFilter === "all" ? "جميع المراحل" : stageLabel(stageFilter))} | <strong>الموظف:</strong> ${escapeHtml(employeeFilter || "جميع الموظفين")}</div><div class="note"><strong>طريقة قراءة التقرير:</strong> كل صف يمثل حركة واحدة بين مرحلتين. يظهر وقت التسليم ووقت الاستلام منفصلين، ثم الفارق الزمني بينهما، مع بيان الموظف المسلم والمستلم المحدد والمستلم الفعلي، والفرق بين الكمية المسلّمة والكمية المستلمة.</div><h2>أولاً: ملخص مسؤولية الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>ثانياً: سجل الحركات التفصيلي</h2><table><thead><tr><th>#</th><th>بيانات المنتج</th><th>المرحلة والمسار</th><th>التاريخ والأوقات والفارق</th><th>المسؤولية والموظفون</th><th>الكميات والفرق</th><th>الحالة والملاحظات</th></tr></thead><tbody>${detailRows || '<tr><td colspan="7">لا توجد بيانات ضمن الفلاتر الحالية</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
+    printWindow.document.write(`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تقرير تفصيلي للتسليم والاستلام</title><style>body{font-family:Arial,sans-serif;padding:22px;color:#17202a;line-height:1.55}h1,h2{text-align:right;color:#075985;margin:8px 0}.meta{background:#eff8fb;border:1px solid #b8dce8;padding:12px;border-radius:8px;text-align:right}.note{background:#fff7ed;border:1px solid #fed7aa;padding:10px;margin:12px 0;text-align:right}table{width:100%;border-collapse:collapse;margin:10px 0 24px;font-size:11px;page-break-inside:auto}th,td{border:1px solid #9fb5bd;padding:8px;text-align:right;vertical-align:top}th{background:#075985;color:white;font-size:12px}tr{page-break-inside:avoid}tr:nth-child(even){background:#f7fbfc}hr{border:0;border-top:1px solid #d7e2e6;margin:5px 0}.danger{color:#b91c1c}.ok{color:#15803d}@page{size:landscape;margin:12mm}@media print{button{display:none}}</style></head><body><h1>التقرير التفصيلي للتسليم والاستلام في مراحل الإنتاج</h1><div class="meta"><strong>نطاق التقرير:</strong> ${escapeHtml(appliedDateFilter || appliedDateToFilter ? `${appliedDateFilter || "بداية غير محددة"} إلى ${appliedDateToFilter || "نهاية غير محددة"}` : "جميع التواريخ")}<br/><strong>المنتج:</strong> ${escapeHtml(productFilter || "جميع المنتجات")} | <strong>المرحلة:</strong> ${escapeHtml(stageFilter === "all" ? "جميع المراحل" : stageLabel(stageFilter))} | <strong>الموظف:</strong> ${escapeHtml(employeeFilter || "جميع الموظفين")}</div><div class="note"><strong>طريقة قراءة التقرير:</strong> كل صف يمثل حركة واحدة بين مرحلتين. يظهر وقت التسليم ووقت الاستلام منفصلين، ثم الفارق الزمني بينهما، مع بيان الموظف المسلم والمستلم المحدد والمستلم الفعلي، والفرق بين الكمية المسلّمة والكمية المستلمة.</div><h2>أولاً: ملخص مسؤولية الموظفين</h2><table><thead><tr><th>الموظف</th><th>عدد التسليم</th><th>كمية التسليم</th><th>عدد الاستلام</th><th>كمية الاستلام</th></tr></thead><tbody>${summaryRows || '<tr><td colspan="5">لا توجد بيانات</td></tr>'}</tbody></table><h2>ثانياً: سجل الحركات التفصيلي</h2><table><thead><tr><th>#</th><th>بيانات المنتج</th><th>المرحلة والمسار</th><th>التاريخ والأوقات والفارق</th><th>المسؤولية والموظفون</th><th>الكميات والفرق</th><th>الحالة والملاحظات</th></tr></thead><tbody>${detailRows || '<tr><td colspan="7">لا توجد بيانات ضمن الفلاتر الحالية</td></tr>'}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
     printWindow.document.close();
   };
 
@@ -312,7 +323,7 @@ export default function ProductTrackingScreen() {
           productName: selectedProduct.name,
           productSize: catalogProduct.size || undefined,
           productColor: catalogProduct.color || undefined,
-          trackingDate: dateFilter || today(),
+          trackingDate: appliedDateFilter || today(),
           productBarcode: catalogProduct.barcode || undefined,
           qualityGrade,
           quantityDozen: Math.round(selectedProduct.dozen),
@@ -390,10 +401,12 @@ export default function ProductTrackingScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right", marginBottom: 7 }}>{isAr ? "نطاق تاريخ التقرير (اختياري)" : "Report date range (optional)"}</Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <DateField value={dateFilter} onChange={setDateFilter} label={isAr ? "من تاريخ — اضغط لاختيار التاريخ من التقويم" : "From date — click to choose from calendar"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
-            <DateField value={dateToFilter} onChange={setDateToFilter} label={isAr ? "إلى تاريخ — اضغط لاختيار التاريخ من التقويم" : "To date — click to choose from calendar"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
+          <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
+            <DateField value={dateFilter} onChange={setDateFilter} label={isAr ? "من تاريخ" : "From date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
+            <DateField value={dateToFilter} onChange={setDateToFilter} label={isAr ? "إلى تاريخ" : "To date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
           </View>
+          <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>{isAr ? "اضغط داخل خانة التاريخ لفتح التقويم، ثم اضغط بحث لعرض النتائج" : "Click a date field to open the calendar, then press Search to show results"}</Text>
+          <TouchableOpacity onPress={applyDateFilter} accessibilityLabel={isAr ? "بحث بالتاريخ" : "Search by date"} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 10, alignItems: "center", marginTop: 8, flexDirection: "row", justifyContent: "center", gap: 6 }}><MaterialIcons name="search" size={19} color="#fff" /><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "بحث وعرض التقرير" : "Search and show report"}</Text></TouchableOpacity>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", marginTop: 10, gap: 6 }}>
             {STAGES.map((stage) => (
               <View key={stage.id} style={{ flexDirection: "row", alignItems: "center", marginLeft: 7, marginBottom: 4 }}>
@@ -405,7 +418,7 @@ export default function ProductTrackingScreen() {
           <TextInput value={productFilter} onChangeText={setProductFilter} placeholder={isAr ? "بحث باسم المنتج أو الباركود أو المقاس أو اللون" : "Search by product, barcode, size or color"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right", marginTop: 8 }} />
           <TextInput value={employeeFilter} onChangeText={setEmployeeFilter} placeholder={isAr ? "فلترة باسم الموظف (المسلّم أو المستلم)" : "Filter by employee (sender or receiver)"} placeholderTextColor={colors.muted} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: "right", marginTop: 8 }} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 6, marginTop: 8 }}>
-            <TouchableOpacity onPress={() => setDateFilter("")} style={{ backgroundColor: !dateFilter ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: !dateFilter ? "#fff" : colors.foreground, fontSize: 10 }}>{isAr ? "كل التواريخ" : "All dates"}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => { setDateFilter(""); setDateToFilter(""); setAppliedDateFilter(""); setAppliedDateToFilter(""); }} style={{ backgroundColor: !appliedDateFilter && !appliedDateToFilter ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: !appliedDateFilter && !appliedDateToFilter ? "#fff" : colors.foreground, fontSize: 10 }}>{isAr ? "كل التواريخ" : "All dates"}</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setStageFilter("all")} style={{ backgroundColor: stageFilter === "all" ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === "all" ? "#fff" : colors.foreground, fontSize: 10 }}>{isAr ? "كل المراحل" : "All stages"}</Text></TouchableOpacity>
             {STAGES.map((stage) => <TouchableOpacity key={stage.id} onPress={() => setStageFilter(stage.id)} style={{ backgroundColor: stageFilter === stage.id ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: stageFilter === stage.id ? "#fff" : colors.foreground, fontSize: 10 }}>{stage.ar}</Text></TouchableOpacity>)}
           </View>
@@ -414,7 +427,7 @@ export default function ProductTrackingScreen() {
             {([['all', isAr ? 'الكل' : 'All'], ['shortage', isAr ? 'يوجد نقص' : 'Shortage'], ['delayed', isAr ? 'متأخر' : 'Delayed']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => setTraceFilter(key)} style={{ backgroundColor: traceFilter === key ? colors.primary : colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}><Text style={{ color: traceFilter === key ? '#fff' : colors.foreground, fontSize: 10 }}>{label}</Text></TouchableOpacity>)}
           </View>
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 6, marginTop: 8 }}>
-            <TouchableOpacity onPress={() => { setDateFilter(""); setDateToFilter(""); setProductFilter(""); setEmployeeFilter(""); setStageFilter("all"); setTraceFilter("all"); }} style={{ backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}><Text style={{ color: colors.foreground, fontSize: 10 }}>{isAr ? "مسح كل الفلاتر" : "Clear all filters"}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => { setDateFilter(""); setDateToFilter(""); setAppliedDateFilter(""); setAppliedDateToFilter(""); setProductFilter(""); setEmployeeFilter(""); setStageFilter("all"); setTraceFilter("all"); }} style={{ backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}><Text style={{ color: colors.foreground, fontSize: 10 }}>{isAr ? "مسح كل الفلاتر" : "Clear all filters"}</Text></TouchableOpacity>
           </View>
           <TouchableOpacity onPress={printHandoverReport} style={{ backgroundColor: "#0f766e", borderRadius: 9, padding: 10, alignItems: "center", marginTop: 10 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "طباعة التقرير الشامل لمراحل التسليم" : "Print comprehensive handover report"}</Text></TouchableOpacity>
         </View>
