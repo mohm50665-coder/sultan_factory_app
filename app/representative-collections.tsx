@@ -5,6 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { BackButton } from "@/components/back-button";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { representativeService } from "@/lib/services/representative.service";
@@ -12,6 +13,7 @@ import { representativeService } from "@/lib/services/representative.service";
 const TODAY = new Date().toISOString().slice(0, 10);
 
 function Field({ label, value, onChangeText, keyboardType = "default" }: { label: string; value: string; onChangeText: (value: string) => void; keyboardType?: any }) {
+  if (label.includes("تاريخ") || label.toLowerCase().includes("date")) return <DateField value={value} onChange={onChangeText} label={label} isAr style={styles.input} />;
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} style={styles.input} textAlign="right" /></View>;
 }
 

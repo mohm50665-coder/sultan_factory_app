@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { productionService, appSettingsService, productsService, manufacturingWorkersService } from "@/lib/services/api.service";
@@ -1276,14 +1277,7 @@ export default function ProductionScreen() {
         {/* التاريخ */}
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
           <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: 'right' }}>{isAr ? "التاريخ" : "Date"}</Text>
-          <TextInput
-            style={{ backgroundColor: fieldBackgroundColor, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: fieldTextColor, textAlign: 'right', fontSize: 16 }}
-            selectionColor={fieldTextColor}
-            value={selectedDate}
-            onChangeText={setSelectedDate}
-            placeholder="2026-01-01"
-            placeholderTextColor={fieldPlaceholderColor}
-          />
+          <DateField value={selectedDate} onChange={setSelectedDate} isAr={isAr} style={{ backgroundColor: fieldBackgroundColor, marginBottom: 8 }} />
         </View>
 
         {/* حقول الإدخال لكل مكينة مفعلة */}

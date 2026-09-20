@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { BackButton } from "@/components/back-button";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { SignaturePad } from "@/components/signature-pad";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/lib/auth-context";
@@ -23,6 +24,7 @@ const emptyItem = (type: TransactionType): RepresentativeItemInput => ({ product
 const toAttachment = (type: string, file: AttachmentFile) => ({ type, name: file.name, url: file.uploadedUrl || file.uri, mimeType: file.mimeType });
 
 function Input({ label, value, onChangeText, keyboardType = "default", multiline = false }: { label: string; value: string; onChangeText: (value: string) => void; keyboardType?: any; multiline?: boolean }) {
+  if (label.includes("تاريخ") || label.toLowerCase().includes("date")) return <DateField value={value} onChange={onChangeText} label={label} isAr style={styles.input} />;
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} multiline={multiline} style={[styles.input, multiline && styles.multiline]} textAlign="right" /></View>;
 }
 

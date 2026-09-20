@@ -11,6 +11,7 @@ import {
   FlatList,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
@@ -246,18 +247,8 @@ export default function ProductionRequestsScreen() {
       {/* مدة الإنتاج */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "مدة الإنتاج المطلوبة" : "Required Production Period"}</Text>
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
-        <TextInput
-          value={dateTo}
-          onChangeText={setDateTo}
-          placeholder={isAr ? "إلى (مثال: 2025/02/15)" : "To (e.g. 2025/02/15)"}
-          style={{ flex: 1, backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
-        />
-        <TextInput
-          value={dateFrom}
-          onChangeText={setDateFrom}
-          placeholder={isAr ? "من (مثال: 2025/01/15)" : "From (e.g. 2025/01/15)"}
-          style={{ flex: 1, backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
-        />
+        <DateField value={dateTo} onChange={setDateTo} label={isAr ? "إلى تاريخ" : "To date"} isAr={isAr} style={{ backgroundColor: "white" }} />
+        <DateField value={dateFrom} onChange={setDateFrom} label={isAr ? "من تاريخ" : "From date"} isAr={isAr} style={{ backgroundColor: "white" }} />
       </View>
 
       {/* ملاحظات */}

@@ -11,6 +11,7 @@ import {
   FlatList,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
@@ -544,7 +545,7 @@ export default function OrdersVisitsScreen() {
 
       {/* موعد التسليم */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "موعد التسليم" : "Delivery Date"}</Text>
-      <TextInput value={deliveryDate} onChangeText={setDeliveryDate} placeholder="YYYY-MM-DD" style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 12 }} />
+      <DateField value={deliveryDate} onChange={setDeliveryDate} label={isAr ? "موعد التسليم" : "Delivery Date"} isAr={isAr} style={{ backgroundColor: "white", marginBottom: 12 }} />
 
       {/* طريقة الدفع */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "طريقة الدفع" : "Payment Method"}</Text>
@@ -552,7 +553,7 @@ export default function OrdersVisitsScreen() {
         {(["cash", "transfer", "credit"] as const).map((method) => <TouchableOpacity key={method} onPress={() => setPaymentMethod(method)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: paymentMethod === method ? "#0a7ea4" : "#f1f5f9" }}><Text style={{ color: paymentMethod === method ? "white" : "#687076", fontWeight: "600" }}>{method === "cash" ? (isAr ? "نقدي" : "Cash") : method === "transfer" ? (isAr ? "تحويل" : "Transfer") : (isAr ? "آجل" : "Credit")}</Text></TouchableOpacity>)}
       </View>
       <TextInput value={paymentAmount} onChangeText={setPaymentAmount} placeholder={isAr ? "المبلغ" : "Amount"} keyboardType="numeric" style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />
-      {paymentMethod === "credit" ? <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>{(["30", "60", "90"] as const).map((days) => <TouchableOpacity key={days} onPress={() => setCreditDays(days)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: creditDays === days ? "#0a7ea4" : "#f1f5f9" }}><Text style={{ color: creditDays === days ? "white" : "#687076" }}>{days} {isAr ? "يوم" : "days"}</Text></TouchableOpacity>)}</View> : <View style={{ marginBottom: 12 }}><TextInput value={paymentReceiptNumber} onChangeText={setPaymentReceiptNumber} placeholder={isAr ? "رقم سند القبض أو التحويل" : "Receipt / transfer number"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} /><TextInput value={paymentReceiptDate} onChangeText={setPaymentReceiptDate} placeholder={isAr ? "تاريخ السند" : "Receipt date"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }} /></View>}
+      {paymentMethod === "credit" ? <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>{(["30", "60", "90"] as const).map((days) => <TouchableOpacity key={days} onPress={() => setCreditDays(days)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: creditDays === days ? "#0a7ea4" : "#f1f5f9" }}><Text style={{ color: creditDays === days ? "white" : "#687076" }}>{days} {isAr ? "يوم" : "days"}</Text></TouchableOpacity>)}</View> : <View style={{ marginBottom: 12 }}><TextInput value={paymentReceiptNumber} onChangeText={setPaymentReceiptNumber} placeholder={isAr ? "رقم سند القبض أو التحويل" : "Receipt / transfer number"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} /><DateField value={paymentReceiptDate} onChange={setPaymentReceiptDate} label={isAr ? "تاريخ السند" : "Receipt date"} isAr={isAr} style={{ backgroundColor: "white" }} /></View>}
 
       {/* التوقيعات */}
       <TextInput value={customerSignature} onChangeText={setCustomerSignature} placeholder={isAr ? "اسم/توقيع العميل" : "Customer signature"} style={{ backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right", marginBottom: 8 }} />

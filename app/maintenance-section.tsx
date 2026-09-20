@@ -358,7 +358,7 @@ export default function MaintenanceSectionScreen() {
         return (
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الأجهزة والآلات" : "Devices and Machines"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={devices} onChangeText={setDevices} placeholder={isAr ? "أسماء الأجهزة" : "Device Names"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "نتائج الصيانة" : "Maintenance Results"}</Text>
@@ -371,7 +371,7 @@ export default function MaintenanceSectionScreen() {
         return (
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "مكان العطل" : "Fault Location"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={location} onChangeText={setLocation} placeholder={isAr ? "مكان العطل" : "Fault Location"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الجهة الطالبة" : "Requesting Party"}</Text>
@@ -394,7 +394,7 @@ export default function MaintenanceSectionScreen() {
         return (
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "تاريخ التقرير" : "Report Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "بيانات الأجهزة والآلات" : "Devices and Machines Data"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={deviceName} onChangeText={setDeviceName} placeholder={isAr ? "اسم الجهاز/الآلة" : "Device/Machine Name"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "حالة الأجهزة" : "Devices Status"}</Text>
@@ -415,7 +415,7 @@ export default function MaintenanceSectionScreen() {
         return (
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التقيد بارتداء وسائل السلامة أثناء العمل" : "Compliance with Wearing Safety Equipment During Work"}</Text>
             <View style={styles.chipRow}>
               {(isAr ? SAFETY_OPTIONS_AR : SAFETY_OPTIONS_EN).map((opt) => (
@@ -454,7 +454,7 @@ export default function MaintenanceSectionScreen() {
         return (
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التوصية" : "Recommendation"}</Text>
             <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={recommendation} onChangeText={setRecommendation} placeholder={isAr ? "أدخل التوصية" : "Enter Recommendation"} placeholderTextColor={colors.muted} multiline numberOfLines={4} />
           </>
@@ -467,7 +467,7 @@ export default function MaintenanceSectionScreen() {
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "تحديد الإصابة" : "Identify Injury"}</Text>
             <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuryType} onChangeText={setInjuryType} placeholder={isAr ? "نوع الإصابة" : "Injury Type"} placeholderTextColor={colors.muted} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "تاريخ الإصابة" : "Injury Date"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={injuryDate} onChangeText={setInjuryDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} />
+            <DateField value={injuryDate} onChange={setInjuryDate} label={isAr ? "تاريخ الإصابة" : "Injury Date"} isAr={isAr} style={styles.input} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الإجراءات المنفذة" : "Implemented Actions"}</Text>
             <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={actions} onChangeText={setActions} placeholder={isAr ? "الإجراءات المنفذة في الحالة" : "Actions Implemented in the Case"} placeholderTextColor={colors.muted} multiline />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "حالة المصاب" : "Injured Status"}</Text>

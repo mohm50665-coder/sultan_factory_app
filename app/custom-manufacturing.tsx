@@ -856,18 +856,8 @@ export default function CustomManufacturingScreen() {
       {/* مدة الإنتاج */}
       <Text style={{ fontWeight: "600", color: colors.foreground, textAlign: "right", marginBottom: 6 }}>{isAr ? "مدة الإنتاج المطلوبة" : "Required Production Period"}</Text>
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-        <TextInput
-          value={dateTo}
-          onChangeText={setDateTo}
-          placeholder={isAr ? "إلى" : "To"}
-          style={{ flex: 1, backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
-        />
-        <TextInput
-          value={dateFrom}
-          onChangeText={setDateFrom}
-          placeholder={isAr ? "من" : "From"}
-          style={{ flex: 1, backgroundColor: "white", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#E5E7EB", textAlign: "right" }}
-        />
+        <DateField value={dateTo} onChange={setDateTo} label={isAr ? "إلى تاريخ" : "To date"} isAr={isAr} style={{ backgroundColor: "white" }} />
+        <DateField value={dateFrom} onChange={setDateFrom} label={isAr ? "من تاريخ" : "From date"} isAr={isAr} style={{ backgroundColor: "white" }} />
       </View>
 
       {/* المرفقات المطلوبة */}

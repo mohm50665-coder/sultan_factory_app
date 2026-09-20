@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Platform, Text, TextInput, View } from "react-native";
+import { Platform, Text, View } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 type DateFieldProps = {
   value: string;
@@ -18,6 +19,7 @@ export function todayDate() {
 
 export function DateField({ value, onChange, label, isAr = true, style, defaultToToday = true }: DateFieldProps) {
   const resolvedValue = value || (defaultToToday ? todayDate() : "");
+  const pickerValue = resolvedValue ? new Date(`${resolvedValue}T12:00:00`) : new Date();
   useEffect(() => {
     if (defaultToToday && !value) onChange(resolvedValue);
   }, [defaultToToday, value, resolvedValue, onChange]);
@@ -44,7 +46,16 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
               ...style,
             },
           })
-        : <TextInput value={resolvedValue} onChangeText={onChange} placeholder="YYYY-MM-DD" style={[{ minHeight: 42, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8, paddingHorizontal: 12, backgroundColor: "#fff", color: "#172033", textAlign: "right" }, style]} />}
+        : <DateTimePicker
+            value={pickerValue}
+            mode="date"
+            display="default"
+            onChange={(_, selectedDate) => {
+              if (selectedDate) onChange(selectedDate.toISOString().slice(0, 10));
+            }}
+            accentColor="#0a7ea4"
+            style={[{ minHeight: 42 }, style]}
+          />}
     </View>
   );
 }

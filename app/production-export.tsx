@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { MaterialIcons } from "@expo/vector-icons";
 import { productionExportService, type ProductionRecord } from "@/lib/services/production-export";
 import { activityLogService } from "@/lib/services/activity-log";
@@ -148,13 +149,7 @@ export default function ProductionExportScreen() {
         {/* Date Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{isAr ? "اختر التاريخ" : "Select Date"}</Text>
-          <TextInput
-            style={styles.dateInput}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            keyboardType="default"
-          />
+          <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.dateInput} />
         </View>
 
         {/* Format Selection */}

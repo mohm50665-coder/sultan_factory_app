@@ -1,6 +1,7 @@
 import { BackButton } from "@/components/back-button";
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
@@ -255,7 +256,7 @@ export default function ProductionTotalsScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", marginBottom: 8 }}>{isAr ? "فترة تقرير إنتاج المكائن" : "Machine production report period"}</Text>
-          <TextInput value={reportDate} onChangeText={setReportDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={{ color: colors.foreground, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 9, textAlign: "right", marginBottom: 8 }} />
+          <DateField value={reportDate} onChange={setReportDate} label={isAr ? "التاريخ المرجعي" : "Reference date"} isAr={isAr} style={{ marginBottom: 8 }} />
           <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
             {([["all", isAr ? "كل السجلات" : "All"], ["day", isAr ? "يومي" : "Daily"], ["week", isAr ? "أسبوعي" : "Weekly"], ["month", isAr ? "شهري" : "Monthly"]] as [typeof reportPeriod, string][]).map(([key, label]) => <TouchableOpacity key={key} onPress={() => setReportPeriod(key)} style={{ flex: 1, backgroundColor: reportPeriod === key ? "#0d9488" : colors.background, borderWidth: 1, borderColor: reportPeriod === key ? "#0d9488" : colors.border, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: reportPeriod === key ? "#fff" : colors.foreground, fontSize: 11, fontWeight: "700" }}>{label}</Text></TouchableOpacity>)}
           </View>

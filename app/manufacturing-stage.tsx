@@ -13,6 +13,7 @@ import {
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { manufacturingStageService } from "@/lib/services/data.service";
@@ -788,13 +789,7 @@ export default function ManufacturingStageScreen() {
               {periodButton("monthly", "شهري", "Monthly")}
             </View>
             <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
-            <TextInput
-              value={reportDate}
-              onChangeText={setReportDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.muted}
-              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: colors.foreground, textAlign: isAr ? "right" : "left", marginBottom: 8 }}
-            />
+            <DateField value={reportDate} onChange={setReportDate} isAr={isAr} style={{ backgroundColor: colors.background, marginBottom: 8 }} />
             {user?.role === "admin" && reportWorkers.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
                 <TouchableOpacity onPress={() => setReportWorker("all")} style={{ backgroundColor: reportWorker === "all" ? config.color : colors.background, borderWidth: 1, borderColor: config.color, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
@@ -858,14 +853,7 @@ export default function ManufacturingStageScreen() {
               <Text style={{ color: colors.foreground, fontWeight: '600', fontSize: 14, marginBottom: 8, textAlign: isAr ? "right" : "left" }}>
                 {isAr ? "التاريخ" : "Date"}
               </Text>
-              <TextInput
-                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, color: colors.foreground, textAlign: isAr ? "right" : "left", fontSize: 16 }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.muted}
-                value={entryDate}
-                onChangeText={setEntryDate}
-                returnKeyType="next"
-              />
+              <DateField value={entryDate} onChange={setEntryDate} isAr={isAr} style={{ backgroundColor: colors.background, marginBottom: 8 }} />
             </View>
 
             {/* حقول الإدخال حسب المرحلة */}

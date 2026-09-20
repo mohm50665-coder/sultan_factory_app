@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { FormInput, FormNumberInput } from "@/components/form-input";
 import { collectionService, CollectionData } from "@/lib/services/data.service";
 import { useColors } from "@/hooks/use-colors";
@@ -282,12 +283,7 @@ export default function CollectionScreen() {
                 placeholder={isAr ? "أدخل رقم السند" : "Enter receipt number"}
               />
 
-              <FormInput
-                label={isAr ? "تاريخ السند" : "Receipt Date"}
-                value={receiptDate}
-                onChangeText={setReceiptDate}
-                placeholder={isAr ? "مثال: 2024-01-15" : "e.g. 2024-01-15"}
-              />
+              <DateField value={receiptDate} onChange={setReceiptDate} label={isAr ? "تاريخ السند" : "Receipt Date"} isAr={isAr} />
 
               {/* المرفقات */}
               <AttachmentPicker

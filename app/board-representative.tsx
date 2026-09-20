@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "@/lib/language-context";
@@ -533,13 +534,7 @@ export default function BoardRepresentativeScreen() {
                 <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 8 }}>
                   {isAr ? "التاريخ" : "Date"}
                 </Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
-                  placeholder="YYYY-MM-DD"
-                  value={formData.date}
-                  onChangeText={(text) => setFormData({ ...formData, date: text })}
-                  placeholderTextColor={colors.muted}
-                />
+                <DateField value={formData.date} onChange={(text) => setFormData({ ...formData, date: text })} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
               </View>
             )}
 
