@@ -30,6 +30,8 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
         ? React.createElement("input", {
             type: "date",
             value: resolvedValue,
+            "aria-label": label || (isAr ? "اختيار التاريخ من التقويم" : "Choose date from calendar"),
+            title: isAr ? "اضغط لاختيار التاريخ من التقويم" : "Click to choose a date from the calendar",
             onChange: (event: any) => onChange(event.target.value),
             style: {
               width: "100%",
@@ -43,6 +45,8 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
               color: "#172033",
               fontSize: 15,
               textAlign: isAr ? "right" : "left",
+              appearance: "auto",
+              WebkitAppearance: "auto",
               ...style,
             },
           })

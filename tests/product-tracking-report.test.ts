@@ -15,10 +15,9 @@ describe("Product tracking location and handover report", () => {
   });
 
   it("uses a date picker for both report range boundaries", () => {
-    expect(source).toContain("@react-native-community/datetimepicker");
-    expect(source).toContain('accessibilityLabel={isAr ? "اختيار تاريخ بداية التقرير"');
-    expect(source).toContain('accessibilityLabel={isAr ? "اختيار تاريخ نهاية التقرير"');
-    expect(source).toContain("toDateInputValue(selectedDate)");
+    expect(source).toContain("<DateField value={dateFilter}");
+    expect(source).toContain("<DateField value={dateToFilter}");
+    expect(source).toContain("اضغط لاختيار التاريخ من التقويم");
     expect(source).not.toContain('placeholder={isAr ? "من تاريخ YYYY-MM-DD"');
     expect(source).not.toContain('placeholder={isAr ? "إلى تاريخ YYYY-MM-DD"');
   });
