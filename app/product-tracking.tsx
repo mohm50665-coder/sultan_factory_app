@@ -398,6 +398,16 @@ export default function ProductTrackingScreen() {
           <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{isAr ? "طباعة المنتجات" : "Print products"}</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ paddingHorizontal: 14, paddingTop: 10 }}>
+        <TouchableOpacity
+          onPress={printHandoverReport}
+          accessibilityLabel={isAr ? "طباعة تقرير الاستلام والتسليم" : "Print handover and receipt report"}
+          style={{ backgroundColor: "#0f766e", borderRadius: 10, paddingVertical: 11, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7, borderWidth: 1, borderColor: "#0b5f59" }}
+        >
+          <MaterialIcons name="print" size={20} color="#fff" />
+          <Text style={{ color: "#fff", fontWeight: "900", fontSize: 13 }}>{isAr ? "طباعة تقرير الاستلام والتسليم" : "Print handover and receipt report"}</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right", marginBottom: 7 }}>{isAr ? "نطاق تاريخ التقرير (اختياري)" : "Report date range (optional)"}</Text>

@@ -36,6 +36,8 @@ describe("Product tracking location and handover report", () => {
   });
 
   it("prints location, status, employee, timing, quantity, and shortage details", () => {
+    expect(source).toContain("طباعة تقرير الاستلام والتسليم");
+    expect(source).toContain('accessibilityLabel={isAr ? "طباعة تقرير الاستلام والتسليم"');
     expect(source).toContain("الحالة الحالية");
     expect(source).toContain("الموقع الحالي");
     expect(source).toContain("وقت التسليم");
