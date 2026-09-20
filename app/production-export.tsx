@@ -15,11 +15,11 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { DateField } from "@/components/date-field";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionExportService, type ProductionRecord } from "@/lib/services/production-export";
+import { productionExportService, type ProductionRecord, type StoppedMachineRecord } from "@/lib/services/production-export";
 import { activityLogService } from "@/lib/services/activity-log";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
-import { productionService } from "@/lib/services/api.service";
+import { maintenanceService, productionService } from "@/lib/services/api.service";
 import * as Print from "expo-print";
 
 export default function ProductionExportScreen() {
@@ -32,6 +32,7 @@ export default function ProductionExportScreen() {
     return today.toISOString().split("T")[0];
   });
   const [records, setRecords] = useState<ProductionRecord[]>([]);
+  const [stoppedMachines, setStoppedMachines] = useState<StoppedMachineRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [format, setFormat] = useState<"csv" | "html">("html");
 
@@ -41,9 +42,13 @@ export default function ProductionExportScreen() {
 
   const loadData = async () => {
     try {
-      const allRecords = await productionService.getAll() || [];
+      const [allRecords, allStoppedMachines] = await Promise.all([
+        productionService.getAll().catch(() => []),
+        maintenanceService.getStopped().catch(() => []),
+      ]);
       const filtered = allRecords.filter((r: any) => (r.date || r.entryDate) === date);
       setRecords(filtered as ProductionRecord[]);
+      setStoppedMachines((Array.isArray(allStoppedMachines) ? allStoppedMachines : []).filter((r: any) => String(r.stopDate || "").slice(0, 10) === date) as StoppedMachineRecord[]);
     } catch (error) {
       console.error("Failed to load production data:", error);
     }
@@ -57,7 +62,7 @@ export default function ProductionExportScreen() {
 
     setIsLoading(true);
     try {
-      const html = productionExportService.generateHTML(records, date);
+      const html = productionExportService.generateHTML(records, date, stoppedMachines);
       if (Platform.OS === "web") {
         const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1100,height=800");
         if (!printWindow) throw new Error("PRINT_WINDOW_BLOCKED");
@@ -99,7 +104,7 @@ export default function ProductionExportScreen() {
       if (format === "csv") {
         content = productionExportService.generateCSV(records, date);
       } else {
-        content = productionExportService.generateHTML(records, date);
+        content = productionExportService.generateHTML(records, date, stoppedMachines);
       }
 
       await productionExportService.shareReport(content, format, date);

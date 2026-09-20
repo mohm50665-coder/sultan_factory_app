@@ -11,7 +11,22 @@ export interface ProductionRecord {
   wasteSocks: number; // grams
   secondGrade: number; // pairs
   wasteNeedles: number; // pieces
+  productionHours?: number;
+  productionMinutes?: number;
+  shiftStart?: string;
+  shiftEnd?: string;
 }
+
+export interface StoppedMachineRecord {
+  equipmentName: string;
+  stopDate: string;
+  stopReason: string;
+}
+
+const formatWorkDuration = (hours: unknown, minutes: unknown) => {
+  const totalMinutes = Math.max(0, Number(hours || 0) * 60 + Number(minutes || 0));
+  return `${Math.floor(totalMinutes / 60)} ساعة و${totalMinutes % 60} دقيقة`;
+};
 
 const PRODUCTION_DATA_KEY = "production_data";
 
@@ -57,7 +72,7 @@ export const productionExportService = {
     return [header, ...rows, "", totalRow].join("\n");
   },
 
-  generateHTML(records: ProductionRecord[], date: string): string {
+  generateHTML(records: ProductionRecord[], date: string, stoppedMachines: StoppedMachineRecord[] = []): string {
     const totals = records.reduce(
       (acc, r) => ({
         productionDozen: acc.productionDozen + r.productionDozen,
@@ -66,8 +81,10 @@ export const productionExportService = {
         wasteSocks: acc.wasteSocks + r.wasteSocks,
         secondGrade: acc.secondGrade + r.secondGrade,
         wasteNeedles: acc.wasteNeedles + r.wasteNeedles,
+        productionHours: acc.productionHours + Number(r.productionHours || 0),
+        productionMinutes: acc.productionMinutes + Number(r.productionMinutes || 0),
       }),
-      { productionDozen: 0, productionPairs: 0, wasteThread: 0, wasteSocks: 0, secondGrade: 0, wasteNeedles: 0 }
+      { productionDozen: 0, productionPairs: 0, wasteThread: 0, wasteSocks: 0, secondGrade: 0, wasteNeedles: 0, productionHours: 0, productionMinutes: 0 }
     );
 
     const wastePercentage = totals.productionPairs > 0
@@ -79,6 +96,10 @@ export const productionExportService = {
         (r) => `
       <tr>
         <td>${r.machineId}</td>
+        <td class="working">تعمل</td>
+        <td>${r.shiftStart || "—"}</td>
+        <td>${r.shiftEnd || "—"}</td>
+        <td>${formatWorkDuration(r.productionHours, r.productionMinutes)}</td>
         <td>${r.productionDozen}</td>
         <td>${r.productionPairs}</td>
         <td>${r.wasteThread}</td>
@@ -87,6 +108,19 @@ export const productionExportService = {
         <td>${r.wasteNeedles}</td>
       </tr>`
       )
+      .join("");
+
+    const stoppedRows = stoppedMachines
+      .filter((machine) => String(machine.stopDate || "").slice(0, 10) === date)
+      .map((machine) => `
+      <tr>
+        <td>${machine.equipmentName}</td>
+        <td class="stopped">لا تعمل</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td colspan="6">${machine.stopReason || "غير محدد"}</td>
+      </tr>`)
       .join("");
 
     return `<!DOCTYPE html>
@@ -110,6 +144,8 @@ export const productionExportService = {
     .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
     .footer { text-align: center; color: #999; margin-top: 30px; font-size: 12px; }
     .waste-alert { color: #ef4444; font-weight: bold; }
+    .working { color: #15803d; font-weight: bold; }
+    .stopped { color: #b91c1c; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -140,6 +176,10 @@ export const productionExportService = {
     <thead>
       <tr>
         <th>رقم المكينة</th>
+        <th>حالة الماكينة</th>
+        <th>وقت البدء</th>
+        <th>وقت الانتهاء</th>
+        <th>وقت العمل</th>
         <th>الإنتاج (درزن)</th>
         <th>الإنتاج (زوج)</th>
         <th>هدر الخيوط (جرام)</th>
@@ -152,6 +192,10 @@ export const productionExportService = {
       ${rows}
       <tr class="totals">
         <td>المجموع</td>
+        <td>تعمل: ${records.length} | لا تعمل: ${stoppedMachines.filter((machine) => String(machine.stopDate || "").slice(0, 10) === date).length}</td>
+        <td>—</td>
+        <td>—</td>
+        <td>${formatWorkDuration(totals.productionHours, totals.productionMinutes)}</td>
         <td>${totals.productionDozen}</td>
         <td>${totals.productionPairs}</td>
         <td>${totals.wasteThread}</td>
@@ -160,6 +204,12 @@ export const productionExportService = {
         <td>${totals.wasteNeedles}</td>
       </tr>
     </tbody>
+  </table>
+
+  <h2>تقرير المكائن التي لا تعمل وأسباب التوقف</h2>
+  <table>
+    <thead><tr><th>رقم الماكينة</th><th>الحالة</th><th>وقت التسجيل</th><th>وقت الانتهاء</th><th>وقت العمل</th><th colspan="6">سبب عدم التشغيل</th></tr></thead>
+    <tbody>${stoppedRows || '<tr><td colspan="10">لا توجد مكائن متوقفة مسجلة لهذا التاريخ</td></tr>'}</tbody>
   </table>
 
   <div class="footer">
