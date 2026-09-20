@@ -401,9 +401,11 @@ export default function ProductTrackingScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "700", textAlign: "right", marginBottom: 7 }}>{isAr ? "نطاق تاريخ التقرير (اختياري)" : "Report date range (optional)"}</Text>
-          <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-            <DateField value={dateFilter} onChange={setDateFilter} label={isAr ? "من تاريخ" : "From date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
-            <DateField value={dateToFilter} onChange={setDateToFilter} label={isAr ? "إلى تاريخ" : "To date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background }} />
+          <View style={{ width: "100%", marginBottom: 10 }}>
+            <DateField value={dateFilter} onChange={setDateFilter} label={isAr ? "من تاريخ" : "From date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background, width: "100%" }} />
+          </View>
+          <View style={{ width: "100%", marginBottom: 4 }}>
+            <DateField value={dateToFilter} onChange={setDateToFilter} label={isAr ? "إلى تاريخ" : "To date"} isAr={isAr} defaultToToday={false} style={{ backgroundColor: colors.background, width: "100%" }} />
           </View>
           <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>{isAr ? "اضغط داخل خانة التاريخ لفتح التقويم، ثم اضغط بحث لعرض النتائج" : "Click a date field to open the calendar, then press Search to show results"}</Text>
           <TouchableOpacity onPress={applyDateFilter} accessibilityLabel={isAr ? "بحث بالتاريخ" : "Search by date"} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 10, alignItems: "center", marginTop: 8, flexDirection: "row", justifyContent: "center", gap: 6 }}><MaterialIcons name="search" size={19} color="#fff" /><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "بحث وعرض التقرير" : "Search and show report"}</Text></TouchableOpacity>

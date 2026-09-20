@@ -17,6 +17,8 @@ describe("Product tracking location and handover report", () => {
   it("uses a date picker for both report range boundaries", () => {
     expect(source).toContain("<DateField value={dateFilter}");
     expect(source).toContain("<DateField value={dateToFilter}");
+    expect(source).toContain('style={{ width: "100%", marginBottom: 10 }}');
+    expect(source).toContain('style={{ width: "100%", marginBottom: 4 }}');
     expect(source).toContain("اضغط داخل خانة التاريخ لفتح التقويم، ثم اضغط بحث لعرض النتائج");
     expect(source).toContain("applyDateFilter");
     expect(source).toContain("بحث وعرض التقرير");
