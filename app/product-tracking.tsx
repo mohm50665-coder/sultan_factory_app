@@ -277,6 +277,36 @@ export default function ProductTrackingScreen() {
   const stageLabel = (id: string) => STAGES.find((stage) => stage.id === id)?.ar || id || "غير محددة";
   const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\\\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\\\"": "&quot;", "'": "&#039;" } as Record<string, string>)[char] || char);
 
+  const downloadHandoverFile = (format: "word" | "excel") => {
+    if (Platform.OS !== "web" || typeof window === "undefined" || typeof document === "undefined") {
+      Alert.alert(isAr ? "التنزيل متاح من الويب" : "Web download", isAr ? "افتح التقرير من نسخة الويب لتنزيل الملف" : "Open the web version to download the file");
+      return;
+    }
+    const detailRows = filteredHandovers.map((row, index) => {
+      const catalog = catalogForProduct(String(row.productName || ""));
+      const location = locationForProduct(String(row.productName || ""));
+      const duration = elapsedMinutes(row.deliveredAt, row.receivedAt);
+      const deliveredQty = `${numberValue(row.deliveredQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.deliveredQuantityPairs ?? row.quantityPairs)} زوج`;
+      const receivedQty = `${numberValue(row.receivedQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.receivedQuantityPairs ?? row.quantityPairs)} زوج`;
+      const difference = `${numberValue(row.shortageDozen)} درزن + ${numberValue(row.shortagePairs)} زوج`;
+      const status = row.handoverStatus === "pending" ? "تحت الإجراء - بانتظار تأكيد المستلم" : row.receivedBy ? "مستلم ومؤكد" : location.status;
+      return `<tr><td>${index + 1}</td><td>${escapeHtml(row.productName || "غير محدد")}<br/>المقاس: ${escapeHtml(row.productSize || catalog.size || "غير محدد")}<br/>اللون: ${escapeHtml(row.productColor || catalog.color || "غير محدد")}<br/>الباركود: ${escapeHtml(row.productBarcode || catalog.barcode || "غير محدد")}</td><td>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}<br/>المرحلة التالية: ${escapeHtml(stageLabel(row.receiverStage))}<br/>الموقع الحالي: ${escapeHtml(location.label)}</td><td>اليوم والتاريخ والوقت للتسليم: ${escapeHtml(formatActionTime(row.deliveredAt))}<br/>اليوم والتاريخ والوقت للاستلام: ${escapeHtml(formatActionTime(row.receivedAt))}<br/><strong>مدة بقاء المنتج لدى المرحلة: ${escapeHtml(elapsedLabel(duration, true))}</strong></td><td>الموظف المسلّم: ${escapeHtml(employeeDetailsLabel(row.deliveredBy) || "غير محدد")}<br/>المستلم المحدد: ${escapeHtml(employeeDetailsLabel(row.expectedReceiver) || "غير محدد")}<br/>المستلم الفعلي: ${escapeHtml(employeeDetailsLabel(row.receivedBy) || "لم يؤكد بعد")}</td><td>التسليم: ${escapeHtml(deliveredQty)}<br/>الاستلام: ${escapeHtml(receivedQty)}<br/>الفرق/النقص: ${escapeHtml(difference)}</td><td>${escapeHtml(status)}<br/>${escapeHtml(row.notes || "لا توجد ملاحظات")}</td></tr>`;
+    }).join("");
+    const title = "التقرير التفصيلي للتسليم والاستلام في مراحل الإنتاج";
+    const range = appliedDateFilter || appliedDateToFilter ? `${appliedDateFilter || "بداية غير محددة"} إلى ${appliedDateToFilter || "نهاية غير محددة"}` : "السبت إلى الخميس الحالي";
+    const table = `<table><thead><tr><th>#</th><th>بيانات المنتج</th><th>المرحلة والمسار</th><th>التسليم والاستلام والمدة</th><th>الموظفون</th><th>الكميات والفرق</th><th>الحالة والملاحظات</th></tr></thead><tbody>${detailRows || '<tr><td colspan="7">لا توجد بيانات ضمن الفلاتر الحالية</td></tr>'}</tbody></table>`;
+    const html = `<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 landscape;margin:8mm}body{font-family:Arial,sans-serif;color:#17202a;line-height:1.45}h1{color:#075985;font-size:18px}.meta{background:#eff8fb;border:1px solid #b8dce8;padding:8px;margin-bottom:10px}table{width:100%;border-collapse:collapse;font-size:10px}thead{display:table-header-group}th,td{border:1px solid #9fb5bd;padding:5px;text-align:right;vertical-align:top}th{background:#075985;color:#fff;font-size:10px}tr{page-break-inside:avoid}strong{color:#075985}</style></head><body><h1>${title}</h1><div class="meta"><strong>نطاق التقرير:</strong> ${escapeHtml(range)}<br/><strong>تاريخ ووقت التصدير:</strong> ${escapeHtml(formatActionTime(new Date()))}<br/><strong>المنتج:</strong> ${escapeHtml(productFilter || "جميع المنتجات")} | <strong>المرحلة:</strong> ${escapeHtml(stageFilter === "all" ? "جميع المراحل" : stageLabel(stageFilter))} | <strong>الموظف:</strong> ${escapeHtml(employeeFilter || "جميع الموظفين")}</div>${table}</body></html>`;
+    const blob = new Blob(["\ufeff", html], { type: format === "word" ? "application/msword" : "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `تقرير-الاستلام-والتسليم-${new Date().toISOString().slice(0, 10)}.${format === "word" ? "doc" : "xls"}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const printHandoverReport = () => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
       Alert.alert(isAr ? "الطباعة متاحة من الويب" : "Web printing", isAr ? "افتح التقرير من نسخة الويب لطباعة التقرير" : "Open the web version to print this report");
@@ -420,6 +450,10 @@ export default function ProductTrackingScreen() {
         </TouchableOpacity>
       </View>
       <View style={{ paddingHorizontal: 14, paddingTop: 10 }}>
+        <View style={{ flexDirection: "row-reverse", gap: 8, marginBottom: 8 }}>
+          <TouchableOpacity onPress={() => downloadHandoverFile("word")} accessibilityLabel={isAr ? "تنزيل تقرير الاستلام والتسليم بصيغة Word" : "Download handover report as Word"} style={{ flex: 1, backgroundColor: "#2563eb", borderRadius: 9, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}><MaterialIcons name="description" size={18} color="#fff" /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>{isAr ? "Word" : "Word"}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => downloadHandoverFile("excel")} accessibilityLabel={isAr ? "تنزيل تقرير الاستلام والتسليم بصيغة Excel" : "Download handover report as Excel"} style={{ flex: 1, backgroundColor: "#15803d", borderRadius: 9, paddingVertical: 10, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5 }}><MaterialIcons name="grid-on" size={18} color="#fff" /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>{isAr ? "Excel" : "Excel"}</Text></TouchableOpacity>
+        </View>
         <TouchableOpacity
           onPress={printHandoverReport}
           accessibilityLabel={isAr ? "طباعة تقرير الاستلام والتسليم" : "Print handover and receipt report"}
