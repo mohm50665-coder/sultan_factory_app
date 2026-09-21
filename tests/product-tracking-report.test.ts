@@ -12,6 +12,8 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("setProductFilter");
     expect(source).toContain("setEmployeeFilter");
     expect(source).toContain("مسح كل الفلاتر");
+    expect(source).toContain("defaultSaturdayThursdayRange");
+    expect(source).toContain("start: dateKey(start), end: dateKey(end)");
   });
 
   it("uses a date picker for both report range boundaries", () => {
@@ -46,8 +48,12 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("الموقع الحالي");
     expect(source).toContain("وقت التسليم");
     expect(source).toContain("وقت الاستلام");
+    expect(source).toContain("يوم وتاريخ ووقت التسليم");
+    expect(source).toContain("يوم وتاريخ ووقت الاستلام");
+    expect(source).toContain("مدة بقاء المنتج لدى المرحلة");
+    expect(source).toContain("تاريخ ووقت طباعة التقرير");
     expect(source).toContain("النقص");
-    expect(source).toContain("الفارق بين التسليم والاستلام:");
+    expect(source).toContain("مدة بقاء المنتج لدى المرحلة:");
     expect(source).toContain("المستلم الفعلي:");
     expect(source).toContain("colspan=\"7\"");
   });
