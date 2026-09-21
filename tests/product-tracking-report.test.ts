@@ -63,5 +63,8 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("application/vnd.ms-excel");
     expect(source).toContain("تقرير الاستلام والتسليم بصيغة Word");
     expect(source).toContain("تقرير الاستلام والتسليم بصيغة Excel");
+    expect(source).toContain("employeeCompactLabel");
+    expect(source).toContain("الموظف المسلّم:");
+    expect(source).toContain("القسم غير محدد");
   });
 });
