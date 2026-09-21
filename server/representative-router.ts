@@ -477,30 +477,19 @@ export const representativeRouter = router({
       if (!isAdmin(ctx.user) && !isSalesManager(ctx.user)) conditions.push(eq(representativeCollections.representativeId, Number(ctx.user.id)));
       return db.select().from(representativeCollections).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(representativeCollections.createdAt));
     }),
-    create: protectedProcedure.input(z.object({ customerId: z.number(), transactionId: z.number().int().positive(), collectedAmount: z.number().positive(), collectionMethod: z.enum(["cash", "transfer"]), receiptNumber: z.string().optional().default(""), collectionDate: z.string().min(10), notes: z.string().optional().default(""), attachments: z.array(attachmentSchema).default([]) })).mutation(async ({ input, ctx }) => {
+    create: protectedProcedure.input(z.object({ customerId: z.number(), collectedAmount: z.number().positive(), collectionMethod: z.enum(["cash", "transfer"]), receiptNumber: z.string().optional().default(""), collectionDate: z.string().min(10), notes: z.string().optional().default(""), attachments: z.array(attachmentSchema).default([]) })).mutation(async ({ input, ctx }) => {
       if (!isRepresentative(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
-      if (input.collectionMethod === "transfer" && !input.attachments.some((item) => item.type === "transfer_receipt")) throw new TRPCError({ code: "BAD_REQUEST", message: "إيصال التحويل إلزامي" });
-      if (input.collectionMethod === "cash" && !input.receiptNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم سند القبض إلزامي" });
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const customerRows = await db.select().from(customers).where(eq(customers.id, input.customerId)).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
-      const transactionRows = await db.select().from(representativeTransactions).where(and(eq(representativeTransactions.id, input.transactionId), isNull(representativeTransactions.deletedAt))).limit(1);
-      const transaction = transactionRows[0];
-      if (!transaction || Number(transaction.customerId) !== Number(input.customerId)) throw new TRPCError({ code: "BAD_REQUEST", message: "الفاتورة لا تتبع العميل المحدد" });
-      if (!transaction.invoiceNumber) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تسجيل تحصيل قبل إصدار الفاتورة من المستودع" });
-      const previousCollections = await db.select().from(representativeCollections).where(eq(representativeCollections.transactionId, input.transactionId));
-      const invoiceAmount = Number(transaction.paymentAmount || 0);
-      const collectedBefore = previousCollections.reduce((sum, row) => sum + Number(row.collectedAmount || 0), 0);
-      const available = Math.max(0, invoiceAmount - collectedBefore);
-      if (input.collectedAmount > available) throw new TRPCError({ code: "BAD_REQUEST", message: `المبلغ المحصل يتجاوز المتبقي على الفاتورة (${available.toFixed(2)} ريال)` });
       const referenceCode = makeReference("COL");
-      const remainingAmount = Math.max(0, available - input.collectedAmount);
-      const result = await db.insert(representativeCollections).values({ ...input, referenceCode, invoiceNumber: transaction.invoiceNumber, invoiceAmount, remainingAmount, customerName: customer.name, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), attachments: input.attachments });
+      // هذا سجل أداء تقريري حر، وليس قيداً محاسبياً؛ لا يرتبط بفاتورة ولا يحسب متبقياً.
+      const result = await db.insert(representativeCollections).values({ ...input, transactionId: null, referenceCode, invoiceNumber: null, invoiceAmount: 0, remainingAmount: 0, customerName: customer.name, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), attachments: input.attachments });
       const id = Number(result[0].insertId);
       await writeAudit(db, ctx.user, "create", "representativeCollections", id, null, input, `تسجيل تحصيل ${referenceCode}`);
-      return { success: true, id, referenceCode, remainingAmount };
+      return { success: true, id, referenceCode };
     }),
   }),
 

@@ -25,11 +25,16 @@ describe("Representative workflow automation integrity", () => {
     expect(server).toContain("يجب أن يساوي 100%");
   });
 
-  it("implements warehouse invoice, production rejection, corrective action and timestamped reporting", () => {
+  it("keeps collection records free and report-oriented while preserving workflow reporting", () => {
+    const collections = read("app/representative-collections.tsx");
     expect(approvals).toContain("warehouse_invoice");
     expect(approvals).toContain("production_reject");
     expect(approvals).toContain("sales_resubmit");
     expect(approvals).toContain("durationMinutes");
     expect(reports).toContain("التقرير الشامل لأداء المندوب");
+    expect(collections).toContain("سجل تقريري حر مستقل عن الفواتير");
+    expect(collections).not.toContain("اختيار الفاتورة الصادرة");
+    expect(server).toContain("هذا سجل أداء تقريري حر");
+    expect(server).toContain("transactionId: null");
   });
 });
