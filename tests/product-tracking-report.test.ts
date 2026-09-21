@@ -30,6 +30,10 @@ describe("Product tracking location and handover report", () => {
 
   it("renders a current location and status marker for every tracked product", () => {
     expect(source).toContain("locationForProduct");
+    expect(source).toContain("latestProductionForProduct");
+    expect(source).toContain("تاريخ ووقت إدخال المنتج:");
+    expect(source).toContain("آخر حركة:");
+    expect(source).toContain('weekday: "long"');
     expect(source).toContain("بانتظار الاستلام");
     expect(source).toContain("مخزّن في المستودع");
     expect(source).toContain("الموقع الحالي:");

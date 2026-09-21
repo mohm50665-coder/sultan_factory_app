@@ -24,7 +24,13 @@ const STAGES = [
 
 const numberValue = (value: unknown) => Number(value || 0) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
-const formatActionTime = (value: unknown) => value ? new Date(String(value)).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : "—";
+const formatActionTime = (value: unknown) => {
+  if (!value) return "—";
+  const raw = String(value);
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T12:00:00`) : new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) return "—";
+  return parsed.toLocaleString("ar-SA", { weekday: "long", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
 const elapsedMinutes = (deliveredAt: unknown, receivedAt: unknown = new Date()) => {
   if (!deliveredAt) return null;
   const start = new Date(String(deliveredAt)).getTime();
@@ -197,6 +203,10 @@ export default function ProductTrackingScreen() {
   const latestTrackingForProduct = (productName: string) => handoverRecords
     .filter((row) => String(row.productName || "") === productName)
     .sort((a, b) => String(b.deliveredAt || b.receivedAt || b.createdAt || "").localeCompare(String(a.deliveredAt || a.receivedAt || a.createdAt || "")))[0] || null;
+
+  const latestProductionForProduct = (productName: string) => production
+    .filter((row) => String(row.productName || "") === productName)
+    .sort((a, b) => String(b.createdAt || b.updatedAt || b.date || "").localeCompare(String(a.createdAt || a.updatedAt || a.date || "")))[0] || null;
 
   const locationForProduct = (productName: string) => {
     const latest = latestTrackingForProduct(productName);
@@ -449,13 +459,15 @@ export default function ProductTrackingScreen() {
         ) : groupedProducts.map((product) => {
           const currentStage = stageForProduct(product.name);
           const location = locationForProduct(product.name);
+          const latestProduction = latestProductionForProduct(product.name);
+          const latestMovement = latestTrackingForProduct(product.name);
           const stageIndex = Math.max(0, STAGES.findIndex((stage) => stage.id === currentStage));
           const yarnTotal = Object.values(product.yarn).reduce((sum: number, value: any) => sum + numberValue(value), 0);
           return (
             <View key={product.name} style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 13, borderWidth: 1, borderColor: colors.border, marginBottom: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Text style={{ color: colors.muted, fontSize: 10, fontWeight: "700" }}>{isAr ? "عرض وتتبع فقط" : "View and tracking only"}</Text>
-                <View style={{ flex: 1, alignItems: "flex-end", marginLeft: 10 }}><Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "800" }}>{product.name}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{isAr ? `المكائن: ${product.machines.join("، ") || "-"}` : `Machines: ${product.machines.join(", ") || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>اللون: {catalogForProduct(product.name).color || "غير محدد"} | المقاس: {catalogForProduct(product.name).size || "غير محدد"}</Text></View>
+                <View style={{ flex: 1, alignItems: "flex-end", marginLeft: 10 }}><Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "800" }}>{product.name}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{isAr ? `المكائن: ${product.machines.join("، ") || "-"}` : `Machines: ${product.machines.join(", ") || "-"}`}</Text><Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>اللون: {catalogForProduct(product.name).color || "غير محدد"} | المقاس: {catalogForProduct(product.name).size || "غير محدد"}</Text><Text style={{ color: "#0f766e", fontSize: 11, fontWeight: "800", marginTop: 5, textAlign: "right" }}>{isAr ? `تاريخ ووقت إدخال المنتج: ${formatActionTime(latestProduction?.createdAt || latestProduction?.updatedAt || latestProduction?.date)}` : `Product entry date and time: ${formatActionTime(latestProduction?.createdAt || latestProduction?.updatedAt || latestProduction?.date)}`}</Text><Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: "right" }}>{isAr ? `آخر حركة: ${formatActionTime(latestMovement?.deliveredAt || latestMovement?.receivedAt || latestMovement?.createdAt)}` : `Last movement: ${formatActionTime(latestMovement?.deliveredAt || latestMovement?.receivedAt || latestMovement?.createdAt)}`}</Text></View>
               </View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 11 }}>
                 <View style={{ alignItems: "center", flex: 1 }}><Text style={{ color: colors.muted, fontSize: 10 }}>{isAr ? "الكمية" : "Quantity"}</Text><Text style={{ color: colors.primary, fontWeight: "800" }}>{product.dozen} {isAr ? "درزن" : "dz"} + {product.pairs} {isAr ? "زوج" : "pr"}</Text></View>
