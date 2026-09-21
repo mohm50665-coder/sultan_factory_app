@@ -13,6 +13,8 @@ describe("Permission boundary contract", () => {
   it("uses explicitly saved dashboard sections without role or department fallback", () => {
     expect(dashboard).toContain("hasExplicitAllowedSections");
     expect(dashboard).toContain("return hasExplicitAllowedSections && explicitAllowedSections.has(item.id);");
+    expect(dashboard).toContain('if (user?.role === "admin")');
+    expect(dashboard).toContain("الأدمن يرى الأيقونات الرئيسية كاملة");
     expect(dashboard).not.toContain("baseEmployeeItems");
     expect(usersManagement).toContain("ترك جميع الخيارات دون تحديد يعني عدم منح أي قائمة");
   });

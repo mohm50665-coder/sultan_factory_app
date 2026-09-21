@@ -619,12 +619,16 @@ export default function HomeScreen() {
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     const hasRepresentativePermission =
       hasExplicitAllowedSections && explicitAllowedSections.has("representative_performance");
+    // الأدمن يرى الأيقونات الرئيسية كاملة؛ لا تعتمد رؤيته على صلاحيات محفوظة لحساب موظف.
+    if (user?.role === "admin") {
+      if (item.id === "administrative" && !showAdministrativeIcon) return false;
+      return true;
+    }
     // أداء المندوب صلاحية مستقلة؛ لا تُحجب بسبب قسم المدير أو ترتيب أيقونات إدارة التسويق.
     if (item.id === "representative_performance") return hasRepresentativePermission;
     // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
     if (salesManagerOfficialItems.has(item.id)) return false;
     if (item.id === "administrative" && !showAdministrativeIcon) return false;
-    if (user?.role === "admin") return true;
     if (isDepartmentManager && normalizedDepartment === "sales") {
       if (item.id === "sales") return true;
     }
