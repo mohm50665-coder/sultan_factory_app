@@ -56,5 +56,7 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("مدة بقاء المنتج لدى المرحلة:");
     expect(source).toContain("المستلم الفعلي:");
     expect(source).toContain("colspan=\"7\"");
+    expect(source).toContain("@page{size:A4 landscape;margin:8mm}");
+    expect(source).toContain("thead{display:table-header-group}");
   });
 });
