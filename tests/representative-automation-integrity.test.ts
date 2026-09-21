@@ -34,6 +34,11 @@ describe("Representative workflow automation integrity", () => {
     expect(reports).toContain("التقرير الشامل لأداء المندوب");
     expect(collections).toContain("سجل تقريري حر مستقل عن الفواتير");
     expect(collections).not.toContain("اختيار الفاتورة الصادرة");
+    expect(collections).toContain("setSaving(true)");
+    expect(collections).toContain("!result?.success || !result?.id");
+    expect(collections).toContain("جارٍ الحفظ...");
+    expect(collections).not.toContain("رقم سند القبض إلزامي");
+    expect(collections).not.toContain("إيصال التحويل إلزامي");
     expect(server).toContain("هذا سجل أداء تقريري حر");
     expect(server).toContain("transactionId: null");
   });
