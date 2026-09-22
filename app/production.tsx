@@ -956,34 +956,6 @@ export default function ProductionScreen() {
         {approvedSampleRequests.length > 0 && <View style={{ marginTop: 8 }}><Text style={{ color: colors.foreground, fontSize: 10, fontWeight: "800", textAlign: "right", marginBottom: 4 }}>{isAr ? "طلب العينة المرتبط (اختياري للمنتج العادي)" : "Linked sample request (optional for regular products)"}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>{approvedSampleRequests.map((request: any) => { const active = product.sampleRequestId === String(request.id); return <TouchableOpacity key={request.id} onPress={() => updateProductField(machine, shiftIndex, productIndex, "sampleRequestId", active ? "" : String(request.id))} style={{ backgroundColor: active ? "#0f766e" : colors.background, borderWidth: 1, borderColor: active ? "#0f766e" : colors.border, borderRadius: 15, paddingHorizontal: 9, paddingVertical: 6 }}><Text style={{ color: active ? "#fff" : colors.foreground, fontSize: 10, fontWeight: "800" }}>{request.referenceCode}</Text></TouchableOpacity>; })}</ScrollView></View>}
       </View>
 
-      {/* التسليم من الإنتاج هو بداية سلسلة العهدة التلقائية */}
-      <View style={{ marginBottom: 8 }}>
-        {automaticFlowActive ? (
-          <View style={{ backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#86efac", borderRadius: 9, padding: 9 }}>
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 5, marginBottom: 7 }}>
-              <Text style={{ color: "#166534", fontSize: 12, fontWeight: "900", textAlign: "right" }}>{isAr ? "آخر خطوة: تسليم تلقائي إلى الروسو" : "Last step: automatic handover to Rosso"}</Text>
-              <MaterialIcons name="move-to-inbox" size={18} color="#15803d" />
-            </View>
-            <Text style={{ color: "#166534", fontSize: 10, marginBottom: 6, textAlign: "right" }}>{isAr ? "اختر المستلم؛ سيظهر المنتج تلقائياً في قائمة استلامه بعد الحفظ" : "Choose the receiver; the product will appear automatically in their receipt queue"}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
-              {machineWorkers.map((worker) => {
-                const selected = product.expectedReceiver === worker;
-                return <TouchableOpacity key={worker} onPress={() => updateProductField(machine, shiftIndex, productIndex, "expectedReceiver", worker)} style={{ backgroundColor: selected ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selected ? "#ffffff" : "#166534", fontSize: 10, fontWeight: "800" }}>{worker}</Text></TouchableOpacity>;
-              })}
-            </ScrollView>
-            {machineWorkers.length === 0 && <Text style={{ color: "#b45309", fontSize: 10, textAlign: "right" }}>{isAr ? "لا يوجد عمال مضافون لمرحلة الروسو. أضفهم من لوحة الأدمن." : "No Rosso workers configured. Add them from Admin."}</Text>}
-          </View>
-        ) : (
-          <>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: 'right' }}>{isAr ? "حالة المنتج" : "Product status"}</Text>
-            <View style={{ flexDirection: "row", gap: 6 }}>
-              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderWidth: 1, borderColor: "#dc2626", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontSize: 11, fontWeight: "800" }}>{isAr ? "استلمت" : "Received"}</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontSize: 11, fontWeight: "800" }}>{isAr ? "سلّمت" : "Delivered"}</Text></TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
-
       {/* وزن الخيط لكل زوج + إجمالي */}
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
         <View style={{ flex: 1, backgroundColor: '#f0fdf4', borderRadius: 6, padding: 6, alignItems: 'center', justifyContent: 'center' }}>
@@ -1178,6 +1150,34 @@ export default function ProductionScreen() {
         <View style={{ backgroundColor: '#ecfeff', borderWidth: 1, borderColor: '#a5f3fc', borderRadius: 7, padding: 8, marginTop: 3 }}>
           <Text style={{ color: '#0e7490', fontWeight: '800', fontSize: 12, textAlign: 'right' }}>{isAr ? `إجمالي الخيوط المستخدمة: ${getProductTotalYarn(product).toFixed(2)} جم` : `Total yarn used: ${getProductTotalYarn(product).toFixed(2)} g`}</Text>
         </View>
+      </View>
+
+      {/* اختيار المستلم هو آخر خطوة بعد تعبئة جميع بيانات المنتج وقبل الحفظ */}
+      <View style={{ marginTop: 10, marginBottom: 4 }}>
+        {automaticFlowActive ? (
+          <View style={{ backgroundColor: "#f0fdf4", borderWidth: 1, borderColor: "#86efac", borderRadius: 9, padding: 9 }}>
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 5, marginBottom: 7 }}>
+              <Text style={{ color: "#166534", fontSize: 12, fontWeight: "900", textAlign: "right" }}>{isAr ? "بيانات المستلم — آخر خطوة قبل الحفظ" : "Receiver details — final step before saving"}</Text>
+              <MaterialIcons name="move-to-inbox" size={18} color="#15803d" />
+            </View>
+            <Text style={{ color: "#166534", fontSize: 10, marginBottom: 6, textAlign: "right" }}>{isAr ? "بعد تعبئة بيانات المنتج اختر موظف الروسو، ثم اضغط حفظ" : "After filling the product details, choose the Rosso employee, then press Save"}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
+              {machineWorkers.map((worker) => {
+                const selected = product.expectedReceiver === worker;
+                return <TouchableOpacity key={worker} onPress={() => updateProductField(machine, shiftIndex, productIndex, "expectedReceiver", worker)} style={{ backgroundColor: selected ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selected ? "#ffffff" : "#166534", fontSize: 10, fontWeight: "800" }}>{worker}</Text></TouchableOpacity>;
+              })}
+            </ScrollView>
+            {machineWorkers.length === 0 && <Text style={{ color: "#b45309", fontSize: 10, textAlign: "right" }}>{isAr ? "لا يوجد عمال مضافون لمرحلة الروسو. أضفهم من لوحة الأدمن." : "No Rosso workers configured. Add them from Admin."}</Text>}
+          </View>
+        ) : (
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 9, padding: 9 }}>
+            <Text style={{ color: colors.foreground, fontSize: 11, fontWeight: "800", marginBottom: 6, textAlign: "right" }}>{isAr ? "حالة المنتج — قبل الحفظ" : "Product status — before saving"}</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "received")} style={{ flex: 1, backgroundColor: product.movementStatus === "received" ? "#dc2626" : "#fef2f2", borderWidth: 1, borderColor: "#dc2626", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "received" ? "#ffffff" : "#dc2626", fontSize: 11, fontWeight: "800" }}>{isAr ? "استلمت" : "Received"}</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => updateProductField(machine, shiftIndex, productIndex, "movementStatus", "delivered")} style={{ flex: 1, backgroundColor: product.movementStatus === "delivered" ? "#16a34a" : "#f0fdf4", borderWidth: 1, borderColor: "#16a34a", borderRadius: 6, paddingVertical: 7, alignItems: "center" }}><Text style={{ color: product.movementStatus === "delivered" ? "#ffffff" : "#16a34a", fontSize: 11, fontWeight: "800" }}>{isAr ? "سلّمت" : "Delivered"}</Text></TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
