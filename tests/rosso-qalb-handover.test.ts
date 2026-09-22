@@ -35,6 +35,15 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(service).toContain("if (!result?.success)");
   });
 
+  it("rejects self-stage records, invalid routes, negative quantities, and same-person handovers", () => {
+    expect(source).toContain("assertValidTrackingTransition");
+    expect(source).toContain("لا يمكن تسجيل تسليم واستلام داخل المرحلة نفسها");
+    expect(source).toContain("مسار غير مسموح");
+    expect(source).toContain("لا يمكن حفظ كمية سالبة في حركة التتبع");
+    expect(source).toContain("samePersonName(input.deliveredBy, input.expectedReceiver)");
+    expect(source).toContain("samePersonName(next.deliveredBy, next.receivedBy)");
+  });
+
   it("keeps the UI success message after the awaited server mutation and reload", () => {
     expect(ui).toContain("await manufacturingStageService.confirmReceipt(Number(product.id));");
     expect(ui).toContain("await loadEntries();");

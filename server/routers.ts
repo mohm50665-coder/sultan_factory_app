@@ -136,6 +136,21 @@ function allowedNextStages(stageName: string, productType?: string | null): read
   return MANUFACTURING_ALLOWED_TRANSITIONS[normalizedStage] || [];
 }
 
+function assertValidTrackingTransition(previousStage: unknown, currentStage: unknown, receiverStage?: unknown, handoverStatus?: string) {
+  const previous = String(previousStage || "").trim();
+  const current = String(currentStage || "").trim();
+  const receiver = String(receiverStage || "").trim();
+  if (previous && current && previous === current) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "حركة غير صالحة: لا يمكن تسجيل تسليم واستلام داخل المرحلة نفسها" });
+  }
+  if (previous && current && MANUFACTURING_ALLOWED_TRANSITIONS[previous] && !allowedNextStages(previous).includes(current)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `مسار غير مسموح: لا يمكن الانتقال من ${previous} إلى ${current}` });
+  }
+  if (handoverStatus === "delivered" && current && receiver && !allowedNextStages(current).includes(receiver)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `مرحلة المستلم غير صحيحة: يجب التسليم من ${current} إلى المرحلة التالية المسموحة` });
+  }
+}
+
 
 function getRiyadhDate(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -1760,14 +1775,21 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.trackingDate);
+        assertValidTrackingTransition(input.previousStage, input.currentStage, input.receiverStage, input.handoverStatus);
+        if ((Number(input.quantityDozen) || 0) < 0 || (Number(input.quantityPairs) || 0) < 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ كمية سالبة في حركة التتبع" });
+        }
         if (input.handoverStatus === "delivered" && (!input.deliveredBy || !input.expectedReceiver)) {
           throw new Error("يجب تحديد اسم المسلم واسم المستلم المتوقع قبل التسليم");
         }
-        if (input.handoverStatus === "delivered" && input.deliveredBy === input.expectedReceiver) {
+        if (input.handoverStatus === "delivered" && samePersonName(input.deliveredBy, input.expectedReceiver)) {
           throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
         }
-        if (input.handoverStatus === "received" && input.deliveredBy && input.receivedBy && input.deliveredBy === input.receivedBy) {
+        if (input.handoverStatus === "received" && input.deliveredBy && input.receivedBy && samePersonName(input.deliveredBy, input.receivedBy)) {
           throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
+        }
+        if (input.handoverStatus === "delivered" && input.receiverStage && input.expectedReceiver) {
+          await validateStageReceiver(db, input.receiverStage, input.expectedReceiver);
         }
         const result = await db.insert(productTrackingTable).values({ ...input, userId: ctx.user.id, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
         return { success: true, id: result[0].insertId };
@@ -1797,10 +1819,14 @@ export const appRouter = router({
         const existing = current[0];
         if (!existing) throw new Error("حركة التتبع غير موجودة");
         const next = { ...existing, ...input.data } as any;
+        assertValidTrackingTransition(next.previousStage, next.currentStage, next.receiverStage, next.handoverStatus);
+        if ((Number(next.quantityDozen) || 0) < 0 || (Number(next.quantityPairs) || 0) < 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ كمية سالبة في حركة التتبع" });
+        }
         if (next.handoverStatus === "received" && (!next.deliveredBy || !next.receivedBy)) {
           throw new Error("لا يمكن اعتماد الاستلام دون بيانات المسلم والمستلم");
         }
-        if (next.deliveredBy && next.receivedBy && next.deliveredBy === next.receivedBy) {
+        if (next.deliveredBy && next.receivedBy && samePersonName(next.deliveredBy, next.receivedBy)) {
           throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
         }
         if (next.expectedReceiver && next.receivedBy && next.expectedReceiver !== next.receivedBy) {
