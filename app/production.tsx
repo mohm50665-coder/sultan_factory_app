@@ -1232,14 +1232,25 @@ export default function ProductionScreen() {
       {/* المنتجات */}
       {shift.products.map((product, pIdx) => renderProductForm(machine, shiftIndex, product, pIdx, shift.products.length))}
 
-      {/* زر إضافة منتج */}
-      <TouchableOpacity
-        onPress={() => addProduct(machine, shiftIndex)}
-        style={{ backgroundColor: "#0a7ea415", borderRadius: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 4 }}
-      >
-        <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة منتج" : "Add Product"}</Text>
-        <MaterialIcons name="add" size={16} color="#0a7ea4" />
-      </TouchableOpacity>
+      {/* أزرار الإضافة: منتج ووردية بجانب بعضهما في نهاية كل وردية */}
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+        <TouchableOpacity
+          accessibilityLabel={isAr ? "إضافة منتج" : "Add product"}
+          onPress={() => addProduct(machine, shiftIndex)}
+          style={{ flex: 1, backgroundColor: "#0a7ea415", borderRadius: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+        >
+          <Text style={{ color: "#0a7ea4", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة منتج" : "Add Product"}</Text>
+          <MaterialIcons name="add" size={16} color="#0a7ea4" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityLabel={isAr ? "إضافة وردية" : "Add shift"}
+          onPress={() => addShift(machine)}
+          style={{ flex: 1, backgroundColor: "#ede9fe", borderRadius: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, borderWidth: 1, borderColor: "#7c3aed" }}
+        >
+          <Text style={{ color: "#6d28d9", fontSize: 12, fontWeight: '600' }}>{isAr ? "إضافة وردية" : "Add Shift"}</Text>
+          <MaterialIcons name="add-circle-outline" size={16} color="#7c3aed" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
