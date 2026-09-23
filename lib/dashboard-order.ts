@@ -25,3 +25,25 @@ export function moveVisibleDashboardItem(
   [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
   return nextOrder;
 }
+
+/** Move one visible item directly before another while preserving hidden items. */
+export function moveVisibleDashboardItemToTarget(
+  currentOrder: string[],
+  visibleIds: string[],
+  draggedId: string,
+  targetId: string,
+): string[] {
+  if (!draggedId || !targetId || draggedId === targetId) return currentOrder;
+  const draggedVisibleIndex = visibleIds.indexOf(draggedId);
+  const targetVisibleIndex = visibleIds.indexOf(targetId);
+  if (draggedVisibleIndex < 0 || targetVisibleIndex < 0) return currentOrder;
+
+  const nextVisible = [...visibleIds];
+  nextVisible.splice(draggedVisibleIndex, 1);
+  const adjustedTargetIndex = nextVisible.indexOf(targetId);
+  nextVisible.splice(adjustedTargetIndex, 0, draggedId);
+
+  const visibleSet = new Set(visibleIds);
+  let visibleIndex = 0;
+  return currentOrder.map((id) => (visibleSet.has(id) ? nextVisible[visibleIndex++] : id));
+}

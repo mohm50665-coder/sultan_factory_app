@@ -64,7 +64,7 @@ import {
   administrativeDailyReports as administrativeDailyReportsTable,
   financialDailyReports as financialDailyReportsTable,
 } from "../drizzle/schema.js";
-import { eq, desc, sql, and, gte, lte, isNull, like } from "drizzle-orm";
+import { eq, desc, sql, and, or, gte, lte, isNull, like, gt } from "drizzle-orm";
 import { createHash, randomUUID } from "crypto";
 import { sdk } from "./_core/sdk";
 import { calculateAchievementPercentage, getPerformanceRating } from "../shared/performance.js";
@@ -1441,6 +1441,24 @@ export const appRouter = router({
             receiverStage: targetStage,
             productType: record.productType,
           }).where(eq(manufacturingStagesTable.id, record.id));
+          // إذا كان للمنتج متبقٍ سابق في المرحلة نفسها، فقد تم تسليمه الآن؛
+          // إغلاقه يمنع بقاء الكمية القديمة ظاهرة في جرد المتبقي.
+          const previousRemaining = await tx.select({ id: productTrackingTable.id })
+            .from(productTrackingTable)
+            .where(and(
+              eq(productTrackingTable.productName, String(record.productName || "")),
+              eq(productTrackingTable.currentStage, String(record.stageName || "")),
+              or(gt(productTrackingTable.shortageDozen, 0), gt(productTrackingTable.shortagePairs, 0)),
+            ))
+            .orderBy(desc(productTrackingTable.createdAt))
+            .limit(1);
+          if (previousRemaining[0]) {
+            await tx.update(productTrackingTable).set({
+              shortageDozen: 0,
+              shortagePairs: 0,
+              notes: sql`CONCAT(COALESCE(${productTrackingTable.notes}, ''), ' | تم تسليم الكمية المتبقية لاحقاً')`,
+            }).where(eq(productTrackingTable.id, previousRemaining[0].id));
+          }
           await tx.insert(productTrackingTable).values({
             productName: record.productName || identity.name,
             productSize: record.productSize || identity.size,

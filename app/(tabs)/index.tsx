@@ -22,7 +22,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import notificationsService from "@/lib/services/notifications.service";
 import { alertsService, appSettingsService, employeePerformanceService, productionService, salesService, collectionService } from "@/lib/services/api.service";
 import { administrativeService, maintenanceEntriesService } from "@/lib/services/data.service";
-import { moveVisibleDashboardItem, normalizeDashboardOrder } from "../../lib/dashboard-order";
+import { moveVisibleDashboardItem, moveVisibleDashboardItemToTarget, normalizeDashboardOrder } from "../../lib/dashboard-order";
 
 // Helper function to check tool permissions
 const canAccessTool = (toolId: string, userPermissions: Record<string, boolean> | null | undefined): boolean => {
@@ -140,6 +140,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     route: "/product-tracking",
     descriptionAr: "تتبع المنتج ووقت التسليم والاستلام والمسؤولية",
     descriptionEn: "Track product handovers, timing and accountability",
+    section: "manufacturing",
+    departments: ["production", "warehouse"],
+  },
+  {
+    id: "remaining_quantities",
+    labelAr: "الكمية المتبقية",
+    labelEn: "Remaining Quantities",
+    icon: "inventory",
+    color: "#d97706",
+    route: "/remaining-quantities",
+    descriptionAr: "جرد تلقائي للكميات المتبقية في كل مرحلة مع تفاصيل المنتج",
+    descriptionEn: "Automatic stage inventory of remaining quantities with full product details",
     section: "manufacturing",
     departments: ["production", "warehouse"],
   },
@@ -406,6 +418,7 @@ export default function HomeScreen() {
   const [isReorderingIcons, setIsReorderingIcons] = useState(false);
   const [showAdministrativeIcon, setShowAdministrativeIcon] = useState(false);
   const [dashboardOrder, setDashboardOrder] = useState<string[]>(DASHBOARD_ITEMS.map((item) => item.id));
+  const [draggedDashboardItem, setDraggedDashboardItem] = useState<string | null>(null);
 
   useEffect(() => {
     // جلب أحدث الصلاحيات من الخادم بدلاً من الاعتماد على نسخة الجلسة القديمة.
@@ -667,6 +680,14 @@ export default function HomeScreen() {
     await persistDashboardOrder(nextOrder);
   };
 
+  const dropDashboardItem = async (targetId: string) => {
+    if (!draggedDashboardItem || draggedDashboardItem === targetId) return;
+    const visibleIds = orderedVisibleDashboardItems.map((item) => item.id);
+    const nextOrder = moveVisibleDashboardItemToTarget(dashboardOrder, visibleIds, draggedDashboardItem, targetId);
+    setDraggedDashboardItem(null);
+    if (nextOrder !== dashboardOrder) await persistDashboardOrder(nextOrder);
+  };
+
   const resetDashboardOrder = async () => {
     await persistDashboardOrder(DASHBOARD_ITEMS.map((item) => item.id));
     Alert.alert(isAr ? "تمت الاستعادة" : "Order restored", isAr ? "تمت استعادة الترتيب الافتراضي للأيقونات." : "The default icon order has been restored.");
@@ -892,7 +913,7 @@ export default function HomeScreen() {
         <View style={[styles.reorderToolbar, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           <View style={{ flex: 1, alignItems: isRtl ? "flex-end" : "flex-start" }}>
             <Text style={{ color: colors.foreground, fontWeight: "800", fontSize: 13 }}>{isAr ? "ترتيب الأيقونات الرئيسية" : "Arrange Main Icons"}</Text>
-            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>{isAr ? "يُحفظ ترتيب مستقل لهذا المستخدم تلقائياً" : "A separate order is saved automatically for this user"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>{isAr ? "فعّل الترتيب ثم اسحب الأيقونة بالفأرة وأفلتها فوق المكان المطلوب — يُحفظ الترتيب تلقائياً" : "Enable arrange mode, drag an icon with the mouse and drop it where needed — order saves automatically"}</Text>
           </View>
           {isReorderingIcons && (
             <TouchableOpacity onPress={resetDashboardOrder} style={[styles.reorderAction, { borderColor: colors.border }]}> 
@@ -920,8 +941,39 @@ export default function HomeScreen() {
               onPress={() => isReorderingIcons ? undefined : handleNavigate(item.route)}
               style={[styles.gridItem, { width: dashboardItemWidth }]}
               activeOpacity={0.7}
+              {...(Platform.OS === "web" ? {
+                draggable: isReorderingIcons,
+                onDragStart: (event: any) => {
+                  if (!isReorderingIcons) return;
+                  setDraggedDashboardItem(item.id);
+                  event?.dataTransfer?.setData?.("text/plain", item.id);
+                  if (event?.dataTransfer) event.dataTransfer.effectAllowed = "move";
+                },
+                onDragOver: (event: any) => {
+                  if (isReorderingIcons) event?.preventDefault?.();
+                },
+                onDrop: (event: any) => {
+                  event?.preventDefault?.();
+                  void dropDashboardItem(item.id);
+                },
+                onMouseDown: (event: any) => {
+                  if (isReorderingIcons && event?.button === 2) {
+                    event.preventDefault?.();
+                    setDraggedDashboardItem(item.id);
+                  }
+                },
+                onMouseUp: (event: any) => {
+                  if (isReorderingIcons && event?.button === 2) {
+                    event.preventDefault?.();
+                    void dropDashboardItem(item.id);
+                  }
+                },
+                onContextMenu: (event: any) => {
+                  if (isReorderingIcons) event?.preventDefault?.();
+                },
+              } as any : {})}
             >
-                  <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: isReorderingIcons ? 2 : 1, borderColor: isReorderingIcons ? colors.primary : colors.border }, styles.card]}>
+              <View style={[{ backgroundColor: colors.surface, borderRadius: 12, padding: 10, borderWidth: isReorderingIcons ? 2 : 1, borderColor: draggedDashboardItem === item.id ? "#16a34a" : (isReorderingIcons ? colors.primary : colors.border) }, styles.card]}>
                 {isReorderingIcons && (
                   <View style={styles.reorderCardControls}>
                     <TouchableOpacity disabled={index === 0} onPress={() => moveDashboardItem(item.id, -1)} style={[styles.moveButton, { opacity: index === 0 ? 0.3 : 1, borderColor: colors.border }]} accessibilityLabel={isAr ? "تحريك الأيقونة للأعلى" : "Move icon up"}>
