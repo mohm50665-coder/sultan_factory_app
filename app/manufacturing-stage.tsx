@@ -197,6 +197,7 @@ export default function ManufacturingStageScreen() {
   const isProductionManager = user?.department === "production" || String(user?.position || "").includes("مدير الإنتاج") || String(user?.position || "").toLowerCase().includes("production manager");
 
   const [entries, setEntries] = useState<WorkerEntry[]>([]);
+  const [processingProductId, setProcessingProductId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [trashEntries, setTrashEntries] = useState<any[]>([]);
@@ -535,20 +536,28 @@ export default function ManufacturingStageScreen() {
       showStageMessage(isAr ? "تعذر التأكيد" : "Unable to confirm", isAr ? "معرف الحركة غير متوفر" : "Movement id is missing");
       return;
     }
+    const productId = Number(product.id);
+    if (processingProductId === productId) return;
+    setProcessingProductId(productId);
     try {
-      await manufacturingStageService.confirmReceipt(Number(product.id));
+      await manufacturingStageService.confirmReceipt(productId);
       await loadEntries();
       showStageMessage(isAr ? "تم تأكيد الاستلام ✓" : "Receipt confirmed ✓", isAr ? `تم تسجيل استلام ${product.productName}` : `${product.productName} receipt was confirmed`);
     } catch (error) {
       showStageMessage(isAr ? "فشل تأكيد الاستلام" : "Receipt confirmation failed", error instanceof Error ? error.message : (isAr ? "تعذر تأكيد الاستلام" : "Unable to confirm receipt"));
+    } finally {
+      setProcessingProductId(null);
     }
   };
 
   const handleDeliverProduct = async (product: ProductItem, receiverStage: string, expectedReceiver: string) => {
     if (!product.id || !expectedReceiver) return;
+    const productId = Number(product.id);
+    if (processingProductId === productId) return;
+    setProcessingProductId(productId);
     try {
       await manufacturingStageService.deliverToNextStage({
-        id: Number(product.id),
+        id: productId,
         receiverStage,
         expectedReceiver,
         quantityDozen: Number(product.quantityDozen) || 0,
@@ -558,6 +567,8 @@ export default function ManufacturingStageScreen() {
       showStageMessage(isAr ? "تم التسليم ✓" : "Delivered ✓", isAr ? `تم تسليم ${product.productName} إلى ${STAGE_CONFIG[receiverStage]?.name || receiverStage}` : `${product.productName} delivered to ${STAGE_CONFIG[receiverStage]?.name || receiverStage}`);
     } catch (error) {
       showStageMessage(isAr ? "فشل التسليم" : "Delivery failed", error instanceof Error ? error.message : (isAr ? "تعذر تسليم العهدة" : "Unable to deliver custody"));
+    } finally {
+      setProcessingProductId(null);
     }
   };
 
@@ -697,9 +708,9 @@ export default function ManufacturingStageScreen() {
                 </Text>
               </View>
               {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && (
-                <TouchableOpacity onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
+                <TouchableOpacity disabled={processingProductId === Number(product.id)} onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
-                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "استلمت" : "I received it"}</Text>
+                  <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (isAr ? "استلمت" : "I received it")}</Text>
                 </TouchableOpacity>
               )}
               {isStorageStage && product.movementStatus === "received" && (
@@ -714,7 +725,7 @@ export default function ManufacturingStageScreen() {
                   <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "سلّمت إلى الموظف التالي" : "Delivered to next employee"}</Text>
                   {getProductNextStageOptions(product).length > 1 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>{getProductNextStageOptions(product).map((stageId) => <Text key={stageId} style={{ color: "#1d4ed8", fontSize: 10, fontWeight: "700" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text>)}</View>}
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                    {(receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).map((receiver) => <TouchableOpacity key={receiver} onPress={() => void handleDeliverProduct(product, getProductNextStageOptions(product)[0], receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{receiver}</Text></TouchableOpacity>)}
+                    {(receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).map((receiver) => <TouchableOpacity key={receiver} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, getProductNextStageOptions(product)[0], receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}
                   </View>
                 </View>
               )}

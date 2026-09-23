@@ -1331,7 +1331,17 @@ export const appRouter = router({
           throw new Error("تعذر مطابقة عهدة المرحلة التالية؛ لم يتم تسجيل نجاح العملية");
         }
         const result = await db.transaction(async (tx: any) => {
-          await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: canonicalReceiverName, receiverStage: destinationStage }).where(eq(manufacturingStagesTable.id, record.id));
+          // تحديث مشروط بالحالة delivered يعمل كقفل ذري: أول طلب فقط يملك حق إنشاء الحركة التالية.
+          // أي ضغط مزدوج أو إعادة إرسال متزامنة ستجد أن الصف أصبح received وتعيد الحركة المنشأة بدلاً من إنشاء سجل ثانٍ.
+          const sourceUpdate = await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: canonicalReceiverName, receiverStage: destinationStage }).where(and(eq(manufacturingStagesTable.id, record.id), eq(manufacturingStagesTable.movementStatus, "delivered")));
+          const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);
+          if (affectedRows === 0) {
+            const existingAfterRace = await tx.select({ id: manufacturingStagesTable.id, stageName: manufacturingStagesTable.stageName, movementStatus: manufacturingStagesTable.movementStatus }).from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
+            if (existingAfterRace[0]?.stageName === destinationStage && existingAfterRace[0]?.movementStatus === "received") {
+              return { id: existingAfterRace[0].id, idempotent: true };
+            }
+            throw new TRPCError({ code: "CONFLICT", message: "تمت معالجة الاستلام مسبقاً أو لم تعد العهدة بانتظار الاستلام" });
+          }
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
             workerName: receiverName,
@@ -1373,14 +1383,14 @@ export const appRouter = router({
             notes: "استلام تلقائي من قائمة العهدة",
             userId: ctx.user.id,
           });
-          return created[0].insertId;
+          return { id: created[0].insertId, idempotent: false };
         });
         const verifiedSource = await db.select({ movementStatus: manufacturingStagesTable.movementStatus, receivedAt: manufacturingStagesTable.receivedAt }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, record.id)).limit(1);
-        const verifiedDestination = await db.select({ id: manufacturingStagesTable.id, stageName: manufacturingStagesTable.stageName, movementStatus: manufacturingStagesTable.movementStatus, quantityDozen: manufacturingStagesTable.quantityDozen, quantityPair: manufacturingStagesTable.quantityPair }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, result)).limit(1);
+        const verifiedDestination = await db.select({ id: manufacturingStagesTable.id, stageName: manufacturingStagesTable.stageName, movementStatus: manufacturingStagesTable.movementStatus, quantityDozen: manufacturingStagesTable.quantityDozen, quantityPair: manufacturingStagesTable.quantityPair }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, result.id)).limit(1);
         if (verifiedSource[0]?.movementStatus !== "received" || !verifiedSource[0]?.receivedAt || verifiedDestination[0]?.stageName !== destinationStage || verifiedDestination[0]?.movementStatus !== "received") {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "لم يثبت النظام انتقال العهدة فعلياً؛ لم يتم تسجيل نجاح العملية" });
         }
-        return { success: true, id: result, stageName: destinationStage, mode: "automatic" as const };
+        return { success: true, id: result.id, stageName: destinationStage, mode: "automatic" as const, idempotent: result.idempotent };
       }),
 
     completeStorage: protectedProcedure
@@ -1779,7 +1789,21 @@ export const appRouter = router({
     list: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(productTrackingTable).orderBy(desc(productTrackingTable.trackingDate), desc(productTrackingTable.createdAt));
+      const rows = await db.select().from(productTrackingTable).orderBy(desc(productTrackingTable.trackingDate), desc(productTrackingTable.createdAt));
+      const seen = new Set<string>();
+      return rows.filter((row: any) => {
+        // السجل المكرر الناتج عن إعادة إرسال الاستلام يملك نفس بيانات الحركة والتوقيت والكمية.
+        // لا ندمج حركتين صحيحتين لنفس المنتج إذا اختلفت الكمية أو وقت الحركة.
+        const fingerprint = [
+          row.productName, row.productSize, row.productColor, row.currentStage, row.previousStage,
+          row.receiverStage, row.quantityDozen, row.quantityPairs, row.deliveredBy, row.expectedReceiver,
+          row.receivedBy, row.deliveredAt ? new Date(row.deliveredAt).toISOString() : "",
+          row.receivedAt ? new Date(row.receivedAt).toISOString() : "", row.shortageDozen, row.shortagePairs,
+        ].map((value) => String(value ?? "").trim()).join("|");
+        if (seen.has(fingerprint)) return false;
+        seen.add(fingerprint);
+        return true;
+      });
     }),
     create: protectedProcedure
       .input(z.object({

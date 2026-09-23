@@ -23,6 +23,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("تعذر مطابقة عهدة المرحلة التالية؛ لم يتم تسجيل نجاح العملية");
   });
 
+  it("locks the source delivery state before creating the next-stage custody", () => {
+    expect(source).toContain('eq(manufacturingStagesTable.movementStatus, "delivered")');
+    expect(source).toContain("تمت معالجة الاستلام مسبقاً أو لم تعد العهدة بانتظار الاستلام");
+    expect(source).toContain("const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);");
+  });
+
   it("uses the sole active account of a stage as a safe fallback for legacy receiver names", () => {
     expect(source).toContain("isSoleStageReceiver");
     expect(source).toContain("isSoleStageAssignment");
@@ -45,7 +51,7 @@ describe("Rosso to Qalb handover hardening", () => {
   });
 
   it("keeps the UI success message after the awaited server mutation and reload", () => {
-    expect(ui).toContain("await manufacturingStageService.confirmReceipt(Number(product.id));");
+    expect(ui).toContain("await manufacturingStageService.confirmReceipt(productId);");
     expect(ui).toContain("await loadEntries();");
     expect(ui).toContain("await manufacturingStageService.deliverToNextStage");
   });

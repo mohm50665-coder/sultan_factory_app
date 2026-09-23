@@ -67,4 +67,12 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("الموظف المسلّم:");
     expect(source).toContain("القسم غير محدد");
   });
+
+  it("keeps identical movement rows from appearing repeatedly in the report", () => {
+    const serverSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
+    expect(serverSource).toContain("const seen = new Set<string>();");
+    expect(serverSource).toContain("const fingerprint = [");
+    expect(serverSource).toContain("if (seen.has(fingerprint)) return false;");
+    expect(serverSource).toContain("لا ندمج حركتين صحيحتين لنفس المنتج إذا اختلفت الكمية أو وقت الحركة");
+  });
 });
