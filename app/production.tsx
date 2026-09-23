@@ -447,6 +447,21 @@ export default function ProductionScreen() {
     setEditingEntry(null);
   };
 
+  // جميع المنتجات تبقى في المسودة حتى يضغط مدير الإنتاج حفظ الدفعة مرة واحدة.
+  const getPendingProductionSummary = () => {
+    let shifts = 0;
+    let products = 0;
+    activeMachines.forEach((machine) => {
+      const machineData = machinesData[machine];
+      if (!machineData) return;
+      shifts += machineData.shifts.length;
+      machineData.shifts.forEach((shift) => {
+        products += shift.products.filter((product) => product.itemName.trim() || product.productionDozen || product.productionPairs).length;
+      });
+    });
+    return { machines: activeMachines.length, shifts, products };
+  };
+
   const toggleMachine = (machine: string) => {
     if (activeMachines.includes(machine)) {
       setActiveMachines(activeMachines.filter((m) => m !== machine));
@@ -1319,6 +1334,23 @@ export default function ProductionScreen() {
           );
         })}
 
+        {activeMachines.length > 0 && (() => {
+          const summary = getPendingProductionSummary();
+          return (
+            <View style={{ backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#93c5fd", borderRadius: 10, padding: 12, marginTop: 2, marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, marginBottom: 5 }}>
+                <Text style={{ color: "#1e40af", fontSize: 13, fontWeight: "900", textAlign: "right" }}>{isAr ? "مسودة إدخال الإنتاج" : "Production entry draft"}</Text>
+                <MaterialIcons name="playlist-add-check" size={18} color="#2563eb" />
+              </View>
+              <Text style={{ color: "#1e3a8a", fontSize: 11, textAlign: "right" }}>
+                {isAr
+                  ? `تم تجهيز ${summary.products} منتجاً ضمن ${summary.shifts} وردية و${summary.machines} مكينة. يمكنك الاستمرار بإضافة منتجات ومكائن وورديات، ثم حفظ الكل مرة واحدة.`
+                  : `${summary.products} product(s) across ${summary.shifts} shift(s) and ${summary.machines} machine(s). Continue adding entries, then save everything once.`}
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* أزرار الحفظ */}
         {activeMachines.length > 0 && (
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 32 }}>
@@ -1341,7 +1373,7 @@ export default function ProductionScreen() {
               disabled={isSaving}
               style={{ flex: 1, backgroundColor: isSaving ? "#86efac" : "#16a34a", borderRadius: 12, paddingVertical: 14, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }}
             >
-              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{isSaving ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (editingEntry ? (isAr ? "تعديل" : "Update") : (isAr ? "حفظ" : "Save"))}</Text>
+              <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>{isSaving ? (isAr ? "جارٍ حفظ الدفعة..." : "Saving batch...") : (editingEntry ? (isAr ? "تعديل الدفعة" : "Update batch") : (isAr ? "حفظ كل الإنتاج" : "Save all production"))}</Text>
               <MaterialIcons name="save" size={18} color="white" />
             </TouchableOpacity>
           </View>
