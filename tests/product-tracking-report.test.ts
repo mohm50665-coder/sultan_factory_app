@@ -41,6 +41,12 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("الموقع الحالي:");
   });
 
+  it("uses a storage status instead of an operating status for products received by storage", () => {
+    expect(source).toContain('currentStage === "storage"');
+    expect(source).toContain("قيد التخزين في المستودع");
+    expect(source).toContain("Being stored in warehouse");
+  });
+
   it("prints location, status, employee, timing, quantity, and shortage details", () => {
     expect(source).toContain("طباعة تقرير الاستلام والتسليم");
     expect(source).toContain('accessibilityLabel={isAr ? "طباعة تقرير الاستلام والتسليم"');

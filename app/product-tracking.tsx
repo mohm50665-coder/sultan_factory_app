@@ -233,6 +233,7 @@ export default function ProductTrackingScreen() {
     const stage = STAGES.find((item) => item.id === (isPendingReceipt ? targetStage : currentStage));
     if (isStored) return { stageId: "storage", label: isAr ? "مخزّن في المستودع" : "Stored in warehouse", status: isAr ? "مخزّن" : "Stored", color: "#15803d", icon: "check-circle" };
     if (isPendingReceipt) return { stageId: targetStage, label: isAr ? `بانتظار الاستلام في ${stage?.ar || targetStage}` : `Awaiting receipt at ${stage?.en || targetStage}`, status: isAr ? "بانتظار الاستلام" : "Awaiting receipt", color: "#d97706", icon: "hourglass-top" };
+    if (latest?.handoverStatus === "received" && currentStage === "storage") return { stageId: "storage", label: isAr ? "قيد التخزين في المستودع" : "Being stored in warehouse", status: isAr ? "قيد التخزين" : "Storage in progress", color: "#b45309", icon: "inventory" };
     if (latest?.handoverStatus === "received") return { stageId: currentStage, label: isAr ? `قيد التشغيل في ${stage?.ar || currentStage}` : `In process at ${stage?.en || currentStage}`, status: isAr ? "قيد التشغيل" : "In process", color: stage?.color || colors.primary, icon: "play-circle" };
     return { stageId: currentStage, label: isAr ? `الموقع الحالي: ${stage?.ar || currentStage}` : `Current location: ${stage?.en || currentStage}`, status: isAr ? "في المرحلة" : "At stage", color: stage?.color || colors.primary, icon: "location-on" };
   };
