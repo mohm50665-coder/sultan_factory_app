@@ -1943,92 +1943,14 @@ export const appRouter = router({
       });
     }),
     create: protectedProcedure
-      .input(z.object({
-        productName: z.string().min(1),
-        productSize: z.string().optional(),
-        productColor: z.string().optional(),
-        trackingDate: z.string().min(1),
-        totalWeightGrams: z.number().optional(),
-        yarnDetails: z.any().optional(),
-        quantityDozen: z.number().optional(),
-        quantityPairs: z.number().optional(),
-        qualityGrade: z.enum(["first", "second"]).optional(),
-        machineNumbers: z.any().optional(),
-        currentStage: z.string().min(1),
-        previousStage: z.string().optional(),
-        deliveredBy: z.string().optional(),
-        receivedBy: z.string().optional(),
-        expectedReceiver: z.string().optional(),
-        receiverStage: z.string().optional(),
-        handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
-        deliveredAt: z.coerce.date().optional(),
-        receivedAt: z.coerce.date().optional(),
-        notes: z.string().optional(),
-        userId: z.number(),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        assertProductionAuthority(ctx.user, input.trackingDate);
-        assertValidTrackingTransition(input.previousStage, input.currentStage, input.receiverStage, input.handoverStatus);
-        if ((Number(input.quantityDozen) || 0) < 0 || (Number(input.quantityPairs) || 0) < 0) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ كمية سالبة في حركة التتبع" });
-        }
-        if (input.handoverStatus === "delivered" && (!input.deliveredBy || !input.expectedReceiver)) {
-          throw new Error("يجب تحديد اسم المسلم واسم المستلم المتوقع قبل التسليم");
-        }
-        if (input.handoverStatus === "delivered" && samePersonName(input.deliveredBy, input.expectedReceiver)) {
-          throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
-        }
-        if (input.handoverStatus === "received" && input.deliveredBy && input.receivedBy && samePersonName(input.deliveredBy, input.receivedBy)) {
-          throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
-        }
-        if (input.handoverStatus === "delivered" && input.receiverStage && input.expectedReceiver) {
-          await validateStageReceiver(db, input.receiverStage, input.expectedReceiver);
-        }
-        const result = await db.insert(productTrackingTable).values({ ...input, userId: ctx.user.id, handoverDate: input.handoverStatus === "received" ? (input.receivedAt || new Date()) : null });
-        return { success: true, id: result[0].insertId };
+      .input(z.object({ productName: z.string().min(1), trackingDate: z.string().min(1) }).passthrough())
+      .mutation(async () => {
+        throw new TRPCError({ code: "CONFLICT", message: "التتبع للعرض فقط؛ نفّذ الاستلام والتسليم من بطاقة العهدة" });
       }),
     update: publicProcedure
-      .input(z.object({
-        id: z.number(),
-        data: z.object({
-          handoverStatus: z.enum(["pending", "delivered", "received", "rejected"]).optional(),
-          qualityGrade: z.enum(["first", "second"]).optional(),
-          deliveredBy: z.string().optional(),
-          receivedBy: z.string().optional(),
-          expectedReceiver: z.string().optional(),
-          receiverStage: z.string().optional(),
-          deliveredAt: z.coerce.date().optional(),
-          receivedAt: z.coerce.date().optional(),
-          quantityDozen: z.number().optional(),
-          quantityPairs: z.number().optional(),
-          handoverDate: z.coerce.date().optional(),
-          notes: z.string().optional(),
-        }),
-      }))
-      .mutation(async ({ input }) => {
-        const db = await getDb();
-        if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const current = await db.select().from(productTrackingTable).where(eq(productTrackingTable.id, input.id)).limit(1);
-        const existing = current[0];
-        if (!existing) throw new Error("حركة التتبع غير موجودة");
-        const next = { ...existing, ...input.data } as any;
-        assertValidTrackingTransition(next.previousStage, next.currentStage, next.receiverStage, next.handoverStatus);
-        if ((Number(next.quantityDozen) || 0) < 0 || (Number(next.quantityPairs) || 0) < 0) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ كمية سالبة في حركة التتبع" });
-        }
-        if (next.handoverStatus === "received" && (!next.deliveredBy || !next.receivedBy)) {
-          throw new Error("لا يمكن اعتماد الاستلام دون بيانات المسلم والمستلم");
-        }
-        if (next.deliveredBy && next.receivedBy && samePersonName(next.deliveredBy, next.receivedBy)) {
-          throw new Error("لا يمكن للموظف استلام المنتج الذي سلّمه لنفسه");
-        }
-        if (next.expectedReceiver && next.receivedBy && next.expectedReceiver !== next.receivedBy) {
-          throw new Error("لا يمكن اعتماد الاستلام إلا من الموظف المستلم المحدد");
-        }
-        await db.update(productTrackingTable).set({ ...input.data, handoverDate: next.handoverStatus === "received" ? (next.receivedAt || new Date()) : input.data.handoverDate }).where(eq(productTrackingTable.id, input.id));
-        return { success: true };
+      .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
+      .mutation(async () => {
+        throw new TRPCError({ code: "CONFLICT", message: "التتبع للعرض فقط؛ نفّذ الاستلام والتسليم من بطاقة العهدة" });
       }),
   }),
 

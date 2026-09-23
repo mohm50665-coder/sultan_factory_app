@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
 const ui = readFileSync(resolve(process.cwd(), "app/manufacturing-stage.tsx"), "utf8");
+const trackingUi = readFileSync(resolve(process.cwd(), "app/product-tracking.tsx"), "utf8");
 
 describe("Rosso to Qalb handover hardening", () => {
   it("verifies the source and destination after the atomic receipt transaction", () => {
@@ -41,13 +42,13 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(service).toContain("if (!result?.success)");
   });
 
-  it("rejects self-stage records, invalid routes, negative quantities, and same-person handovers", () => {
+  it("keeps operational mutations on the custody path and makes tracking read-only", () => {
     expect(source).toContain("assertValidTrackingTransition");
     expect(source).toContain("لا يمكن تسجيل تسليم واستلام داخل المرحلة نفسها");
     expect(source).toContain("مسار غير مسموح");
-    expect(source).toContain("لا يمكن حفظ كمية سالبة في حركة التتبع");
-    expect(source).toContain("samePersonName(input.deliveredBy, input.expectedReceiver)");
-    expect(source).toContain("samePersonName(next.deliveredBy, next.receivedBy)");
+    expect(source).toContain("التتبع للعرض فقط؛ نفّذ الاستلام والتسليم من بطاقة العهدة");
+    expect(trackingUi).toContain("التتبع للعرض فقط");
+    expect(trackingUi).toContain("false && selectedProduct");
   });
 
   it("keeps the UI success message after the awaited server mutation and reload", () => {
