@@ -72,7 +72,10 @@ describe("Product tracking location and handover report", () => {
     const serverSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
     expect(serverSource).toContain("const seen = new Set<string>();");
     expect(serverSource).toContain("const fingerprint = [");
+    expect(serverSource).toContain("currentStage || \"\").trim() === String(row.previousStage || \"\").trim()");
     expect(serverSource).toContain("if (seen.has(fingerprint)) return false;");
     expect(serverSource).toContain("لا ندمج حركتين صحيحتين لنفس المنتج إذا اختلفت الكمية أو وقت الحركة");
+    expect(serverSource).toContain("const seenAutomaticCustodies = new Set<string>();");
+    expect(serverSource).toContain("startsWith(\"AUTO_STAGE:\")");
   });
 });

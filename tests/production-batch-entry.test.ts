@@ -20,7 +20,14 @@ describe("Production batch entry", () => {
     expect(routerSource).toContain("for (const entry of input.entries)");
     expect(routerSource).toContain("createInitialProductionHandover(db, entry, ctx.user)");
   });
+
+  it("rejects duplicate production fingerprints and reports already-executed entries", () => {
+    expect(routerSource).toContain("productionEntryFingerprint");
+    expect(routerSource).toContain("inFlightProductionKeys");
+    expect(routerSource).toContain("skippedDuplicates");
+    expect(routerSource).toContain("تم تنفيذه مسبقاً");
+    expect(productionSource).toContain("تم تنفيذه مسبقاً");
+  });
 });
 
 export {};
-

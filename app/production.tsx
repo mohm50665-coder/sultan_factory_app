@@ -434,6 +434,7 @@ export default function ProductionScreen() {
       if (!result?.success) {
         throw new Error(isAr ? "لم يؤكد الخادم حفظ بيانات الإنتاج" : "The server did not confirm production save");
       }
+      return result;
     } catch (e) {
       console.log("Error saving to server:", e);
       throw e;
@@ -650,11 +651,16 @@ export default function ProductionScreen() {
         return mData.shifts.flatMap((shift) => shift.products.filter((product) => product.itemName.trim()).map((product) => saveProductData(product)));
       });
       await Promise.all(productSaves);
-      await saveToServer(entry, !!editingEntry);
+      const saveResult = await saveToServer(entry, !!editingEntry);
       await loadEntries();
+      if (saveResult?.idempotent && Number(saveResult?.count || 0) === 0) {
+        showSaveMessage(isAr ? "تم تنفيذه مسبقاً" : "Already executed", isAr ? "هذه البيانات محفوظة مسبقاً ولم يتم إدخالها مرة أخرى." : "These data were already saved and were not entered again.");
+        return;
+      }
       resetForm();
       setShowForm(false);
-      showSaveMessage(isAr ? "تم بنجاح ✓" : "Success ✓", editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved"));
+      const skipped = Number(saveResult?.skippedDuplicates || 0);
+      showSaveMessage(skipped > 0 ? (isAr ? "تم الحفظ مع تنبيه" : "Saved with notice") : (isAr ? "تم بنجاح ✓" : "Success ✓"), skipped > 0 ? (isAr ? `تم حفظ البيانات، وتجاهل ${skipped} إدخال منفذ مسبقاً.` : `Data saved; ${skipped} previously executed entry was ignored.`) : (editingEntry ? (isAr ? "تم تعديل البيانات" : "Data updated") : (isAr ? "تم حفظ البيانات" : "Data saved")));
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
       console.error("Production save failed:", e);

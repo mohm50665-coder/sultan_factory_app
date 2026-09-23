@@ -255,6 +255,47 @@ function productionHandoverKey(entry: { date: string; machineNumber: string; shi
   return `AUTO_PROD:${entry.date}:${entry.machineNumber}:${entry.shiftNumber || 1}:${productHash}`;
 }
 
+// بصمة ثابتة لبيانات الإدخال نفسها، مع تجاهل وقت الإرسال وحالة الحركة حتى لا يعاد
+// إنشاء سجل إنتاج عندما يعيد المستخدم الضغط على الحفظ أو يعيد التطبيق إرسال الطلب.
+function productionEntryFingerprint(entry: any) {
+  return createHash("sha256").update(JSON.stringify([
+    String(entry.date || "").trim(), String(entry.machineNumber || "").trim(),
+    normalizeCatalogPart(entry.productName), entry.qualityGrade || "first",
+    Number(entry.sampleRequestId) || 0, String(entry.sampleReference || "").trim(), Number(entry.shiftNumber) || 1,
+    String(entry.shiftStart || "").trim(), String(entry.shiftEnd || "").trim(),
+    Number(entry.productionDozen) || 0, Number(entry.productionPairs) || 0,
+    Number(entry.wasteThreadGrams) || 0, Number(entry.wasteSocksGrams) || 0,
+    Number(entry.secondGradeDozen) || 0, Number(entry.secondGradePairs) || 0,
+    Number(entry.wasteNeedles) || 0, Number(entry.needlesUsed) || 0,
+    Number(entry.productionHours) || 0, Number(entry.productionMinutes) || 0,
+    Number(entry.yarnRubber) || 0, Number(entry.yarnSpandex) || 0,
+    Number(entry.yarnNylon) || 0, Number(entry.yarnCotton) || 0,
+    Number(entry.yarnBamboo) || 0, Number(entry.yarnSpan) || 0,
+  ])).digest("hex");
+}
+
+const inFlightProductionKeys = new Set<string>();
+const inFlightManufacturingKeys = new Set<string>();
+
+function manufacturingEntryFingerprint(entry: any) {
+  return createHash("sha256").update(JSON.stringify([
+    String(entry.stageName || "").trim(), String(entry.date || "").trim(), String(entry.workerName || "").trim(),
+    String(entry.productName || "").trim(), Number(entry.quantityDozen) || 0, Number(entry.quantityPair) || 0,
+    String(entry.productType || "").trim(), entry.movementStatus || "none", String(entry.expectedReceiver || "").trim(),
+    String(entry.receiverStage || "").trim(), String(entry.receivedBy || "").trim(),
+  ])).digest("hex");
+}
+
+async function findExistingProduction(db: any, entry: any) {
+  const candidates = await db.select().from(productionTable).where(and(
+    eq(productionTable.date, String(entry.date || "")),
+    eq(productionTable.machineNumber, String(entry.machineNumber || "")),
+    eq(productionTable.productName, String(entry.productName || "")),
+  ));
+  const fingerprint = productionEntryFingerprint(entry);
+  return candidates.find((candidate: any) => productionEntryFingerprint(candidate) === fingerprint) || null;
+}
+
 async function createInitialProductionHandover(db: any, entry: any, user: any) {
   if (!isAutomaticHandoverActive(entry.date)) return;
   const expectedReceiver = String(entry.expectedReceiver || "").trim();
@@ -1012,6 +1053,16 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
+        const operationKey = productionEntryFingerprint(input);
+        if (inFlightProductionKeys.has(operationKey)) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
+        inFlightProductionKeys.add(operationKey);
+        try {
+          const existingProduction = await findExistingProduction(db, input);
+          if (existingProduction) {
+            return { success: true, id: existingProduction.id, idempotent: true, message: "تم تنفيذه مسبقاً" };
+          }
         const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, userId: _userId, ...productionInput } = input;
         const result = await db.insert(productionTable).values({ ...productionInput, userId: ctx.user.id });
         const identity = parseLegacyProductName(input.productName);
@@ -1031,6 +1082,9 @@ export const appRouter = router({
         }, new Map());
         await createInitialProductionHandover(db, { ...input, productionId: result[0].insertId }, ctx.user);
         return { success: true, id: result[0].insertId };
+        } finally {
+          inFlightProductionKeys.delete(operationKey);
+        }
       }),
 
     // إنشاء عدة سجلات دفعة واحدة (لحفظ يوم كامل)
@@ -1083,16 +1137,44 @@ export const appRouter = router({
           if (producedPairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون كمية فعلية بالدرزن أو الأزواج" });
           if (!String(entry.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إنشاء عهدة إنتاج بدون منتج محفوظ" });
         });
-        const entriesForProduction = input.entries.map(({ yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...entry }) => ({ ...entry, userId: ctx.user.id }));
-        await db.insert(productionTable).values(entriesForProduction);
-        for (const entry of input.entries) {
+        const operationKeys = input.entries.map(productionEntryFingerprint);
+        if (operationKeys.some((key) => inFlightProductionKeys.has(key))) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
+        operationKeys.forEach((key) => inFlightProductionKeys.add(key));
+        try {
+          const entriesForProduction: any[] = [];
+          const entriesToProcess: any[] = [];
+          const skippedDuplicates: any[] = [];
+          const batchSeen = new Set<string>();
+          for (const entry of input.entries) {
+            const key = productionEntryFingerprint(entry);
+            if (batchSeen.has(key)) {
+              skippedDuplicates.push(entry);
+              continue;
+            }
+            batchSeen.add(key);
+            const existingProduction = await findExistingProduction(db, entry);
+            if (existingProduction) {
+              skippedDuplicates.push(entry);
+              continue;
+            }
+            const { yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...productionEntry } = entry;
+            entriesForProduction.push({ ...productionEntry, userId: ctx.user.id });
+            entriesToProcess.push(entry);
+          }
+          if (entriesForProduction.length === 0) {
+            return { success: true, count: 0, skippedDuplicates: skippedDuplicates.length, idempotent: true, message: "تم تنفيذه مسبقاً" };
+          }
+          await db.insert(productionTable).values(entriesForProduction);
+          for (const entry of entriesToProcess) {
           if (entry.sampleRequestId) {
             await db.update(sampleRequestsTable).set({ status: "in_production" }).where(eq(sampleRequestsTable.id, entry.sampleRequestId));
           }
-        }
+          }
         // حفظ الإنتاج هو العملية الأساسية. مزامنة دليل المنتجات عملية مساندة ولا ينبغي أن تلغي نجاح الحفظ.
         const cache = new Map<string, any>();
-        for (const entry of input.entries) {
+        for (const entry of entriesToProcess) {
           try {
             const identity = parseLegacyProductName(entry.productName);
             await ensureCatalogProduct(db, {
@@ -1114,7 +1196,16 @@ export const appRouter = router({
           }
           await createInitialProductionHandover(db, entry, ctx.user);
         }
-        return { success: true, count: input.entries.length };
+          return {
+            success: true,
+            count: entriesToProcess.length,
+            skippedDuplicates: skippedDuplicates.length,
+            idempotent: skippedDuplicates.length > 0,
+            message: skippedDuplicates.length > 0 ? "تم الحفظ مع تجاهل الإدخالات المنفذة مسبقاً" : undefined,
+          };
+        } finally {
+          operationKeys.forEach((key) => inFlightProductionKeys.delete(key));
+        }
       }),
 
     // حذف كل سجلات يوم معين
@@ -1158,7 +1249,20 @@ export const appRouter = router({
     getAll: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.createdAt));
+      const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.createdAt));
+      const seenAutomaticCustodies = new Set<string>();
+      return rows.filter((row: any) => {
+        // لا نعرض حركة داخل المرحلة نفسها حتى لو كانت من بيانات تاريخية خاطئة.
+        if (String(row.stageName || "").trim() === String(row.receiverStage || "").trim() && String(row.receiverStage || "").trim()) return false;
+        // عهدة AUTO_STAGE مرتبطة بعهدة مصدر واحدة؛ الاحتفاظ بأحدث نسخة يمنع تكرارها
+        // في التقارير دون حذف السجل التاريخي من قاعدة البيانات قبل اعتماد التنظيف.
+        if (String(row.productType || "").startsWith("AUTO_STAGE:")) {
+          const key = `${row.productType}|${row.stageName}|${row.movementStatus}`;
+          if (seenAutomaticCustodies.has(key)) return false;
+          seenAutomaticCustodies.add(key);
+        }
+        return true;
+      });
     }),
 
     listReceiptQueue: protectedProcedure
@@ -1240,8 +1344,27 @@ export const appRouter = router({
         const stagePairs = (Number(input.quantityDozen) || 0) * 12 + (Number(input.quantityPair) || 0);
         if (stagePairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون كمية فعلية" });
         if (!String(input.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون منتج صادر من الإنتاج" });
-        const result = await db.insert(manufacturingStagesTable).values({ ...input, userId: ctx.user.id });
-        return { success: true, id: result[0].insertId };
+        const operationKey = manufacturingEntryFingerprint(input);
+        if (inFlightManufacturingKeys.has(operationKey)) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
+        inFlightManufacturingKeys.add(operationKey);
+        try {
+          const candidates = await db.select().from(manufacturingStagesTable).where(and(
+            eq(manufacturingStagesTable.stageName, input.stageName),
+            eq(manufacturingStagesTable.date, input.date || ""),
+            eq(manufacturingStagesTable.workerName, input.workerName),
+            eq(manufacturingStagesTable.productName, input.productName || ""),
+          ));
+          const duplicate = candidates.find((candidate: any) => manufacturingEntryFingerprint(candidate) === operationKey);
+          if (duplicate) {
+            return { success: true, id: duplicate.id, idempotent: true, message: "تم تنفيذه مسبقاً" };
+          }
+          const result = await db.insert(manufacturingStagesTable).values({ ...input, userId: ctx.user.id });
+          return { success: true, id: result[0].insertId };
+        } finally {
+          inFlightManufacturingKeys.delete(operationKey);
+        }
       }),
 
     update: adminProcedure
@@ -1290,6 +1413,9 @@ export const appRouter = router({
         const rows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
         const record = rows[0];
         if (!record || record.deletedAt) throw new Error("السجل غير موجود");
+        if (record.movementStatus === "received") {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
         // receivedAt هو وقت استلام هذه المرحلة من المرحلة السابقة، وليس دليلاً على استلام التسليم الحالي.
         // منع التكرار يتم حصراً عبر destinationRows والمعاملة الذرية أدناه.
@@ -1340,7 +1466,7 @@ export const appRouter = router({
             if (existingAfterRace[0]?.stageName === destinationStage && existingAfterRace[0]?.movementStatus === "received") {
               return { id: existingAfterRace[0].id, idempotent: true };
             }
-            throw new TRPCError({ code: "CONFLICT", message: "تمت معالجة الاستلام مسبقاً أو لم تعد العهدة بانتظار الاستلام" });
+            throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
           }
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
@@ -1402,6 +1528,9 @@ export const appRouter = router({
         const record = rows[0];
         if (!record || record.deletedAt || record.stageName !== "storage") throw new Error("سجل التخزين غير موجود");
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد استلام المستودع قبل التخزين");
+        if (record.stageCompletedAt || String(record.productType || "").startsWith("STORED:")) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تخزين عهدة موظف آخر");
         const storedAt = new Date();
@@ -1421,6 +1550,9 @@ export const appRouter = router({
         const record = rows[0];
         if (!record || record.deletedAt) throw new Error("سجل العهدة غير موجود");
         if (!isAutomaticHandoverActive(record.date)) throw new Error("هذا السجل يتبع المسار السابق");
+        if (record.movementStatus === "delivered") {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+        }
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
@@ -1440,7 +1572,7 @@ export const appRouter = router({
         const deliveredAt = new Date();
         const identity = parseLegacyProductName(record.productName);
         await db.transaction(async (tx: any) => {
-          await tx.update(manufacturingStagesTable).set({
+          const sourceUpdate = await tx.update(manufacturingStagesTable).set({
             quantityDozen,
             quantityPair,
             movementStatus: "delivered",
@@ -1450,7 +1582,11 @@ export const appRouter = router({
             expectedReceiver,
             receiverStage: targetStage,
             productType: record.productType,
-          }).where(eq(manufacturingStagesTable.id, record.id));
+          }).where(and(eq(manufacturingStagesTable.id, record.id), eq(manufacturingStagesTable.movementStatus, "received")));
+          const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);
+          if (affectedRows === 0) {
+            throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
+          }
           // إذا كان للمنتج متبقٍ سابق في المرحلة نفسها، فقد تم تسليمه الآن؛
           // إغلاقه يمنع بقاء الكمية القديمة ظاهرة في جرد المتبقي.
           const previousRemaining = await tx.select({ id: productTrackingTable.id })
@@ -1792,6 +1928,7 @@ export const appRouter = router({
       const rows = await db.select().from(productTrackingTable).orderBy(desc(productTrackingTable.trackingDate), desc(productTrackingTable.createdAt));
       const seen = new Set<string>();
       return rows.filter((row: any) => {
+        if (String(row.currentStage || "").trim() === String(row.previousStage || "").trim() && String(row.previousStage || "").trim()) return false;
         // السجل المكرر الناتج عن إعادة إرسال الاستلام يملك نفس بيانات الحركة والتوقيت والكمية.
         // لا ندمج حركتين صحيحتين لنفس المنتج إذا اختلفت الكمية أو وقت الحركة.
         const fingerprint = [

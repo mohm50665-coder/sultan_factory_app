@@ -540,11 +540,16 @@ export default function ManufacturingStageScreen() {
     if (processingProductId === productId) return;
     setProcessingProductId(productId);
     try {
-      await manufacturingStageService.confirmReceipt(productId);
+      const result = await manufacturingStageService.confirmReceipt(productId);
       await loadEntries();
-      showStageMessage(isAr ? "تم تأكيد الاستلام ✓" : "Receipt confirmed ✓", isAr ? `تم تسجيل استلام ${product.productName}` : `${product.productName} receipt was confirmed`);
+      if (result?.idempotent) {
+        showStageMessage(isAr ? "تم تنفيذه مسبقاً" : "Already executed", isAr ? "تم تسجيل استلام هذا المنتج مسبقاً ولم يُكرر." : "This receipt was already recorded and was not repeated.");
+      } else {
+        showStageMessage(isAr ? "تم تأكيد الاستلام ✓" : "Receipt confirmed ✓", isAr ? `تم تسجيل استلام ${product.productName}` : `${product.productName} receipt was confirmed`);
+      }
     } catch (error) {
-      showStageMessage(isAr ? "فشل تأكيد الاستلام" : "Receipt confirmation failed", error instanceof Error ? error.message : (isAr ? "تعذر تأكيد الاستلام" : "Unable to confirm receipt"));
+      const message = error instanceof Error ? error.message : (isAr ? "تعذر تأكيد الاستلام" : "Unable to confirm receipt");
+      showStageMessage(message.includes("تم تنفيذه مسبقاً") ? (isAr ? "تم تنفيذه مسبقاً" : "Already executed") : (isAr ? "فشل تأكيد الاستلام" : "Receipt confirmation failed"), message);
     } finally {
       setProcessingProductId(null);
     }
@@ -556,7 +561,7 @@ export default function ManufacturingStageScreen() {
     if (processingProductId === productId) return;
     setProcessingProductId(productId);
     try {
-      await manufacturingStageService.deliverToNextStage({
+      const result = await manufacturingStageService.deliverToNextStage({
         id: productId,
         receiverStage,
         expectedReceiver,
@@ -564,9 +569,14 @@ export default function ManufacturingStageScreen() {
         quantityPair: Number(product.quantityPairs) || 0,
       });
       await loadEntries();
-      showStageMessage(isAr ? "تم التسليم ✓" : "Delivered ✓", isAr ? `تم تسليم ${product.productName} إلى ${STAGE_CONFIG[receiverStage]?.name || receiverStage}` : `${product.productName} delivered to ${STAGE_CONFIG[receiverStage]?.name || receiverStage}`);
+      if (result?.idempotent) {
+        showStageMessage(isAr ? "تم تنفيذه مسبقاً" : "Already executed", isAr ? "تم تسجيل تسليم هذا المنتج مسبقاً ولم يُكرر." : "This delivery was already recorded and was not repeated.");
+      } else {
+        showStageMessage(isAr ? "تم التسليم ✓" : "Delivered ✓", isAr ? `تم تسليم ${product.productName} إلى ${STAGE_CONFIG[receiverStage]?.name || receiverStage}` : `${product.productName} delivered to ${STAGE_CONFIG[receiverStage]?.name || receiverStage}`);
+      }
     } catch (error) {
-      showStageMessage(isAr ? "فشل التسليم" : "Delivery failed", error instanceof Error ? error.message : (isAr ? "تعذر تسليم العهدة" : "Unable to deliver custody"));
+      const message = error instanceof Error ? error.message : (isAr ? "تعذر تسليم العهدة" : "Unable to deliver custody");
+      showStageMessage(message.includes("تم تنفيذه مسبقاً") ? (isAr ? "تم تنفيذه مسبقاً" : "Already executed") : (isAr ? "فشل التسليم" : "Delivery failed"), message);
     } finally {
       setProcessingProductId(null);
     }
@@ -584,7 +594,8 @@ export default function ManufacturingStageScreen() {
       await loadEntries();
       showStageMessage(isAr ? "تم التخزين ✓" : "Stored ✓", isAr ? "تمت إضافة الباركود وحفظ المنتج كمخزّن" : "Barcode added and product stored");
     } catch (error) {
-      showStageMessage(isAr ? "فشل التخزين" : "Storage failed", error instanceof Error ? error.message : (isAr ? "تعذر إتمام التخزين" : "Unable to complete storage"));
+      const message = error instanceof Error ? error.message : (isAr ? "تعذر إتمام التخزين" : "Unable to complete storage");
+      showStageMessage(message.includes("تم تنفيذه مسبقاً") ? (isAr ? "تم تنفيذه مسبقاً" : "Already executed") : (isAr ? "فشل التخزين" : "Storage failed"), message);
     }
   };
 
