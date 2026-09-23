@@ -97,7 +97,7 @@ export const costsService = {
 // ===== ALERTS SERVICE =====
 export interface AlertEntry {
   id?: number;
-  type: "cost_exceeded" | "low_productivity" | "pending_procedure" | "quality_issue" | "safety_alert" | "sample_delivery";
+  type: "cost_exceeded" | "low_productivity" | "pending_procedure" | "quality_issue" | "safety_alert" | "sample_delivery" | "remaining_quantity";
   title: string;
   message: string;
   severity: "info" | "warning" | "critical";

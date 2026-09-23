@@ -24,6 +24,11 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("أيقونة الكمية المتبقية");
     expect(summary).toContain("الموجب باللون الأزرق");
     expect(summary).toContain("السالب باللون الأحمر");
+    expect(summary).toContain("differenceFilter");
+    expect(summary).toContain("Review remaining quantities");
+    expect(summary).toContain("alertsService.create");
+    expect(summary).toContain("handover_difference");
+    expect(summary).toContain("/remaining-quantities");
     expect(remaining).toContain("إجمالي الأزواج المتبقية");
     expect(remaining).toContain("(${pairs(row)} زوج)");
   });
