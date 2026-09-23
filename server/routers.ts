@@ -1482,6 +1482,22 @@ export const appRouter = router({
             notes: input.notes || (deliveredPairs < currentPairs ? `نقص ${currentPairs - deliveredPairs} زوج` : "تسليم تلقائي للمرحلة التالية"),
             userId: ctx.user.id,
           });
+          const remainingDozen = Math.max(0, Number(record.quantityDozen || 0) - quantityDozen);
+          const remainingPairs = Math.max(0, Number(record.quantityPair || 0) - quantityPair);
+          if (remainingDozen > 0 || remainingPairs > 0) {
+            const adminAccounts = await tx.select({ id: usersTable.id })
+              .from(usersTable)
+              .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, 1)));
+            await Promise.all(adminAccounts.map((admin: any) => tx.insert(alertsTable).values({
+              type: "pending_procedure",
+              title: "تنبيه كمية متبقية",
+              message: `تبقت كمية من المنتج ${String(record.productName || "غير محدد")} بعد تسليم مرحلة ${String(record.stageName || "غير محددة")}: ${remainingDozen} درزن و${remainingPairs} زوج. يرجى مراجعة جرد الكميات المتبقية.`,
+              severity: "warning",
+              read: 0,
+              userId: admin.id,
+              data: { category: "remaining_quantity", route: "/remaining-quantities", productName: record.productName, productSize: record.productSize, productColor: record.productColor, stage: record.stageName, nextStage: targetStage, remainingDozen, remainingPairs, trackingDate: getRiyadhDate(deliveredAt) },
+            })));
+          }
         });
         const verifiedDelivery = await db.select({ movementStatus: manufacturingStagesTable.movementStatus, receiverStage: manufacturingStagesTable.receiverStage, expectedReceiver: manufacturingStagesTable.expectedReceiver }).from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, record.id)).limit(1);
         if (verifiedDelivery[0]?.movementStatus !== "delivered" || verifiedDelivery[0]?.receiverStage !== targetStage || !verifiedDelivery[0]?.expectedReceiver) {

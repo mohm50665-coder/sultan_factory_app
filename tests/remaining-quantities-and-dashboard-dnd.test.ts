@@ -31,6 +31,13 @@ describe("Dashboard drag ordering and remaining quantities", () => {
     expect(summarySource).toContain("الكمية المتبقية حسب المرحلة");
     expect(routerSource).toContain("تم تسليم الكمية المتبقية لاحقاً");
     expect(routerSource).toContain("shortagePairs: 0");
+    expect(routerSource).toContain("تنبيه كمية متبقية");
+    expect(routerSource).toContain('category: "remaining_quantity"');
+    expect(routerSource).toContain('eq(usersTable.role, "admin")');
+    expect(remainingSource).toContain('exportReport("word")');
+    expect(remainingSource).toContain('exportReport("excel")');
+    expect(remainingSource).toContain("application/vnd.ms-excel");
+    expect(remainingSource).toContain("application/msword");
   });
 });
 
