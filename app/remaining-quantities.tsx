@@ -74,7 +74,7 @@ export default function RemainingQuantitiesScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 35 }}>
         <View style={{ backgroundColor: "#fff7ed", borderColor: "#fdba74", borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 12 }}>
           <Text style={{ color: "#9a3412", textAlign: "right", fontWeight: "900", fontSize: 14 }}>{isAr ? "جرد المتبقي الحالي" : "Current remaining inventory"}</Text>
-          <Text style={{ color: "#c2410c", textAlign: "right", fontSize: 12, marginTop: 5 }}>{isAr ? `${rows.length} سجل · ${totalPairs} زوج متبقٍ` : `${rows.length} record(s) · ${totalPairs} pair(s) remaining`}</Text>
+          <Text style={{ color: "#c2410c", textAlign: "right", fontSize: 12, marginTop: 5 }}>{isAr ? `${rows.length} سجل · المتبقي: ${Math.floor(totalPairs / 12)} درزن + ${totalPairs % 12} زوج (${totalPairs} زوج)` : `${rows.length} record(s) · remaining: ${Math.floor(totalPairs / 12)} dozen + ${totalPairs % 12} pairs (${totalPairs} pairs)`}</Text>
           {stageTotals.length > 0 && <Text style={{ color: "#9a3412", textAlign: "right", fontSize: 11, marginTop: 7 }}>{stageTotals.map(([stage, amount]) => `${stage}: ${amount} ${isAr ? "زوج" : "pairs"}`).join("  |  ")}</Text>}
         </View>
         <TouchableOpacity onPress={() => void load()} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 7, marginBottom: 12 }}>
@@ -106,7 +106,7 @@ export default function RemainingQuantitiesScreen() {
             <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
               <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `المقاس: ${row.productSize || "غير محدد"}` : `Size: ${row.productSize || "—"}`}</Text>
               <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `اللون: ${row.productColor || "غير محدد"}` : `Color: ${row.productColor || "—"}`}</Text>
-              <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `المتبقي: ${row.shortageDozen || 0} درزن + ${row.shortagePairs || 0} زوج` : `Remaining: ${row.shortageDozen || 0} dozen + ${row.shortagePairs || 0} pairs`}</Text>
+              <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `المتبقي: ${row.shortageDozen || 0} درزن + ${row.shortagePairs || 0} زوج (${pairs(row)} زوج)` : `Remaining: ${row.shortageDozen || 0} dozen + ${row.shortagePairs || 0} pairs (${pairs(row)} pairs)`}</Text>
             </View>
             <View style={{ borderTopWidth: 1, borderColor: colors.border, marginTop: 10, paddingTop: 9 }}>
               <Text style={{ color: "#b45309", fontWeight: "800", textAlign: "right", fontSize: 12 }}>{isAr ? `المرحلة: ${row.currentStage || "غير محددة"} ← المرحلة التالية: ${row.receiverStage || "غير محددة"}` : `Stage: ${row.currentStage || "—"} → Next: ${row.receiverStage || "—"}`}</Text>
