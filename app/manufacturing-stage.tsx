@@ -800,18 +800,20 @@ export default function ManufacturingStageScreen() {
           </TouchableOpacity>
         );
         return (
-          <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 12, padding: 12 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: config.color, fontWeight: "800", fontSize: 15, textAlign: isAr ? "right" : "left" }}>{isAr ? `تقرير ${config.name}` : `${config.name} Report`}</Text>
-              <MaterialIcons name="assessment" size={20} color={config.color} />
+          <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 12, padding: 12, overflow: "hidden" }}>
+            <View style={{ flexDirection: isAr ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28 }}>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: config.color, fontWeight: "800", fontSize: 15, flexShrink: 1, textAlign: isAr ? "right" : "left" }}>{isAr ? `تقرير ${config.name}` : `${config.name} Report`}</Text>
+              <MaterialIcons name="assessment" size={20} color={config.color} style={{ marginHorizontal: 4 }} />
             </View>
             <View style={{ flexDirection: "row", gap: 6, marginBottom: 8 }}>
               {periodButton("daily", "يومي", "Daily")}
               {periodButton("weekly", "أسبوعي", "Weekly")}
               {periodButton("monthly", "شهري", "Monthly")}
             </View>
-            <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
-            <DateField value={reportDate} onChange={setReportDate} isAr={isAr} style={{ backgroundColor: colors.background, marginBottom: 8 }} />
+            <View style={{ alignItems: isAr ? "flex-end" : "flex-start", marginBottom: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
+              <DateField value={reportDate} onChange={setReportDate} isAr={isAr} style={{ backgroundColor: colors.background }} />
+            </View>
             {user?.role === "admin" && reportWorkers.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }} contentContainerStyle={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
                 <TouchableOpacity onPress={() => setReportWorker("all")} style={{ backgroundColor: reportWorker === "all" ? config.color : colors.background, borderWidth: 1, borderColor: config.color, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 }}>
