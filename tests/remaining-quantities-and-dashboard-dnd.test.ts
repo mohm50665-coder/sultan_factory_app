@@ -39,6 +39,15 @@ describe("Dashboard drag ordering and remaining quantities", () => {
     expect(remainingSource).toContain("application/vnd.ms-excel");
     expect(remainingSource).toContain("application/msword");
   });
+  it("creates an active carryover custody for the next day and normalizes mixed units", () => {
+    expect(routerSource).toContain("const remainingTotalPairs = currentPairs - deliveredPairs");
+    expect(routerSource).toContain("const remainingDozen = Math.floor(remainingTotalPairs / 12)");
+    expect(routerSource).toContain("const remainingPairs = remainingTotalPairs % 12");
+    expect(routerSource).toContain("AUTO_REMAINING:${record.id}");
+    expect(routerSource).toContain('movementStatus: "received"');
+    expect(routerSource).toContain("quantityDozen: remainingDozen");
+    expect(routerSource).toContain("quantityPair: remainingPairs");
+  });
 });
 
 export {};

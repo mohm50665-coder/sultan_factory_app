@@ -1593,6 +1593,9 @@ export const appRouter = router({
         const deliveredPairs = quantityDozen * 12 + quantityPair;
         if (deliveredPairs <= 0) throw new Error("كمية التسليم يجب أن تكون أكبر من صفر");
         if (deliveredPairs > currentPairs) throw new Error("لا يمكن أن تتجاوز كمية التسليم الكمية المستلمة");
+        const remainingTotalPairs = currentPairs - deliveredPairs;
+        const remainingDozen = Math.floor(remainingTotalPairs / 12);
+        const remainingPairs = remainingTotalPairs % 12;
         const deliveredAt = new Date();
         const identity = parseLegacyProductName(record.productName);
         await db.transaction(async (tx: any) => {
@@ -1642,8 +1645,8 @@ export const appRouter = router({
             sampleRequestId: record.sampleRequestId || null,
             stageStartedAt: record.stageStartedAt || null,
             stageCompletedAt: deliveredAt,
-            shortageDozen: Math.max(0, Number(record.quantityDozen || 0) - quantityDozen),
-            shortagePairs: Math.max(0, Number(record.quantityPair || 0) - quantityPair),
+            shortageDozen: remainingDozen,
+            shortagePairs: remainingPairs,
             currentStage: record.stageName,
             previousStage: MANUFACTURING_STAGE_ORDER[Math.max(0, MANUFACTURING_STAGE_ORDER.indexOf(record.stageName as any) - 1)],
             deliveredBy: actorName,
@@ -1654,9 +1657,26 @@ export const appRouter = router({
             notes: input.notes || (deliveredPairs < currentPairs ? `نقص ${currentPairs - deliveredPairs} زوج` : "تسليم تلقائي للمرحلة التالية"),
             userId: ctx.user.id,
           });
-          const remainingDozen = Math.max(0, Number(record.quantityDozen || 0) - quantityDozen);
-          const remainingPairs = Math.max(0, Number(record.quantityPair || 0) - quantityPair);
           if (remainingDozen > 0 || remainingPairs > 0) {
+            await tx.insert(manufacturingStagesTable).values({
+              stageName: record.stageName,
+              workerName: actorName,
+              productionId: record.productionId,
+              quantityDozen: remainingDozen,
+              quantityPair: remainingPairs,
+              productType: `AUTO_REMAINING:${record.id}:${getRiyadhDate(deliveredAt)}`,
+              productName: record.productName || identity.name,
+              productSize: record.productSize || identity.size || null,
+              productColor: record.productColor || identity.color || null,
+              barcode: record.barcode || null,
+              date: getRiyadhDate(deliveredAt),
+              movementStatus: "received",
+              movementBy: actorName,
+              movementAt: deliveredAt,
+              receivedBy: actorName,
+              receivedAt: deliveredAt,
+              userId: ctx.user.id,
+            });
             const adminAccounts = await tx.select({ id: usersTable.id })
               .from(usersTable)
               .where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, 1)));
