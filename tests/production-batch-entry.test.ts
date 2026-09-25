@@ -18,7 +18,14 @@ describe("Production batch entry", () => {
     expect(apiSource).toContain('createBatch: (entries: any[]) => trpcCall("production.createBatch", { entries })');
     expect(routerSource).toContain("createBatch: protectedProcedure");
     expect(routerSource).toContain("for (const entry of input.entries)");
-    expect(routerSource).toContain("createInitialProductionHandover(db, entry, ctx.user)");
+    expect(routerSource).toContain("const savedProduction = await findExistingProduction(db, entry)");
+    expect(routerSource).toContain("createInitialProductionHandover(db, { ...entry, productionId: savedProduction.id }, ctx.user)");
+    expect(routerSource).toContain("productionId: record.productionId || null");
+  });
+
+  it("rejects manual stage insertion after the automatic production handover cutover", () => {
+    expect(routerSource).toContain("لا تتم إضافة المنتجات يدوياً من مراحل التسليم؛ أدخل المنتج من شاشة الإنتاج ليظهر تلقائياً في قائمة الاستلام");
+    expect(routerSource).toContain("if (isAutomaticHandoverActive(input.date))");
   });
 
   it("rejects duplicate production fingerprints and reports already-executed entries", () => {

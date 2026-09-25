@@ -134,7 +134,7 @@ describe("Automatic production handover visibility", () => {
     expect(manufacturingScreen).toContain('VISIBLE_HANDOVER_STAGE_IDS = MANUFACTURING_STAGE_IDS.filter((stageId) => stageId !== "machines")');
     expect(manufacturingScreen).toContain('const builtStages: ManufacturingStage[] = VISIBLE_HANDOVER_STAGE_IDS.map');
     expect(manufacturingScreen).toContain('router.push(`/manufacturing-stage?stage=${stageId}` as any)');
-    expect(routersSource).toContain('await createInitialProductionHandover(db, entry, ctx.user);');
+    expect(routersSource).toContain('await createInitialProductionHandover(db, { ...entry, productionId: savedProduction.id }, ctx.user);');
     expect(routersSource).toContain('stageName: "production"');
     expect(routersSource).toContain('movementStatus: "delivered" as const');
     expect(routersSource).toContain('receiverStage: "rosso"');

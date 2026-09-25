@@ -1194,7 +1194,13 @@ export const appRouter = router({
           } catch (catalogError) {
             console.error("Production saved, catalog sync failed:", catalogError);
           }
-          await createInitialProductionHandover(db, entry, ctx.user);
+          // بعد الإدخال الدفعي نعيد قراءة الصف المنشأ فعلياً، لأن insertId الواحد
+          // لا يكفي لربط كل عنصر من عناصر الدفعة بعهدته الصحيحة.
+          const savedProduction = await findExistingProduction(db, entry);
+          if (!savedProduction) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "تعذر ربط الإنتاج بعهدة الروسو؛ لم يتم تسجيل نجاح العملية" });
+          }
+          await createInitialProductionHandover(db, { ...entry, productionId: savedProduction.id }, ctx.user);
         }
           return {
             success: true,
@@ -1297,6 +1303,7 @@ export const appRouter = router({
             if (!String(record.productName || "").trim()) return false;
             if (((Number(record.quantityDozen) || 0) * 12 + (Number(record.quantityPair) || 0)) <= 0) return false;
             if (!isAutomaticHandoverActive(record.date)) return false;
+            if (!record.productionId) return false;
             const hasExplicitReceiver = String(record.receiverStage || "").trim() && String(record.expectedReceiver || "").trim();
             const isAssignedToCurrentUser = record.receiverStage === input.stageName && (
               samePersonName(record.expectedReceiver, receiverName) || samePersonName(record.expectedReceiver, receiverUsername)
@@ -1341,6 +1348,12 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
+        if (isAutomaticHandoverActive(input.date)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "لا تتم إضافة المنتجات يدوياً من مراحل التسليم؛ أدخل المنتج من شاشة الإنتاج ليظهر تلقائياً في قائمة الاستلام",
+          });
+        }
         const stagePairs = (Number(input.quantityDozen) || 0) * 12 + (Number(input.quantityPair) || 0);
         if (stagePairs <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون كمية فعلية" });
         if (!String(input.productName || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حفظ مرحلة تصنيع بدون منتج صادر من الإنتاج" });
@@ -1417,6 +1430,9 @@ export const appRouter = router({
           throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
         }
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
+        if (isAutomaticHandoverActive(record.date) && !record.productionId) {
+          throw new TRPCError({ code: "CONFLICT", message: "لا يمكن استلام عهدة غير مرتبطة بسجل إنتاج أصلي؛ راجع مدير الإنتاج" });
+        }
         // receivedAt هو وقت استلام هذه المرحلة من المرحلة السابقة، وليس دليلاً على استلام التسليم الحالي.
         // منع التكرار يتم حصراً عبر destinationRows والمعاملة الذرية أدناه.
         const receiverName = String(ctx.user.name || "").trim();
@@ -1471,6 +1487,7 @@ export const appRouter = router({
           const created = await tx.insert(manufacturingStagesTable).values({
             stageName: destinationStage,
             workerName: receiverName,
+            productionId: record.productionId || null,
             quantityDozen: record.quantityDozen || 0,
             quantityPair: record.quantityPair || 0,
             productType: `${destinationKey}:FROM:${record.stageName}`,
@@ -1488,6 +1505,7 @@ export const appRouter = router({
           });
           const identity = parseLegacyProductName(record.productName);
           await tx.insert(productTrackingTable).values({
+            productionId: record.productionId || null,
             productName: record.productName || identity.name,
             productSize: record.productSize || identity.size,
             productColor: record.productColor || identity.color,
@@ -1527,6 +1545,9 @@ export const appRouter = router({
         const rows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
         const record = rows[0];
         if (!record || record.deletedAt || record.stageName !== "storage") throw new Error("سجل التخزين غير موجود");
+        if (isAutomaticHandoverActive(record.date) && !record.productionId) {
+          throw new TRPCError({ code: "CONFLICT", message: "لا يمكن تخزين منتج غير مرتبط بسجل إنتاج أصلي؛ راجع مدير الإنتاج" });
+        }
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد استلام المستودع قبل التخزين");
         if (record.stageCompletedAt || String(record.productType || "").startsWith("STORED:")) {
           throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
@@ -1550,6 +1571,9 @@ export const appRouter = router({
         const record = rows[0];
         if (!record || record.deletedAt) throw new Error("سجل العهدة غير موجود");
         if (!isAutomaticHandoverActive(record.date)) throw new Error("هذا السجل يتبع المسار السابق");
+        if (!record.productionId) {
+          throw new TRPCError({ code: "CONFLICT", message: "لا يمكن تسليم عهدة غير مرتبطة بسجل إنتاج أصلي؛ راجع مدير الإنتاج" });
+        }
         if (record.movementStatus === "delivered") {
           throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
         }
@@ -1592,6 +1616,7 @@ export const appRouter = router({
           const previousRemaining = await tx.select({ id: productTrackingTable.id })
             .from(productTrackingTable)
             .where(and(
+              ...(record.productionId ? [eq(productTrackingTable.productionId, record.productionId)] : []),
               eq(productTrackingTable.productName, String(record.productName || "")),
               eq(productTrackingTable.currentStage, String(record.stageName || "")),
               or(gt(productTrackingTable.shortageDozen, 0), gt(productTrackingTable.shortagePairs, 0)),
@@ -1606,6 +1631,7 @@ export const appRouter = router({
             }).where(eq(productTrackingTable.id, previousRemaining[0].id));
           }
           await tx.insert(productTrackingTable).values({
+            productionId: record.productionId || null,
             productName: record.productName || identity.name,
             productSize: record.productSize || identity.size,
             productColor: record.productColor || identity.color,

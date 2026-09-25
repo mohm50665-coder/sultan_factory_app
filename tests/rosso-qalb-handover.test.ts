@@ -30,6 +30,14 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);");
   });
 
+  it("requires every automatic custody movement to remain linked to the original production", () => {
+    expect(source).toContain("if (!record.productionId) return false;");
+    expect(source).toContain("لا يمكن استلام عهدة غير مرتبطة بسجل إنتاج أصلي");
+    expect(source).toContain("لا يمكن تسليم عهدة غير مرتبطة بسجل إنتاج أصلي");
+    expect(source).toContain("لا يمكن تخزين منتج غير مرتبط بسجل إنتاج أصلي");
+    expect(source).toContain("productionId: record.productionId || null");
+  });
+
   it("uses the sole active account of a stage as a safe fallback for legacy receiver names", () => {
     expect(source).toContain("isSoleStageReceiver");
     expect(source).toContain("isSoleStageAssignment");

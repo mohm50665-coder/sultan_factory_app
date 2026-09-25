@@ -808,6 +808,8 @@ export type AppSetting = typeof appSettings.$inferSelect;
 // جدول تتبع المنتجات وسجل التسليم والاستلام بين مراحل التصنيع
 export const productTracking = mysqlTable("productTracking", {
   id: int("id").autoincrement().primaryKey(),
+  // معرف الإنتاج الأصلي؛ يمنع مطابقة الحركات بالاسم فقط عند تكرار المنتج.
+  productionId: int("productionId"),
   productName: varchar("productName", { length: 255 }).notNull(),
   productBarcode: varchar("productBarcode", { length: 32 }),
   productSize: varchar("productSize", { length: 100 }),

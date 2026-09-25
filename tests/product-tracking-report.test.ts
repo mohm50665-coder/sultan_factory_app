@@ -84,4 +84,12 @@ describe("Product tracking location and handover report", () => {
     expect(serverSource).toContain("const seenAutomaticCustodies = new Set<string>();");
     expect(serverSource).toContain("startsWith(\"AUTO_STAGE:\")");
   });
+
+  it("keeps the original production identity on every tracking record", () => {
+    const schema = readFileSync(resolve(process.cwd(), "drizzle/schema.ts"), "utf8");
+    const serverSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
+    expect(schema).toContain('productionId: int("productionId")');
+    expect(serverSource).toContain("productionId: record.productionId || null");
+    expect(serverSource).toContain("productionId: record.productionId || null");
+  });
 });
