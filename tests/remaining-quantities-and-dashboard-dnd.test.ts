@@ -47,6 +47,8 @@ describe("Dashboard drag ordering and remaining quantities", () => {
     expect(routerSource).toContain('movementStatus: "received"');
     expect(routerSource).toContain("quantityDozen: remainingDozen");
     expect(routerSource).toContain("quantityPair: remainingPairs");
+    expect(routerSource).toContain("أغلق كل سجلات المتبقي");
+    expect(routerSource).toContain("or(gt(productTrackingTable.shortageDozen, 0), gt(productTrackingTable.shortagePairs, 0))");
   });
 });
 

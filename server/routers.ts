@@ -1614,25 +1614,19 @@ export const appRouter = router({
           if (affectedRows === 0) {
             throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
           }
-          // إذا كان للمنتج متبقٍ سابق في المرحلة نفسها، فقد تم تسليمه الآن؛
-          // إغلاقه يمنع بقاء الكمية القديمة ظاهرة في جرد المتبقي.
-          const previousRemaining = await tx.select({ id: productTrackingTable.id })
-            .from(productTrackingTable)
-            .where(and(
-              ...(record.productionId ? [eq(productTrackingTable.productionId, record.productionId)] : []),
-              eq(productTrackingTable.productName, String(record.productName || "")),
-              eq(productTrackingTable.currentStage, String(record.stageName || "")),
-              or(gt(productTrackingTable.shortageDozen, 0), gt(productTrackingTable.shortagePairs, 0)),
-            ))
-            .orderBy(desc(productTrackingTable.createdAt))
-            .limit(1);
-          if (previousRemaining[0]) {
-            await tx.update(productTrackingTable).set({
-              shortageDozen: 0,
-              shortagePairs: 0,
-              notes: sql`CONCAT(COALESCE(${productTrackingTable.notes}, ''), ' | تم تسليم الكمية المتبقية لاحقاً')`,
-            }).where(eq(productTrackingTable.id, previousRemaining[0].id));
-          }
+          // عند تسليم عهدة المتبقي في اليوم التالي، أغلق كل سجلات المتبقي
+          // المطابقة للمصدر والمرحلة فوراً، وليس أحدث سجل فقط؛ لأن السجل
+          // قد يكون ظهر أكثر من مرة في البيانات التاريخية.
+          await tx.update(productTrackingTable).set({
+            shortageDozen: 0,
+            shortagePairs: 0,
+            notes: sql`CONCAT(COALESCE(${productTrackingTable.notes}, ''), ' | تم تسليم الكمية المتبقية لاحقاً')`,
+          }).where(and(
+            ...(record.productionId ? [eq(productTrackingTable.productionId, record.productionId)] : []),
+            eq(productTrackingTable.productName, String(record.productName || "")),
+            eq(productTrackingTable.currentStage, String(record.stageName || "")),
+            or(gt(productTrackingTable.shortageDozen, 0), gt(productTrackingTable.shortagePairs, 0)),
+          ));
           await tx.insert(productTrackingTable).values({
             productionId: record.productionId || null,
             productName: record.productName || identity.name,
