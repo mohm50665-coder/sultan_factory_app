@@ -757,7 +757,7 @@ export default function ManufacturingStageScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
       {/* رأس الصفحة */}
-      <View style={{ backgroundColor: config.color, paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ backgroundColor: config.color, paddingHorizontal: 18, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
             onPress={() => setShowStageReport((value) => !value)}
@@ -775,8 +775,8 @@ export default function ManufacturingStageScreen() {
           </TouchableOpacity>}
         </View>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{config.name}</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 4 }}>
+          <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 18 }}>{config.name}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }}>
             {entries.length > 0 ? (isAr ? `${entries.length} سجل` : `${entries.length} records`) : (isAr ? "لا توجد سجلات" : "No records")}
           </Text>
         </View>
@@ -800,18 +800,18 @@ export default function ManufacturingStageScreen() {
           </TouchableOpacity>
         );
         return (
-          <View style={{ marginHorizontal: 16, marginTop: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 12, padding: 12, overflow: "hidden" }}>
-            <View style={{ flexDirection: isAr ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10, minHeight: 28 }}>
+          <View style={{ marginHorizontal: 12, marginTop: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: config.color, borderRadius: 10, padding: 9, overflow: "hidden" }}>
+            <View style={{ flexDirection: isAr ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 7, minHeight: 24 }}>
               <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: config.color, fontWeight: "800", fontSize: 15, flexShrink: 1, textAlign: isAr ? "right" : "left" }}>{isAr ? `تقرير ${config.name}` : `${config.name} Report`}</Text>
               <MaterialIcons name="assessment" size={20} color={config.color} style={{ marginHorizontal: 4 }} />
             </View>
-            <View style={{ flexDirection: "row", gap: 6, marginBottom: 8 }}>
+            <View style={{ flexDirection: "row", gap: 5, marginBottom: 6 }}>
               {periodButton("daily", "يومي", "Daily")}
               {periodButton("weekly", "أسبوعي", "Weekly")}
               {periodButton("monthly", "شهري", "Monthly")}
             </View>
-            <View style={{ alignItems: isAr ? "flex-end" : "flex-start", marginBottom: 8 }}>
-              <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 4, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
+            <View style={{ alignItems: isAr ? "flex-end" : "flex-start", marginBottom: 6 }}>
+              <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 3, textAlign: isAr ? "right" : "left" }}>{isAr ? "التاريخ المرجعي" : "Reference date"}</Text>
               <DateField value={reportDate} onChange={setReportDate} isAr={isAr} style={{ backgroundColor: colors.background }} />
             </View>
             {user?.role === "admin" && reportWorkers.length > 0 && (

@@ -24,7 +24,7 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
     if (defaultToToday && !value) onChange(resolvedValue);
   }, [defaultToToday, value, resolvedValue, onChange]);
   return (
-    <View style={{ gap: 5, flex: 1, minWidth: 0, maxWidth: 320, alignSelf: "flex-end" }}>
+    <View style={{ gap: 4, flexGrow: 0, flexShrink: 1, minWidth: 0, width: "100%", maxWidth: 320, alignSelf: "flex-end" }}>
       {label ? <Text style={{ color: "#334155", fontWeight: "800", textAlign: "right" }}>{label}</Text> : null}
       {Platform.OS === "web"
         ? React.createElement("input", {
@@ -37,15 +37,15 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
               width: "100%",
               maxWidth: 320,
               boxSizing: "border-box",
-              minHeight: 42,
+              minHeight: 38,
               borderWidth: 1,
               borderStyle: "solid",
               borderColor: "#cbd5e1",
               borderRadius: 8,
-              padding: "0 12px",
+              padding: "0 10px",
               backgroundColor: "#fff",
               color: "#172033",
-              fontSize: 15,
+              fontSize: 14,
               textAlign: isAr ? "right" : "left",
               appearance: "auto",
               WebkitAppearance: "auto",
@@ -60,7 +60,7 @@ export function DateField({ value, onChange, label, isAr = true, style, defaultT
               if (selectedDate) onChange(selectedDate.toISOString().slice(0, 10));
             }}
             accentColor="#0a7ea4"
-            style={[{ minHeight: 42, maxWidth: 320, alignSelf: "flex-end" }, style]}
+            style={[{ minHeight: 38, maxWidth: 320, alignSelf: "flex-end" }, style]}
           />}
     </View>
   );
