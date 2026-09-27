@@ -4,6 +4,9 @@ import superjson from "superjson";
 import type { AppRouter } from "@/server/routers";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const LOCAL_SESSION_STORAGE_KEY = "sultan_session_id";
 
 /**
  * tRPC React client for type-safe API calls.
@@ -27,7 +30,11 @@ export function createTRPCClient() {
         transformer: superjson,
         async headers() {
           const token = await Auth.getSessionToken();
-          return token ? { Authorization: `Bearer ${token}` } : {};
+          const localSessionId = await AsyncStorage.getItem(LOCAL_SESSION_STORAGE_KEY);
+          return {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(localSessionId ? { "x-session-id": localSessionId } : {}),
+          };
         },
         // Custom fetch to include credentials for cookie-based auth
         fetch(url, options) {

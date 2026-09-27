@@ -69,7 +69,9 @@ async function apiCall(endpoint: string, body: any, method: "query" | "mutation"
   const timeoutId = setTimeout(() => controller.abort(), 12000);
   let response: Response;
   try {
-    response = await fetch(url, { ...options, signal: controller.signal });
+    // Web serves the app and API from different subdomains. Keep the cookie
+    // issued by auth.login; x-session-id remains the mobile fallback.
+    response = await fetch(url, { ...options, credentials: "include", signal: controller.signal });
   } catch (requestError) {
     if (requestError instanceof DOMException && requestError.name === "AbortError") {
       throw new Error("انتهت مهلة الاتصال بالخادم. تحقق من الاتصال بالإنترنت وحاول مرة أخرى.");
