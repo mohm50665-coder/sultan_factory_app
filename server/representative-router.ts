@@ -305,8 +305,16 @@ export const representativeRouter = router({
       if (input?.representativeId) conditions.push(eq(representativeTransactions.representativeId, input.representativeId));
       const rows = await db.select().from(representativeTransactions).where(and(...conditions)).orderBy(desc(representativeTransactions.createdAt));
       const filtered = rows.filter((row) => canViewTransaction(ctx.user, row));
+      const customerIds = Array.from(new Set(filtered.map((row) => Number(row.customerId)).filter(Boolean)));
+      const customerRows = customerIds.length ? await db.select().from(customers).where(sql`id IN (${sql.join(customerIds.map((id) => sql`${id}`), sql`, `)})`) : [];
+      const customerById = new Map(customerRows.map((customer) => [Number(customer.id), customer]));
       const now = Date.now();
-      return filtered.map((row) => ({ ...row, isOverdue: !["CLOSED", "CLOSED_REJECTED", "REJECTED_SALES"].includes(row.status) && now - new Date(row.updatedAt).getTime() > 3 * 24 * 60 * 60 * 1000 }));
+      return filtered.map((row) => ({
+        ...row,
+        customer: customerById.get(Number(row.customerId)) || null,
+        items: parseArray(row.productData),
+        isOverdue: !["CLOSED", "CLOSED_REJECTED", "REJECTED_SALES"].includes(row.status) && now - new Date(row.updatedAt).getTime() > 3 * 24 * 60 * 60 * 1000,
+      }));
     }),
 
     getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
