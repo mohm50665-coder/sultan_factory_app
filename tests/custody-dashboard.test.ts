@@ -30,6 +30,15 @@ describe("Custody follow-up dashboard", () => {
     expect(overdueReport).toContain("workerName");
     expect(overdueReport).toContain("stageName");
   });
+
+  it("exports the complete overdue custody report as Word and Excel", () => {
+    expect(overdueReport).toContain('downloadOverdueCustodyFile(rows, "word", isAr)');
+    expect(overdueReport).toContain('downloadOverdueCustodyFile(rows, "excel", isAr)');
+    expect(overdueReport).toContain('application/msword');
+    expect(overdueReport).toContain('application/vnd.ms-excel');
+    expect(overdueReport).toContain("ملخص حسب الموظف والمرحلة");
+    expect(overdueReport).toContain("التفاصيل الكاملة");
+  });
 });
 
 export {};
