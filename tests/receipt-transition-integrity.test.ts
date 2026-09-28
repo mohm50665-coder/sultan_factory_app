@@ -20,6 +20,14 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain('kawiya: ["inspection"]');
   });
 
+  it("blocks a worker from receiving a new custody while a previous custody is still received", () => {
+    expect(routersSource).toContain("لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة");
+    expect(routersSource).toContain('eq(manufacturingStagesTable.movementStatus, "received")');
+    expect(routersSource).toContain("activeCustodyProductName");
+    expect(stageSource).toContain("blockedByActiveCustody");
+    expect(stageSource).toContain("لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة");
+  });
+
   it("allows the receiver to confirm by display name or username", () => {
     expect(stageSource).toContain("samePersonName(product.expectedReceiver, (user as any)?.username)");
     expect(routersSource).toContain("samePersonName(expectedReceiver, receiverUsername)");

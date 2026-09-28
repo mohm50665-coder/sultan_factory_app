@@ -38,6 +38,8 @@ interface ProductItem {
   receivedBy?: string;
   receivedAt?: string;
   movementAt?: string;
+  blockedByActiveCustody?: boolean;
+  activeCustodyProductName?: string;
 }
 
 interface WorkerEntry {
@@ -283,6 +285,8 @@ export default function ManufacturingStageScreen() {
             receivedBy: d.receivedBy || "",
             receivedAt: d.receivedAt ? String(d.receivedAt) : "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
+            blockedByActiveCustody: Boolean(d.blockedByActiveCustody),
+            activeCustodyProductName: d.activeCustodyProductName || "",
           }],
           receivedAt: d.receivedAt ? String(d.receivedAt) : "",
           deliveredAt: d.movementStatus === "delivered" && d.movementAt ? String(d.movementAt) : "",
@@ -532,6 +536,10 @@ export default function ManufacturingStageScreen() {
   const isCurrentUserReceiver = (product: ProductItem) => samePersonName(product.expectedReceiver, user?.name) || samePersonName(product.expectedReceiver, (user as any)?.username);
 
   const handleConfirmReceipt = async (product: ProductItem) => {
+    if (product.blockedByActiveCustody) {
+      showStageMessage(isAr ? "لا يمكن الاستلام الآن" : "Receipt blocked", isAr ? `يجب تسليم العهدة السابقة أولاً${product.activeCustodyProductName ? `: ${product.activeCustodyProductName}` : ""}` : `Deliver the previous custody first${product.activeCustodyProductName ? `: ${product.activeCustodyProductName}` : ""}`);
+      return;
+    }
     if (!product.id) {
       showStageMessage(isAr ? "تعذر التأكيد" : "Unable to confirm", isAr ? "معرف الحركة غير متوفر" : "Movement id is missing");
       return;
@@ -719,7 +727,7 @@ export default function ManufacturingStageScreen() {
                 </Text>
               </View>
               {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && (
-                <TouchableOpacity disabled={processingProductId === Number(product.id)} onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}>
+                product.blockedByActiveCustody ? <View style={{ marginTop: 8, backgroundColor: "#fff7ed", borderWidth: 1, borderColor: "#fdba74", borderRadius: 8, padding: 9 }}><Text style={{ color: "#c2410c", fontWeight: "900", fontSize: 12, textAlign: isAr ? "right" : "left" }}>لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة</Text><Text style={{ color: "#9a3412", fontSize: 11, marginTop: 3, textAlign: isAr ? "right" : "left" }}>{product.activeCustodyProductName ? `العهدة الحالية: ${product.activeCustodyProductName}` : "سلّم المنتج الموجود لديك أولاً"}</Text></View> : <TouchableOpacity disabled={processingProductId === Number(product.id)} onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
                   <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (isAr ? "استلمت" : "I received it")}</Text>
                 </TouchableOpacity>
