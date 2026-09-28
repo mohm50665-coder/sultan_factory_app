@@ -94,6 +94,8 @@ function NavigationContent() {
       <Stack.Screen name="register" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="forgot-password" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="oauth/callback" />
+      <Stack.Screen name="my-custody" />
+      <Stack.Screen name="overdue-custody-report" />
       <Stack.Screen name="manufacturing" />
       <Stack.Screen name="manufacturing-stage" />
       <Stack.Screen name="product-tracking" />

@@ -132,6 +132,30 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["sales", "marketing"],
   },
   {
+    id: "my_custody",
+    labelAr: "عهدتي الحالية",
+    labelEn: "My Current Custody",
+    icon: "assignment-ind",
+    color: "#0a7ea4",
+    route: "/my-custody",
+    descriptionAr: "المنتجات المستلمة لدى الموظف ولم تُسلّم بعد",
+    descriptionEn: "Products received by the employee and not yet delivered",
+    section: "manufacturing",
+    departments: ["production", "warehouse", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"],
+  },
+  {
+    id: "overdue_custody_report",
+    labelAr: "تقرير العهد المتأخرة",
+    labelEn: "Overdue Custody Report",
+    icon: "report-problem",
+    color: "#c2410c",
+    route: "/overdue-custody-report",
+    descriptionAr: "العهد التي تجاوزت 24 ساعة حسب الموظف والمرحلة",
+    descriptionEn: "Custody overdue more than 24 hours by employee and stage",
+    section: "reports",
+    departments: ["production", "warehouse"],
+  },
+  {
     id: "product_tracking",
     labelAr: "تتبع المنتجات",
     labelEn: "Product Tracking",
@@ -639,6 +663,8 @@ export default function HomeScreen() {
     }
     // أداء المندوب صلاحية مستقلة؛ لا تُحجب بسبب قسم المدير أو ترتيب أيقونات إدارة التسويق.
     if (item.id === "representative_performance") return hasRepresentativePermission;
+    if (item.id === "my_custody") return ["admin", "manager", "supervisor"].includes(String(user?.role)) || ["production", "warehouse", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"].includes(normalizedDepartment);
+    if (item.id === "overdue_custody_report") return ["admin", "manager", "supervisor"].includes(String(user?.role));
     // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
     if (salesManagerOfficialItems.has(item.id)) return false;
     if (item.id === "administrative" && !showAdministrativeIcon) return false;

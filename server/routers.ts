@@ -1326,6 +1326,60 @@ export const appRouter = router({
           });
       }),
 
+    myCustody: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const receiverName = String(ctx.user.name || "").trim();
+      const receiverUsername = String((ctx.user as any).username || "").trim();
+      const rows = await db.select().from(manufacturingStagesTable)
+        .where(and(isNull(manufacturingStagesTable.deletedAt), eq(manufacturingStagesTable.movementStatus, "received")))
+        .orderBy(desc(manufacturingStagesTable.receivedAt));
+      const mine = rows.filter((row: any) => [row.receivedBy, row.workerName, row.expectedReceiver].some((name) =>
+        samePersonName(name, receiverName) || samePersonName(name, receiverUsername),
+      ));
+      const now = Date.now();
+      const overdue = mine.filter((row: any) => row.receivedAt && now - new Date(row.receivedAt).getTime() >= 24 * 60 * 60 * 1000);
+      if (overdue.length > 0) {
+        const existingAlerts = await db.select().from(alertsTable).where(eq(alertsTable.userId, ctx.user.id));
+        const today = getRiyadhDate(new Date());
+        for (const row of overdue) {
+          const alreadyNotified = existingAlerts.some((alert: any) => {
+            const data = alert.data as any;
+            return data?.category === "custody_overdue" && Number(data?.custodyId) === Number(row.id) && String(alert.createdAt).slice(0, 10) === today;
+          });
+          if (!alreadyNotified) {
+            await db.insert(alertsTable).values({
+              type: "quality_issue",
+              title: "تأخر تسليم عهدة",
+              message: `لديك عهدة متأخرة: ${row.productName || "منتج غير محدد"} في مرحلة ${row.stageName || "غير محددة"}. يرجى تسليمها قبل استلام منتج جديد.`,
+              severity: "warning",
+              userId: ctx.user.id,
+              data: { category: "custody_overdue", custodyId: row.id, route: "/my-custody", stage: row.stageName, productName: row.productName },
+            } as any);
+          }
+        }
+      }
+      return mine.map((row: any) => ({
+        ...row,
+        hoursOpen: row.receivedAt ? Math.max(0, Math.floor((now - new Date(row.receivedAt).getTime()) / (60 * 60 * 1000))) : 0,
+        isOverdue: Boolean(row.receivedAt && now - new Date(row.receivedAt).getTime() >= 24 * 60 * 60 * 1000),
+      }));
+    }),
+
+    overdueCustodyReport: protectedProcedure.query(async ({ ctx }) => {
+      if (!(["admin", "manager", "supervisor"].includes(String(ctx.user.role)))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية عرض تقرير العهد المتأخرة" });
+      }
+      const db = await getDb();
+      if (!db) return [];
+      const now = Date.now();
+      const rows = await db.select().from(manufacturingStagesTable)
+        .where(and(isNull(manufacturingStagesTable.deletedAt), eq(manufacturingStagesTable.movementStatus, "received")))
+        .orderBy(desc(manufacturingStagesTable.receivedAt));
+      return rows.filter((row: any) => row.receivedAt && now - new Date(row.receivedAt).getTime() >= 24 * 60 * 60 * 1000)
+        .map((row: any) => ({ ...row, hoursOpen: Math.floor((now - new Date(row.receivedAt).getTime()) / (60 * 60 * 1000)), isOverdue: true }));
+    }),
+
     getDeleted: adminProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];

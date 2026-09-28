@@ -192,6 +192,14 @@ export const manufacturingStageService = {
     return await trpcCall("manufacturing.getDeleted", undefined, "query") || [];
   },
 
+  async myCustody(): Promise<any[]> {
+    return await trpcCall("manufacturing.myCustody", undefined, "query") || [];
+  },
+
+  async overdueCustodyReport(): Promise<any[]> {
+    return await trpcCall("manufacturing.overdueCustodyReport", undefined, "query") || [];
+  },
+
   async restore(id: number): Promise<void> {
     await trpcCall("manufacturing.restore", { id });
   },
