@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -6,6 +8,8 @@ import {
   getCustomerAttachmentType,
   hasRequiredCustomerAttachments,
 } from "../lib/services/representative-form.utils";
+
+const transactionsScreen = readFileSync(resolve(process.cwd(), "app/representative-transactions.tsx"), "utf8");
 
 describe("Representative transaction form", () => {
   it("allows up to ten products and blocks the eleventh", () => {
@@ -25,5 +29,17 @@ describe("Representative transaction form", () => {
     expect(hasRequiredCustomerAttachments(["commercial_register"])).toBe(false);
     expect(hasRequiredCustomerAttachments(["national_address"])).toBe(false);
     expect(hasRequiredCustomerAttachments(["commercial_register", "national_address"])).toBe(true);
+  });
+
+  it("matches the attached order-products table layout", () => {
+    expect(transactionsScreen).toContain('type === "order" ?');
+    expect(transactionsScreen).toContain(">م</Text>");
+    expect(transactionsScreen).toContain(">اسم المنتج</Text>");
+    expect(transactionsScreen).toContain(">اللون</Text>");
+    expect(transactionsScreen).toContain(">المقاس</Text>");
+    expect(transactionsScreen).toContain(">درزن</Text>");
+    expect(transactionsScreen).toContain(">زوج</Text>");
+    expect(transactionsScreen).toContain("orderProductHeaderRow");
+    expect(transactionsScreen).toContain("orderQuantityHeader");
   });
 });
