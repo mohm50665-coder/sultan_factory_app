@@ -42,4 +42,11 @@ describe("Representative transaction form", () => {
     expect(transactionsScreen).toContain("orderProductHeaderRow");
     expect(transactionsScreen).toContain("orderQuantityHeader");
   });
+
+  it("supports institution and individual customer records", () => {
+    expect(transactionsScreen).toContain('customerType === "institution"');
+    expect(transactionsScreen).toContain('customerType === "individual"');
+    expect(transactionsScreen).toContain("بيانات الفرد المطلوبة هي الاسم ورقم الجوال");
+    expect(transactionsScreen).toContain("مرفقات المؤسسة (السجل التجاري والعنوان الوطني إلزاميان)");
+  });
 });

@@ -60,20 +60,21 @@ const attachmentSchema = z.object({
 });
 
 const customerSchema = z.object({
+  customerType: z.enum(["institution", "individual"]).default("institution"),
   name: z.string().min(2),
-  commercialRegister: z.string().min(2),
+  commercialRegister: z.string().optional().default(""),
   taxNumber: z.string().optional().default(""),
   isTaxRegistered: z.boolean().default(false),
   municipalLicense: z.string().optional().default(""),
-  nationalAddress: z.string().min(3),
-  city: z.string().min(2),
-  district: z.string().min(2),
-  street: z.string().min(2),
-  email: z.string().email(),
-  ownerName: z.string().min(2),
-  ownerPhone: z.string().min(7),
-  contactName: z.string().min(2),
-  contactPhone: z.string().min(7),
+  nationalAddress: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  district: z.string().optional().default(""),
+  street: z.string().optional().default(""),
+  email: z.string().email().optional().or(z.literal("")),
+  ownerName: z.string().optional().default(""),
+  ownerPhone: z.string().optional().default(""),
+  contactName: z.string().optional().default(""),
+  contactPhone: z.string().optional().default(""),
   contactEmail: z.string().email().optional().or(z.literal("")),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
@@ -107,6 +108,7 @@ const transactionSchema = z.object({
 });
 
 function validateCustomerAttachments(input: z.infer<typeof customerSchema>) {
+  if (input.customerType === "individual") return;
   const types = new Set(input.attachments.map((attachment) => attachment.type));
   const missing = CUSTOMER_REQUIRED_ATTACHMENTS.filter((type) => !types.has(type));
   if (input.isTaxRegistered && !types.has("tax_certificate")) missing.push("tax_certificate");
@@ -114,7 +116,13 @@ function validateCustomerAttachments(input: z.infer<typeof customerSchema>) {
 }
 
 function validateStoredCustomer(customer: any) {
-  const requiredText = [customer.name, customer.commercialRegister, customer.nationalAddress, customer.city, customer.district, customer.street, customer.email, customer.ownerName, customer.ownerPhone, customer.contactName, customer.contactPhone];
+  if (customer.customerType === "individual") {
+    if (!String(customer.name || "").trim() || !String(customer.contactPhone || customer.ownerPhone || "").trim()) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "بيانات الفرد المطلوبة هي الاسم ورقم الجوال" });
+    }
+    return;
+  }
+  const requiredText = [customer.name, customer.commercialRegister, customer.nationalAddress, customer.city, customer.district, customer.street, customer.ownerName, customer.ownerPhone, customer.contactName, customer.contactPhone];
   if (requiredText.some((value) => !String(value || "").trim() || String(value).includes("غير متوفر"))) throw new TRPCError({ code: "BAD_REQUEST", message: "ملف العميل غير مكتمل؛ أكمل بيانات المنشأة والمالك والمسؤول قبل إنشاء الطلب" });
   if (customer.isTaxRegistered && !String(customer.taxNumber || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "الرقم الضريبي إلزامي للعميل المسجل ضريبياً" });
   if (!Number.isFinite(Number(customer.latitude)) || !Number.isFinite(Number(customer.longitude))) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد موقع العميل على الخريطة قبل إنشاء الطلب" });
@@ -263,10 +271,12 @@ export const representativeRouter = router({
       validateCustomerAttachments(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
-      const duplicate = await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister)).limit(1);
+      const duplicate = input.customerType === "institution" && input.commercialRegister
+        ? await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister)).limit(1)
+        : [];
       if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "السجل التجاري مسجل لعميل سابق" });
       const customerCode = makeReference("CUS");
-      const result = await db.insert(customers).values({ ...input, customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
+      const result = await db.insert(customers).values({ ...input, email: input.email || "", contactEmail: input.contactEmail || "", customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
       const id = Number(result[0].insertId);
       await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "create", "customers", id, null, input, `إنشاء ملف العميل ${customerCode}`);
@@ -281,10 +291,12 @@ export const representativeRouter = router({
       const currentRows = await db.select().from(customers).where(eq(customers.id, input.id)).limit(1);
       const current = currentRows[0];
       if (!current) throw new Error("العميل غير موجود");
-      const duplicateRows = await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister));
+      const duplicateRows = input.customerType === "institution" && input.commercialRegister
+        ? await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister))
+        : [];
       if (duplicateRows.some((row) => Number(row.id) !== Number(input.id))) throw new TRPCError({ code: "CONFLICT", message: "السجل التجاري مرتبط بعميل آخر" });
       const { id, attachments, ...values } = input;
-      await db.update(customers).set({ ...values, isTaxRegistered: values.isTaxRegistered ? 1 : 0, version: Number(current.version || 1) + 1, updatedBy: Number(ctx.user.id) }).where(eq(customers.id, id));
+      await db.update(customers).set({ ...values, email: values.email || "", contactEmail: values.contactEmail || "", isTaxRegistered: values.isTaxRegistered ? 1 : 0, version: Number(current.version || 1) + 1, updatedBy: Number(ctx.user.id) }).where(eq(customers.id, id));
       await db.update(representativeAttachments).set({ isActive: 0 }).where(eq(representativeAttachments.customerId, id));
       await db.insert(representativeAttachments).values(attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, version: Number(current.version || 1) + 1, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "update", "customers", id, current, input, `تحديث ملف العميل ${current.customerCode}`);

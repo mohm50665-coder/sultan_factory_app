@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `customerType` varchar(20) DEFAULT 'institution' NOT NULL;

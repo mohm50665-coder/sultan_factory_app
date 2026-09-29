@@ -903,6 +903,7 @@ export type InsertSampleRequest = typeof sampleRequests.$inferInsert;
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   customerCode: varchar("customerCode", { length: 40 }).notNull().unique(),
+  customerType: varchar("customerType", { length: 20 }).default("institution").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   commercialRegister: varchar("commercialRegister", { length: 100 }).notNull(),
   taxNumber: varchar("taxNumber", { length: 100 }),

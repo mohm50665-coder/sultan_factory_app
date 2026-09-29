@@ -19,6 +19,7 @@ export type RepresentativeItemInput = {
 };
 
 export type CustomerInput = {
+  customerType: "institution" | "individual";
   name: string;
   commercialRegister: string;
   taxNumber?: string;
