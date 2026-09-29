@@ -49,4 +49,10 @@ describe("Representative transaction form", () => {
     expect(transactionsScreen).toContain("بيانات الفرد المطلوبة هي الاسم ورقم الجوال");
     expect(transactionsScreen).toContain("مرفقات المؤسسة (السجل التجاري والعنوان الوطني إلزاميان)");
   });
+
+  it("keeps numeric dozen and pair input stable while typing", () => {
+    expect(transactionsScreen).toContain("const parseQuantity = (value: string)");
+    expect(transactionsScreen).toContain("quantity: parseQuantity(value)");
+    expect(transactionsScreen).toContain("item.quantity > 0 ? String(item.quantity)");
+  });
 });
