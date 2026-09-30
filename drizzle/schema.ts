@@ -899,7 +899,7 @@ export const sampleRequests = mysqlTable("sampleRequests", {
 export type SampleRequest = typeof sampleRequests.$inferSelect;
 export type InsertSampleRequest = typeof sampleRequests.$inferInsert;
 
-// دليل العملاء المركزي: تحفظ بيانات العميل وموقعه ومرفقاته مرة واحدة وتستدعى في جميع معاملات المندوب
+// دليل العملاء المركزي: تحفظ بيانات العميل ومرفقاته مرة واحدة وتستدعى في جميع معاملات المندوب
 export const customers = mysqlTable("customers", {
   id: int("id").autoincrement().primaryKey(),
   customerCode: varchar("customerCode", { length: 40 }).notNull().unique(),
@@ -919,8 +919,6 @@ export const customers = mysqlTable("customers", {
   contactName: varchar("contactName", { length: 255 }).notNull(),
   contactPhone: varchar("contactPhone", { length: 30 }).notNull(),
   contactEmail: varchar("contactEmail", { length: 320 }),
-  latitude: decimal("latitude", { precision: 10, scale: 7, mode: "number" }).notNull(),
-  longitude: decimal("longitude", { precision: 10, scale: 7, mode: "number" }).notNull(),
   attachments: json("attachments").notNull(),
   version: int("version").default(1).notNull(),
   isActive: int("isActive").default(1).notNull(),

@@ -23,7 +23,9 @@ describe("Representative workflow contract", () => {
     for (const field of ["deliveryDate", "paymentMethod", "paymentAmount", "receiptNumber", "creditDays", "customerSignature", "representativeSignature"]) {
       expect(transactions).toContain(field);
     }
-    expect(customers).toContain("CustomerMapPicker");
+    expect(customers).not.toContain("CustomerMapPicker");
+    expect(customers).not.toContain("latitude");
+    expect(customers).not.toContain("longitude");
   });
 
   it("keeps custom product type, yarn ratios and sample receipt fields", () => {

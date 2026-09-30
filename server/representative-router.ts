@@ -76,8 +76,6 @@ const customerSchema = z.object({
   contactName: z.string().optional().default(""),
   contactPhone: z.string().optional().default(""),
   contactEmail: z.string().email().optional().or(z.literal("")),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
   attachments: z.array(attachmentSchema),
 });
 
@@ -125,7 +123,6 @@ function validateStoredCustomer(customer: any) {
   const requiredText = [customer.name, customer.commercialRegister, customer.nationalAddress, customer.city, customer.district, customer.street, customer.ownerName, customer.ownerPhone, customer.contactName, customer.contactPhone];
   if (requiredText.some((value) => !String(value || "").trim() || String(value).includes("غير متوفر"))) throw new TRPCError({ code: "BAD_REQUEST", message: "ملف العميل غير مكتمل؛ أكمل بيانات المنشأة والمالك والمسؤول قبل إنشاء الطلب" });
   if (customer.isTaxRegistered && !String(customer.taxNumber || "").trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "الرقم الضريبي إلزامي للعميل المسجل ضريبياً" });
-  if (!Number.isFinite(Number(customer.latitude)) || !Number.isFinite(Number(customer.longitude))) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد موقع العميل على الخريطة قبل إنشاء الطلب" });
   const types = new Set(parseArray(customer.attachments).map((attachment) => attachment?.type));
   const missing = CUSTOMER_REQUIRED_ATTACHMENTS.filter((type) => !types.has(type));
   if (customer.isTaxRegistered && !types.has("tax_certificate")) missing.push("tax_certificate");

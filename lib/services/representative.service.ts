@@ -35,8 +35,6 @@ export type CustomerInput = {
   contactName: string;
   contactPhone: string;
   contactEmail?: string;
-  latitude: number;
-  longitude: number;
   attachments: RepresentativeAttachmentInput[];
 };
 
