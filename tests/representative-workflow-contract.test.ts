@@ -42,6 +42,15 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("assignedRepresentativeName");
   });
 
+  it("displays imported customer fields and keeps missing fields available for completion", () => {
+    expect(customers).toContain("postalCode");
+    expect(customers).toContain("buildingNumber");
+    expect(customers).toContain("الرمز البريدي (اختياري)");
+    expect(customers).toContain("رقم المبنى (اختياري)");
+    expect(customers).toContain("العنوان الوطني:");
+    expect(customers).toContain("الشارع:");
+  });
+
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
     expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
