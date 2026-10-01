@@ -300,3 +300,18 @@ export const governmentTendersService = {
   update: (id: number, data: any) => trpcCall("governmentTenders.update", { id, data }),
   delete: (id: number) => trpcCall("governmentTenders.delete", { id }),
 };
+
+export const finishedWarehouseService = {
+  list: () => trpcCall("finishedWarehouse.list", undefined, "query"),
+  search: (query: string) => trpcCall("finishedWarehouse.search", { query }, "query"),
+  summary: () => trpcCall("finishedWarehouse.summary", undefined, "query"),
+  receiveFromStorage: (data: any) => trpcCall("finishedWarehouse.receiveFromStorage", data),
+  issue: (data: any) => trpcCall("finishedWarehouse.issue", data),
+  setMinimum: (stockId: number, minimumDozen: number) => trpcCall("finishedWarehouse.setMinimum", { stockId, minimumDozen }),
+};
+
+export const productManufacturingRequestService = {
+  list: () => trpcCall("productManufacturingRequests.list", undefined, "query"),
+  create: (data: any) => trpcCall("productManufacturingRequests.create", data),
+  decide: (data: any) => trpcCall("productManufacturingRequests.decide", data),
+};

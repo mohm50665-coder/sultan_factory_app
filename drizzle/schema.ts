@@ -1144,3 +1144,76 @@ export const financialDailyReports = mysqlTable("financialDailyReports", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type FinancialDailyReport = typeof financialDailyReports.$inferSelect;
+
+// مخزون الإنتاج التام وحركاته
+export const finishedWarehouseStock = mysqlTable("finishedWarehouseStock", {
+  id: int("id").autoincrement().primaryKey(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  productSize: varchar("productSize", { length: 100 }).default(""),
+  productColor: varchar("productColor", { length: 100 }).default(""),
+  qualityGrade: varchar("qualityGrade", { length: 30 }).default("first").notNull(),
+  quantityDozen: decimal("quantityDozen", { precision: 12, scale: 2, mode: "number" }).default(0).notNull(),
+  minimumDozen: decimal("minimumDozen", { precision: 12, scale: 2, mode: "number" }).default(50).notNull(),
+  lastMovementAt: timestamp("lastMovementAt"),
+  isActive: int("isActive").default(1).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type FinishedWarehouseStock = typeof finishedWarehouseStock.$inferSelect;
+export type InsertFinishedWarehouseStock = typeof finishedWarehouseStock.$inferInsert;
+
+export const finishedWarehouseMovements = mysqlTable("finishedWarehouseMovements", {
+  id: int("id").autoincrement().primaryKey(),
+  stockId: int("stockId").notNull(),
+  movementType: mysqlEnum("movementType", ["receipt", "issue", "adjustment"]).notNull(),
+  quantityDozen: decimal("quantityDozen", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  sourceType: varchar("sourceType", { length: 60 }).notNull(),
+  sourceId: int("sourceId"),
+  notes: text("notes"),
+  userId: int("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type FinishedWarehouseMovement = typeof finishedWarehouseMovements.$inferSelect;
+export type InsertFinishedWarehouseMovement = typeof finishedWarehouseMovements.$inferInsert;
+
+export const productManufacturingRequests = mysqlTable("productManufacturingRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  referenceCode: varchar("referenceCode", { length: 40 }).notNull().unique(),
+  requesterId: int("requesterId").notNull(),
+  requesterName: varchar("requesterName", { length: 255 }).notNull(),
+  customerId: int("customerId"),
+  customerName: varchar("customerName", { length: 255 }).notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  productSize: varchar("productSize", { length: 100 }).default(""),
+  productColor: varchar("productColor", { length: 100 }).default(""),
+  quantityDozen: decimal("quantityDozen", { precision: 12, scale: 2, mode: "number" }).notNull(),
+  orderDate: varchar("orderDate", { length: 20 }).notNull(),
+  deliveryDate: varchar("deliveryDate", { length: 20 }).notNull(),
+  status: varchar("status", { length: 50 }).default("PENDING_SALES").notNull(),
+  currentDepartment: varchar("currentDepartment", { length: 80 }).default("sales").notNull(),
+  decisionNotes: text("decisionNotes"),
+  correctiveAction: text("correctiveAction"),
+  attachments: json("attachments").notNull(),
+  signatures: json("signatures").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ProductManufacturingRequest = typeof productManufacturingRequests.$inferSelect;
+export type InsertProductManufacturingRequest = typeof productManufacturingRequests.$inferInsert;
+
+export const productManufacturingRequestEvents = mysqlTable("productManufacturingRequestEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: int("requestId").notNull(),
+  action: varchar("action", { length: 60 }).notNull(),
+  fromStatus: varchar("fromStatus", { length: 50 }),
+  toStatus: varchar("toStatus", { length: 50 }).notNull(),
+  actorId: int("actorId").notNull(),
+  actorName: varchar("actorName", { length: 255 }).notNull(),
+  notes: text("notes"),
+  signature: text("signature"),
+  attachments: json("attachments"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ProductManufacturingRequestEvent = typeof productManufacturingRequestEvents.$inferSelect;
+export type InsertProductManufacturingRequestEvent = typeof productManufacturingRequestEvents.$inferInsert;

@@ -62,6 +62,10 @@ import {
   financialCustodies as financialCustodiesTable,
   administrativeWorkItems as administrativeWorkItemsTable,
   administrativeDailyReports as administrativeDailyReportsTable,
+  finishedWarehouseStock as finishedWarehouseStockTable,
+  finishedWarehouseMovements as finishedWarehouseMovementsTable,
+  productManufacturingRequests as productManufacturingRequestsTable,
+  productManufacturingRequestEvents as productManufacturingRequestEventsTable,
   financialDailyReports as financialDailyReportsTable,
 } from "../drizzle/schema.js";
 import { eq, desc, sql, and, or, gte, lte, isNull, like, gt } from "drizzle-orm";
@@ -1643,6 +1647,27 @@ export const appRouter = router({
             userId: ctx.user.id,
           });
           const identity = parseLegacyProductName(record.productName);
+          const isStorageStage = /storage|finished|تخزين|المستودع|المستودعات/i.test(String(destinationStage));
+          if (isStorageStage && Number(record.quantityDozen || 0) > 0) {
+            const stockRows = await tx.select().from(finishedWarehouseStockTable).where(and(
+              eq(finishedWarehouseStockTable.productName, record.productName || identity.name),
+              eq(finishedWarehouseStockTable.productSize, record.productSize || identity.size || ""),
+              eq(finishedWarehouseStockTable.productColor, record.productColor || identity.color || ""),
+              eq(finishedWarehouseStockTable.qualityGrade, record.qualityGrade || "first"),
+            )).limit(1);
+            let stockId: number;
+            if (stockRows[0]) {
+              stockId = Number(stockRows[0].id);
+              await tx.update(finishedWarehouseStockTable).set({ quantityDozen: Number(stockRows[0].quantityDozen) + Number(record.quantityDozen || 0), lastMovementAt: receivedAt }).where(eq(finishedWarehouseStockTable.id, stockId));
+            } else {
+              const stockResult = await tx.insert(finishedWarehouseStockTable).values({ productName: record.productName || identity.name, productSize: record.productSize || identity.size || "", productColor: record.productColor || identity.color || "", qualityGrade: record.qualityGrade || "first", quantityDozen: Number(record.quantityDozen || 0), lastMovementAt: receivedAt, createdBy: ctx.user.id });
+              stockId = Number((stockResult as any)[0]?.insertId);
+            }
+            await tx.insert(finishedWarehouseMovementsTable).values({ stockId, movementType: "receipt", quantityDozen: Number(record.quantityDozen || 0), sourceType: "manufacturing_storage", sourceId: Number(created[0]?.insertId || 0), notes: `انتقال تلقائي من ${record.stageName} إلى ${destinationStage}`, userId: ctx.user.id });
+            if (stockRows[0] && Number(stockRows[0].quantityDozen) + Number(record.quantityDozen || 0) < Number(stockRows[0].minimumDozen)) {
+              await tx.insert(internalMessagesTable).values({ subject: "تنبيه حد مخزون الإنتاج التام", body: `الصنف ${record.productName || identity.name} أصبح تحت الحد الأدنى (${stockRows[0].minimumDozen} درزن)`, senderId: ctx.user.id, recipientDepartment: "warehouse", relatedType: "finishedWarehouseStock", relatedId: stockId });
+            }
+          }
           await tx.insert(productTrackingTable).values({
             productionId: record.productionId || null,
             productName: record.productName || identity.name,
@@ -4314,6 +4339,95 @@ export const appRouter = router({
       if (!db) return { success: false };
       await db.delete(boardRepresentativeDataTable);
       return { success: true };
+    }),
+  }),
+
+  // ========== Finished Warehouse & Product Manufacturing Requests ==========
+  finishedWarehouse: router({
+    list: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(finishedWarehouseStockTable).where(eq(finishedWarehouseStockTable.isActive, 1)).orderBy(desc(finishedWarehouseStockTable.quantityDozen));
+    }),
+    search: protectedProcedure.input(z.object({ query: z.string().min(1) })).query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.isActive, 1), or(like(finishedWarehouseStockTable.productName, `%${input.query}%`), like(finishedWarehouseStockTable.productSize, `%${input.query}%`), like(finishedWarehouseStockTable.productColor, `%${input.query}%`)))).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
+    }),
+    summary: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return { items: [], totals: { products: 0, quantityDozen: 0, zeroOrLow: 0 } };
+      const rows = await db.select().from(finishedWarehouseStockTable).where(eq(finishedWarehouseStockTable.isActive, 1));
+      const items = rows.map((row) => ({ ...row, isLow: Number(row.quantityDozen) < Number(row.minimumDozen), ageDays: row.lastMovementAt ? Math.floor((Date.now() - new Date(row.lastMovementAt).getTime()) / 86400000) : null, activityStatus: row.lastMovementAt && Date.now() - new Date(row.lastMovementAt).getTime() <= 30 * 86400000 ? "active" : "stagnant" }));
+      return { items, totals: { products: rows.length, quantityDozen: rows.reduce((sum, row) => sum + Number(row.quantityDozen), 0), zeroOrLow: items.filter((row) => row.isLow).length } };
+    }),
+    receiveFromStorage: protectedProcedure.input(z.object({ productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), qualityGrade: z.string().default("first"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin" && !["production", "warehouse", "storage"].includes(String(ctx.user.department || "").toLowerCase())) throw new TRPCError({ code: "FORBIDDEN", message: "إضافة مخزون الإنتاج التام من الإنتاج أو التخزين أو الأدمن فقط" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const existing = await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.productName, input.productName), eq(finishedWarehouseStockTable.productSize, input.productSize), eq(finishedWarehouseStockTable.productColor, input.productColor), eq(finishedWarehouseStockTable.qualityGrade, input.qualityGrade))).limit(1);
+      let stockId: number;
+      if (existing[0]) {
+        stockId = Number(existing[0].id);
+        await db.update(finishedWarehouseStockTable).set({ quantityDozen: Number(existing[0].quantityDozen) + input.quantityDozen, lastMovementAt: new Date() }).where(eq(finishedWarehouseStockTable.id, stockId));
+      } else {
+        const result = await db.insert(finishedWarehouseStockTable).values({ productName: input.productName, productSize: input.productSize, productColor: input.productColor, qualityGrade: input.qualityGrade, quantityDozen: input.quantityDozen, lastMovementAt: new Date(), createdBy: Number(ctx.user.id) });
+        stockId = Number(result[0].insertId);
+      }
+      await db.insert(finishedWarehouseMovementsTable).values({ stockId, movementType: "receipt", quantityDozen: input.quantityDozen, sourceType: "storage", sourceId: input.sourceId, notes: input.notes, userId: Number(ctx.user.id) });
+      return { success: true, id: stockId };
+    }),
+    issue: protectedProcedure.input(z.object({ stockId: z.number(), quantityDozen: z.number().positive(), sourceType: z.string().default("representative_order"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin" && !["warehouse", "sales"].includes(String(ctx.user.department || "").toLowerCase())) throw new TRPCError({ code: "FORBIDDEN", message: "إخراج المستودع من المستودعات أو الأدمن فقط" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const rows = await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.id, input.stockId), eq(finishedWarehouseStockTable.isActive, 1))).limit(1);
+      const stock = rows[0];
+      if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: "الصنف غير موجود في مستودع الإنتاج التام" });
+      if (Number(stock.quantityDozen) < input.quantityDozen) throw new TRPCError({ code: "BAD_REQUEST", message: `الكمية المتاحة ${stock.quantityDozen} درزن فقط` });
+      await db.update(finishedWarehouseStockTable).set({ quantityDozen: Number(stock.quantityDozen) - input.quantityDozen, lastMovementAt: new Date() }).where(eq(finishedWarehouseStockTable.id, input.stockId));
+      const remainingDozen = Number(stock.quantityDozen) - input.quantityDozen;
+      await db.insert(finishedWarehouseMovementsTable).values({ stockId: input.stockId, movementType: "issue", quantityDozen: input.quantityDozen, sourceType: input.sourceType, sourceId: input.sourceId, notes: input.notes, userId: Number(ctx.user.id) });
+      if (remainingDozen < Number(stock.minimumDozen)) {
+        await db.insert(internalMessagesTable).values({ subject: "تنبيه انخفاض مخزون الإنتاج التام", body: `الصنف ${stock.productName} أصبح رصيده ${remainingDozen} درزن، والحد الأدنى ${stock.minimumDozen} درزن`, senderId: Number(ctx.user.id), recipientDepartment: "warehouse", relatedType: "finishedWarehouseStock", relatedId: input.stockId });
+      }
+      return { success: true, remainingDozen };
+    }),
+    setMinimum: adminProcedure.input(z.object({ stockId: z.number(), minimumDozen: z.number().nonnegative() })).mutation(async ({ input }) => { const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة"); await db.update(finishedWarehouseStockTable).set({ minimumDozen: input.minimumDozen }).where(eq(finishedWarehouseStockTable.id, input.stockId)); return { success: true }; }),
+  }),
+
+  productManufacturingRequests: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const db = await getDb(); if (!db) return [];
+      const rows = await db.select().from(productManufacturingRequestsTable).orderBy(desc(productManufacturingRequestsTable.updatedAt));
+      if (ctx.user.role === "admin") return rows;
+      const dept = String(ctx.user.department || "").toLowerCase();
+      if (["sales", "marketing", "production"].includes(dept) || ["manager", "supervisor"].includes(String(ctx.user.role))) return rows;
+      return rows.filter((row) => Number(row.requesterId) === Number(ctx.user.id));
+    }),
+    create: protectedProcedure.input(z.object({ customerId: z.number().optional(), customerName: z.string().min(2), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const referenceCode = `MFG-${Date.now()}`;
+      const result = await db.insert(productManufacturingRequestsTable).values({ ...input, referenceCode, requesterId: Number(ctx.user.id), requesterName: String(ctx.user.name), attachments: input.attachments, signatures: input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [] });
+      const id = Number(result[0].insertId);
+      await db.insert(productManufacturingRequestEventsTable).values({ requestId: id, action: "create", fromStatus: null, toStatus: "PENDING_SALES", actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: "رفع طلب تصنيع منتج", signature: input.signature, attachments: input.attachments });
+      return { success: true, id, referenceCode };
+    }),
+    decide: protectedProcedure.input(z.object({ id: z.number(), action: z.enum(["sales_approve", "sales_reject", "production_approve", "production_reject", "sales_resubmit", "escalate_admin", "admin_close"]), notes: z.string().optional(), correctiveAction: z.string().optional(), signature: z.string().optional(), attachments: z.array(z.any()).default([]) })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1); const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
+      const role = String(ctx.user.role); const dept = String(ctx.user.department || "").toLowerCase();
+      const allowed = input.action === "admin_close" || input.action === "escalate_admin" ? role === "admin" || dept === "sales" || dept === "production" : input.action.startsWith("sales") ? role === "admin" || dept === "sales" : role === "admin" || dept === "production";
+      if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية هذه الخطوة" });
+      const next: Record<string, string> = { sales_approve: "PENDING_PRODUCTION", sales_reject: "RETURNED_TO_REP", production_approve: "IN_PRODUCTION", production_reject: "RETURNED_TO_SALES", sales_resubmit: "PENDING_PRODUCTION", escalate_admin: "PENDING_ADMIN", admin_close: "CLOSED_ADMIN" };
+      const toStatus = next[input.action];
+      const currentStatus = request.status;
+      const patch: any = { status: toStatus, currentDepartment: toStatus === "PENDING_PRODUCTION" || toStatus === "IN_PRODUCTION" ? "production" : toStatus === "PENDING_ADMIN" ? "admin" : "sales", decisionNotes: input.notes || request.decisionNotes, correctiveAction: input.correctiveAction || request.correctiveAction, attachments: [...(Array.isArray(request.attachments) ? request.attachments : []), ...input.attachments], signatures: [...(Array.isArray(request.signatures) ? request.signatures : []), ...(input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [])] };
+      await db.update(productManufacturingRequestsTable).set(patch).where(eq(productManufacturingRequestsTable.id, input.id));
+      await db.insert(productManufacturingRequestEventsTable).values({ requestId: input.id, action: input.action, fromStatus: currentStatus, toStatus, actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: input.notes, signature: input.signature, attachments: input.attachments });
+      const recipientDepartment = toStatus === "PENDING_PRODUCTION" ? "production" : toStatus === "PENDING_ADMIN" ? null : "sales";
+      if (recipientDepartment) await db.insert(internalMessagesTable).values({ subject: `طلب تصنيع منتج ${request.referenceCode}`, body: input.notes || `طلب يحتاج إجراء: ${toStatus}`, senderId: Number(ctx.user.id), recipientDepartment, relatedType: "productManufacturingRequest", relatedId: input.id, attachments: input.attachments });
+      return { success: true, status: toStatus };
     }),
   }),
 

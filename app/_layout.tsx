@@ -107,6 +107,8 @@ function NavigationContent() {
       <Stack.Screen name="collection" />
       <Stack.Screen name="warehouse" />
       <Stack.Screen name="warehouse-finished" />
+      <Stack.Screen name="finished-warehouse-inventory" />
+      <Stack.Screen name="product-manufacturing-request" />
       <Stack.Screen name="warehouse-raw" />
       <Stack.Screen name="warehouse-out" />
       <Stack.Screen name="maintenance" />

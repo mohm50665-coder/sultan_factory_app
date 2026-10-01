@@ -176,6 +176,13 @@
       "when": 1790876050664,
       "tag": "0024_old_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1790884904187,
+      "tag": "0025_even_killer_shrike",
+      "breakpoints": true
     }
   ]
 }
