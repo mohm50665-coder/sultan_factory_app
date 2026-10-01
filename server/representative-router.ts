@@ -290,9 +290,11 @@ export const representativeRouter = router({
       const search = input?.search?.trim() || "";
       const scope = isAdmin(ctx.user) ? eq(customers.isActive, 1) : and(eq(customers.isActive, 1), eq(customers.assignedRepresentativeId, Number(ctx.user.id)));
       const rows = await db.select().from(customers).where(search ? and(scope, like(customers.name, `%${search}%`)) : scope).orderBy(customers.name);
-      const attachmentRows = rows.length
-        ? await db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1))
-        : [];
+      const [attachmentRows, salesRows, collectionRows] = await Promise.all([
+        rows.length ? db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1)) : Promise.resolve([]),
+        rows.length ? db.select({ customerId: representativeTransactions.customerId, orderDate: representativeTransactions.orderDate, createdAt: representativeTransactions.createdAt }).from(representativeTransactions).where(isNull(representativeTransactions.deletedAt)) : Promise.resolve([]),
+        rows.length ? db.select({ customerId: representativeCollections.customerId, collectionDate: representativeCollections.collectionDate, collectedAmount: representativeCollections.collectedAmount, createdAt: representativeCollections.createdAt }).from(representativeCollections) : Promise.resolve([]),
+      ]);
       const attachmentTypes = new Map<number, string[]>();
       for (const attachment of attachmentRows) {
         if (!attachment.customerId) continue;
@@ -300,8 +302,24 @@ export const representativeRouter = router({
         current.push(String(attachment.attachmentType));
         attachmentTypes.set(Number(attachment.customerId), current);
       }
+      const activity = new Map<number, { salesCount: number; collectionCount: number; collectionTotal: number; lastSalesDate: string; lastCollectionDate: string }>();
+      for (const sale of salesRows as any[]) {
+        const customerId = Number(sale.customerId);
+        const current = activity.get(customerId) || { salesCount: 0, collectionCount: 0, collectionTotal: 0, lastSalesDate: "", lastCollectionDate: "" };
+        const saleDate = String(sale.orderDate || sale.createdAt || "").slice(0, 10);
+        activity.set(customerId, { ...current, salesCount: current.salesCount + 1, lastSalesDate: saleDate > current.lastSalesDate ? saleDate : current.lastSalesDate });
+      }
+      for (const collection of collectionRows as any[]) {
+        const customerId = Number(collection.customerId);
+        const current = activity.get(customerId) || { salesCount: 0, collectionCount: 0, collectionTotal: 0, lastSalesDate: "", lastCollectionDate: "" };
+        const collectionDate = String(collection.collectionDate || collection.createdAt || "").slice(0, 10);
+        activity.set(customerId, { ...current, collectionCount: current.collectionCount + 1, collectionTotal: current.collectionTotal + Number(collection.collectedAmount || 0), lastCollectionDate: collectionDate > current.lastCollectionDate ? collectionDate : current.lastCollectionDate });
+      }
       return rows.map((customer) => {
         const missingFields = getMissingCustomerFields({ ...customer, attachments: attachmentTypes.get(Number(customer.id))?.map((type) => ({ type })) || customer.attachments });
+        const currentActivity = activity.get(Number(customer.id)) || { salesCount: 0, collectionCount: 0, collectionTotal: 0, lastSalesDate: "", lastCollectionDate: "" };
+        const lastActivityDate = [currentActivity.lastSalesDate, currentActivity.lastCollectionDate].filter(Boolean).sort().pop() || "";
+        const inactiveDays = lastActivityDate ? Math.max(0, Math.floor((Date.now() - new Date(lastActivityDate).getTime()) / 86400000)) : null;
         return {
           id: customer.id,
           name: customer.name,
@@ -328,6 +346,14 @@ export const representativeRouter = router({
           sourceAccountCode: customer.sourceAccountCode,
           isComplete: missingFields.length === 0,
           missingFields,
+          salesCount: currentActivity.salesCount,
+          collectionCount: currentActivity.collectionCount,
+          collectionTotal: currentActivity.collectionTotal,
+          lastSalesDate: currentActivity.lastSalesDate,
+          lastCollectionDate: currentActivity.lastCollectionDate,
+          lastActivityDate,
+          inactiveDays,
+          activityStatus: currentActivity.salesCount > 0 || currentActivity.collectionCount > 0 ? "active" : "inactive",
         };
       });
     }),
@@ -382,6 +408,18 @@ export const representativeRouter = router({
       await db.insert(representativeAttachments).values(attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, version: Number(current.version || 1) + 1, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "update", "customers", id, current, input, `تحديث ملف العميل ${current.customerCode}`);
       return { success: true, version: Number(current.version || 1) + 1 };
+    }),
+
+    remove: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
+      if (!isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN", message: "حذف العملاء متاح للأدمن فقط" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const currentRows = await db.select().from(customers).where(and(eq(customers.id, input.id), eq(customers.isActive, 1))).limit(1);
+      const current = currentRows[0];
+      if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "العميل غير موجود أو محذوف مسبقاً" });
+      await db.update(customers).set({ isActive: 0, updatedBy: Number(ctx.user.id) }).where(eq(customers.id, input.id));
+      await writeAudit(db, ctx.user, "delete", "customers", input.id, current, { isActive: 0 }, `حذف آمن لملف العميل ${current.customerCode}`);
+      return { success: true, customerCode: current.customerCode };
     }),
   }),
 

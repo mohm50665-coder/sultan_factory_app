@@ -66,6 +66,7 @@ export const representativeService = {
     getById: (id: number) => trpcCall("representative.customers.getById", { id }, "query"),
     create: (data: CustomerInput) => trpcCall("representative.customers.create", data),
     update: (id: number, data: CustomerInput) => trpcCall("representative.customers.update", { id, ...data }),
+    remove: (id: number) => trpcCall("representative.customers.remove", { id }),
   },
   transactions: {
     list: (filters?: Record<string, unknown>) => trpcCall("representative.transactions.list", filters || {}, "query"),

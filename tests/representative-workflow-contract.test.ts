@@ -59,6 +59,19 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("sourceAccountCode");
   });
 
+  it("shows customer activity, protects deletion, and prioritizes required completion fields", () => {
+    for (const field of ["salesCount", "collectionCount", "lastActivityDate", "activityStatus"]) {
+      expect(server).toContain(field);
+      expect(customers).toContain(field);
+    }
+    expect(customers).toContain("عميل نشط");
+    expect(customers).toContain("عميل غير نشط");
+    expect(server).toContain('if (!isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN", message: "حذف العملاء متاح للأدمن فقط" })');
+    expect(customers).toContain("representativeService.customers.remove");
+    expect(customers).toContain("البيانات الإلزامية المطلوب استكمالها أولاً");
+    expect(customers).toContain("requiredMissing");
+  });
+
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
     expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
