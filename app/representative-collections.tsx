@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { BackButton } from "@/components/back-button";
@@ -19,7 +18,6 @@ function Field({ label, value, onChangeText, keyboardType = "default" }: { label
 }
 
 export default function RepresentativeCollectionsScreen() {
-  const router = useRouter();
   const colors = useColors();
   const [customers, setCustomers] = useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
@@ -49,13 +47,6 @@ export default function RepresentativeCollectionsScreen() {
 
   const reset = () => { setSelectedCustomerId(null); setCollectedAmount(""); setMethod("cash"); setReceiptNumber(""); setCollectionDate(TODAY); setNotes(""); setFiles([]); setSearch(""); setShowForm(false); };
   const selectCustomer = (customer: any) => {
-    if (!customer.isComplete) {
-      Alert.alert("ملف العميل ناقص", `استكمل بيانات العميل قبل تسجيل التحصيل:\n${(customer.missingFields || []).join("، ")}`, [
-        { text: "إلغاء", style: "cancel" },
-        { text: "فتح دليل العملاء", onPress: () => router.push({ pathname: "/representative-customers", params: { returnTo: "/representative-collections" } } as any) },
-      ]);
-      return;
-    }
     setSelectedCustomerId(Number(customer.id));
   };
   const save = async () => {

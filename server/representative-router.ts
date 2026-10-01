@@ -62,6 +62,12 @@ const attachmentSchema = z.object({
 const customerSchema = z.object({
   customerType: z.enum(["institution", "individual"]).default("institution"),
   name: z.string().min(2),
+  assignedRepresentativeId: z.number().int().positive().nullable().optional(),
+  assignedRepresentativeName: z.string().optional().default(""),
+  sourceSellerName: z.string().optional().default(""),
+  sourceAccountCode: z.string().optional().default(""),
+  postalCode: z.string().optional().default(""),
+  buildingNumber: z.string().optional().default(""),
   commercialRegister: z.string().optional().default(""),
   taxNumber: z.string().optional().default(""),
   isTaxRegistered: z.boolean().default(false),
@@ -154,6 +160,12 @@ function getMissingCustomerFields(customer: any): string[] {
   if (customer.isTaxRegistered && !String(customer.taxNumber || "").trim()) missing.push("الرقم الضريبي");
   if (customer.isTaxRegistered && !types.has("tax_certificate")) missing.push("مرفق الشهادة الضريبية");
   return missing;
+}
+
+function canAccessCustomer(user: any, customer: any) {
+  if (isAdmin(user) || isSalesManager(user)) return true;
+  if (!isRepresentativeEmployee(user)) return false;
+  return Number(customer?.assignedRepresentativeId) === Number(user.id);
 }
 
 function validateTransaction(input: z.infer<typeof transactionSchema>) {
@@ -272,13 +284,12 @@ const transitionSchema = z.object({
 export const representativeRouter = router({
   customers: router({
     list: protectedProcedure.input(z.object({ search: z.string().optional().default("") }).optional()).query(async ({ input, ctx }) => {
-      if (!isRepresentative(ctx.user) && !isSalesManager(ctx.user) && !isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!isAdmin(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return [];
       const search = input?.search?.trim() || "";
-      const rows = search
-        ? await db.select().from(customers).where(and(eq(customers.isActive, 1), like(customers.name, `%${search}%`))).orderBy(customers.name)
-        : await db.select().from(customers).where(eq(customers.isActive, 1)).orderBy(customers.name);
+      const scope = isAdmin(ctx.user) ? eq(customers.isActive, 1) : and(eq(customers.isActive, 1), eq(customers.assignedRepresentativeId, Number(ctx.user.id)));
+      const rows = await db.select().from(customers).where(search ? and(scope, like(customers.name, `%${search}%`)) : scope).orderBy(customers.name);
       const attachmentRows = rows.length
         ? await db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1))
         : [];
@@ -296,6 +307,25 @@ export const representativeRouter = router({
           name: customer.name,
           customerCode: customer.customerCode,
           customerType: customer.customerType,
+          commercialRegister: customer.commercialRegister,
+          taxNumber: customer.taxNumber,
+          municipalLicense: customer.municipalLicense,
+          nationalAddress: customer.nationalAddress,
+          city: customer.city,
+          district: customer.district,
+          street: customer.street,
+          email: customer.email,
+          ownerName: customer.ownerName,
+          ownerPhone: customer.ownerPhone,
+          contactName: customer.contactName,
+          contactPhone: customer.contactPhone,
+          contactEmail: customer.contactEmail,
+          postalCode: customer.postalCode,
+          buildingNumber: customer.buildingNumber,
+          assignedRepresentativeId: customer.assignedRepresentativeId,
+          assignedRepresentativeName: customer.assignedRepresentativeName,
+          sourceSellerName: customer.sourceSellerName,
+          sourceAccountCode: customer.sourceAccountCode,
           isComplete: missingFields.length === 0,
           missingFields,
         };
@@ -303,16 +333,18 @@ export const representativeRouter = router({
     }),
 
     getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
-      if (!isRepresentative(ctx.user) && !isSalesManager(ctx.user) && !isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!isAdmin(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return null;
       const rows = await db.select().from(customers).where(and(eq(customers.id, input.id), eq(customers.isActive, 1))).limit(1);
-      return rows[0] || null;
+      if (!rows[0] || !canAccessCustomer(ctx.user, rows[0])) return null;
+      return rows[0];
     }),
 
     create: protectedProcedure.input(customerSchema).mutation(async ({ input, ctx }) => {
       if (!isRepresentative(ctx.user)) throw new TRPCError({ code: "FORBIDDEN", message: "إنشاء العميل من صلاحية المندوب أو الأدمن" });
       validateCustomerAttachments(input);
+      validateStoredCustomer(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const duplicate = input.customerType === "institution" && input.commercialRegister
@@ -320,7 +352,9 @@ export const representativeRouter = router({
         : [];
       if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "السجل التجاري مسجل لعميل سابق" });
       const customerCode = makeReference("CUS");
-      const result = await db.insert(customers).values({ ...input, email: input.email || "", contactEmail: input.contactEmail || "", customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
+      const assignedRepresentativeId = isAdmin(ctx.user) ? (input.assignedRepresentativeId || null) : Number(ctx.user.id);
+      const assignedRepresentativeName = assignedRepresentativeId === Number(ctx.user.id) ? String(ctx.user.name || ctx.user.username) : String(input.assignedRepresentativeName || "");
+      const result = await db.insert(customers).values({ ...input, assignedRepresentativeId, assignedRepresentativeName, email: input.email || "", contactEmail: input.contactEmail || "", customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
       const id = Number(result[0].insertId);
       await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "create", "customers", id, null, input, `إنشاء ملف العميل ${customerCode}`);
@@ -335,12 +369,15 @@ export const representativeRouter = router({
       const currentRows = await db.select().from(customers).where(eq(customers.id, input.id)).limit(1);
       const current = currentRows[0];
       if (!current) throw new Error("العميل غير موجود");
+      if (!canAccessCustomer(ctx.user, current)) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكنك تعديل عميل غير مخصص لحسابك" });
       const duplicateRows = input.customerType === "institution" && input.commercialRegister
         ? await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister))
         : [];
       if (duplicateRows.some((row) => Number(row.id) !== Number(input.id))) throw new TRPCError({ code: "CONFLICT", message: "السجل التجاري مرتبط بعميل آخر" });
       const { id, attachments, ...values } = input;
-      await db.update(customers).set({ ...values, email: values.email || "", contactEmail: values.contactEmail || "", isTaxRegistered: values.isTaxRegistered ? 1 : 0, version: Number(current.version || 1) + 1, updatedBy: Number(ctx.user.id) }).where(eq(customers.id, id));
+      const assignedRepresentativeId = isAdmin(ctx.user) ? (values.assignedRepresentativeId ?? null) : current.assignedRepresentativeId;
+      const assignedRepresentativeName = isAdmin(ctx.user) ? String(values.assignedRepresentativeName || current.assignedRepresentativeName || "") : current.assignedRepresentativeName;
+      await db.update(customers).set({ ...values, assignedRepresentativeId, assignedRepresentativeName, email: values.email || "", contactEmail: values.contactEmail || "", isTaxRegistered: values.isTaxRegistered ? 1 : 0, version: Number(current.version || 1) + 1, updatedBy: Number(ctx.user.id) }).where(eq(customers.id, id));
       await db.update(representativeAttachments).set({ isActive: 0 }).where(eq(representativeAttachments.customerId, id));
       await db.insert(representativeAttachments).values(attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, version: Number(current.version || 1) + 1, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "update", "customers", id, current, input, `تحديث ملف العميل ${current.customerCode}`);
@@ -389,7 +426,7 @@ export const representativeRouter = router({
       const customerRows = await db.select().from(customers).where(and(eq(customers.id, input.customerId), eq(customers.isActive, 1))).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
-      validateStoredCustomer(customer);
+      if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
       const referenceCode = makeReference(input.transactionType === "sample" ? "SMP" : input.transactionType === "custom" ? "CUSM" : input.transactionType === "visit" ? "VIS" : input.transactionType === "return" ? "RET" : "ORD");
       const { items, ...header } = input;
       const result = await db.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "DRAFT", currentDepartment: "sales_representative", productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments });
@@ -413,7 +450,7 @@ export const representativeRouter = router({
       const customerRows = await db.select().from(customers).where(eq(customers.id, input.customerId)).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
-      validateStoredCustomer(customer);
+      if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
       const { id, items, ...header } = input;
       await db.update(representativeTransactions).set({ ...header, customerName: customer.name, customerVersion: customer.version, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments }).where(eq(representativeTransactions.id, id));
       await db.delete(representativeTransactionItems).where(eq(representativeTransactionItems.transactionId, id));
@@ -548,6 +585,7 @@ export const representativeRouter = router({
       const customerRows = await db.select().from(customers).where(eq(customers.id, input.customerId)).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
+      if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
       const referenceCode = makeReference("COL");
       // هذا سجل أداء تقريري حر، وليس قيداً محاسبياً؛ لا يرتبط بفاتورة ولا يحسب متبقياً.
       const result = await db.insert(representativeCollections).values({ ...input, transactionId: null, referenceCode, invoiceNumber: null, invoiceAmount: 0, remainingAmount: 0, customerName: customer.name, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), attachments: input.attachments });

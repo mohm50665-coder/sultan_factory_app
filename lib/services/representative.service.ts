@@ -21,6 +21,12 @@ export type RepresentativeItemInput = {
 export type CustomerInput = {
   customerType: "institution" | "individual";
   name: string;
+  assignedRepresentativeId?: number | null;
+  assignedRepresentativeName?: string;
+  sourceSellerName?: string;
+  sourceAccountCode?: string;
+  postalCode?: string;
+  buildingNumber?: string;
   commercialRegister: string;
   taxNumber?: string;
   isTaxRegistered: boolean;

@@ -31,9 +31,15 @@ describe("Representative workflow contract", () => {
   it("shows only customer names in search and routes incomplete customers to the directory", () => {
     expect(server).toContain("isComplete: missingFields.length === 0");
     expect(server).toContain("missingFields");
-    expect(transactions).toContain("استكمل بيانات العميل قبل متابعة الطلب");
-    expect(transactions).toContain('pathname: "/representative-customers"');
     expect(customers).toContain("returnTo");
+  });
+
+  it("scopes customers to the logged-in representative and keeps incomplete imported customers selectable", () => {
+    expect(server).toContain("assignedRepresentativeId");
+    expect(server).toContain("canAccessCustomer");
+    expect(server).toContain("العميل غير موجود في قائمة العملاء المخصصة لحسابك");
+    expect(transactions).toContain("بيانات ناقصة — يمكن المتابعة");
+    expect(customers).toContain("assignedRepresentativeName");
   });
 
   it("does not load or render customer results until a search term is entered", () => {
