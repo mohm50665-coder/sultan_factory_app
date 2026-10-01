@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
@@ -25,6 +26,8 @@ function DocumentField({ label, required, value, onChange }: { label: string; re
 }
 
 export default function RepresentativeCustomersScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ returnTo?: string }>();
   const colors = useColors();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -51,7 +54,10 @@ export default function RepresentativeCustomersScreen() {
     setShowValidation(false); setForm(EMPTY); setEditingId(null); setCommercialRegisterFiles([]); setNationalAddressFiles([]); setTaxFiles([]); setLicenseFiles([]); setShowForm(false);
   };
 
-  const edit = (customer: any) => {
+  const edit = async (customer: any) => {
+    const detail = await representativeService.customers.getById(Number(customer.id));
+    if (!detail) return Alert.alert("تعذر فتح العميل", "ملف العميل غير موجود");
+    customer = detail;
     const attachments = Array.isArray(customer.attachments) ? customer.attachments : [];
     setForm({ customerType: customer.customerType === "individual" ? "individual" : "institution", name: customer.name || "", commercialRegister: customer.commercialRegister || "", taxNumber: customer.taxNumber || "", isTaxRegistered: Boolean(customer.isTaxRegistered), municipalLicense: customer.municipalLicense || "", nationalAddress: customer.nationalAddress || "", city: customer.city || "", district: customer.district || "", street: customer.street || "", email: customer.email || "", ownerName: customer.ownerName || "", ownerPhone: customer.ownerPhone || "", contactName: customer.contactName || "", contactPhone: customer.contactPhone || "", contactEmail: customer.contactEmail || "", attachments });
     setCommercialRegisterFiles(attachments.filter((item: any) => item.type === "commercial_register").map(fromAttachment));
@@ -83,6 +89,7 @@ export default function RepresentativeCustomersScreen() {
       else await representativeService.customers.create(payload);
       Alert.alert("تم الحفظ", editingId ? "تم إنشاء نسخة جديدة من بيانات العميل مع حفظ السجل السابق" : "تم إنشاء ملف العميل المركزي");
       reset(); await load();
+      if (params.returnTo) router.replace(params.returnTo as any);
     } catch (error: any) { Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ"); }
   };
 
@@ -95,7 +102,7 @@ export default function RepresentativeCustomersScreen() {
       <View style={styles.actionRow}><TouchableOpacity style={[styles.action, styles.cancel]} onPress={reset}><Text style={styles.cancelText}>إلغاء</Text></TouchableOpacity><TouchableOpacity style={[styles.action, styles.save]} onPress={() => void save()}><Text style={styles.saveText}>{editingId ? "حفظ نسخة محدثة" : "حفظ ملف العميل"}</Text></TouchableOpacity></View>
     </ScrollView> : <View style={{ flex: 1 }}>
       <View style={styles.searchBox}><MaterialIcons name="search" size={20} color="#64748b" /><TextInput value={search} onChangeText={setSearch} placeholder="ابحث باسم العميل" style={{ flex: 1, textAlign: "right" }} /></View>
-      {loading ? <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} /> : <ScrollView contentContainerStyle={styles.list}>{customers.length === 0 ? <Text style={styles.empty}>لا يوجد عملاء مطابقون</Text> : customers.map((customer) => <TouchableOpacity key={customer.id} style={styles.card} onPress={() => edit(customer)}><View style={styles.cardIcon}><MaterialIcons name="business" size={24} color="#0a7ea4" /></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{customer.name}</Text><Text style={styles.cardMeta}>{customer.customerCode} · {customer.customerType === "individual" ? `فرد · ${customer.contactPhone || customer.ownerPhone || ""}` : `مؤسسة · السجل: ${customer.commercialRegister || ""}`}</Text><Text style={styles.cardMeta}>{customer.city} / {customer.district} · نسخة {customer.version}</Text></View><MaterialIcons name="edit" size={20} color="#64748b" /></TouchableOpacity>)}</ScrollView>}
+      {loading ? <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} /> : <ScrollView contentContainerStyle={styles.list}>{customers.length === 0 ? <Text style={styles.empty}>لا يوجد عملاء مطابقون</Text> : customers.map((customer) => <TouchableOpacity key={customer.id} style={styles.card} onPress={() => void edit(customer)}><View style={styles.cardIcon}><MaterialIcons name="business" size={24} color="#0a7ea4" /></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{customer.name}</Text><Text style={styles.cardMeta}>{customer.customerType === "individual" ? "فرد" : "مؤسسة"}</Text><Text style={[styles.cardMeta, { color: customer.isComplete ? "#15803d" : "#b45309", fontWeight: "700" }]}>{customer.isComplete ? "الملف مكتمل" : `بيانات ناقصة: ${(customer.missingFields || []).join("، ")}`}</Text></View><MaterialIcons name="edit" size={20} color="#64748b" /></TouchableOpacity>)}</ScrollView>}
     </View>}
   </ScreenContainer>;
 }

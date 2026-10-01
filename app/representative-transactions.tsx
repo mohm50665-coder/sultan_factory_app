@@ -115,9 +115,18 @@ export default function RepresentativeTransactionsScreen() {
   const updateItem = (index: number, patch: Partial<RepresentativeItemInput>) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   const yarnTotal = (item: RepresentativeItemInput) => YARN_FIELDS.reduce((sum, field) => sum + Number(item.yarnRatios?.[field.key] || 0), 0);
   const selectedCustomer = customers.find((customer) => Number(customer.id) === selectedCustomerId);
-  const fillCustomer = (customer: any) => {
-    setSelectedCustomerId(Number(customer.id)); setCustomerType(customer.customerType === "individual" ? "individual" : "institution"); setCustomerName(customer.name || ""); setCommercialRegister(customer.commercialRegister || ""); setTaxNumber(customer.taxNumber || ""); setMunicipalLicense(customer.municipalLicense || ""); setNationalAddress(customer.nationalAddress || ""); setCity(customer.city || ""); setDistrict(customer.district || ""); setStreet(customer.street || ""); setEmail(customer.email || ""); setOwnerName(customer.ownerName || ""); setOwnerPhone(customer.ownerPhone || ""); setContactName(customer.contactName || ""); setContactPhone(customer.contactPhone || ""); setContactEmail(customer.contactEmail || "");
-    setCustomerFiles((customer.attachments || []).map((file: any) => ({ uri: file.url || file.fileUrl, uploadedUrl: file.url || file.fileUrl, name: file.name || file.fileName, mimeType: file.mimeType })));
+  const fillCustomer = async (customer: any) => {
+    if (!customer.isComplete) {
+      Alert.alert("ملف العميل ناقص", `استكمل بيانات العميل قبل متابعة الطلب:\n${(customer.missingFields || []).join("، ")}`, [
+        { text: "إلغاء", style: "cancel" },
+        { text: "فتح دليل العملاء", onPress: () => router.push({ pathname: "/representative-customers", params: { returnTo: `/representative-transactions?type=${type}` } } as any) },
+      ]);
+      return;
+    }
+    const detail = await representativeService.customers.getById(Number(customer.id));
+    if (!detail) return Alert.alert("تعذر تحميل ملف العميل", "حاول البحث عن العميل مرة أخرى");
+    setSelectedCustomerId(Number(detail.id)); setCustomerType(detail.customerType === "individual" ? "individual" : "institution"); setCustomerName(detail.name || ""); setCommercialRegister(detail.commercialRegister || ""); setTaxNumber(detail.taxNumber || ""); setMunicipalLicense(detail.municipalLicense || ""); setNationalAddress(detail.nationalAddress || ""); setCity(detail.city || ""); setDistrict(detail.district || ""); setStreet(detail.street || ""); setEmail(detail.email || ""); setOwnerName(detail.ownerName || ""); setOwnerPhone(detail.ownerPhone || ""); setContactName(detail.contactName || ""); setContactPhone(detail.contactPhone || ""); setContactEmail(detail.contactEmail || "");
+    setCustomerFiles((detail.attachments || []).map((file: any) => ({ uri: file.url || file.fileUrl, uploadedUrl: file.url || file.fileUrl, name: file.name || file.fileName, mimeType: file.mimeType })));
   };
 
   const attachments = useMemo(() => [

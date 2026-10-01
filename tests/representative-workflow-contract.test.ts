@@ -28,6 +28,14 @@ describe("Representative workflow contract", () => {
     expect(customers).not.toContain("longitude");
   });
 
+  it("shows only customer names in search and routes incomplete customers to the directory", () => {
+    expect(server).toContain("isComplete: missingFields.length === 0");
+    expect(server).toContain("missingFields");
+    expect(transactions).toContain("استكمل بيانات العميل قبل متابعة الطلب");
+    expect(transactions).toContain('pathname: "/representative-customers"');
+    expect(customers).toContain("returnTo");
+  });
+
   it("keeps custom product type, yarn ratios and sample receipt fields", () => {
     for (const field of ["productType", "yarnRatios", "samplePaymentFiles", "sample_payment_80"]) {
       expect(transactions).toContain(field);

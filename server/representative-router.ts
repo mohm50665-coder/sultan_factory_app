@@ -129,6 +129,33 @@ function validateStoredCustomer(customer: any) {
   if (missing.length) throw new TRPCError({ code: "BAD_REQUEST", message: `استكمل مرفقات ملف العميل قبل إنشاء الطلب: ${missing.join(", ")}` });
 }
 
+function getMissingCustomerFields(customer: any): string[] {
+  if (customer.customerType === "individual") {
+    return [
+      !String(customer.name || "").trim() ? "الاسم" : "",
+      !String(customer.contactPhone || customer.ownerPhone || "").trim() ? "رقم الجوال" : "",
+    ].filter(Boolean);
+  }
+  const missing = [
+    !String(customer.name || "").trim() ? "اسم المؤسسة" : "",
+    !String(customer.commercialRegister || "").trim() ? "السجل التجاري" : "",
+    !String(customer.nationalAddress || "").trim() ? "العنوان الوطني" : "",
+    !String(customer.city || "").trim() ? "المدينة" : "",
+    !String(customer.district || "").trim() ? "الحي" : "",
+    !String(customer.street || "").trim() ? "الشارع" : "",
+    !String(customer.ownerName || "").trim() ? "اسم المالك" : "",
+    !String(customer.ownerPhone || "").trim() ? "جوال المالك" : "",
+    !String(customer.contactName || "").trim() ? "اسم المسؤول" : "",
+    !String(customer.contactPhone || "").trim() ? "جوال المسؤول" : "",
+  ].filter(Boolean) as string[];
+  const types = new Set(parseArray(customer.attachments).map((attachment) => attachment?.type));
+  if (!types.has("commercial_register")) missing.push("مرفق السجل التجاري");
+  if (!types.has("national_address")) missing.push("مرفق العنوان الوطني");
+  if (customer.isTaxRegistered && !String(customer.taxNumber || "").trim()) missing.push("الرقم الضريبي");
+  if (customer.isTaxRegistered && !types.has("tax_certificate")) missing.push("مرفق الشهادة الضريبية");
+  return missing;
+}
+
 function validateTransaction(input: z.infer<typeof transactionSchema>) {
   if (input.transactionType === "visit" && input.visitReport.trim().length < 5) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "تقرير الزيارة إلزامي ويجب أن يوضح نتيجة الزيارة" });
@@ -252,7 +279,27 @@ export const representativeRouter = router({
       const rows = search
         ? await db.select().from(customers).where(and(eq(customers.isActive, 1), like(customers.name, `%${search}%`))).orderBy(customers.name)
         : await db.select().from(customers).where(eq(customers.isActive, 1)).orderBy(customers.name);
-      return rows;
+      const attachmentRows = rows.length
+        ? await db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1))
+        : [];
+      const attachmentTypes = new Map<number, string[]>();
+      for (const attachment of attachmentRows) {
+        if (!attachment.customerId) continue;
+        const current = attachmentTypes.get(Number(attachment.customerId)) || [];
+        current.push(String(attachment.attachmentType));
+        attachmentTypes.set(Number(attachment.customerId), current);
+      }
+      return rows.map((customer) => {
+        const missingFields = getMissingCustomerFields({ ...customer, attachments: attachmentTypes.get(Number(customer.id))?.map((type) => ({ type })) || customer.attachments });
+        return {
+          id: customer.id,
+          name: customer.name,
+          customerCode: customer.customerCode,
+          customerType: customer.customerType,
+          isComplete: missingFields.length === 0,
+          missingFields,
+        };
+      });
     }),
 
     getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
