@@ -4413,6 +4413,26 @@ export const appRouter = router({
       await db.insert(productManufacturingRequestEventsTable).values({ requestId: id, action: "create", fromStatus: null, toStatus: "PENDING_SALES", actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: "رفع طلب تصنيع منتج", signature: input.signature, attachments: input.attachments });
       return { success: true, id, referenceCode };
     }),
+    update: protectedProcedure.input(z.object({ id: z.number(), customerName: z.string().min(2), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
+      const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
+      if (ctx.user.role !== "admin" && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكنك تعديل هذا الطلب" });
+      if (!["PENDING_SALES", "RETURNED_TO_REP"].includes(request.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تعديل الطلب بعد بدء الاعتماد" });
+      await db.update(productManufacturingRequestsTable).set({ customerName: input.customerName, productName: input.productName, productSize: input.productSize, productColor: input.productColor, quantityDozen: input.quantityDozen, orderDate: input.orderDate, deliveryDate: input.deliveryDate, attachments: input.attachments, signatures: input.signature ? [...(Array.isArray(request.signatures) ? request.signatures : []), { userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : request.signatures }).where(eq(productManufacturingRequestsTable.id, input.id));
+      await db.insert(productManufacturingRequestEventsTable).values({ requestId: input.id, action: "update", fromStatus: request.status, toStatus: request.status, actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: "تعديل بيانات الطلب", signature: input.signature, attachments: input.attachments });
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
+      const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
+      if (ctx.user.role !== "admin" && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكنك حذف هذا الطلب" });
+      if (!["PENDING_SALES", "RETURNED_TO_REP"].includes(request.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن حذف الطلب بعد بدء الاعتماد" });
+      await db.delete(productManufacturingRequestEventsTable).where(eq(productManufacturingRequestEventsTable.requestId, input.id));
+      await db.delete(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id));
+      return { success: true };
+    }),
     decide: protectedProcedure.input(z.object({ id: z.number(), action: z.enum(["sales_approve", "sales_reject", "production_approve", "production_reject", "sales_resubmit", "escalate_admin", "admin_close"]), notes: z.string().optional(), correctiveAction: z.string().optional(), signature: z.string().optional(), attachments: z.array(z.any()).default([]) })).mutation(async ({ input, ctx }) => {
       const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1); const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
@@ -4428,6 +4448,23 @@ export const appRouter = router({
       const recipientDepartment = toStatus === "PENDING_PRODUCTION" ? "production" : toStatus === "PENDING_ADMIN" ? null : "sales";
       if (recipientDepartment) await db.insert(internalMessagesTable).values({ subject: `طلب تصنيع منتج ${request.referenceCode}`, body: input.notes || `طلب يحتاج إجراء: ${toStatus}`, senderId: Number(ctx.user.id), recipientDepartment, relatedType: "productManufacturingRequest", relatedId: input.id, attachments: input.attachments });
       return { success: true, status: toStatus };
+    }),
+    fulfill: protectedProcedure.input(z.object({ id: z.number(), stockId: z.number().optional(), signature: z.string().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const dept = String(ctx.user.department || "").toLowerCase();
+      if (ctx.user.role !== "admin" && !["warehouse", "sales", "storage"].includes(dept)) throw new TRPCError({ code: "FORBIDDEN", message: "إغلاق الطلب من المخزون متاح للمستودعات أو الأدمن فقط" });
+      const requestRows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
+      const request = requestRows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
+      if (request.status !== "IN_PRODUCTION") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إغلاق الطلب قبل اعتماده وبدء الإنتاج" });
+      const stockRows = input.stockId ? await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.id, input.stockId), eq(finishedWarehouseStockTable.isActive, 1))).limit(1) : await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.productName, request.productName), eq(finishedWarehouseStockTable.productSize, request.productSize || ""), eq(finishedWarehouseStockTable.productColor, request.productColor || ""), eq(finishedWarehouseStockTable.isActive, 1))).limit(1);
+      const stock = stockRows[0]; if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: "لا يوجد رصيد مطابق للصنف في المستودع" });
+      if (Number(stock.quantityDozen) < Number(request.quantityDozen)) throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد المتاح ${stock.quantityDozen} درزن، والمطلوب ${request.quantityDozen} درزن` });
+      const remainingDozen = Number(stock.quantityDozen) - Number(request.quantityDozen);
+      await db.update(finishedWarehouseStockTable).set({ quantityDozen: remainingDozen, lastMovementAt: new Date() }).where(eq(finishedWarehouseStockTable.id, stock.id));
+      await db.insert(finishedWarehouseMovementsTable).values({ stockId: Number(stock.id), movementType: "issue", quantityDozen: Number(request.quantityDozen), sourceType: "product_manufacturing_request", sourceId: input.id, notes: input.notes || `إغلاق طلب التصنيع ${request.referenceCode}`, userId: Number(ctx.user.id) });
+      await db.update(productManufacturingRequestsTable).set({ status: "CLOSED_FULFILLED", currentDepartment: "warehouse", decisionNotes: input.notes || "تم تسليم الطلب وخصم الكمية من المخزون", signatures: [...(Array.isArray(request.signatures) ? request.signatures : []), ...(input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [])] }).where(eq(productManufacturingRequestsTable.id, input.id));
+      await db.insert(productManufacturingRequestEventsTable).values({ requestId: input.id, action: "warehouse_fulfill", fromStatus: request.status, toStatus: "CLOSED_FULFILLED", actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: input.notes || "تم خصم الكمية من المخزون وإغلاق الطلب", signature: input.signature });
+      return { success: true, status: "CLOSED_FULFILLED", remainingDozen };
     }),
   }),
 
