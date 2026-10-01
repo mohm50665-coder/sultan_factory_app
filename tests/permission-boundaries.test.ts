@@ -39,6 +39,18 @@ describe("Permission boundary contract", () => {
     expect(router).toContain("allowedSections: normalizeAllowedSections(input.allowedSections)");
   });
 
+  it("restricts employee registration and department editing to the admin procedure", () => {
+    expect(router).toContain("updateUserProfile: adminProcedure");
+    expect(router).toContain("name: z.string().trim().min(1).max(255)");
+    expect(router).toContain("username: z.string().trim().min(1).max(100)");
+    expect(router).toContain("department: z.string().trim().max(100)");
+    expect(router).toContain("اسم المستخدم مستخدم مسبقاً");
+    expect(router).toContain("البريد الإلكتروني مستخدم مسبقاً");
+    expect(usersManagement).toContain("تعديل بيانات التسجيل والقسم");
+    expect(usersManagement).toContain("profileDepartment");
+    expect(usersManagement).toContain("updateUserProfile");
+  });
+
   it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {
     expect(toolsPermissions).not.toContain("id: 'employee_performance'");
     expect(toolsPermissions).not.toContain("id: 'sample_requests'");

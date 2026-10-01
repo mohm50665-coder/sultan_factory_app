@@ -56,6 +56,7 @@ export const adminService = {
   updateAllowedSections: (userId: number, allowedSections: string[]) => trpcCall("admin.updateAllowedSections", { userId, allowedSections }),
   updateUserDepartment: (userId: number, department: string) => trpcCall("admin.updateUserDepartment", { userId, department }),
   updatePosition: (userId: number, position: string) => trpcCall("admin.updatePosition", { userId, position }),
+  updateUserProfile: (data: { userId: number; name: string; username: string; email: string; phone?: string; position?: string; department?: string; role: "user" | "admin" | "manager" | "supervisor" }) => trpcCall("admin.updateUserProfile", data),
   updateToolPermissions: (userId: number, toolPermissions: Record<string, boolean>) => trpcCall("admin.updateToolPermissions", { userId, toolPermissions }),
   getPendingUsers: () => trpcCall("admin.getPendingUsers", undefined, "query"),
 };

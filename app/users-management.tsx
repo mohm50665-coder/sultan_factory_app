@@ -85,6 +85,15 @@ export default function UsersManagementScreen() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameUser, setRenameUser] = useState<User | null>(null);
   const [renameUsername, setRenameUsername] = useState("");
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profilePosition, setProfilePosition] = useState("");
+  const [profileDepartment, setProfileDepartment] = useState("");
+  const [profileRole, setProfileRole] = useState<User["role"]>("user");
 
   const loadUsers = useCallback(async () => {
     const allUsers = await adminService.getAllUsers();
@@ -129,6 +138,43 @@ export default function UsersManagementScreen() {
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم حفظ التغييرات بنجاح" : "Changes saved successfully");
     } catch (e) {
       Alert.alert(isAr ? "خطأ" : "Error", isAr ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
+    }
+  };
+
+  const handleEditProfile = (u: User) => {
+    setProfileUser(u);
+    setProfileName(u.name || "");
+    setProfileUsername(u.username || "");
+    setProfileEmail(u.email || "");
+    setProfilePhone(u.phone || "");
+    setProfilePosition(u.position || "");
+    setProfileDepartment(u.department || "");
+    setProfileRole(u.role);
+    setShowProfileModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileUser || !profileName.trim() || !profileUsername.trim() || !profileEmail.trim()) {
+      Alert.alert(isAr ? "بيانات ناقصة" : "Missing data", isAr ? "الاسم واسم المستخدم والبريد الإلكتروني حقول مطلوبة" : "Name, username and email are required");
+      return;
+    }
+    try {
+      await adminService.updateUserProfile({
+        userId: profileUser.id,
+        name: profileName.trim(),
+        username: profileUsername.trim(),
+        email: profileEmail.trim(),
+        phone: profilePhone.trim(),
+        position: profilePosition.trim(),
+        department: profileDepartment.trim(),
+        role: profileRole,
+      });
+      setShowProfileModal(false);
+      setProfileUser(null);
+      await loadUsers();
+      Alert.alert(isAr ? "نجاح" : "Success", isAr ? "تم تحديث بيانات الموظف والقسم بنجاح" : "Employee data and department updated successfully");
+    } catch (e: any) {
+      Alert.alert(isAr ? "تعذر الحفظ" : "Save failed", e?.message || (isAr ? "حدث خطأ أثناء حفظ بيانات الموظف" : "Could not save employee data"));
     }
   };
 
@@ -293,6 +339,15 @@ export default function UsersManagementScreen() {
             </View>
 
             <View style={styles.actions}>
+              {/* تعديل بيانات التسجيل والقسم */}
+              <TouchableOpacity
+                onPress={() => handleEditProfile(u)}
+                style={[styles.actionBtn, { backgroundColor: "#ede9fe" }]}
+                accessibilityLabel={isAr ? "تعديل بيانات الموظف والقسم" : "Edit employee data and department"}
+              >
+                <MaterialIcons name="edit" size={18} color="#6d28d9" />
+              </TouchableOpacity>
+
               {/* تغيير الصلاحية */}
               <TouchableOpacity
                 onPress={() => handleChangeRole(u)}
@@ -346,6 +401,36 @@ export default function UsersManagementScreen() {
           </View>
         ))}
       </ScrollView>
+
+      {/* Modal تعديل بيانات التسجيل والقسم */}
+      <Modal visible={showProfileModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "88%" }]}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>{isAr ? "تعديل بيانات الموظف" : "Edit Employee Data"}</Text>
+              <Text style={styles.modalHint}>{isAr ? "الأدمن فقط يستطيع تعديل هذه البيانات. الاسم واسم المستخدم والبريد الإلكتروني حقول مطلوبة." : "Only admins can edit these fields. Name, username and email are required."}</Text>
+              <TextInput style={styles.modalInput} placeholder={isAr ? "الاسم الكامل *" : "Full name *"} value={profileName} onChangeText={setProfileName} textAlign={isAr ? "right" : "left"} />
+              <TextInput style={styles.modalInput} placeholder={isAr ? "اسم المستخدم *" : "Username *"} value={profileUsername} onChangeText={setProfileUsername} autoCapitalize="none" textAlign={isAr ? "right" : "left"} />
+              <TextInput style={styles.modalInput} placeholder={isAr ? "البريد الإلكتروني *" : "Email *"} value={profileEmail} onChangeText={setProfileEmail} keyboardType="email-address" autoCapitalize="none" textAlign={isAr ? "right" : "left"} />
+              <TextInput style={styles.modalInput} placeholder={isAr ? "رقم الجوال" : "Phone"} value={profilePhone} onChangeText={setProfilePhone} keyboardType="phone-pad" textAlign={isAr ? "right" : "left"} />
+              <TextInput style={styles.modalInput} placeholder={isAr ? "المسمى الوظيفي" : "Position"} value={profilePosition} onChangeText={setProfilePosition} textAlign={isAr ? "right" : "left"} />
+              <TextInput style={styles.modalInput} placeholder={isAr ? "القسم" : "Department"} value={profileDepartment} onChangeText={setProfileDepartment} textAlign={isAr ? "right" : "left"} />
+              <Text style={styles.modalLabel}>{isAr ? "الصلاحية" : "Role"}</Text>
+              <View style={styles.rolesContainer}>
+                {(isAr ? ROLES_AR : ROLES_EN).map((role) => (
+                  <TouchableOpacity key={role.value} onPress={() => setProfileRole(role.value as User["role"])} style={[styles.roleOption, profileRole === role.value && styles.roleOptionActive]}>
+                    <Text style={[styles.roleOptionText, profileRole === role.value && styles.roleOptionTextActive]}>{role.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setShowProfileModal(false)} style={styles.cancelBtn}><Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveProfile} style={styles.saveBtn}><Text style={styles.saveBtnText}>{isAr ? "حفظ البيانات" : "Save data"}</Text></TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal تغيير الصلاحية */}
       <Modal visible={showEditModal} transparent animationType="slide">
@@ -616,6 +701,8 @@ const styles = StyleSheet.create({
     width: "85%",
   },
   modalTitle: { fontSize: 20, fontWeight: "bold", color: "#11181C", textAlign: "center", marginBottom: 16 },
+  modalHint: { fontSize: 12, color: "#64748b", textAlign: "right", lineHeight: 18, marginBottom: 12 },
+  modalLabel: { fontSize: 13, fontWeight: "700", color: "#374151", textAlign: "right", marginBottom: 8 },
   addUserHeaderBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0a7ea4", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8 },
   addUserHeaderText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   modalInput: {

@@ -887,6 +887,41 @@ export const appRouter = router({
         await db.update(usersTable).set({ department: input.department }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
+
+    updateUserProfile: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        name: z.string().trim().min(1).max(255),
+        username: z.string().trim().min(1).max(100),
+        email: z.string().trim().email().max(320),
+        phone: z.string().trim().max(20).optional().default(""),
+        position: z.string().trim().max(255).optional().default(""),
+        department: z.string().trim().max(100).optional().default(""),
+        role: z.enum(["user", "admin", "manager", "supervisor"]),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        if (ctx.user?.id === input.userId && input.role !== "admin") {
+          throw new Error("لا يمكنك إزالة صلاحية الأدمن من حسابك الحالي");
+        }
+        const target = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        if (!target.length) throw new Error("المستخدم غير موجود");
+        const duplicateUsername = await db.select({ id: usersTable.id }).from(usersTable).where(and(sql`LOWER(TRIM(${usersTable.username})) = ${input.username.toLowerCase()}`, sql`${usersTable.id} <> ${input.userId}`)).limit(1);
+        if (duplicateUsername.length) throw new Error("اسم المستخدم مستخدم مسبقاً");
+        const duplicateEmail = await db.select({ id: usersTable.id }).from(usersTable).where(and(sql`LOWER(TRIM(${usersTable.email})) = ${input.email.toLowerCase()}`, sql`${usersTable.id} <> ${input.userId}`)).limit(1);
+        if (duplicateEmail.length) throw new Error("البريد الإلكتروني مستخدم مسبقاً");
+        await db.update(usersTable).set({
+          name: input.name,
+          username: input.username,
+          email: input.email,
+          phone: input.phone || null,
+          position: input.position || null,
+          department: input.department || null,
+          role: input.role,
+        }).where(eq(usersTable.id, input.userId));
+        return { success: true };
+      }),
   }),
 
   // ===== TASKS ROUTER =====
