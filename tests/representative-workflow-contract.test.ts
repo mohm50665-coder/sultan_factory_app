@@ -51,6 +51,14 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("الشارع:");
   });
 
+  it("groups the customer directory by representative and prints each group", () => {
+    expect(customers).toContain("groupedCustomers");
+    expect(customers).toContain("مصنف حسب المندوب");
+    expect(customers).toContain("printCustomerList");
+    expect(customers).toContain("<table>");
+    expect(customers).toContain("sourceAccountCode");
+  });
+
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
     expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
