@@ -54,4 +54,16 @@ describe("finished warehouse workflow", () => {
     expect(requestScreen).toContain("الباركود *");
     expect(requestScreen).toContain("setBarcode");
   });
+
+  it("requires selecting an exact warehouse variant before treating its quantity as selected", () => {
+    const screen = read("app/product-manufacturing-request.tsx");
+    const router = read("server/routers.ts");
+    expect(screen).toContain("selectedStock");
+    expect(screen).toContain("اختر المنتج المحدد");
+    expect(screen).toContain("الكمية أدناه تخص هذا المقاس واللون فقط");
+    expect(screen).toContain("handleProductNameChange");
+    expect(screen).toContain("حدد نسخة المنتج");
+    expect(router).toContain("like(finishedWarehouseStockTable.productSize");
+    expect(router).toContain("like(finishedWarehouseStockTable.productColor");
+  });
 });
