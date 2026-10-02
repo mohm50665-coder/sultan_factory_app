@@ -16,10 +16,11 @@ describe("finished warehouse workflow", () => {
     expect(api).toContain("finishedWarehouse.search");
   });
 
-  it("shows stock availability in representative orders and offers manufacturing escalation", () => {
+  it("shows variant-specific stock selection in representative orders and offers manufacturing escalation", () => {
     const screen = read("app/representative-transactions.tsx");
-    expect(screen).toContain("stockAvailability");
-    expect(screen).toContain("رصيد المستودع بالدرزن");
+    expect(screen).toContain("selectedStock");
+    expect(screen).toContain("اختر المنتج المحدد");
+    expect(screen).toContain("الكمية تخص هذه النسخة فقط");
     expect(screen).toContain("product-manufacturing-request");
   });
 

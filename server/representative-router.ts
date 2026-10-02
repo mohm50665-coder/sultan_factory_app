@@ -87,6 +87,7 @@ const customerSchema = z.object({
 
 const itemSchema = z.object({
   productName: z.string().min(1),
+  barcode: z.string().optional().default(""),
   size: z.string().min(1),
   color: z.string().min(1),
   quantity: z.number().int().positive(),

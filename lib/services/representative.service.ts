@@ -10,6 +10,7 @@ export type RepresentativeAttachmentInput = {
 
 export type RepresentativeItemInput = {
   productName: string;
+  barcode?: string;
   size: string;
   color: string;
   quantity: number;
