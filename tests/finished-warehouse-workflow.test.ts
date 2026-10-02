@@ -42,4 +42,16 @@ describe("finished warehouse workflow", () => {
     expect(router).toContain("PENDING_PRODUCTION");
     expect(router).toContain("PENDING_ADMIN");
   });
+
+  it("requires and carries a barcode for production, warehouse stock, and manufacturing requests", () => {
+    const router = read("server/routers.ts");
+    const productionScreen = read("app/production.tsx");
+    const requestScreen = read("app/product-manufacturing-request.tsx");
+    expect(router).toContain("resolveProductionBarcode");
+    expect(router).toContain("لا يمكن نقل منتج إلى مراحل التصنيع بدون باركود");
+    expect(router).toContain("barcode: z.string().min(2, \"باركود المنتج إلزامي\")");
+    expect(productionScreen).toContain("باركود المنتج");
+    expect(requestScreen).toContain("الباركود *");
+    expect(requestScreen).toContain("setBarcode");
+  });
 });

@@ -305,6 +305,8 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
   const expectedReceiver = String(entry.expectedReceiver || "").trim();
   await validateStageReceiver(db, "rosso", expectedReceiver);
   if (samePersonName(expectedReceiver, user?.name)) throw new Error("لا يمكن لمدير الإنتاج تسليم المنتج لنفسه");
+  const barcode = String(entry.barcode || "").trim().toUpperCase();
+  if (barcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن نقل منتج إلى مراحل التصنيع بدون باركود" });
   const sourceKey = productionHandoverKey(entry);
   const identity = parseLegacyProductName(entry.productName);
   const existingRows = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.productType, sourceKey)).limit(1);
@@ -318,7 +320,7 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
     productName: String(entry.productName || "").trim(),
     productSize: String(entry.productSize || identity.size || "").trim() || null,
     productColor: String(entry.productColor || identity.color || "").trim() || null,
-    barcode: String(entry.barcode || "").trim() || null,
+    barcode,
     qualityGrade: entry.qualityGrade || "first",
     sampleRequestId: entry.sampleRequestId || null,
     productionId: entry.productionId || null,
@@ -381,7 +383,7 @@ function parseLegacyProductName(rawName: unknown) {
   };
 }
 
-type CatalogProductInput = { name: string; size?: string | null; color?: string | null; weightGrams?: number | null; yarnDetails?: unknown; createdBy?: number | null };
+type CatalogProductInput = { name: string; size?: string | null; color?: string | null; barcode?: string | null; weightGrams?: number | null; yarnDetails?: unknown; createdBy?: number | null };
 
 function getCatalogProductValidationError(input: CatalogProductInput) {
   const name = String(input.name || "").trim();
@@ -433,7 +435,10 @@ async function ensureCatalogProduct(
   }
   if (getCatalogProductValidationError({ ...input, size, color, yarnDetails })) return null;
 
-  const barcode = `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`;
+  const barcode = String(input.barcode || `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`).trim().toUpperCase();
+  if (barcode.length < 2) return null;
+  const barcodeConflict = await db.select({ id: productsTable.id }).from(productsTable).where(eq(productsTable.barcode, barcode)).limit(1);
+  if (barcodeConflict[0]) return null;
   const result = await db.insert(productsTable).values({
     barcode,
     name,
@@ -448,6 +453,18 @@ async function ensureCatalogProduct(
   const created = { id: result[0].insertId, barcode, ...input, isActive: 1 };
   cache.set(key, created);
   return created;
+}
+
+async function resolveProductionBarcode(db: any, input: { barcode?: unknown; productName?: unknown; productSize?: unknown; productColor?: unknown }) {
+  const supplied = String(input.barcode || "").trim().toUpperCase();
+  const identity = parseLegacyProductName(input.productName);
+  const rows = await db.select({ barcode: productsTable.barcode, name: productsTable.name, size: productsTable.size, color: productsTable.color }).from(productsTable);
+  const barcodeMatch = supplied.length >= 2 ? rows.find((row: any) => String(row.barcode || "").toUpperCase() === supplied) : null;
+  if (barcodeMatch?.barcode) return String(barcodeMatch.barcode).toUpperCase();
+  const existing = rows.find((row: any) => catalogKey(row.name, row.size, row.color) === catalogKey(identity.name, input.productSize || identity.size, input.productColor || identity.color));
+  if (existing?.barcode) return String(existing.barcode).toUpperCase();
+  if (supplied.length >= 2) return supplied;
+  return String(existing?.barcode || `S${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`).trim().toUpperCase();
 }
 
 const SALES_DEPARTMENT_NAMES = ["sales", "marketing", "sales and marketing", "المبيعات", "التسويق", "التسويق والمبيعات", "إدارة التسويق والمبيعات"];
@@ -1092,21 +1109,23 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         assertProductionAuthority(ctx.user, input.date);
-        const operationKey = productionEntryFingerprint(input);
+        const normalizedInput = { ...input, barcode: await resolveProductionBarcode(db, input) };
+        const operationKey = productionEntryFingerprint(normalizedInput);
         if (inFlightProductionKeys.has(operationKey)) {
           throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
         }
         inFlightProductionKeys.add(operationKey);
         try {
-          const existingProduction = await findExistingProduction(db, input);
+          const existingProduction = await findExistingProduction(db, normalizedInput);
           if (existingProduction) {
             return { success: true, id: existingProduction.id, idempotent: true, message: "تم تنفيذه مسبقاً" };
           }
-        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, userId: _userId, ...productionInput } = input;
+        const { yarnWeightPerPair, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, userId: _userId, ...productionInput } = normalizedInput;
         const result = await db.insert(productionTable).values({ ...productionInput, userId: ctx.user.id });
-        const identity = parseLegacyProductName(input.productName);
+        const identity = parseLegacyProductName(normalizedInput.productName);
         await ensureCatalogProduct(db, {
           ...identity,
+          barcode: normalizedInput.barcode,
           weightGrams: yarnWeightPerPair || 0,
           yarnDetails: {
             yarnWeightPerPair: yarnWeightPerPair || 0,
@@ -1119,7 +1138,7 @@ export const appRouter = router({
           },
           createdBy: ctx.user.id,
         }, new Map());
-        await createInitialProductionHandover(db, { ...input, productionId: result[0].insertId }, ctx.user);
+        await createInitialProductionHandover(db, { ...normalizedInput, productionId: result[0].insertId }, ctx.user);
         return { success: true, id: result[0].insertId };
         } finally {
           inFlightProductionKeys.delete(operationKey);
@@ -1187,20 +1206,21 @@ export const appRouter = router({
           const skippedDuplicates: any[] = [];
           const batchSeen = new Set<string>();
           for (const entry of input.entries) {
-            const key = productionEntryFingerprint(entry);
+            const normalizedEntry = { ...entry, barcode: await resolveProductionBarcode(db, entry) };
+            const key = productionEntryFingerprint(normalizedEntry);
             if (batchSeen.has(key)) {
               skippedDuplicates.push(entry);
               continue;
             }
             batchSeen.add(key);
-            const existingProduction = await findExistingProduction(db, entry);
+            const existingProduction = await findExistingProduction(db, normalizedEntry);
             if (existingProduction) {
               skippedDuplicates.push(entry);
               continue;
             }
-            const { yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, barcode: _barcode, ...productionEntry } = entry;
+            const { yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, ...productionEntry } = normalizedEntry;
             entriesForProduction.push({ ...productionEntry, userId: ctx.user.id });
-            entriesToProcess.push(entry);
+            entriesToProcess.push(normalizedEntry);
           }
           if (entriesForProduction.length === 0) {
             return { success: true, count: 0, skippedDuplicates: skippedDuplicates.length, idempotent: true, message: "تم تنفيذه مسبقاً" };
@@ -1218,6 +1238,7 @@ export const appRouter = router({
             const identity = parseLegacyProductName(entry.productName);
             await ensureCatalogProduct(db, {
               ...identity,
+              barcode: entry.barcode,
               weightGrams: entry.yarnWeightPerPair || 0,
               yarnDetails: {
                 yarnWeightPerPair: entry.yarnWeightPerPair || 0,
@@ -1649,18 +1670,17 @@ export const appRouter = router({
           const identity = parseLegacyProductName(record.productName);
           const isStorageStage = /storage|finished|تخزين|المستودع|المستودعات/i.test(String(destinationStage));
           if (isStorageStage && Number(record.quantityDozen || 0) > 0) {
+            const storageBarcode = String(record.barcode || "").trim().toUpperCase();
+            if (storageBarcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إدخال منتج إلى المستودع بدون باركود" });
             const stockRows = await tx.select().from(finishedWarehouseStockTable).where(and(
-              eq(finishedWarehouseStockTable.productName, record.productName || identity.name),
-              eq(finishedWarehouseStockTable.productSize, record.productSize || identity.size || ""),
-              eq(finishedWarehouseStockTable.productColor, record.productColor || identity.color || ""),
-              eq(finishedWarehouseStockTable.qualityGrade, record.qualityGrade || "first"),
+              eq(finishedWarehouseStockTable.barcode, storageBarcode),
             )).limit(1);
             let stockId: number;
             if (stockRows[0]) {
               stockId = Number(stockRows[0].id);
               await tx.update(finishedWarehouseStockTable).set({ quantityDozen: Number(stockRows[0].quantityDozen) + Number(record.quantityDozen || 0), lastMovementAt: receivedAt }).where(eq(finishedWarehouseStockTable.id, stockId));
             } else {
-              const stockResult = await tx.insert(finishedWarehouseStockTable).values({ productName: record.productName || identity.name, productSize: record.productSize || identity.size || "", productColor: record.productColor || identity.color || "", qualityGrade: record.qualityGrade || "first", quantityDozen: Number(record.quantityDozen || 0), lastMovementAt: receivedAt, createdBy: ctx.user.id });
+              const stockResult = await tx.insert(finishedWarehouseStockTable).values({ barcode: storageBarcode, productName: record.productName || identity.name, productSize: record.productSize || identity.size || "", productColor: record.productColor || identity.color || "", qualityGrade: record.qualityGrade || "first", quantityDozen: Number(record.quantityDozen || 0), lastMovementAt: receivedAt, createdBy: ctx.user.id });
               stockId = Number((stockResult as any)[0]?.insertId);
             }
             await tx.insert(finishedWarehouseMovementsTable).values({ stockId, movementType: "receipt", quantityDozen: Number(record.quantityDozen || 0), sourceType: "manufacturing_storage", sourceId: Number(created[0]?.insertId || 0), notes: `انتقال تلقائي من ${record.stageName} إلى ${destinationStage}`, userId: ctx.user.id });
@@ -4352,7 +4372,7 @@ export const appRouter = router({
     search: protectedProcedure.input(z.object({ query: z.string().min(1) })).query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.isActive, 1), or(like(finishedWarehouseStockTable.productName, `%${input.query}%`), like(finishedWarehouseStockTable.productSize, `%${input.query}%`), like(finishedWarehouseStockTable.productColor, `%${input.query}%`)))).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
+      return db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.isActive, 1), or(like(finishedWarehouseStockTable.productName, `%${input.query}%`), like(finishedWarehouseStockTable.barcode, `%${input.query}%`), like(finishedWarehouseStockTable.productSize, `%${input.query}%`), like(finishedWarehouseStockTable.productColor, `%${input.query}%`)))).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
     }),
     summary: protectedProcedure.query(async () => {
       const db = await getDb();
@@ -4361,17 +4381,17 @@ export const appRouter = router({
       const items = rows.map((row) => ({ ...row, isLow: Number(row.quantityDozen) < Number(row.minimumDozen), ageDays: row.lastMovementAt ? Math.floor((Date.now() - new Date(row.lastMovementAt).getTime()) / 86400000) : null, activityStatus: row.lastMovementAt && Date.now() - new Date(row.lastMovementAt).getTime() <= 30 * 86400000 ? "active" : "stagnant" }));
       return { items, totals: { products: rows.length, quantityDozen: rows.reduce((sum, row) => sum + Number(row.quantityDozen), 0), zeroOrLow: items.filter((row) => row.isLow).length } };
     }),
-    receiveFromStorage: protectedProcedure.input(z.object({ productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), qualityGrade: z.string().default("first"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
+    receiveFromStorage: protectedProcedure.input(z.object({ barcode: z.string().min(2, "باركود المنتج إلزامي"), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), qualityGrade: z.string().default("first"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin" && !["production", "warehouse", "storage"].includes(String(ctx.user.department || "").toLowerCase())) throw new TRPCError({ code: "FORBIDDEN", message: "إضافة مخزون الإنتاج التام من الإنتاج أو التخزين أو الأدمن فقط" });
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
-      const existing = await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.productName, input.productName), eq(finishedWarehouseStockTable.productSize, input.productSize), eq(finishedWarehouseStockTable.productColor, input.productColor), eq(finishedWarehouseStockTable.qualityGrade, input.qualityGrade))).limit(1);
+      const existing = await db.select().from(finishedWarehouseStockTable).where(eq(finishedWarehouseStockTable.barcode, input.barcode.trim().toUpperCase())).limit(1);
       let stockId: number;
       if (existing[0]) {
         stockId = Number(existing[0].id);
         await db.update(finishedWarehouseStockTable).set({ quantityDozen: Number(existing[0].quantityDozen) + input.quantityDozen, lastMovementAt: new Date() }).where(eq(finishedWarehouseStockTable.id, stockId));
       } else {
-        const result = await db.insert(finishedWarehouseStockTable).values({ productName: input.productName, productSize: input.productSize, productColor: input.productColor, qualityGrade: input.qualityGrade, quantityDozen: input.quantityDozen, lastMovementAt: new Date(), createdBy: Number(ctx.user.id) });
+        const result = await db.insert(finishedWarehouseStockTable).values({ barcode: input.barcode.trim().toUpperCase(), productName: input.productName, productSize: input.productSize, productColor: input.productColor, qualityGrade: input.qualityGrade, quantityDozen: input.quantityDozen, lastMovementAt: new Date(), createdBy: Number(ctx.user.id) });
         stockId = Number(result[0].insertId);
       }
       await db.insert(finishedWarehouseMovementsTable).values({ stockId, movementType: "receipt", quantityDozen: input.quantityDozen, sourceType: "storage", sourceId: input.sourceId, notes: input.notes, userId: Number(ctx.user.id) });
@@ -4405,21 +4425,21 @@ export const appRouter = router({
       if (["sales", "marketing", "production"].includes(dept) || ["manager", "supervisor"].includes(String(ctx.user.role))) return rows;
       return rows.filter((row) => Number(row.requesterId) === Number(ctx.user.id));
     }),
-    create: protectedProcedure.input(z.object({ customerId: z.number().optional(), customerName: z.string().min(2), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
+    create: protectedProcedure.input(z.object({ customerId: z.number().optional(), customerName: z.string().min(2), productName: z.string().min(1), barcode: z.string().min(2, "باركود المنتج إلزامي"), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const referenceCode = `MFG-${Date.now()}`;
-      const result = await db.insert(productManufacturingRequestsTable).values({ ...input, referenceCode, requesterId: Number(ctx.user.id), requesterName: String(ctx.user.name), attachments: input.attachments, signatures: input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [] });
+      const result = await db.insert(productManufacturingRequestsTable).values({ customerId: input.customerId, customerName: input.customerName, productName: input.productName, barcode: input.barcode.trim().toUpperCase(), productSize: input.productSize, productColor: input.productColor, quantityDozen: input.quantityDozen, orderDate: input.orderDate, deliveryDate: input.deliveryDate, referenceCode, requesterId: Number(ctx.user.id), requesterName: String(ctx.user.name), attachments: input.attachments, signatures: input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [] });
       const id = Number(result[0].insertId);
       await db.insert(productManufacturingRequestEventsTable).values({ requestId: id, action: "create", fromStatus: null, toStatus: "PENDING_SALES", actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: "رفع طلب تصنيع منتج", signature: input.signature, attachments: input.attachments });
       return { success: true, id, referenceCode };
     }),
-    update: protectedProcedure.input(z.object({ id: z.number(), customerName: z.string().min(2), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
+    update: protectedProcedure.input(z.object({ id: z.number(), customerName: z.string().min(2), productName: z.string().min(1), barcode: z.string().min(2, "باركود المنتج إلزامي"), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
       const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
       if (ctx.user.role !== "admin" && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا يمكنك تعديل هذا الطلب" });
       if (!["PENDING_SALES", "RETURNED_TO_REP"].includes(request.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تعديل الطلب بعد بدء الاعتماد" });
-      await db.update(productManufacturingRequestsTable).set({ customerName: input.customerName, productName: input.productName, productSize: input.productSize, productColor: input.productColor, quantityDozen: input.quantityDozen, orderDate: input.orderDate, deliveryDate: input.deliveryDate, attachments: input.attachments, signatures: input.signature ? [...(Array.isArray(request.signatures) ? request.signatures : []), { userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : request.signatures }).where(eq(productManufacturingRequestsTable.id, input.id));
+      await db.update(productManufacturingRequestsTable).set({ customerName: input.customerName, productName: input.productName, barcode: input.barcode.trim().toUpperCase(), productSize: input.productSize, productColor: input.productColor, quantityDozen: input.quantityDozen, orderDate: input.orderDate, deliveryDate: input.deliveryDate, attachments: input.attachments, signatures: input.signature ? [...(Array.isArray(request.signatures) ? request.signatures : []), { userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : request.signatures }).where(eq(productManufacturingRequestsTable.id, input.id));
       await db.insert(productManufacturingRequestEventsTable).values({ requestId: input.id, action: "update", fromStatus: request.status, toStatus: request.status, actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: "تعديل بيانات الطلب", signature: input.signature, attachments: input.attachments });
       return { success: true };
     }),
@@ -4456,7 +4476,7 @@ export const appRouter = router({
       const requestRows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
       const request = requestRows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
       if (request.status !== "IN_PRODUCTION") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إغلاق الطلب قبل اعتماده وبدء الإنتاج" });
-      const stockRows = input.stockId ? await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.id, input.stockId), eq(finishedWarehouseStockTable.isActive, 1))).limit(1) : await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.productName, request.productName), eq(finishedWarehouseStockTable.productSize, request.productSize || ""), eq(finishedWarehouseStockTable.productColor, request.productColor || ""), eq(finishedWarehouseStockTable.isActive, 1))).limit(1);
+      const stockRows = input.stockId ? await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.id, input.stockId), eq(finishedWarehouseStockTable.barcode, request.barcode), eq(finishedWarehouseStockTable.isActive, 1))).limit(1) : await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.barcode, request.barcode), eq(finishedWarehouseStockTable.isActive, 1))).limit(1);
       const stock = stockRows[0]; if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: "لا يوجد رصيد مطابق للصنف في المستودع" });
       if (Number(stock.quantityDozen) < Number(request.quantityDozen)) throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد المتاح ${stock.quantityDozen} درزن، والمطلوب ${request.quantityDozen} درزن` });
       const remainingDozen = Number(stock.quantityDozen) - Number(request.quantityDozen);

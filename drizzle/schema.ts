@@ -51,6 +51,7 @@ export const production = mysqlTable("production", {
   date: varchar("date", { length: 20 }).notNull(),
   machineNumber: varchar("machineNumber", { length: 50 }).notNull(),
   productName: varchar("productName", { length: 100 }).default(""),
+  barcode: varchar("barcode", { length: 64 }).notNull(),
   qualityGrade: mysqlEnum("qualityGrade", ["first", "second", "sample"]).default("first").notNull(),
   sampleRequestId: int("sampleRequestId"),
   sampleReference: varchar("sampleReference", { length: 30 }),
@@ -1148,6 +1149,7 @@ export type FinancialDailyReport = typeof financialDailyReports.$inferSelect;
 // مخزون الإنتاج التام وحركاته
 export const finishedWarehouseStock = mysqlTable("finishedWarehouseStock", {
   id: int("id").autoincrement().primaryKey(),
+  barcode: varchar("barcode", { length: 64 }).notNull().unique(),
   productName: varchar("productName", { length: 255 }).notNull(),
   productSize: varchar("productSize", { length: 100 }).default(""),
   productColor: varchar("productColor", { length: 100 }).default(""),
@@ -1185,6 +1187,7 @@ export const productManufacturingRequests = mysqlTable("productManufacturingRequ
   customerId: int("customerId"),
   customerName: varchar("customerName", { length: 255 }).notNull(),
   productName: varchar("productName", { length: 255 }).notNull(),
+  barcode: varchar("barcode", { length: 64 }).notNull(),
   productSize: varchar("productSize", { length: 100 }).default(""),
   productColor: varchar("productColor", { length: 100 }).default(""),
   quantityDozen: decimal("quantityDozen", { precision: 12, scale: 2, mode: "number" }).notNull(),

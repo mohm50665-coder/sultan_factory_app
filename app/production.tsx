@@ -962,7 +962,19 @@ export default function ProductionScreen() {
             </ScrollView>
           </View>
         )}
-      </View>
+        </View>
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{ color: colors.muted, fontSize: 11, marginBottom: 3, textAlign: 'right' }}>{isAr ? "باركود المنتج (يُنشأ تلقائياً إن ترك فارغاً)" : "Product barcode (generated automatically if empty)"}</Text>
+          <TextInput
+            style={{ backgroundColor: product.barcode ? '#f0fdf4' : fieldBackgroundColor, borderWidth: 1, borderColor: product.barcode ? '#16a34a' : colors.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, color: fieldTextColor, textAlign: 'right', fontSize: 13 }}
+            placeholder={isAr ? "يُنشأ تلقائياً" : "Generated automatically"}
+            placeholderTextColor={fieldPlaceholderColor}
+            value={product.barcode}
+            editable={!productLocked}
+            onFocus={productLocked ? notifySavedProductLocked : undefined}
+            onChangeText={(v) => updateProductField(machine, shiftIndex, productIndex, "barcode", v)}
+          />
+        </View>
 
       {/* تصنيف المنتج الموحد */}
       <View style={{ marginBottom: 8, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: colors.border, borderRadius: 9, padding: 9 }}>

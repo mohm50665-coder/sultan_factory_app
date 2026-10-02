@@ -183,6 +183,13 @@
       "when": 1790884904187,
       "tag": "0025_even_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1790957529482,
+      "tag": "0026_solid_tinkerer",
+      "breakpoints": true
     }
   ]
 }
