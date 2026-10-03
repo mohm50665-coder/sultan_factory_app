@@ -19,8 +19,9 @@ describe("finished warehouse workflow", () => {
   it("shows variant-specific stock selection in representative orders and offers manufacturing escalation", () => {
     const screen = read("app/representative-transactions.tsx");
     expect(screen).toContain("selectedStock");
-    expect(screen).toContain("اختر المنتج المحدد");
-    expect(screen).toContain("الكمية تخص هذه النسخة فقط");
+    expect(screen).toContain("bottomProductPicker");
+    expect(screen).toContain("اختر المنتج المناسب");
+    expect(screen).toContain("المطلوب والمتبقي يحسبان لهذه النسخة فقط");
     expect(screen).toContain("product-manufacturing-request");
   });
 

@@ -17,6 +17,7 @@ import {
   representativeTransactions,
   representativeWorkflowEvents,
   users,
+  finishedWarehouseStock,
 } from "../drizzle/schema";
 
 const SALES_NAMES = ["sales", "marketing", "المبيعات", "التسويق", "التسويق والمبيعات", "إدارة التسويق والمبيعات"];
@@ -167,6 +168,25 @@ function canAccessCustomer(user: any, customer: any) {
   if (isAdmin(user) || isSalesManager(user)) return true;
   if (!isRepresentativeEmployee(user)) return false;
   return Number(customer?.assignedRepresentativeId) === Number(user.id);
+}
+
+async function validateWarehouseStockForOrder(db: any, input: z.infer<typeof transactionSchema>) {
+  if (input.transactionType !== "order") return;
+  const requestedByBarcode = new Map<string, number>();
+  for (const item of input.items) {
+    const barcode = String(item.barcode || "").trim().toUpperCase();
+    if (barcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: `اختر نسخة المستودع للمنتج ${item.productName}` });
+    const requestedDozen = item.quantityUnit === "pair" ? Number(item.quantity) / 12 : Number(item.quantity);
+    requestedByBarcode.set(barcode, (requestedByBarcode.get(barcode) || 0) + requestedDozen);
+  }
+  for (const [barcode, requestedDozen] of requestedByBarcode) {
+    const rows = await db.select().from(finishedWarehouseStock).where(and(eq(finishedWarehouseStock.barcode, barcode), eq(finishedWarehouseStock.isActive, 1))).limit(1);
+    const stock = rows[0];
+    if (!stock) throw new TRPCError({ code: "BAD_REQUEST", message: `نسخة المنتج بالباركود ${barcode} غير موجودة في المستودع` });
+    if (Number(stock.quantityDozen || 0) < requestedDozen) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد المتاح للصنف ${stock.productName} هو ${stock.quantityDozen} درزن، والمطلوب ${requestedDozen} درزن` });
+    }
+  }
 }
 
 function validateTransaction(input: z.infer<typeof transactionSchema>) {
@@ -462,6 +482,7 @@ export const representativeRouter = router({
       validateTransaction(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await validateWarehouseStockForOrder(db, input);
       const customerRows = await db.select().from(customers).where(and(eq(customers.id, input.customerId), eq(customers.isActive, 1))).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
@@ -482,6 +503,7 @@ export const representativeRouter = router({
       validateTransaction(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await validateWarehouseStockForOrder(db, input);
       const rows = await db.select().from(representativeTransactions).where(eq(representativeTransactions.id, input.id)).limit(1);
       const current = rows[0];
       if (!current || current.status !== "DRAFT") throw new Error("يمكن تعديل المسودة فقط");
