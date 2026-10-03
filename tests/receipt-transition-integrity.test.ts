@@ -52,6 +52,14 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain("باركود التخزين ينتقل من الإنتاج ولا يمكن تعديله في المراحل");
   });
 
+  it("normalizes Arabic and English stage names before validating the route", () => {
+    expect(routersSource).toContain("function normalizeManufacturingStage");
+    expect(routersSource).toContain('"الروسو": "rosso"');
+    expect(routersSource).toContain('"القلب": "qalb"');
+    expect(routersSource).toContain("const requestedStage = normalizeManufacturingStage");
+    expect(routersSource).toContain("const receiverStage = normalizeManufacturingStage");
+  });
+
   it("implements the Kawiya anti-slip return branch and exact-data deduplication", () => {
     expect(routersSource).toContain('kawiya: ["inspection", "antislip"]');
     expect(routersSource).toContain('antislip: ["kawiya"]');

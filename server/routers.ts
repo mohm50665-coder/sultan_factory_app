@@ -147,8 +147,24 @@ const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
   storage: [],
 };
 
+function normalizeManufacturingStage(value: unknown) {
+  const key = String(value || "").normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+  const aliases: Record<string, string> = {
+    production: "production", "الإنتاج": "production", "قسم الإنتاج": "production",
+    machines: "machines", "المكائن": "machines", "مرحلة المكائن": "machines",
+    rosso: "rosso", "الروسو": "rosso", "مرحلة الروسو": "rosso",
+    qalb: "qalb", "القلب": "qalb", "مرحلة القلب": "qalb",
+    kawiya: "kawiya", "الكاوية": "kawiya", "مرحلة الكاوية": "kawiya",
+    inspection: "inspection", "الفحص": "inspection", "مرحلة الفحص": "inspection",
+    packing: "packing", "التغليف": "packing", "التعبئة والتغليف": "packing", "مرحلة التغليف": "packing",
+    antislip: "antislip", "مانع الانزلاق": "antislip", "مرحلة مانع الانزلاق": "antislip",
+    storage: "storage", warehouse: "storage", "التخزين": "storage", "المستودع": "storage", "المستودعات": "storage", "مرحلة التخزين": "storage",
+  };
+  return aliases[key] || key;
+}
+
 function allowedNextStages(stageName: string, productType?: string | null): readonly string[] {
-  const normalizedStage = String(stageName || "").trim();
+  const normalizedStage = normalizeManufacturingStage(stageName);
   const fromAntiSlip = String(productType || "").includes(":FROM:antislip");
   // بعد عودة المنتج من مانع الانزلاق إلى الكاوية، تكون وجهته الوحيدة الفحص.
   if (normalizedStage === "kawiya" && fromAntiSlip) return ["inspection"];
@@ -1647,7 +1663,7 @@ export const appRouter = router({
         const receiverName = String(ctx.user.name || "").trim();
         const receiverUsername = String((ctx.user as any).username || "").trim();
         const expectedReceiver = String(record.expectedReceiver || "").trim();
-        const receiverStage = String(record.receiverStage || "").trim();
+        const receiverStage = normalizeManufacturingStage(record.receiverStage);
         const isExplicitlyAssigned = Boolean(expectedReceiver && receiverStage) && (
           samePersonName(expectedReceiver, receiverName) || samePersonName(expectedReceiver, receiverUsername)
         );
@@ -1879,7 +1895,7 @@ export const appRouter = router({
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
-        const requestedStage = String((input as any).receiverStage || "").trim();
+        const requestedStage = normalizeManufacturingStage((input as any).receiverStage);
         const allowedStages = allowedNextStages(record.stageName, record.productType);
         const targetStage = requestedStage || allowedStages[0] || null;
         if (!targetStage || !allowedStages.includes(targetStage)) throw new Error("التسليم إلى هذه المرحلة غير مسموح؛ يجب اتباع مسار التصنيع المحدد");
