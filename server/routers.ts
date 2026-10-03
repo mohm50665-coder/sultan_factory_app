@@ -176,13 +176,14 @@ function allowedNextStages(stageName: string, productType?: string | null): read
 // بصمة المطابقة التشغيلية: لا تمنع الحركة إلا إذا تطابقت كل بيانات الإنتاج الأساسية.
 // اختلاف المكينة أو الوردية أو التاريخ يجعل الحركة مستقلة ومسموحة.
 function manufacturingDataFingerprint(row: any) {
+  const legacyIdentity = parseLegacyProductName(String(row.productName || ""));
   return JSON.stringify([
     String(row.machineNumber || "").trim(),
     Number(row.shiftNumber) || 1,
     String(row.date || "").trim(),
     String(row.productName || "").trim(),
-    String(row.productColor || "").trim(),
-    String(row.productSize || "").trim(),
+    String(row.productColor || legacyIdentity.color || "").trim(),
+    String(row.productSize || legacyIdentity.size || "").trim(),
     Number(row.quantityDozen) || 0,
     Number(row.quantityPair) || 0,
     String(row.qualityGrade || "first"),
