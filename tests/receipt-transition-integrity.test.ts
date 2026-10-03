@@ -21,12 +21,11 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain('antislip: ["kawiya"]');
   });
 
-  it("blocks a worker from receiving a new custody while a previous custody is still received", () => {
-    expect(routersSource).toContain("لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة");
-    expect(routersSource).toContain('eq(manufacturingStagesTable.movementStatus, "received")');
-    expect(routersSource).toContain("activeCustodyProductName");
-    expect(stageSource).toContain("blockedByActiveCustody");
-    expect(stageSource).toContain("لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة");
+  it("allows a worker to receive multiple different products while preserving exact-duplicate protection", () => {
+    expect(routersSource).toContain("يسمح الموظف باستلام عدة منتجات مختلفة");
+    expect(routersSource).toContain("تم تنفيذ حركة مطابقة بالكامل مسبقاً");
+    expect(routersSource).toContain("destinationKey = `AUTO_STAGE:${record.id}`");
+    expect(stageSource).not.toContain("يجب تسليم العهدة السابقة أولاً");
   });
 
   it("allows the receiver to confirm by display name or username", () => {

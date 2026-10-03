@@ -1449,7 +1449,8 @@ export const appRouter = router({
         if (!isEligibleReceiver && !isSoleStageReceiver) return [];
 
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
-        const activeCustody = ctx.user.role === "admin" ? null : findActiveCustodyFromRows(rows, receiverName, receiverUsername);
+        // يسمح الموظف باستلام عدة منتجات مختلفة؛ منع التكرار يتم على مستوى الحركة/الإنتاج نفسها فقط.
+        const activeCustody: any = null;
         return rows
           .filter((record: any) => {
             // receivedAt يخص استلام السجل من المرحلة السابقة، ولا يمنع استلام المرحلة التالية.
@@ -1697,16 +1698,6 @@ export const appRouter = router({
           if (!canClaim) throw new Error("لا يمكن إلا لموظف المرحلة التالية تأكيد الاستلام");
         }
         const receivedAt = new Date();
-        if (ctx.user.role !== "admin") {
-          const custodyRows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt));
-          const activeCustody = findActiveCustodyFromRows(custodyRows, receiverName, receiverUsername);
-          if (activeCustody && Number(activeCustody.id) !== Number(record.id)) {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message: `لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة${activeCustody[0].productName ? ` (${activeCustody[0].productName})` : ""}`,
-            });
-          }
-        }
         // مانع الانزلاق لا يستقبل دفعة جديدة من الكاوية ما دامت الدفعة السابقة داخله.
         if (destinationStage === "antislip") {
           const activeAntiSlip = await db.select({ id: manufacturingStagesTable.id, productName: manufacturingStagesTable.productName })
@@ -1737,14 +1728,6 @@ export const appRouter = router({
           throw new Error("تعذر مطابقة عهدة المرحلة التالية؛ لم يتم تسجيل نجاح العملية");
         }
         const result = await db.transaction(async (tx: any) => {
-          // افحص داخل نفس المعاملة حتى لا ينجح استلامان متزامنان للموظف نفسه.
-          if (ctx.user.role !== "admin") {
-            const custodyRows = await tx.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt));
-            const activeCustody = findActiveCustodyFromRows(custodyRows, receiverName, receiverUsername);
-            if (activeCustody && Number(activeCustody.id) !== Number(record.id)) {
-              throw new TRPCError({ code: "CONFLICT", message: `لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة${activeCustody[0].productName ? ` (${activeCustody[0].productName})` : ""}` });
-            }
-          }
           // تحديث مشروط بالحالة delivered يعمل كقفل ذري: أول طلب فقط يملك حق إنشاء الحركة التالية.
           // أي ضغط مزدوج أو إعادة إرسال متزامنة ستجد أن الصف أصبح received وتعيد الحركة المنشأة بدلاً من إنشاء سجل ثانٍ.
           const sourceUpdate = await tx.update(manufacturingStagesTable).set({ movementStatus: "received", receivedBy: receiverName, receivedAt, expectedReceiver: canonicalReceiverName, receiverStage: destinationStage }).where(and(eq(manufacturingStagesTable.id, record.id), eq(manufacturingStagesTable.movementStatus, "delivered")));

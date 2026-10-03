@@ -30,6 +30,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);");
   });
 
+  it("allows a worker to receive multiple different products without a broad previous-custody block", () => {
+    expect(source).toContain("يسمح الموظف باستلام عدة منتجات مختلفة");
+    expect(source).not.toContain("لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة");
+    expect(ui).not.toContain("يجب تسليم العهدة السابقة أولاً");
+  });
+
   it("does not block a worker with a historical source custody that already has a downstream record", () => {
     expect(source).toContain("function findActiveCustodyFromRows");
     expect(source).toContain("if (record.movementStatus !== \"received\" || record.deletedAt || record.stageCompletedAt) return false");
