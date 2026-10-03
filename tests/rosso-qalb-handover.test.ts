@@ -31,7 +31,7 @@ describe("Rosso to Qalb handover hardening", () => {
   });
 
   it("uses the official Rana production-manager label for every production handover", () => {
-    expect(source).toContain('const OFFICIAL_PRODUCTION_SENDER = "رنا – مدير الإنتاج"');
+    expect(source).toContain('const OFFICIAL_PRODUCTION_SENDER = "Shohel Rana – مدير الإنتاج"');
     expect(source).toContain("workerName: OFFICIAL_PRODUCTION_SENDER");
     expect(source).toContain("movementBy: OFFICIAL_PRODUCTION_SENDER");
   });

@@ -331,7 +331,7 @@ function productionEntryFingerprint(entry: any) {
 }
 
 // الاسم التشغيلي الموحد لمسلم الإنتاج في البطاقات والتقارير؛ userId يبقى للتدقيق والصلاحيات.
-const OFFICIAL_PRODUCTION_SENDER = "رنا – مدير الإنتاج";
+const OFFICIAL_PRODUCTION_SENDER = "Shohel Rana – مدير الإنتاج";
 
 const inFlightProductionKeys = new Set<string>();
 const inFlightManufacturingKeys = new Set<string>();
