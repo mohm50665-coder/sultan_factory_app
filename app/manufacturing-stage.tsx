@@ -268,7 +268,13 @@ export default function ManufacturingStageScreen() {
       if (data) {
         // ضع قائمة العهدة أولاً حتى تحتفظ السجلات القديمة بمرحلة ومستلم الطابور المحسوبين للخدمة.
         const merged = [...(Array.isArray(queue) ? queue : []), ...(Array.isArray(data) ? data : [])].filter((record: any, index: number, all: any[]) => record?.id && all.findIndex((item) => item.id === record.id) === index);
-        let filtered = merged.filter((d: any) => (d.stageName === stage || (d.receiverStage === stage && samePersonName(d.expectedReceiver, user?.name))) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0));
+        // سجل المصدر الذي تم تأكيد استلامه في المرحلة التالية يبقى للتقارير فقط،
+        // ولا يظهر كبطاقة تشغيلية معلقة في المرحلة السابقة أو التالية.
+        let filtered = merged.filter((d: any) => {
+          const isCurrentStageRecord = d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered");
+          const isWaitingForThisStage = d.movementStatus === "delivered" && d.receiverStage === stage && samePersonName(d.expectedReceiver, user?.name);
+          return (isCurrentStageRecord || isWaitingForThisStage) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0);
+        });
         // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.
         if (user?.role !== "admin") {
           filtered = filtered.filter((d: any) => d.userId === user?.id || samePersonName(d.workerName, user?.name) || samePersonName(d.expectedReceiver, user?.name));

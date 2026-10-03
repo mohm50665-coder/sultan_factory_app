@@ -59,6 +59,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(trackingUi).toContain("false && selectedProduct");
   });
 
+  it("hides a confirmed source custody from operational stage lists", () => {
+    expect(ui).toContain('d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered")');
+    expect(ui).toContain('d.movementStatus === "delivered" && d.receiverStage === stage');
+    expect(ui).toContain("يبقى للتقارير فقط");
+  });
+
   it("keeps the UI success message after the awaited server mutation and reload", () => {
     expect(ui).toContain("await manufacturingStageService.confirmReceipt(productId)");
     expect(ui).toContain("await loadEntries();");
