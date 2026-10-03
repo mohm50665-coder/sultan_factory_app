@@ -221,7 +221,7 @@ function validateTransaction(input: z.infer<typeof transactionSchema>) {
 
 function statusTargetDepartment(status: string) {
   if (["PENDING_SALES_APPROVAL", "PENDING_SALES_RESOLUTION"].includes(status)) return "sales_management";
-  if (status === "PENDING_WAREHOUSE_INVOICE") return "warehouse";
+  if (["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(status)) return "warehouse";
   if (["PENDING_PRODUCTION_APPROVAL", "IN_PRODUCTION"].includes(status)) return "production";
   if (["RETURNED_TO_REPRESENTATIVE", "READY_FOR_REPRESENTATIVE"].includes(status)) return "sales_representative";
   return "closed";
@@ -288,14 +288,14 @@ async function getDetail(db: any, id: number) {
 function canViewTransaction(user: any, transaction: any) {
   if (isAdmin(user) || isSalesManager(user)) return true;
   if (Number(transaction.representativeId) === Number(user.id)) return true;
-  if (isWarehouseManager(user)) return ["PENDING_WAREHOUSE_INVOICE", "RETURNED_TO_REPRESENTATIVE", "CLOSED"].includes(transaction.status);
+  if (isWarehouseManager(user)) return ["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_EXECUTED", "RETURNED_TO_REPRESENTATIVE", "REPRESENTATIVE_CLOSED", "CLOSED"].includes(transaction.status);
   if (isProductionManager(user)) return ["custom", "sample"].includes(transaction.transactionType);
   return false;
 }
 
 const transitionSchema = z.object({
   id: z.number().int().positive(),
-  action: z.enum(["sales_approve", "sales_reject", "warehouse_invoice", "representative_close", "production_approve", "production_reject", "sales_resubmit", "sales_accept_rejection", "production_ready", "representative_receive"]),
+  action: z.enum(["sales_approve", "sales_reject", "warehouse_invoice", "warehouse_execute", "warehouse_partial", "representative_respond", "representative_close_order", "representative_close", "production_approve", "production_reject", "sales_resubmit", "sales_accept_rejection", "production_ready", "representative_receive"]),
   notes: z.string().optional().default(""),
   attachments: z.array(attachmentSchema).optional().default([]),
   invoiceNumber: z.string().optional(),
@@ -551,6 +551,19 @@ export const representativeRouter = router({
       return { success: true };
     }),
 
+    submitOrderDirect: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      if (!isRepresentative(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const detail = await getDetail(db, input.id);
+      if (!detail || detail.transactionType !== "order" || detail.status !== "DRAFT") throw new TRPCError({ code: "BAD_REQUEST", message: "الطلب غير صالح للإرسال المباشر" });
+      if (Number(detail.representativeId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN" });
+      const now = new Date();
+      await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, paymentMethod: detail.paymentMethod, paymentAmount: detail.paymentAmount, deliveryDate: detail.deliveryDate } }).where(eq(representativeTransactions.id, input.id));
+      await insertEvent(db, detail, ctx.user, "PENDING_WAREHOUSE_ISSUE", "submit_order_to_warehouse", "اعتماد الطلب وإرساله مباشرة إلى المستودعات");
+      await notifyNext(db, ctx.user, detail, "PENDING_WAREHOUSE_ISSUE");
+      return { success: true, referenceCode: detail.referenceCode };
+    }),
     transition: protectedProcedure.input(transitionSchema).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
@@ -571,6 +584,22 @@ export const representativeRouter = router({
         case "warehouse_invoice":
           if (!isWarehouseManager(ctx.user) || detail.status !== "PENDING_WAREHOUSE_INVOICE" || !input.invoiceNumber || !input.attachments.length) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم الفاتورة ومرفق الفاتورة إلزاميان" });
           nextStatus = "RETURNED_TO_REPRESENTATIVE"; patch.invoiceNumber = input.invoiceNumber; patch.invoiceAttachments = input.attachments;
+          break;
+        case "warehouse_execute":
+          if (!isWarehouseManager(ctx.user) || detail.status !== "PENDING_WAREHOUSE_ISSUE") throw new TRPCError({ code: "FORBIDDEN", message: "الطلب ليس في قائمة طلبات المناديب" });
+          nextStatus = "WAREHOUSE_EXECUTED";
+          break;
+        case "warehouse_partial":
+          if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب ملاحظة تفصيلية عن عدم التوفر أو التنفيذ الجزئي" });
+          nextStatus = "WAREHOUSE_PARTIAL"; patch.rejectionReason = input.notes;
+          break;
+        case "representative_respond":
+          if (Number(detail.representativeId) !== Number(ctx.user.id) || detail.status !== "WAREHOUSE_PARTIAL" || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل رد المندوب قبل إعادة الطلب للمستودع" });
+          nextStatus = "PENDING_WAREHOUSE_ISSUE"; patch.correctiveAction = { action: input.notes, evidence: input.attachments };
+          break;
+        case "representative_close_order":
+          if (Number(detail.representativeId) !== Number(ctx.user.id) || !["WAREHOUSE_PARTIAL", "WAREHOUSE_EXECUTED"].includes(detail.status)) throw new TRPCError({ code: "FORBIDDEN" });
+          nextStatus = "REPRESENTATIVE_CLOSED"; patch.closedAt = new Date();
           break;
         case "representative_close":
           if (Number(detail.representativeId) !== Number(ctx.user.id) || detail.status !== "RETURNED_TO_REPRESENTATIVE") throw new TRPCError({ code: "FORBIDDEN" });

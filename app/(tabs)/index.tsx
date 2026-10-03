@@ -267,6 +267,18 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     departments: ["sales", "marketing", "production"],
   },
   {
+    id: "warehouse_representative_orders",
+    labelAr: "طلبات المناديب",
+    labelEn: "Representative Orders",
+    icon: "assignment",
+    color: "#f59e0b",
+    route: "/warehouse-representative-orders",
+    descriptionAr: "طلبات العملاء المحولة للمستودعات للتنفيذ والمتابعة",
+    descriptionEn: "Representative orders sent to the warehouse for execution",
+    section: "warehouse",
+    departments: ["warehouse"],
+  },
+  {
     id: "warehouse",
     labelAr: "المستودعات",
     labelEn: "Warehouse",

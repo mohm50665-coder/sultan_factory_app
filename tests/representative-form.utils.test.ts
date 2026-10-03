@@ -53,6 +53,7 @@ describe("Representative transaction form", () => {
   it("keeps numeric dozen and pair input stable while typing", () => {
     expect(transactionsScreen).toContain("const parseQuantity = (value: string)");
     expect(transactionsScreen).toContain("quantity: parseQuantity(value)");
-    expect(transactionsScreen).toContain("item.quantity > 0 ? String(item.quantity)");
+    expect(transactionsScreen).toContain('item.quantityUnit === "pair" ? String(item.quantity || 0)');
+    expect(transactionsScreen).toContain('item.quantityUnit === "dozen" ? String(item.quantity || 0)');
   });
 });
