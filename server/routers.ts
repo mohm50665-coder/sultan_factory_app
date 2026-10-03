@@ -330,6 +330,9 @@ function productionEntryFingerprint(entry: any) {
   ])).digest("hex");
 }
 
+// الاسم التشغيلي الموحد لمسلم الإنتاج في البطاقات والتقارير؛ userId يبقى للتدقيق والصلاحيات.
+const OFFICIAL_PRODUCTION_SENDER = "رنا – مدير الإنتاج";
+
 const inFlightProductionKeys = new Set<string>();
 const inFlightManufacturingKeys = new Set<string>();
 
@@ -365,7 +368,7 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
   const existing = existingRows[0];
   const values = {
     stageName: "production",
-    workerName: String(user?.name || "").trim(),
+    workerName: OFFICIAL_PRODUCTION_SENDER,
     machineNumber: String(entry.machineNumber || "").trim(),
     shiftNumber: Number(entry.shiftNumber) || 1,
     quantityDozen: Number(entry.productionDozen) || 0,
@@ -380,7 +383,7 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
     productionId: entry.productionId || null,
     date: entry.date,
     movementStatus: "delivered" as const,
-    movementBy: String(user?.name || "").trim(),
+    movementBy: OFFICIAL_PRODUCTION_SENDER,
     movementAt: new Date(),
     expectedReceiver,
     receiverStage: "rosso",

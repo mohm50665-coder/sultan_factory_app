@@ -30,6 +30,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);");
   });
 
+  it("uses the official Rana production-manager label for every production handover", () => {
+    expect(source).toContain('const OFFICIAL_PRODUCTION_SENDER = "رنا – مدير الإنتاج"');
+    expect(source).toContain("workerName: OFFICIAL_PRODUCTION_SENDER");
+    expect(source).toContain("movementBy: OFFICIAL_PRODUCTION_SENDER");
+  });
+
   it("requires every automatic custody movement to remain linked to the original production", () => {
     expect(source).toContain("if (!record.productionId) return false;");
     expect(source).toContain("لا يمكن استلام عهدة غير مرتبطة بسجل إنتاج أصلي");
