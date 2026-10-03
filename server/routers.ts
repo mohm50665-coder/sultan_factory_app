@@ -355,6 +355,18 @@ async function findExistingProduction(db: any, entry: any) {
   return candidates.find((candidate: any) => productionEntryFingerprint(candidate) === fingerprint) || null;
 }
 
+function findActiveCustodyFromRows(rows: any[], receiverName: string, receiverUsername: string) {
+  return rows.find((record: any) => {
+    if (record.movementStatus !== "received" || record.deletedAt || record.stageCompletedAt) return false;
+    // سجل المصدر يصبح تاريخياً بمجرد وجود سجل AUTO_STAGE تابع له.
+    const hasDownstreamRecord = rows.some((child: any) => String(child.productType || "").startsWith(`AUTO_STAGE:${record.id}:`));
+    if (hasDownstreamRecord) return false;
+    return [record.receivedBy, record.workerName, record.expectedReceiver].some((name) =>
+      samePersonName(name, receiverName) || samePersonName(name, receiverUsername),
+    );
+  });
+}
+
 async function createInitialProductionHandover(db: any, entry: any, user: any) {
   if (!isAutomaticHandoverActive(entry.date)) return;
   const expectedReceiver = String(entry.expectedReceiver || "").trim();
@@ -1437,12 +1449,7 @@ export const appRouter = router({
         if (!isEligibleReceiver && !isSoleStageReceiver) return [];
 
         const rows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt)).orderBy(desc(manufacturingStagesTable.movementAt));
-        const activeCustody = ctx.user.role === "admin" ? null : rows.find((record: any) => {
-          if (record.movementStatus !== "received" || record.deletedAt) return false;
-          return [record.receivedBy, record.workerName, record.expectedReceiver].some((name) =>
-            samePersonName(name, receiverName) || samePersonName(name, receiverUsername),
-          );
-        });
+        const activeCustody = ctx.user.role === "admin" ? null : findActiveCustodyFromRows(rows, receiverName, receiverUsername);
         return rows
           .filter((record: any) => {
             // receivedAt يخص استلام السجل من المرحلة السابقة، ولا يمنع استلام المرحلة التالية.
@@ -1476,7 +1483,7 @@ export const appRouter = router({
       const rows = await db.select().from(manufacturingStagesTable)
         .where(and(isNull(manufacturingStagesTable.deletedAt), eq(manufacturingStagesTable.movementStatus, "received")))
         .orderBy(desc(manufacturingStagesTable.receivedAt));
-      const mine = rows.filter((row: any) => [row.receivedBy, row.workerName, row.expectedReceiver].some((name) =>
+      const mine = rows.filter((row: any) => !row.stageCompletedAt && !rows.some((child: any) => String(child.productType || "").startsWith(`AUTO_STAGE:${row.id}:`)) && [row.receivedBy, row.workerName, row.expectedReceiver].some((name) =>
         samePersonName(name, receiverName) || samePersonName(name, receiverUsername),
       ));
       const now = Date.now();
@@ -1691,22 +1698,9 @@ export const appRouter = router({
         }
         const receivedAt = new Date();
         if (ctx.user.role !== "admin") {
-          const activeCustody = await db.select({ id: manufacturingStagesTable.id, productName: manufacturingStagesTable.productName })
-            .from(manufacturingStagesTable)
-            .where(and(
-              isNull(manufacturingStagesTable.deletedAt),
-              eq(manufacturingStagesTable.movementStatus, "received"),
-              or(
-                eq(manufacturingStagesTable.receivedBy, receiverName),
-                eq(manufacturingStagesTable.workerName, receiverName),
-                eq(manufacturingStagesTable.expectedReceiver, receiverName),
-                eq(manufacturingStagesTable.receivedBy, receiverUsername),
-                eq(manufacturingStagesTable.workerName, receiverUsername),
-                eq(manufacturingStagesTable.expectedReceiver, receiverUsername),
-              ),
-            ))
-            .limit(1);
-          if (activeCustody[0] && Number(activeCustody[0].id) !== Number(record.id)) {
+          const custodyRows = await db.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt));
+          const activeCustody = findActiveCustodyFromRows(custodyRows, receiverName, receiverUsername);
+          if (activeCustody && Number(activeCustody.id) !== Number(record.id)) {
             throw new TRPCError({
               code: "CONFLICT",
               message: `لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة${activeCustody[0].productName ? ` (${activeCustody[0].productName})` : ""}`,
@@ -1745,22 +1739,9 @@ export const appRouter = router({
         const result = await db.transaction(async (tx: any) => {
           // افحص داخل نفس المعاملة حتى لا ينجح استلامان متزامنان للموظف نفسه.
           if (ctx.user.role !== "admin") {
-            const activeCustody = await tx.select({ id: manufacturingStagesTable.id, productName: manufacturingStagesTable.productName })
-              .from(manufacturingStagesTable)
-              .where(and(
-                isNull(manufacturingStagesTable.deletedAt),
-                eq(manufacturingStagesTable.movementStatus, "received"),
-                or(
-                  eq(manufacturingStagesTable.receivedBy, receiverName),
-                  eq(manufacturingStagesTable.workerName, receiverName),
-                  eq(manufacturingStagesTable.expectedReceiver, receiverName),
-                  eq(manufacturingStagesTable.receivedBy, receiverUsername),
-                  eq(manufacturingStagesTable.workerName, receiverUsername),
-                  eq(manufacturingStagesTable.expectedReceiver, receiverUsername),
-                ),
-              ))
-              .limit(1);
-            if (activeCustody[0] && Number(activeCustody[0].id) !== Number(record.id)) {
+            const custodyRows = await tx.select().from(manufacturingStagesTable).where(isNull(manufacturingStagesTable.deletedAt));
+            const activeCustody = findActiveCustodyFromRows(custodyRows, receiverName, receiverUsername);
+            if (activeCustody && Number(activeCustody.id) !== Number(record.id)) {
               throw new TRPCError({ code: "CONFLICT", message: `لا يمكن استلام منتج جديد قبل تسليم العهدة السابقة${activeCustody[0].productName ? ` (${activeCustody[0].productName})` : ""}` });
             }
           }

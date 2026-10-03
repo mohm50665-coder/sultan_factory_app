@@ -30,6 +30,17 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(source).toContain("const affectedRows = Number((sourceUpdate as any)?.[0]?.affectedRows || 0);");
   });
 
+  it("does not block a worker with a historical source custody that already has a downstream record", () => {
+    expect(source).toContain("function findActiveCustodyFromRows");
+    expect(source).toContain("if (record.movementStatus !== \"received\" || record.deletedAt || record.stageCompletedAt) return false");
+    expect(source).toContain("startsWith(`AUTO_STAGE:${record.id}:")
+  });
+
+  it("shows the current received custody as a deliverable card in its stage", () => {
+    expect(ui).toContain("const isCurrentUserCustody = d.stageName === stage && d.movementStatus === \"received\"");
+    expect(ui).toContain("|| isCurrentUserCustody");
+  });
+
   it("uses the official Rana production-manager label for every production handover", () => {
     expect(source).toContain('const OFFICIAL_PRODUCTION_SENDER = "Shohel Rana – مدير الإنتاج"');
     expect(source).toContain("workerName: OFFICIAL_PRODUCTION_SENDER");

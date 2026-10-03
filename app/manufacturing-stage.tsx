@@ -274,7 +274,11 @@ export default function ManufacturingStageScreen() {
         // ولا يظهر كبطاقة تشغيلية معلقة في المرحلة السابقة أو التالية.
         let filtered = merged.filter((d: any) => {
           const isQueueRecord = Array.isArray(queue) && queue.some((queued: any) => Number(queued?.id) === Number(d?.id));
-          const isCurrentStageRecord = d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered");
+          const isCurrentUserCustody = d.stageName === stage && d.movementStatus === "received" && !d.stageCompletedAt && (
+            samePersonName(d.receivedBy, user?.name) || samePersonName(d.receivedBy, (user as any)?.username) ||
+            samePersonName(d.workerName, user?.name) || samePersonName(d.workerName, (user as any)?.username)
+          );
+          const isCurrentStageRecord = (d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered")) || isCurrentUserCustody;
           // نتيجة listReceiptQueue مصفاة خادمياً حسب حساب المستخدم؛ لا نسقطها مرة ثانية
           // بسبب اختلاف مسافة أو اسم مستلم قديم، وإلا تختفي عهدة الجوال من شاشة الروسو.
           const isWaitingForThisStage = d.movementStatus === "delivered" && d.receiverStage === stage && (isQueueRecord || samePersonName(d.expectedReceiver, user?.name));
