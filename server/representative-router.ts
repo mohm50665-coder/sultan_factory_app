@@ -500,6 +500,32 @@ export const representativeRouter = router({
       return { success: true, id, referenceCode };
     }),
 
+    createAndSubmitOrder: protectedProcedure.input(transactionSchema).mutation(async ({ input, ctx }) => {
+      if (!isRepresentative(ctx.user) || input.transactionType !== "order") throw new TRPCError({ code: "FORBIDDEN", message: "إنشاء الطلب من صلاحية المندوب فقط" });
+      validateTransaction(input);
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      await validateWarehouseStockForOrder(db, input);
+      const customerRows = await db.select().from(customers).where(and(eq(customers.id, input.customerId), eq(customers.isActive, 1))).limit(1);
+      const customer = customerRows[0];
+      if (!customer) throw new Error("العميل غير موجود");
+      if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
+      const referenceCode = makeReference("ORD");
+      const now = new Date();
+      const { items, ...header } = input;
+      return db.transaction(async (tx: any) => {
+        const result = await tx.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments, signedSnapshot: { customer, items, paymentMethod: input.paymentMethod, paymentAmount: input.paymentAmount, deliveryDate: input.deliveryDate } });
+        const id = Number(result[0].insertId);
+        await tx.insert(representativeTransactionItems).values(items.map((item) => ({ ...item, transactionId: id })));
+        if (input.attachments.length) await tx.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
+        const transaction = { id, referenceCode, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", representativeId: Number(ctx.user.id) };
+        await insertEvent(tx, transaction, ctx.user, "PENDING_WAREHOUSE_ISSUE", "create_and_submit_order", "حفظ الطلب وإرساله مباشرة إلى المستودعات");
+        await writeAudit(tx, ctx.user, "create", "representativeTransactions", id, null, input, `إنشاء وإرسال الطلب ${referenceCode} إلى المستودعات`);
+        await notifyNext(tx, ctx.user, transaction, "PENDING_WAREHOUSE_ISSUE");
+        return { success: true, sent: true, id, referenceCode, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse" };
+      });
+    }),
+
     updateDraft: protectedProcedure.input(transactionSchema.extend({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
       validateTransaction(input);
       const db = await getDb();

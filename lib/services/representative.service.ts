@@ -73,6 +73,7 @@ export const representativeService = {
     list: (filters?: Record<string, unknown>) => trpcCall("representative.transactions.list", filters || {}, "query"),
     getById: (id: number) => trpcCall("representative.transactions.getById", { id }, "query"),
     createDraft: (data: RepresentativeTransactionInput) => trpcCall("representative.transactions.createDraft", data),
+    createAndSubmitOrder: (data: RepresentativeTransactionInput) => trpcCall("representative.transactions.createAndSubmitOrder", data),
     updateDraft: (id: number, data: RepresentativeTransactionInput) => trpcCall("representative.transactions.updateDraft", { id, ...data }),
     sign: (data: { id: number; declarationType: "customer_order" | "representative_order" | "representative_receipt" | "representative_sample_receipt"; declarationText: string; declarerName: string; declarerRole: string; signatureData: string }) => trpcCall("representative.transactions.sign", data),
     submit: (id: number) => trpcCall("representative.transactions.submit", { id }),

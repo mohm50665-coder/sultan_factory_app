@@ -99,6 +99,7 @@ export default function RepresentativeTransactionsScreen() {
   const [stockSuggestions, setStockSuggestions] = useState<Record<number, any[]>>({});
   const [selectedStock, setSelectedStock] = useState<Record<number, any | null>>({});
   const [activeStockSearchIndex, setActiveStockSearchIndex] = useState<number | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -191,19 +192,31 @@ export default function RepresentativeTransactionsScreen() {
   };
 
   const saveDraft = async () => {
+    if (savingOrder) return;
     setShowValidation(true);
     const error = validate(); if (error) return Alert.alert("بيانات ناقصة", error);
+    setSavingOrder(true);
     try {
       const customerId = await saveCustomerRecord();
       const payload = buildPayload(customerId);
-      const result = editingId ? await representativeService.transactions.updateDraft(editingId, payload) : await representativeService.transactions.createDraft(payload);
       if (type === "order") {
-        const sent = await representativeService.transactions.submitOrderDirect(Number(result.id || editingId));
-        if (!sent?.success || sent.status !== "PENDING_WAREHOUSE_ISSUE" || sent.currentDepartment !== "warehouse") throw new Error("لم يتم تأكيد إرسال الطلب إلى المستودعات");
-        Alert.alert("تم الإرسال", `تم حفظ الطلب رقم ${sent.referenceCode || result.referenceCode || ""} وإرساله فعلياً إلى المستودعات للتنفيذ`);
-      } else Alert.alert("تم الحفظ", editingId ? "تم تحديث المسودة" : `تم إنشاء المسودة ${result.referenceCode}`);
+        if (editingId) {
+          const result = await representativeService.transactions.updateDraft(editingId, payload);
+          const sent = await representativeService.transactions.submitOrderDirect(Number(result.id || editingId));
+          if (!sent?.success || sent.status !== "PENDING_WAREHOUSE_ISSUE") throw new Error("تم حفظ الطلب كمسودة لكن تعذر إرساله للمستودعات؛ افتح المسودة وأعد الإرسال");
+          Alert.alert("تم الإرسال", `تم حفظ الطلب رقم ${sent.referenceCode || ""} وإرساله فعلياً إلى المستودعات للتنفيذ`);
+        } else {
+          const sent = await representativeService.transactions.createAndSubmitOrder(payload);
+          if (!sent?.success || sent.status !== "PENDING_WAREHOUSE_ISSUE" || sent.currentDepartment !== "warehouse") throw new Error("لم يتم تأكيد حفظ الطلب وإرساله إلى المستودعات");
+          Alert.alert("تم الإرسال", `تم حفظ الطلب رقم ${sent.referenceCode || ""} وإرساله فعلياً إلى المستودعات للتنفيذ`);
+        }
+      } else {
+        const result = editingId ? await representativeService.transactions.updateDraft(editingId, payload) : await representativeService.transactions.createDraft(payload);
+        Alert.alert("تم الحفظ", editingId ? "تم تحديث المسودة" : `تم إنشاء المسودة ${result.referenceCode}`);
+      }
       reset(); await load();
     } catch (error: any) { Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ"); }
+    finally { setSavingOrder(false); }
   };
 
   const editDraft = async (transaction: any) => {
@@ -253,7 +266,7 @@ export default function RepresentativeTransactionsScreen() {
         {canAddRepresentativeItem(items.length) ? <TouchableOpacity style={styles.addItem} onPress={() => setItems([...items, emptyItem(type)])}><MaterialIcons name="add-circle" size={20} color="#0a7ea4" /><Text style={styles.link}>إضافة صف منتج ({items.length}/{MAX_REPRESENTATIVE_ITEMS})</Text></TouchableOpacity> : <Text style={styles.limitNote}>تم الوصول إلى الحد الأقصى: {MAX_REPRESENTATIVE_ITEMS} منتجات</Text>}
       </>}
       {isCustom && <><AttachmentField label="نموذج التصنيع" required files={manufacturingFormFiles} onChange={setManufacturingFormFiles} /><AttachmentField label="ملف التصميم" required files={designFiles} onChange={setDesignFiles} /></>}{type === "sample" && <AttachmentField label="إيصال تحويل 80 ريال" required files={samplePaymentFiles} onChange={setSamplePaymentFiles} />}<AttachmentField label="مرفقات إضافية" files={generalFiles} onChange={setGeneralFiles} />
-      <View style={styles.actionRow}><TouchableOpacity style={[styles.actionButton, styles.secondaryButton]} onPress={reset}><Text style={styles.secondaryText}>إلغاء</Text></TouchableOpacity><TouchableOpacity style={[styles.actionButton, styles.primaryButton]} onPress={() => void saveDraft()}><MaterialIcons name="save" size={19} color="#fff" /><Text style={styles.primaryText}>{type === "order" ? "حفظ الطلب وإرساله للمستودعات" : "حفظ كمسودة"}</Text></TouchableOpacity></View></ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 50 }} color={colors.primary} /> : <ScrollView contentContainerStyle={styles.list}>{transactions.length === 0 ? <Text style={styles.empty}>لا توجد معاملات من هذا النوع</Text> : transactions.map((transaction) => <View key={transaction.id} style={styles.card}><View style={styles.cardHeader}><View style={[styles.statusBadge, transaction.isOverdue && { backgroundColor: "#fee2e2" }]}><Text style={[styles.statusText, transaction.isOverdue && { color: "#b91c1c" }]}>{transaction.isOverdue ? "متأخر · " : ""}{STATUS_LABELS[transaction.status] || transaction.status}</Text></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{transaction.customerName}</Text><Text style={styles.cardMeta}>{transaction.referenceCode} · {transaction.orderDate}</Text></View><MaterialIcons name={typeIcon as any} size={24} color="#0a7ea4" /></View><Text style={styles.cardMeta}>المندوب: {transaction.representativeName}</Text><Text style={styles.cardMeta}>المسؤول الحالي: {transaction.currentDepartment}</Text><View style={styles.cardActions}>{transaction.status === "DRAFT" && <><TouchableOpacity style={styles.editAction} onPress={() => void editDraft(transaction)}><MaterialIcons name="edit" size={17} color="#0369a1" /><Text style={styles.editActionText}>تعديل</Text></TouchableOpacity><TouchableOpacity style={styles.signAction} onPress={() => setSigning(transaction)}><MaterialIcons name="draw" size={17} color="#fff" /><Text style={styles.signActionText}>التوقيع والإرسال</Text></TouchableOpacity></>}<TouchableOpacity style={styles.detailAction} onPress={() => router.push({ pathname: "/representative-approvals", params: { id: String(transaction.id) } } as any)}><MaterialIcons name="history" size={17} color="#475569" /><Text style={styles.detailActionText}>التفاصيل</Text></TouchableOpacity></View></View>)}</ScrollView>}
+      <View style={styles.actionRow}><TouchableOpacity style={[styles.actionButton, styles.secondaryButton]} onPress={reset} disabled={savingOrder}><Text style={styles.secondaryText}>إلغاء</Text></TouchableOpacity><TouchableOpacity style={[styles.actionButton, styles.primaryButton, savingOrder && { opacity: 0.6 }]} onPress={() => void saveDraft()} disabled={savingOrder}><MaterialIcons name="save" size={19} color="#fff" /><Text style={styles.primaryText}>{savingOrder ? "جارٍ الحفظ والإرسال..." : type === "order" ? "حفظ الطلب وإرساله للمستودعات" : "حفظ كمسودة"}</Text></TouchableOpacity></View></ScrollView> : loading ? <ActivityIndicator style={{ marginTop: 50 }} color={colors.primary} /> : <ScrollView contentContainerStyle={styles.list}>{transactions.length === 0 ? <Text style={styles.empty}>لا توجد معاملات من هذا النوع</Text> : transactions.map((transaction) => <View key={transaction.id} style={styles.card}><View style={styles.cardHeader}><View style={[styles.statusBadge, transaction.isOverdue && { backgroundColor: "#fee2e2" }]}><Text style={[styles.statusText, transaction.isOverdue && { color: "#b91c1c" }]}>{transaction.isOverdue ? "متأخر · " : ""}{STATUS_LABELS[transaction.status] || transaction.status}</Text></View><View style={{ flex: 1 }}><Text style={styles.cardTitle}>{transaction.customerName}</Text><Text style={styles.cardMeta}>{transaction.referenceCode} · {transaction.orderDate}</Text></View><MaterialIcons name={typeIcon as any} size={24} color="#0a7ea4" /></View><Text style={styles.cardMeta}>المندوب: {transaction.representativeName}</Text><Text style={styles.cardMeta}>المسؤول الحالي: {transaction.currentDepartment}</Text><View style={styles.cardActions}>{transaction.status === "DRAFT" && <><TouchableOpacity style={styles.editAction} onPress={() => void editDraft(transaction)}><MaterialIcons name="edit" size={17} color="#0369a1" /><Text style={styles.editActionText}>تعديل</Text></TouchableOpacity><TouchableOpacity style={styles.signAction} onPress={() => setSigning(transaction)}><MaterialIcons name="draw" size={17} color="#fff" /><Text style={styles.signActionText}>التوقيع والإرسال</Text></TouchableOpacity></>}<TouchableOpacity style={styles.detailAction} onPress={() => router.push({ pathname: "/representative-approvals", params: { id: String(transaction.id) } } as any)}><MaterialIcons name="history" size={17} color="#475569" /><Text style={styles.detailActionText}>التفاصيل</Text></TouchableOpacity></View></View>)}</ScrollView>}
   </ScreenContainer>;
 }
 
