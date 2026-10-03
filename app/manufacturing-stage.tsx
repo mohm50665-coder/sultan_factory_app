@@ -176,6 +176,7 @@ export default function ManufacturingStageScreen() {
   const [receiverStageWorkers, setReceiverStageWorkers] = useState<Record<string, string[]>>({});
   const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [entriesRefreshing, setEntriesRefreshing] = useState(false);
   useEffect(() => {
     const loadServerWorkers = async () => {
       try {
@@ -259,7 +260,8 @@ export default function ManufacturingStageScreen() {
     return () => { active = false; };
   }, []);
 
-  const loadEntries = async () => {
+  const loadEntries = async (showRefresh = false) => {
+    if (showRefresh) setEntriesRefreshing(true);
     try {
       const [data, queue] = await Promise.all([
         manufacturingStageService.getAll(),
@@ -318,8 +320,16 @@ export default function ManufacturingStageScreen() {
     } catch (e) {
       console.log("Error loading entries:", e);
       setEntries([]);
+    } finally {
+      if (showRefresh) setEntriesRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    // مزامنة جميع المراحل مع إجراءات الجوال دون الحاجة لإغلاق الشاشة أو إعادة تسجيل الدخول.
+    const interval = setInterval(() => { void loadEntries(false); }, 10000);
+    return () => clearInterval(interval);
+  }, [stage, user?.id, user?.name]);
 
   useFocusEffect(
     useCallback(() => {
@@ -815,7 +825,10 @@ export default function ManufacturingStageScreen() {
       </View>
 
       <View style={{ marginHorizontal: 16, marginTop: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 }}>
-        <Text style={{ color: colors.muted, fontSize: 11, fontWeight: "700", textAlign: isAr ? "right" : "left" }}>{isAr ? "تتم الحركة من بطاقة العهدة فقط: تأكيد الاستلام ثم التسليم. لا يوجد إدخال يدوي للمنتج." : "All movements are performed from the custody card: confirm receipt, then deliver. Manual product entry is disabled."}</Text>
+        <View style={{ flexDirection: isAr ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <Text style={{ flex: 1, color: colors.muted, fontSize: 11, fontWeight: "700", textAlign: isAr ? "right" : "left" }}>{isAr ? "تتم الحركة من بطاقة العهدة فقط: تأكيد الاستلام ثم التسليم. تتم مزامنة إجراءات الجوال تلقائياً." : "Movements are performed from the custody card only. Mobile actions sync automatically."}</Text>
+          <TouchableOpacity onPress={() => void loadEntries(true)} disabled={entriesRefreshing} style={{ backgroundColor: "#0f766e", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, opacity: entriesRefreshing ? 0.55 : 1 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{entriesRefreshing ? (isAr ? "جارٍ التحديث" : "Refreshing") : (isAr ? "تحديث" : "Refresh")}</Text></TouchableOpacity>
+        </View>
       </View>
       {showTrash && isAdmin && <View style={{ margin: 12, padding: 12, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: "#f59e0b" }}><Text style={{ color: "#b45309", fontWeight: "800", textAlign: isAr ? "right" : "left" }}>{isAr ? "سلة مهملات مراحل التسليم — الاسترجاع متاح خلال 30 يوماً" : "Stage trash — restore available for 30 days"}</Text>{trashEntries.length === 0 ? <Text style={{ color: colors.muted, textAlign: isAr ? "right" : "left", marginTop: 8 }}>{isAr ? "لا توجد سجلات محذوفة" : "No deleted records"}</Text> : trashEntries.map((entry: any) => <View key={String(entry.id)} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><TouchableOpacity onPress={() => handleRestore(entry)} style={{ backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{isAr ? "استرجاع" : "Restore"}</Text></TouchableOpacity><Text style={{ color: colors.foreground, flex: 1, textAlign: "right", marginRight: 8, fontSize: 11 }}>{[entry.productName, entry.workerName, entry.date].filter(Boolean).join(" | ")}</Text></View>)}</View>}
       {showStageReport && (() => {

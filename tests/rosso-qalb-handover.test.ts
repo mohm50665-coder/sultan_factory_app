@@ -59,6 +59,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(trackingUi).toContain("false && selectedProduct");
   });
 
+  it("refreshes every manufacturing stage so mobile actions appear without reopening the screen", () => {
+    expect(ui).toContain("setInterval(() => { void loadEntries(false); }, 10000)");
+    expect(ui).toContain("onPress={() => void loadEntries(true)}");
+    expect(ui).toContain("تتم مزامنة إجراءات الجوال تلقائياً");
+  });
+
   it("hides a confirmed source custody from operational stage lists", () => {
     expect(ui).toContain('d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered")');
     expect(ui).toContain('d.movementStatus === "delivered" && d.receiverStage === stage');
