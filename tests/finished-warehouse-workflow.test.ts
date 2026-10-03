@@ -68,4 +68,26 @@ describe("finished warehouse workflow", () => {
     expect(router).toContain("like(finishedWarehouseStockTable.productSize");
     expect(router).toContain("like(finishedWarehouseStockTable.productColor");
   });
+
+  it("issues representative-order stock atomically when warehouse execution is approved", () => {
+    const router = read("server/representative-router.ts");
+    const screen = read("app/warehouse-representative-orders.tsx");
+    expect(router).toContain('case "warehouse_execute"');
+    expect(router).toContain("db.transaction");
+    expect(router).toContain('movementType: "issue"');
+    expect(router).toContain("خصم طلب المندوب");
+    expect(router).toContain("الرصيد غير كافٍ");
+    expect(screen).toContain("تم التنفيذ وخصم الرصيد");
+  });
+
+  it("provides Word, Excel and PDF report actions and notifies the representative on partial execution", () => {
+    const screen = read("app/warehouse-representative-orders.tsx");
+    const router = read("server/representative-router.ts");
+    expect(screen).toContain('downloadReport("word")');
+    expect(screen).toContain('downloadReport("excel")');
+    expect(screen).toContain("printPdf");
+    expect(screen).toContain("picture-as-pdf");
+    expect(router).toContain('nextStatus === "WAREHOUSE_PARTIAL"');
+    expect(router).toContain("recipientUserId: Number(detail.representativeId)");
+  });
 });

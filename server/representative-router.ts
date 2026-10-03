@@ -18,6 +18,7 @@ import {
   representativeWorkflowEvents,
   users,
   finishedWarehouseStock,
+  finishedWarehouseMovements,
 } from "../drizzle/schema";
 
 const SALES_NAMES = ["sales", "marketing", "المبيعات", "التسويق", "التسويق والمبيعات", "إدارة التسويق والمبيعات"];
@@ -587,8 +588,43 @@ export const representativeRouter = router({
           break;
         case "warehouse_execute":
           if (!isWarehouseManager(ctx.user) || detail.status !== "PENDING_WAREHOUSE_ISSUE") throw new TRPCError({ code: "FORBIDDEN", message: "الطلب ليس في قائمة طلبات المناديب" });
-          nextStatus = "WAREHOUSE_EXECUTED";
-          break;
+          // الخصم والاعتماد والتوثيق داخل معاملة واحدة: لا يصبح الطلب منفذاً
+          // ولا يخصم أي رصيد إذا تعذر خصم أحد الأصناف أو كان الرصيد غير كافٍ.
+          return db.transaction(async (tx: any) => {
+            const requestedByBarcode = new Map<string, number>();
+            for (const item of detail.items || []) {
+              const barcode = String(item.barcode || "").trim().toUpperCase();
+              if (barcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: `الصنف ${item.productName || "غير محدد"} لا يحتوي على باركود صالح` });
+              const quantityDozen = item.quantityUnit === "pair" ? Number(item.quantity || 0) / 12 : Number(item.quantity || 0);
+              if (!(quantityDozen > 0)) throw new TRPCError({ code: "BAD_REQUEST", message: `كمية الصنف ${item.productName || barcode} غير صالحة` });
+              requestedByBarcode.set(barcode, (requestedByBarcode.get(barcode) || 0) + quantityDozen);
+            }
+
+            for (const [barcode, quantityDozen] of requestedByBarcode) {
+              const stockRows = await tx.select().from(finishedWarehouseStock).where(and(eq(finishedWarehouseStock.barcode, barcode), eq(finishedWarehouseStock.isActive, 1))).limit(1);
+              const stock = stockRows[0];
+              if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: `الصنف بالباركود ${barcode} غير موجود في مستودع الإنتاج التام` });
+              const available = Number(stock.quantityDozen || 0);
+              if (available < quantityDozen) throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد غير كافٍ للصنف ${stock.productName}: المتاح ${available} درزن والمطلوب ${quantityDozen} درزن` });
+              const remainingDozen = available - quantityDozen;
+              const updated = await tx.update(finishedWarehouseStock)
+                .set({ quantityDozen: remainingDozen, lastMovementAt: new Date() })
+                .where(and(eq(finishedWarehouseStock.id, stock.id), eq(finishedWarehouseStock.isActive, 1), gte(finishedWarehouseStock.quantityDozen, quantityDozen)));
+              const affectedRows = Number((updated as any)?.[0]?.affectedRows ?? (updated as any)?.affectedRows ?? 0);
+              if (affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: `تغير رصيد الصنف ${stock.productName} أثناء التنفيذ؛ أعد المحاولة` });
+              await tx.insert(finishedWarehouseMovements).values({ stockId: Number(stock.id), movementType: "issue", quantityDozen, sourceType: "representative_order", sourceId: Number(detail.id), notes: `صرف طلب المندوب ${detail.referenceCode}`, userId: Number(ctx.user.id) });
+              if (remainingDozen < Number(stock.minimumDozen || 0)) {
+                await tx.insert(internalMessages).values({ subject: "تنبيه انخفاض مخزون الإنتاج التام", body: `بعد تنفيذ الطلب ${detail.referenceCode} أصبح رصيد ${stock.productName} هو ${remainingDozen} درزن، والحد الأدنى ${stock.minimumDozen} درزن`, senderId: Number(ctx.user.id), recipientDepartment: "warehouse", relatedType: "finishedWarehouseStock", relatedId: Number(stock.id), attachments: [] });
+              }
+            }
+
+            const executedAt = new Date();
+            const executedPatch = { status: "WAREHOUSE_EXECUTED", currentDepartment: "closed", closedAt: executedAt };
+            await tx.update(representativeTransactions).set(executedPatch).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "PENDING_WAREHOUSE_ISSUE")));
+            await insertEvent(tx, detail, ctx.user, "WAREHOUSE_EXECUTED", input.action, "تم تنفيذ الطلب وخصم الكميات من مستودع الإنتاج التام");
+            await writeAudit(tx, ctx.user, "warehouse_execute", "representativeTransactions", input.id, detail, executedPatch, `تنفيذ وخصم طلب المندوب ${detail.referenceCode}`);
+            return { success: true, status: "WAREHOUSE_EXECUTED", stockIssued: true };
+          });
         case "warehouse_partial":
           if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب ملاحظة تفصيلية عن عدم التوفر أو التنفيذ الجزئي" });
           nextStatus = "WAREHOUSE_PARTIAL"; patch.rejectionReason = input.notes;
@@ -638,6 +674,17 @@ export const representativeRouter = router({
       if (input.attachments.length) await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: input.id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "transition", "representativeTransactions", input.id, detail, { nextStatus, ...patch }, `${input.action}: ${detail.referenceCode}`);
       await notifyNext(db, ctx.user, detail, nextStatus, input.notes);
+      if (nextStatus === "WAREHOUSE_PARTIAL") {
+        await db.insert(internalMessages).values({
+          subject: `رد من المستودع على الطلب ${detail.referenceCode}`,
+          body: `أعاد المستودع الطلب ${detail.referenceCode} بتنفيذ جزئي أو عدم توفر. الملاحظات: ${input.notes}`,
+          senderId: Number(ctx.user.id),
+          recipientUserId: Number(detail.representativeId),
+          relatedType: "representative_transaction",
+          relatedId: Number(detail.id),
+          attachments: input.attachments,
+        });
+      }
       return { success: true, status: nextStatus };
     }),
 
