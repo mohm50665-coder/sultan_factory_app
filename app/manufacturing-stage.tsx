@@ -755,7 +755,7 @@ export default function ManufacturingStageScreen() {
                   <TouchableOpacity disabled={!product.barcode} onPress={() => void handleCompleteStorage(product)} style={{ marginTop: 7, backgroundColor: product.barcode ? "#4f46e5" : "#9ca3af", borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "حفظ التخزين بالبيانات الأصلية" : "Store with source data"}</Text></TouchableOpacity>
                 </View>
               )}
-              {product.movementStatus === "received" && !isStorageStage && getProductNextStageOptions(product).some((stageId) => (receiverStageWorkers[stageId] || []).length > 0) && (
+              {product.movementStatus === "received" && !isStorageStage && !product.receiverStage && getProductNextStageOptions(product).some((stageId) => (receiverStageWorkers[stageId] || []).length > 0) && (
                 <View style={{ marginTop: 8, backgroundColor: "#eff6ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#93c5fd" }}>
                   <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "اختر جهة وموظف التسليم" : "Choose destination and receiver"}</Text>
                   {getProductNextStageOptions(product).map((stageId) => {

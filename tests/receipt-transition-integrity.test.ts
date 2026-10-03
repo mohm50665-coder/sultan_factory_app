@@ -52,6 +52,13 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain("باركود التخزين ينتقل من الإنتاج ولا يمكن تعديله في المراحل");
   });
 
+  it("does not allow the Rosso source record to be delivered again after Qalb receives it", () => {
+    expect(routersSource).toContain("const existingOutbound = await db.select");
+    expect(routersSource).toContain("AUTO_STAGE:${record.id}:%");
+    expect(routersSource).toContain("تم تسليم هذه العهدة إلى المرحلة التالية مسبقاً؛ استخدم بطاقة القلب الجديدة");
+    expect(stageSource).toContain("!product.receiverStage && getProductNextStageOptions(product)");
+  });
+
   it("normalizes Arabic and English stage names before validating the route", () => {
     expect(routersSource).toContain("function normalizeManufacturingStage");
     expect(routersSource).toContain('"الروسو": "rosso"');

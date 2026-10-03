@@ -1893,6 +1893,15 @@ export const appRouter = router({
           throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذه مسبقاً" });
         }
         if (record.movementStatus !== "received" || !record.receivedAt) throw new Error("يجب تأكيد الاستلام قبل التسليم");
+        // بعد تأكيد المرحلة التالية، يصبح سجل المصدر تاريخياً. لا يجوز إعادة تسليم سجل الروسو نفسه؛
+        // الحركة التالية يجب أن تبدأ من سجل القلب الذي أنشأه الخادم.
+        const existingOutbound = await db.select({ id: manufacturingStagesTable.id, stageName: manufacturingStagesTable.stageName, movementStatus: manufacturingStagesTable.movementStatus })
+          .from(manufacturingStagesTable)
+          .where(and(isNull(manufacturingStagesTable.deletedAt), like(manufacturingStagesTable.productType, `AUTO_STAGE:${record.id}:%`)))
+          .limit(1);
+        if (existingOutbound[0] && ["received", "delivered"].includes(String(existingOutbound[0].movementStatus))) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تسليم هذه العهدة إلى المرحلة التالية مسبقاً؛ استخدم بطاقة القلب الجديدة لإكمال المسار" });
+        }
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
         const requestedStage = normalizeManufacturingStage((input as any).receiverStage);
