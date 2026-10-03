@@ -198,8 +198,9 @@ export default function RepresentativeTransactionsScreen() {
       const payload = buildPayload(customerId);
       const result = editingId ? await representativeService.transactions.updateDraft(editingId, payload) : await representativeService.transactions.createDraft(payload);
       if (type === "order") {
-        await representativeService.transactions.submitOrderDirect(Number(result.id || editingId));
-        Alert.alert("تم حفظ الطلب", `تم إنشاء الطلب رقم ${result.referenceCode || ""} وتحويله مباشرة إلى المستودعات للتنفيذ`);
+        const sent = await representativeService.transactions.submitOrderDirect(Number(result.id || editingId));
+        if (!sent?.success || sent.status !== "PENDING_WAREHOUSE_ISSUE" || sent.currentDepartment !== "warehouse") throw new Error("لم يتم تأكيد إرسال الطلب إلى المستودعات");
+        Alert.alert("تم الإرسال", `تم حفظ الطلب رقم ${sent.referenceCode || result.referenceCode || ""} وإرساله فعلياً إلى المستودعات للتنفيذ`);
       } else Alert.alert("تم الحفظ", editingId ? "تم تحديث المسودة" : `تم إنشاء المسودة ${result.referenceCode}`);
       reset(); await load();
     } catch (error: any) { Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ"); }

@@ -560,10 +560,12 @@ export const representativeRouter = router({
       if (!detail || detail.transactionType !== "order" || detail.status !== "DRAFT") throw new TRPCError({ code: "BAD_REQUEST", message: "الطلب غير صالح للإرسال المباشر" });
       if (Number(detail.representativeId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN" });
       const now = new Date();
-      await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, paymentMethod: detail.paymentMethod, paymentAmount: detail.paymentAmount, deliveryDate: detail.deliveryDate } }).where(eq(representativeTransactions.id, input.id));
+      const updated = await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, paymentMethod: detail.paymentMethod, paymentAmount: detail.paymentAmount, deliveryDate: detail.deliveryDate } }).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "DRAFT")));
+      const affectedRows = Number((updated as any)?.[0]?.affectedRows ?? (updated as any)?.affectedRows ?? 0);
+      if (affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: "لم يتم إرسال الطلب؛ تغيّرت حالته أو تم إرساله مسبقاً" });
       await insertEvent(db, detail, ctx.user, "PENDING_WAREHOUSE_ISSUE", "submit_order_to_warehouse", "اعتماد الطلب وإرساله مباشرة إلى المستودعات");
       await notifyNext(db, ctx.user, detail, "PENDING_WAREHOUSE_ISSUE");
-      return { success: true, referenceCode: detail.referenceCode };
+      return { success: true, sent: true, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", referenceCode: detail.referenceCode };
     }),
     transition: protectedProcedure.input(transitionSchema).mutation(async ({ input, ctx }) => {
       const db = await getDb();
