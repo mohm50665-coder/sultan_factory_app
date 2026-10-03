@@ -102,6 +102,18 @@ const normalizeToolPermissions = (value: unknown): Record<string, boolean> => {
 };
 
 const REPRESENTATIVE_SECTIONS = new Set(["orders_visits", "custom_manufacturing", "collection"]);
+const OFFICIAL_DEPARTMENT_IDS = new Set([
+  "production", "machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage",
+  "administrative", "sales", "maintenance", "board_representative", "warehouse", "employees", "government_tenders",
+]);
+
+function assertOfficialDepartment(value: string | null | undefined) {
+  const department = String(value || "").trim();
+  if (!OFFICIAL_DEPARTMENT_IDS.has(department)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "يجب اختيار قسم صحيح من القائمة الرسمية" });
+  }
+  return department;
+}
 
 function hasPermission(user: any, permission: string) {
   if (user?.role === "admin") return true;
@@ -669,7 +681,7 @@ export const appRouter = router({
             email: normalizedEmail,
             phone: normalizedPhone,
             position: input.position || null,
-            department: input.department || null,
+            department: assertOfficialDepartment(input.department),
             password: input.password,
             loginMethod: "password",
             role: "user",
@@ -905,7 +917,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.update(usersTable).set({ department: input.department }).where(eq(usersTable.id, input.userId));
+        await db.update(usersTable).set({ department: assertOfficialDepartment(input.department) }).where(eq(usersTable.id, input.userId));
         return { success: true };
       }),
 
@@ -938,7 +950,7 @@ export const appRouter = router({
           email: input.email,
           phone: input.phone || null,
           position: input.position || null,
-          department: input.department || null,
+          department: assertOfficialDepartment(input.department),
           role: input.role,
         }).where(eq(usersTable.id, input.userId));
         return { success: true };

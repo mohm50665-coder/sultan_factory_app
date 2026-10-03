@@ -18,6 +18,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { adminService } from "@/lib/services/api.service";
 import type { User } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
+import { DEPARTMENT_IDS, DEPARTMENT_OPTIONS } from "@/lib/constants/departments";
 
 const ROLES_AR = [
   { value: "admin", label: "مدير النظام" },
@@ -94,6 +95,7 @@ export default function UsersManagementScreen() {
   const [profilePosition, setProfilePosition] = useState("");
   const [profileDepartment, setProfileDepartment] = useState("");
   const [profileRole, setProfileRole] = useState<User["role"]>("user");
+  const [showProfileDepartmentPicker, setShowProfileDepartmentPicker] = useState(false);
 
   const loadUsers = useCallback(async () => {
     const allUsers = await adminService.getAllUsers();
@@ -156,6 +158,10 @@ export default function UsersManagementScreen() {
   const handleSaveProfile = async () => {
     if (!profileUser || !profileName.trim() || !profileUsername.trim() || !profileEmail.trim()) {
       Alert.alert(isAr ? "بيانات ناقصة" : "Missing data", isAr ? "الاسم واسم المستخدم والبريد الإلكتروني حقول مطلوبة" : "Name, username and email are required");
+      return;
+    }
+    if (!DEPARTMENT_IDS.has(profileDepartment)) {
+      Alert.alert(isAr ? "القسم مطلوب" : "Department required", isAr ? "اختر القسم من القائمة المعتمدة، ولا تكتب قيمة يدوية." : "Select a department from the approved list; manual values are not allowed.");
       return;
     }
     try {
@@ -246,6 +252,11 @@ export default function UsersManagementScreen() {
   const getRoleLabel = (role: string) => {
     const ROLES = isAr ? ROLES_AR : ROLES_EN;
     return ROLES.find((r) => r.value === role)?.label || role;
+  };
+
+  const getDepartmentLabel = (department: string) => {
+    const option = DEPARTMENT_OPTIONS.find((item) => item.id === department);
+    return option ? (isAr ? option.labelAr : option.labelEn) : (isAr ? "اختر القسم" : "Select Department");
   };
 
   const handleManageSections = (u: User) => {
@@ -414,7 +425,18 @@ export default function UsersManagementScreen() {
               <TextInput style={styles.modalInput} placeholder={isAr ? "البريد الإلكتروني *" : "Email *"} value={profileEmail} onChangeText={setProfileEmail} keyboardType="email-address" autoCapitalize="none" textAlign={isAr ? "right" : "left"} />
               <TextInput style={styles.modalInput} placeholder={isAr ? "رقم الجوال" : "Phone"} value={profilePhone} onChangeText={setProfilePhone} keyboardType="phone-pad" textAlign={isAr ? "right" : "left"} />
               <TextInput style={styles.modalInput} placeholder={isAr ? "المسمى الوظيفي" : "Position"} value={profilePosition} onChangeText={setProfilePosition} textAlign={isAr ? "right" : "left"} />
-              <TextInput style={styles.modalInput} placeholder={isAr ? "القسم" : "Department"} value={profileDepartment} onChangeText={setProfileDepartment} textAlign={isAr ? "right" : "left"} />
+              <Text style={styles.modalLabel}>{isAr ? "القسم *" : "Department *"}</Text>
+              <TouchableOpacity
+                onPress={() => setShowProfileDepartmentPicker(true)}
+                style={styles.departmentPicker}
+                accessibilityLabel={isAr ? "اختيار القسم" : "Select department"}
+              >
+                <MaterialIcons name="arrow-drop-down" size={22} color="#64748b" />
+                <Text style={[styles.departmentPickerText, !profileDepartment && { color: "#94a3b8" }]}>
+                  {getDepartmentLabel(profileDepartment)}
+                </Text>
+                <MaterialIcons name="business" size={18} color="#64748b" />
+              </TouchableOpacity>
               <Text style={styles.modalLabel}>{isAr ? "الصلاحية" : "Role"}</Text>
               <View style={styles.rolesContainer}>
                 {(isAr ? ROLES_AR : ROLES_EN).map((role) => (
@@ -428,6 +450,35 @@ export default function UsersManagementScreen() {
                 <TouchableOpacity onPress={handleSaveProfile} style={styles.saveBtn}><Text style={styles.saveBtnText}>{isAr ? "حفظ البيانات" : "Save data"}</Text></TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* قائمة الأقسام الرسمية — لا يوجد إدخال نصي حر */}
+      <Modal visible={showProfileDepartmentPicker} transparent animationType="fade" onRequestClose={() => setShowProfileDepartmentPicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+            <Text style={styles.modalTitle}>{isAr ? "اختر القسم" : "Select Department"}</Text>
+            <ScrollView>
+              {DEPARTMENT_OPTIONS.map((department) => (
+                <TouchableOpacity
+                  key={department.id}
+                  onPress={() => {
+                    setProfileDepartment(department.id);
+                    setShowProfileDepartmentPicker(false);
+                  }}
+                  style={[styles.departmentOption, profileDepartment === department.id && styles.departmentOptionActive]}
+                >
+                  <MaterialIcons name={department.icon as any} size={19} color={profileDepartment === department.id ? "#0a7ea4" : "#64748b"} />
+                  <Text style={[styles.departmentOptionText, profileDepartment === department.id && styles.departmentOptionTextActive]}>
+                    {isAr ? department.labelAr : department.labelEn}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setShowProfileDepartmentPicker(false)} style={styles.cancelBtn}>
+              <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -712,6 +763,49 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     marginBottom: 16,
+  },
+  departmentPicker: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  departmentPickerText: {
+    flex: 1,
+    color: "#11181C",
+    fontSize: 14,
+    textAlign: "right",
+    marginHorizontal: 8,
+  },
+  departmentOption: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    marginBottom: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  departmentOptionActive: {
+    borderColor: "#0a7ea4",
+    backgroundColor: "#e0f7fa",
+  },
+  departmentOptionText: {
+    flex: 1,
+    color: "#374151",
+    fontSize: 13,
+    textAlign: "right",
+  },
+  departmentOptionTextActive: {
+    color: "#0a7ea4",
+    fontWeight: "700",
   },
   rolesContainer: {
     gap: 8,
