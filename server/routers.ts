@@ -914,10 +914,22 @@ export const appRouter = router({
 
     updateUserDepartment: adminProcedure
       .input(z.object({ userId: z.number(), department: z.string() }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        await db.update(usersTable).set({ department: assertOfficialDepartment(input.department) }).where(eq(usersTable.id, input.userId));
+        const department = assertOfficialDepartment(input.department);
+        const target = await db.select({ department: usersTable.department, name: usersTable.name }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        if (!target.length) throw new Error("المستخدم غير موجود");
+        await db.update(usersTable).set({ department }).where(eq(usersTable.id, input.userId));
+        if (target[0].department !== department) {
+          await db.insert(activityLogTable).values({
+            action: "update_department",
+            entityType: "user_department",
+            entityId: input.userId,
+            details: { employeeName: target[0].name, previousDepartment: target[0].department || "", newDepartment: department },
+            userId: ctx.user!.id,
+          } as any);
+        }
         return { success: true };
       }),
 
@@ -938,21 +950,31 @@ export const appRouter = router({
         if (ctx.user?.id === input.userId && input.role !== "admin") {
           throw new Error("لا يمكنك إزالة صلاحية الأدمن من حسابك الحالي");
         }
-        const target = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        const target = await db.select({ id: usersTable.id, name: usersTable.name, department: usersTable.department }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
         if (!target.length) throw new Error("المستخدم غير موجود");
         const duplicateUsername = await db.select({ id: usersTable.id }).from(usersTable).where(and(sql`LOWER(TRIM(${usersTable.username})) = ${input.username.toLowerCase()}`, sql`${usersTable.id} <> ${input.userId}`)).limit(1);
         if (duplicateUsername.length) throw new Error("اسم المستخدم مستخدم مسبقاً");
         const duplicateEmail = await db.select({ id: usersTable.id }).from(usersTable).where(and(sql`LOWER(TRIM(${usersTable.email})) = ${input.email.toLowerCase()}`, sql`${usersTable.id} <> ${input.userId}`)).limit(1);
         if (duplicateEmail.length) throw new Error("البريد الإلكتروني مستخدم مسبقاً");
+        const department = assertOfficialDepartment(input.department);
         await db.update(usersTable).set({
           name: input.name,
           username: input.username,
           email: input.email,
           phone: input.phone || null,
           position: input.position || null,
-          department: assertOfficialDepartment(input.department),
+          department,
           role: input.role,
         }).where(eq(usersTable.id, input.userId));
+        if (target[0].department !== department) {
+          await db.insert(activityLogTable).values({
+            action: "update_department",
+            entityType: "user_department",
+            entityId: input.userId,
+            details: { employeeName: target[0].name, previousDepartment: target[0].department || "", newDepartment: department },
+            userId: ctx.user!.id,
+          } as any);
+        }
         return { success: true };
       }),
   }),

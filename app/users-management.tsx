@@ -19,6 +19,7 @@ import { adminService } from "@/lib/services/api.service";
 import type { User } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { DEPARTMENT_IDS, DEPARTMENT_OPTIONS } from "@/lib/constants/departments";
+import { activityLogService, type ActivityLogEntry } from "@/lib/services/server-data.service";
 
 const ROLES_AR = [
   { value: "admin", label: "مدير النظام" },
@@ -96,10 +97,17 @@ export default function UsersManagementScreen() {
   const [profileDepartment, setProfileDepartment] = useState("");
   const [profileRole, setProfileRole] = useState<User["role"]>("user");
   const [showProfileDepartmentPicker, setShowProfileDepartmentPicker] = useState(false);
+  const [departmentPickerSearch, setDepartmentPickerSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [departmentChanges, setDepartmentChanges] = useState<ActivityLogEntry[]>([]);
 
   const loadUsers = useCallback(async () => {
-    const allUsers = await adminService.getAllUsers();
+    const [allUsers, logs] = await Promise.all([
+      adminService.getAllUsers(),
+      activityLogService.getAll(200),
+    ]);
     setUsers(allUsers);
+    setDepartmentChanges(logs.filter((log) => log.entityType === "user_department"));
   }, []);
 
   useEffect(() => {
@@ -152,6 +160,7 @@ export default function UsersManagementScreen() {
     setProfilePosition(u.position || "");
     setProfileDepartment(u.department || "");
     setProfileRole(u.role);
+    setDepartmentPickerSearch("");
     setShowProfileModal(true);
   };
 
@@ -259,6 +268,12 @@ export default function UsersManagementScreen() {
     return option ? (isAr ? option.labelAr : option.labelEn) : (isAr ? "اختر القسم" : "Select Department");
   };
 
+  const visibleDepartments = DEPARTMENT_OPTIONS.filter((department) => {
+    const term = departmentPickerSearch.trim().toLowerCase();
+    return !term || `${department.labelAr} ${department.labelEn}`.toLowerCase().includes(term);
+  });
+  const filteredUsers = users.filter((u) => departmentFilter === "all" || u.department === departmentFilter);
+
   const handleManageSections = (u: User) => {
     setSectionsUser(u);
     setSelectedSections(u.allowedSections || []);
@@ -332,9 +347,24 @@ export default function UsersManagementScreen() {
         </View>
       )}
 
+      {/* فلترة الموظفين حسب القسم */}
+      <View style={styles.filterPanel}>
+        <Text style={styles.filterTitle}>{isAr ? "فلترة الموظفين حسب القسم" : "Filter employees by department"}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          <TouchableOpacity onPress={() => setDepartmentFilter("all")} style={[styles.filterChip, departmentFilter === "all" && styles.filterChipActive]}>
+            <Text style={[styles.filterChipText, departmentFilter === "all" && styles.filterChipTextActive]}>{isAr ? "الكل" : "All"}</Text>
+          </TouchableOpacity>
+          {DEPARTMENT_OPTIONS.map((department) => (
+            <TouchableOpacity key={department.id} onPress={() => setDepartmentFilter(department.id)} style={[styles.filterChip, departmentFilter === department.id && styles.filterChipActive]}>
+              <Text style={[styles.filterChipText, departmentFilter === department.id && styles.filterChipTextActive]}>{isAr ? department.labelAr : department.labelEn}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Users List */}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {users.map((u) => (
+        {filteredUsers.map((u) => (
           <View key={u.id} style={[styles.userCard, !u.isActive && styles.userCardInactive]}>
             <View style={styles.userInfo}>
               <View style={styles.userHeader}>
@@ -413,6 +443,25 @@ export default function UsersManagementScreen() {
         ))}
       </ScrollView>
 
+      {/* سجل تغييرات الأقسام */}
+      {currentUser?.role === "admin" && (
+        <View style={styles.auditPanel}>
+          <Text style={styles.auditTitle}>{isAr ? "سجل تغييرات الأقسام" : "Department change log"}</Text>
+          {departmentChanges.length === 0 ? (
+            <Text style={styles.auditEmpty}>{isAr ? "لا توجد تغييرات مسجلة" : "No changes recorded"}</Text>
+          ) : departmentChanges.slice(0, 12).map((log) => {
+            const details = (log.details || {}) as { employeeName?: string; previousDepartment?: string; newDepartment?: string };
+            return (
+              <View key={log.id} style={styles.auditRow}>
+                <Text style={styles.auditEmployee}>{details.employeeName || `#${log.entityId || "-"}`}</Text>
+                <Text style={styles.auditText}>{getDepartmentLabel(details.previousDepartment || "")} → {getDepartmentLabel(details.newDepartment || "")}</Text>
+                <Text style={styles.auditDate}>{log.createdAt ? new Date(log.createdAt).toLocaleString(isAr ? "ar-SA" : "en-US") : "-"}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       {/* Modal تعديل بيانات التسجيل والقسم */}
       <Modal visible={showProfileModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -459,8 +508,15 @@ export default function UsersManagementScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: "80%" }]}>
             <Text style={styles.modalTitle}>{isAr ? "اختر القسم" : "Select Department"}</Text>
-            <ScrollView>
-              {DEPARTMENT_OPTIONS.map((department) => (
+              <ScrollView>
+              <TextInput
+                value={departmentPickerSearch}
+                onChangeText={setDepartmentPickerSearch}
+                placeholder={isAr ? "ابحث باسم القسم" : "Search department"}
+                style={styles.modalInput}
+                textAlign={isAr ? "right" : "left"}
+              />
+              {visibleDepartments.map((department) => (
                 <TouchableOpacity
                   key={department.id}
                   onPress={() => {
@@ -683,6 +739,20 @@ const styles = StyleSheet.create({
     color: "#687076",
     marginTop: 2,
   },
+  filterPanel: { paddingHorizontal: 16, paddingBottom: 8 },
+  filterTitle: { fontSize: 13, fontWeight: "700", color: "#374151", textAlign: "right", marginBottom: 7 },
+  filterRow: { flexDirection: "row", gap: 7, paddingBottom: 3 },
+  filterChip: { borderWidth: 1, borderColor: "#dbe3ea", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#fff" },
+  filterChipActive: { borderColor: "#0a7ea4", backgroundColor: "#e0f7fa" },
+  filterChipText: { fontSize: 12, color: "#475569" },
+  filterChipTextActive: { color: "#0a7ea4", fontWeight: "800" },
+  auditPanel: { marginHorizontal: 16, marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#dbe3ea", backgroundColor: "#f8fafc" },
+  auditTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a", textAlign: "right", marginBottom: 8 },
+  auditEmpty: { fontSize: 12, color: "#64748b", textAlign: "right" },
+  auditRow: { borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingVertical: 8 },
+  auditEmployee: { fontSize: 13, fontWeight: "800", color: "#0369a1", textAlign: "right" },
+  auditText: { fontSize: 12, color: "#334155", textAlign: "right", marginTop: 2 },
+  auditDate: { fontSize: 10, color: "#64748b", textAlign: "right", marginTop: 2 },
   list: {
     flex: 1,
   },
