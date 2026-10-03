@@ -79,6 +79,7 @@ export default function AdminDashboardScreen() {
 
   // Employee Form
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [showEmployeeDepartmentPicker, setShowEmployeeDepartmentPicker] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [employeeForm, setEmployeeForm] = useState({
     name: "",
@@ -676,19 +677,16 @@ export default function AdminDashboardScreen() {
             </View>
             <View>
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "القسم *" : "Department *"}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
-                {departments.filter(d => d.isActive).map(dept => (
-                  <TouchableOpacity
-                    key={dept.id}
-                    style={[styles.deptChip, { backgroundColor: employeeForm.department === dept.id ? colors.primary : colors.surface, borderColor: colors.border }]}
-                    onPress={() => setEmployeeForm({ ...employeeForm, department: dept.id })}
-                  >
-                    <Text style={{ color: employeeForm.department === dept.id ? "white" : colors.foreground, fontSize: 11 }}>
-                      {isAr ? dept.labelAr : dept.labelEn}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <TouchableOpacity
+                onPress={() => setShowEmployeeDepartmentPicker(true)}
+                style={[styles.departmentSelect, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <MaterialIcons name="arrow-drop-down" size={23} color={colors.muted} />
+                <Text style={{ flex: 1, color: employeeForm.department ? colors.foreground : colors.muted, textAlign: "right" }}>
+                  {departments.find((dept) => dept.id === employeeForm.department)?.[isAr ? "labelAr" : "labelEn"] || (isAr ? "اختر القسم من القائمة" : "Select department")}
+                </Text>
+                <MaterialIcons name="business" size={18} color={colors.muted} />
+              </TouchableOpacity>
             </View>
             <View>
               <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{isAr ? "الدور" : "Role"}</Text>
@@ -720,6 +718,37 @@ export default function AdminDashboardScreen() {
               />
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal visible={showEmployeeDepartmentPicker} animationType="fade" transparent onRequestClose={() => setShowEmployeeDepartmentPicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.background, maxHeight: "80%" }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowEmployeeDepartmentPicker(false)}>
+                <Text style={{ color: colors.primary, fontWeight: "600" }}>{isAr ? "إلغاء" : "Cancel"}</Text>
+              </TouchableOpacity>
+              <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 16 }}>{isAr ? "اختر القسم" : "Select Department"}</Text>
+              <View style={{ width: 45 }} />
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 14, gap: 7 }}>
+              {departments.filter((department) => department.isActive).map((department) => (
+                <TouchableOpacity
+                  key={department.id}
+                  onPress={() => {
+                    setEmployeeForm({ ...employeeForm, department: department.id });
+                    setShowEmployeeDepartmentPicker(false);
+                  }}
+                  style={[styles.departmentOption, { backgroundColor: employeeForm.department === department.id ? colors.primary + "18" : colors.surface, borderColor: employeeForm.department === department.id ? colors.primary : colors.border }]}
+                >
+                  <MaterialIcons name={department.icon as any} size={19} color={employeeForm.department === department.id ? colors.primary : colors.muted} />
+                  <Text style={{ flex: 1, color: employeeForm.department === department.id ? colors.primary : colors.foreground, textAlign: "right", fontWeight: employeeForm.department === department.id ? "700" : "400" }}>
+                    {isAr ? department.labelAr : department.labelEn}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
 
@@ -954,6 +983,34 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
+  },
+  departmentSelect: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  departmentOption: {
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalContent: {
+    borderRadius: 14,
+    overflow: "hidden",
   },
   roleChip: {
     paddingVertical: 8,
