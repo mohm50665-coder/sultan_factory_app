@@ -26,8 +26,12 @@ import { manufacturingWorkersService, productsService } from "@/lib/services/api
 interface ProductItem {
   id?: string;
   productName: string;
+  machineNumber?: string;
+  shiftNumber?: number;
+  productionDate?: string;
   productSize?: string;
   productColor?: string;
+  qualityGrade?: string;
   quantityDozen: string;
   quantityPairs: string;
   movementStatus: "none" | "received" | "delivered";
@@ -154,10 +158,15 @@ export default function ManufacturingStageScreen() {
 
   const config = STAGE_CONFIG[stage] || STAGE_CONFIG.machines;
   const STAGE_ORDER = ["machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"];
-  const ALLOWED_NEXT_STAGES: Record<string, string[]> = { machines: ["rosso"], rosso: ["qalb"], qalb: ["kawiya"], kawiya: ["inspection"], antislip: ["inspection"], inspection: ["packing", "antislip"], packing: ["storage"], storage: [] };
+  const ALLOWED_NEXT_STAGES: Record<string, string[]> = { machines: ["rosso"], rosso: ["qalb"], qalb: ["kawiya"], kawiya: ["inspection", "antislip"], antislip: ["kawiya"], inspection: ["packing"], packing: ["storage"], storage: [] };
   const nextStageOptions = ALLOWED_NEXT_STAGES[stage] || [];
   const nextStageId = nextStageOptions[0] || "storage";
-  const getProductNextStageOptions = (product?: ProductItem) => (stage === "inspection" && String(product?.productType || "").includes(":FROM:antislip")) ? ["packing"] : nextStageOptions;
+  const getProductNextStageOptions = (product?: ProductItem) => {
+    const fromAntiSlip = String(product?.productType || "").includes(":FROM:antislip");
+    if (stage === "kawiya" && fromAntiSlip) return ["inspection"];
+    if (stage === "inspection" && fromAntiSlip) return ["packing"];
+    return nextStageOptions;
+  };
   const nextStageConfig = STAGE_CONFIG[nextStageId] || STAGE_CONFIG.storage;
   const isStorageStage = stage === "storage";
 
@@ -271,6 +280,9 @@ export default function ManufacturingStageScreen() {
           products: [{
             id: String(d.id),
             productName: d.productName || "",
+            machineNumber: d.machineNumber || "",
+            shiftNumber: d.shiftNumber ? Number(d.shiftNumber) : undefined,
+            productionDate: d.date || "",
             productSize: d.productSize || "",
             productColor: d.productColor || "",
             quantityDozen: String(d.quantityDozen ?? 0),
@@ -706,6 +718,10 @@ export default function ManufacturingStageScreen() {
                 <MaterialIcons name="inventory" size={16} color={config.color} />
               </View>
               <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+                <Text style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800" }}>{isAr ? `المكينة: ${product.machineNumber || "غير مسجلة"}` : `Machine: ${product.machineNumber || "Not recorded"}`}</Text>
+                <Text style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800" }}>{isAr ? `الوردية: ${product.shiftNumber || "غير مسجلة"}` : `Shift: ${product.shiftNumber || "Not recorded"}`}</Text>
+                <Text style={{ color: "#1d4ed8", fontSize: 11, fontWeight: "800" }}>{isAr ? `تاريخ الإنتاج: ${product.productionDate || item.date || "غير مسجل"}` : `Production date: ${product.productionDate || item.date || "Not recorded"}`}</Text>
+                <Text style={{ color: "#92400e", fontSize: 11, fontWeight: "800" }}>{isAr ? `النخب: ${product.qualityGrade === "second" ? "نخب ثاني" : product.qualityGrade === "sample" ? "عينة" : "نخب أول"}` : `Grade: ${product.qualityGrade || "first"}`}</Text>
                 <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `المقاس: ${product.productSize || "غير مسجل"}` : `Size: ${product.productSize || "Not recorded"}`}</Text>
                 <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `اللون: ${product.productColor || "غير مسجل"}` : `Color: ${product.productColor || "Not recorded"}`}</Text>
                 {product.barcode ? <Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? `الباركود: ${product.barcode}` : `Barcode: ${product.barcode}`}</Text> : null}
@@ -734,18 +750,19 @@ export default function ManufacturingStageScreen() {
               )}
               {isStorageStage && product.movementStatus === "received" && (
                 <View style={{ marginTop: 8, backgroundColor: "#eef2ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#818cf8" }}>
-                  <Text style={{ color: "#3730a3", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{product.barcode ? `باركود: ${product.barcode}` : (isAr ? "أضف الباركود قبل الحفظ" : "Add barcode before storing")}</Text>
-                  <TextInput value={product.barcode || ""} onChangeText={(value) => setEntries((current) => current.map((entry) => ({ ...entry, products: entry.products.map((item) => item.id === product.id ? { ...item, barcode: value } : item) })))} placeholder={isAr ? "اكتب الباركود" : "Enter barcode"} placeholderTextColor="#6b7280" style={{ marginTop: 7, backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#818cf8", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: "#111827", textAlign: isAr ? "right" : "left" }} />
-                  <TouchableOpacity onPress={() => void handleCompleteStorage(product)} style={{ marginTop: 7, backgroundColor: "#4f46e5", borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "إضافة الباركود وحفظ التخزين" : "Add barcode and store"}</Text></TouchableOpacity>
+                  <Text style={{ color: "#3730a3", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{product.barcode ? `باركود الإنتاج: ${product.barcode}` : (isAr ? "الباركود غير موجود في سجل الإنتاج" : "Production barcode is missing")}</Text>
+                  <Text style={{ color: "#4338ca", fontSize: 10, marginTop: 5, textAlign: isAr ? "right" : "left" }}>{isAr ? "بيانات المنتج والباركود للعرض فقط؛ لا يمكن تعديلها في التخزين." : "Product data and barcode are read-only; storage cannot edit them."}</Text>
+                  <TouchableOpacity disabled={!product.barcode} onPress={() => void handleCompleteStorage(product)} style={{ marginTop: 7, backgroundColor: product.barcode ? "#4f46e5" : "#9ca3af", borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{isAr ? "حفظ التخزين بالبيانات الأصلية" : "Store with source data"}</Text></TouchableOpacity>
                 </View>
               )}
-              {product.movementStatus === "received" && !isStorageStage && (receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).length > 0 && (
+              {product.movementStatus === "received" && !isStorageStage && getProductNextStageOptions(product).some((stageId) => (receiverStageWorkers[stageId] || []).length > 0) && (
                 <View style={{ marginTop: 8, backgroundColor: "#eff6ff", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#93c5fd" }}>
-                  <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "سلّمت إلى الموظف التالي" : "Delivered to next employee"}</Text>
-                  {getProductNextStageOptions(product).length > 1 && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>{getProductNextStageOptions(product).map((stageId) => <Text key={stageId} style={{ color: "#1d4ed8", fontSize: 10, fontWeight: "700" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text>)}</View>}
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                    {(receiverStageWorkers[getProductNextStageOptions(product)[0]] || nextStageWorkers).map((receiver) => <TouchableOpacity key={receiver} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, getProductNextStageOptions(product)[0], receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}
-                  </View>
+                  <Text style={{ color: "#1d4ed8", fontWeight: "800", fontSize: 11, textAlign: isAr ? "right" : "left" }}>{isAr ? "اختر جهة وموظف التسليم" : "Choose destination and receiver"}</Text>
+                  {getProductNextStageOptions(product).map((stageId) => {
+                    const workers = receiverStageWorkers[stageId] || (stageId === nextStageId ? nextStageWorkers : []);
+                    if (!workers.length) return null;
+                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{workers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}</View></View>;
+                  })}
                 </View>
               )}
             </View>

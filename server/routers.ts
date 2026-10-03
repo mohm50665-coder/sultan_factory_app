@@ -139,17 +139,39 @@ const MANUFACTURING_ALLOWED_TRANSITIONS: Record<string, readonly string[]> = {
   machines: ["rosso"],
   rosso: ["qalb"],
   qalb: ["kawiya"],
-  kawiya: ["inspection"],
-  antislip: ["inspection"],
-  inspection: ["packing", "antislip"],
+  // الكاوية لها فرعان: الفحص مباشرة أو مانع الانزلاق، ثم يعود مانع الانزلاق إلى الكاوية.
+  kawiya: ["inspection", "antislip"],
+  antislip: ["kawiya"],
+  inspection: ["packing"],
   packing: ["storage"],
   storage: [],
 };
 
 function allowedNextStages(stageName: string, productType?: string | null): readonly string[] {
   const normalizedStage = String(stageName || "").trim();
-  if (normalizedStage === "inspection" && String(productType || "").includes(":FROM:antislip")) return ["packing"];
+  const fromAntiSlip = String(productType || "").includes(":FROM:antislip");
+  // بعد عودة المنتج من مانع الانزلاق إلى الكاوية، تكون وجهته الوحيدة الفحص.
+  if (normalizedStage === "kawiya" && fromAntiSlip) return ["inspection"];
+  // التوافق مع السجلات القديمة التي كانت تحمل علامة FROM:antislip داخل النوع.
+  if (normalizedStage === "inspection" && fromAntiSlip) return ["packing"];
   return MANUFACTURING_ALLOWED_TRANSITIONS[normalizedStage] || [];
+}
+
+// بصمة المطابقة التشغيلية: لا تمنع الحركة إلا إذا تطابقت كل بيانات الإنتاج الأساسية.
+// اختلاف المكينة أو الوردية أو التاريخ يجعل الحركة مستقلة ومسموحة.
+function manufacturingDataFingerprint(row: any) {
+  return JSON.stringify([
+    String(row.machineNumber || "").trim(),
+    Number(row.shiftNumber) || 1,
+    String(row.date || "").trim(),
+    String(row.productName || "").trim(),
+    String(row.productColor || "").trim(),
+    String(row.productSize || "").trim(),
+    Number(row.quantityDozen) || 0,
+    Number(row.quantityPair) || 0,
+    String(row.qualityGrade || "first"),
+    String(row.barcode || "").trim().toUpperCase(),
+  ]);
 }
 
 function assertValidTrackingTransition(previousStage: unknown, currentStage: unknown, receiverStage?: unknown, handoverStatus?: string) {
@@ -266,8 +288,10 @@ async function listEligibleStageWorkers(db: any, stageName?: string) {
   return all.flat();
 }
 
-function productionHandoverKey(entry: { date: string; machineNumber: string; shiftNumber?: number; productName?: string }) {
-  const productHash = createHash("sha1").update(normalizeCatalogPart(entry.productName)).digest("hex").slice(0, 12);
+function productionHandoverKey(entry: { date: string; machineNumber: string; shiftNumber?: number; productName?: string; productSize?: string; productColor?: string; barcode?: string }) {
+  const productHash = createHash("sha1").update(JSON.stringify([
+    normalizeCatalogPart(entry.productName), String(entry.productSize || "").trim(), String(entry.productColor || "").trim(), String(entry.barcode || "").trim().toUpperCase(),
+  ])).digest("hex").slice(0, 12);
   return `AUTO_PROD:${entry.date}:${entry.machineNumber}:${entry.shiftNumber || 1}:${productHash}`;
 }
 
@@ -276,7 +300,7 @@ function productionHandoverKey(entry: { date: string; machineNumber: string; shi
 function productionEntryFingerprint(entry: any) {
   return createHash("sha256").update(JSON.stringify([
     String(entry.date || "").trim(), String(entry.machineNumber || "").trim(),
-    normalizeCatalogPart(entry.productName), entry.qualityGrade || "first",
+    normalizeCatalogPart(entry.productName), String(entry.productSize || "").trim(), String(entry.productColor || "").trim(), String(entry.barcode || "").trim().toUpperCase(), entry.qualityGrade || "first",
     Number(entry.sampleRequestId) || 0, String(entry.sampleReference || "").trim(), Number(entry.shiftNumber) || 1,
     String(entry.shiftStart || "").trim(), String(entry.shiftEnd || "").trim(),
     Number(entry.productionDozen) || 0, Number(entry.productionPairs) || 0,
@@ -296,7 +320,7 @@ const inFlightManufacturingKeys = new Set<string>();
 function manufacturingEntryFingerprint(entry: any) {
   return createHash("sha256").update(JSON.stringify([
     String(entry.stageName || "").trim(), String(entry.date || "").trim(), String(entry.workerName || "").trim(),
-    String(entry.productName || "").trim(), Number(entry.quantityDozen) || 0, Number(entry.quantityPair) || 0,
+    String(entry.machineNumber || "").trim(), Number(entry.shiftNumber) || 1, String(entry.productName || "").trim(), String(entry.productSize || "").trim(), String(entry.productColor || "").trim(), String(entry.barcode || "").trim().toUpperCase(), Number(entry.quantityDozen) || 0, Number(entry.quantityPair) || 0,
     String(entry.productType || "").trim(), entry.movementStatus || "none", String(entry.expectedReceiver || "").trim(),
     String(entry.receiverStage || "").trim(), String(entry.receivedBy || "").trim(),
   ])).digest("hex");
@@ -326,6 +350,8 @@ async function createInitialProductionHandover(db: any, entry: any, user: any) {
   const values = {
     stageName: "production",
     workerName: String(user?.name || "").trim(),
+    machineNumber: String(entry.machineNumber || "").trim(),
+    shiftNumber: Number(entry.shiftNumber) || 1,
     quantityDozen: Number(entry.productionDozen) || 0,
     quantityPair: Number(entry.productionPairs) || 0,
     productType: sourceKey,
@@ -1252,7 +1278,7 @@ export const appRouter = router({
               skippedDuplicates.push(entry);
               continue;
             }
-            const { yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, productSize: _productSize, productColor: _productColor, ...productionEntry } = normalizedEntry;
+            const { yarnWeightPerPair: _weight, expectedReceiver: _expectedReceiver, receiverStage: _receiverStage, ...productionEntry } = normalizedEntry;
             entriesForProduction.push({ ...productionEntry, userId: ctx.user.id });
             entriesToProcess.push(normalizedEntry);
           }
@@ -1327,6 +1353,9 @@ export const appRouter = router({
         const current = await db.select().from(productionTable).where(eq(productionTable.id, input.id)).limit(1);
         if (!current[0]) throw new Error("سجل الإنتاج غير موجود");
         assertProductionAuthority(ctx.user, current[0].date);
+        const editableProductionFields = new Set(["date", "machineNumber", "productName", "productSize", "productColor", "barcode", "qualityGrade", "shiftNumber", "shiftStart", "shiftEnd", "productionDozen", "productionPairs", "secondGradeDozen", "secondGradePairs"]);
+        const invalidFields = Object.keys(input.data).filter((key) => !editableProductionFields.has(key));
+        if (invalidFields.length > 0) throw new TRPCError({ code: "FORBIDDEN", message: "تعديل بيانات حركة الاستلام والتسليم محصور بالنظام؛ يسمح فقط بتعديل بيانات الإنتاج من مدير الإنتاج أو الأدمن" });
         await db.update(productionTable).set(input.data as any).where(eq(productionTable.id, input.id));
         return { success: true };
       }),
@@ -1534,13 +1563,17 @@ export const appRouter = router({
         }
       }),
 
-    update: adminProcedure
+    update: protectedProcedure
       .input(z.object({ id: z.number(), data: z.record(z.string(), z.unknown()) }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const previous = await db.select().from(manufacturingStagesTable).where(eq(manufacturingStagesTable.id, input.id)).limit(1);
         if (!previous[0] || previous[0].deletedAt) throw new Error("السجل غير موجود أو موجود في سلة المهملات");
+        assertProductionAuthority(ctx.user, previous[0].date);
+        const editableStageFields = new Set(["machineNumber", "shiftNumber", "productName", "productSize", "productColor", "barcode", "qualityGrade"]);
+        const invalidStageFields = Object.keys(input.data).filter((key) => !editableStageFields.has(key));
+        if (invalidStageFields.length > 0) throw new TRPCError({ code: "FORBIDDEN", message: "بيانات الاستلام والتسليم تنتقل آلياً؛ يسمح فقط لمدير الإنتاج أو الأدمن بتصحيح بيانات المنتج الأساسية" });
         await db.update(manufacturingStagesTable).set(input.data as any).where(eq(manufacturingStagesTable.id, input.id));
         await db.insert(auditLogTable).values({ userId: ctx.user.id, action: "update", tableName: "manufacturingStages", recordId: input.id, oldValue: previous[0] as any, newValue: input.data as any, description: "تعديل سجل مرحلة تسليم" });
         return { success: true };
@@ -1586,6 +1619,28 @@ export const appRouter = router({
         if (record.movementStatus !== "delivered") throw new Error("لا يوجد تسليم بانتظار التأكيد");
         if (isAutomaticHandoverActive(record.date) && !record.productionId) {
           throw new TRPCError({ code: "CONFLICT", message: "لا يمكن استلام عهدة غير مرتبطة بسجل إنتاج أصلي؛ راجع مدير الإنتاج" });
+        }
+        // مصدر الحقيقة هو سجل الإنتاج؛ لا نسمح بإنشاء عهدة ببيانات معدلة أو ناقصة.
+        let sourceProduction: any = null;
+        if (record.productionId) {
+          const productionRows = await db.select().from(productionTable).where(eq(productionTable.id, record.productionId)).limit(1);
+          sourceProduction = productionRows[0] || null;
+          if (!sourceProduction) throw new TRPCError({ code: "CONFLICT", message: "سجل الإنتاج الأصلي غير موجود؛ لا يمكن إكمال الاستلام" });
+          const canonical = {
+            machineNumber: sourceProduction.machineNumber,
+            shiftNumber: sourceProduction.shiftNumber,
+            date: sourceProduction.date,
+            productName: sourceProduction.productName,
+            productColor: sourceProduction.productColor || parseLegacyProductName(sourceProduction.productName).color,
+            productSize: sourceProduction.productSize || parseLegacyProductName(sourceProduction.productName).size,
+            quantityDozen: sourceProduction.productionDozen,
+            quantityPair: sourceProduction.productionPairs,
+            qualityGrade: sourceProduction.qualityGrade,
+            barcode: sourceProduction.barcode,
+          };
+          if (manufacturingDataFingerprint(record) !== manufacturingDataFingerprint(canonical)) {
+            throw new TRPCError({ code: "CONFLICT", message: "بيانات العهدة لا تطابق سجل الإنتاج الأصلي؛ راجع مدير الإنتاج" });
+          }
         }
         // receivedAt هو وقت استلام هذه المرحلة من المرحلة السابقة، وليس دليلاً على استلام التسليم الحالي.
         // منع التكرار يتم حصراً عبر destinationRows والمعاملة الذرية أدناه.
@@ -1639,6 +1694,25 @@ export const appRouter = router({
             });
           }
         }
+        // مانع الانزلاق لا يستقبل دفعة جديدة من الكاوية ما دامت الدفعة السابقة داخله.
+        if (destinationStage === "antislip") {
+          const activeAntiSlip = await db.select({ id: manufacturingStagesTable.id, productName: manufacturingStagesTable.productName })
+            .from(manufacturingStagesTable)
+            .where(and(isNull(manufacturingStagesTable.deletedAt), eq(manufacturingStagesTable.stageName, "antislip"), eq(manufacturingStagesTable.movementStatus, "received")))
+            .limit(1);
+          if (activeAntiSlip[0]) throw new TRPCError({ code: "CONFLICT", message: `لا يمكن تسليم منتج جديد إلى مانع الانزلاق قبل إعادة المنتج السابق إلى الكاوية${activeAntiSlip[0].productName ? ` (${activeAntiSlip[0].productName})` : ""}` });
+        }
+        // منع التكرار الكامل فقط؛ اختلاف أي حقل أساسي، ومنها المكينة أو الوردية أو التاريخ، يسمح بالحركة.
+        const sameDataRows = await db.select().from(manufacturingStagesTable).where(and(
+          isNull(manufacturingStagesTable.deletedAt),
+          eq(manufacturingStagesTable.stageName, destinationStage),
+          eq(manufacturingStagesTable.productName, String(record.productName || "")),
+          eq(manufacturingStagesTable.date, String(record.date || "")),
+        ));
+        const exactDuplicate = sameDataRows.find((row: any) => manufacturingDataFingerprint(row) === manufacturingDataFingerprint(record) && ["received", "delivered"].includes(String(row.movementStatus)));
+        if (exactDuplicate && Number(exactDuplicate.id) !== Number(record.id)) {
+          throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذ حركة مطابقة بالكامل مسبقاً" });
+        }
         const destinationKey = `AUTO_STAGE:${record.id}`;
         const destinationRows = await db.select().from(manufacturingStagesTable).where(like(manufacturingStagesTable.productType, `${destinationKey}%`)).limit(1);
         if (destinationRows[0]) {
@@ -1686,14 +1760,18 @@ export const appRouter = router({
             stageName: destinationStage,
             workerName: receiverName,
             productionId: record.productionId || null,
-            quantityDozen: record.quantityDozen || 0,
-            quantityPair: record.quantityPair || 0,
+            machineNumber: sourceProduction?.machineNumber || record.machineNumber || null,
+            shiftNumber: sourceProduction?.shiftNumber || record.shiftNumber || 1,
+            quantityDozen: sourceProduction?.productionDozen ?? record.quantityDozen ?? 0,
+            quantityPair: sourceProduction?.productionPairs ?? record.quantityPair ?? 0,
             productType: `${destinationKey}:FROM:${record.stageName}`,
-            productName: record.productName || "",
-            productSize: record.productSize || parseLegacyProductName(record.productName).size || null,
-            productColor: record.productColor || parseLegacyProductName(record.productName).color || null,
-            barcode: record.barcode || null,
-            date: getRiyadhDate(receivedAt),
+            productName: sourceProduction?.productName || record.productName || "",
+            productSize: sourceProduction?.productSize || record.productSize || parseLegacyProductName(record.productName).size || null,
+            productColor: sourceProduction?.productColor || record.productColor || parseLegacyProductName(record.productName).color || null,
+            qualityGrade: sourceProduction?.qualityGrade || record.qualityGrade || "first",
+            barcode: sourceProduction?.barcode || record.barcode || null,
+            // تاريخ المنتج هو تاريخ الإنتاج الأصلي، وليس تاريخ ضغط زر الاستلام.
+            date: sourceProduction?.date || record.date || getRiyadhDate(receivedAt),
             movementStatus: "received",
             movementBy: receiverName,
             movementAt: receivedAt,
@@ -1772,8 +1850,11 @@ export const appRouter = router({
         }
         const actorName = String(ctx.user.name || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تخزين عهدة موظف آخر");
+        const canonicalBarcode = String(record.barcode || "").trim().toUpperCase();
+        if (canonicalBarcode.length < 2) throw new TRPCError({ code: "CONFLICT", message: "لا يمكن تخزين منتج بلا باركود صادر من الإنتاج" });
+        if (input.barcode.trim().toUpperCase() !== canonicalBarcode) throw new TRPCError({ code: "FORBIDDEN", message: "باركود التخزين ينتقل من الإنتاج ولا يمكن تعديله في المراحل" });
         const storedAt = new Date();
-        await db.update(manufacturingStagesTable).set({ barcode: input.barcode.trim().toUpperCase(), productType: `STORED:${input.barcode.trim().toUpperCase()}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
+        await db.update(manufacturingStagesTable).set({ barcode: canonicalBarcode, productType: `STORED:${canonicalBarcode}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
         if (record.sampleRequestId) {
           await db.update(sampleRequestsTable).set({ status: "ready_for_requester" }).where(eq(sampleRequestsTable.id, record.sampleRequestId));
         }
@@ -1805,8 +1886,10 @@ export const appRouter = router({
         const expectedReceiver = input.expectedReceiver.trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
         if (samePersonName(expectedReceiver, actorName)) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
-        const quantityDozen = input.quantityDozen ?? record.quantityDozen ?? 0;
-        const quantityPair = input.quantityPair ?? record.quantityPair ?? 0;
+        const quantityDozen = record.quantityDozen ?? 0;
+        const quantityPair = record.quantityPair ?? 0;
+        if (input.quantityDozen !== undefined && Number(input.quantityDozen) !== Number(quantityDozen)) throw new TRPCError({ code: "FORBIDDEN", message: "كمية التسليم تنتقل تلقائياً من سجل الإنتاج ولا يمكن تعديلها" });
+        if (input.quantityPair !== undefined && Number(input.quantityPair) !== Number(quantityPair)) throw new TRPCError({ code: "FORBIDDEN", message: "كمية التسليم تنتقل تلقائياً من سجل الإنتاج ولا يمكن تعديلها" });
         const currentPairs = (record.quantityDozen || 0) * 12 + (record.quantityPair || 0);
         const deliveredPairs = quantityDozen * 12 + quantityPair;
         if (deliveredPairs <= 0) throw new Error("كمية التسليم يجب أن تكون أكبر من صفر");
@@ -1881,7 +1964,7 @@ export const appRouter = router({
               productSize: record.productSize || identity.size || null,
               productColor: record.productColor || identity.color || null,
               barcode: record.barcode || null,
-              date: getRiyadhDate(deliveredAt),
+              date: record.date || getRiyadhDate(deliveredAt),
               movementStatus: "received",
               movementBy: actorName,
               movementAt: deliveredAt,

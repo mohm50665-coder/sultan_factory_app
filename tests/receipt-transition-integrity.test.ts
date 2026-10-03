@@ -17,7 +17,8 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain('machines: ["rosso"]');
     expect(routersSource).toContain('rosso: ["qalb"]');
     expect(routersSource).toContain('qalb: ["kawiya"]');
-    expect(routersSource).toContain('kawiya: ["inspection"]');
+    expect(routersSource).toContain('kawiya: ["inspection", "antislip"]');
+    expect(routersSource).toContain('antislip: ["kawiya"]');
   });
 
   it("blocks a worker from receiving a new custody while a previous custody is still received", () => {
@@ -41,6 +42,25 @@ describe("Receipt and handover integrity", () => {
     expect(receiverBlock).toBeLessThan(saveControls);
     expect(productionSource).toContain("بعد تعبئة بيانات المنتج اختر موظف الروسو، ثم اضغط حفظ");
   });
+  it("carries the complete production identity and protects it from stage edits", () => {
+    expect(routersSource).toContain("machineNumber: sourceProduction?.machineNumber || record.machineNumber");
+    expect(routersSource).toContain("shiftNumber: sourceProduction?.shiftNumber || record.shiftNumber");
+    expect(routersSource).toContain("بيانات العهدة لا تطابق سجل الإنتاج الأصلي");
+    expect(routersSource).toContain("تعديل بيانات حركة الاستلام والتسليم محصور بالنظام");
+    expect(routersSource).toContain("بيانات الاستلام والتسليم تنتقل آلياً؛ يسمح فقط لمدير الإنتاج أو الأدمن");
+    expect(routersSource).toContain("const editableStageFields = new Set");
+    expect(routersSource).toContain("باركود التخزين ينتقل من الإنتاج ولا يمكن تعديله في المراحل");
+  });
+
+  it("implements the Kawiya anti-slip return branch and exact-data deduplication", () => {
+    expect(routersSource).toContain('kawiya: ["inspection", "antislip"]');
+    expect(routersSource).toContain('antislip: ["kawiya"]');
+    expect(routersSource).toContain('if (normalizedStage === "kawiya" && fromAntiSlip) return ["inspection"]');
+    expect(routersSource).toContain("activeAntiSlip");
+    expect(routersSource).toContain("manufacturingDataFingerprint");
+    expect(routersSource).toContain("اختلاف أي حقل أساسي، ومنها المكينة أو الوردية أو التاريخ، يسمح بالحركة");
+  });
+
 });
 
 export {};
