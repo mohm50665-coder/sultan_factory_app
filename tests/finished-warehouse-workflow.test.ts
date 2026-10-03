@@ -90,4 +90,16 @@ describe("finished warehouse workflow", () => {
     expect(router).toContain('nextStatus === "WAREHOUSE_PARTIAL"');
     expect(router).toContain("recipientUserId: Number(detail.representativeId)");
   });
+
+  it("supports warehouse order count, filtering, selection, and printing all or selected rows", () => {
+    const ordersScreen = read("app/warehouse-representative-orders.tsx");
+    const warehouseScreen = read("app/warehouse.tsx");
+    expect(ordersScreen).toContain("selectedIds");
+    expect(ordersScreen).toContain("statusFilter");
+    expect(ordersScreen).toContain("تحديد المعروض");
+    expect(ordersScreen).toContain("طباعة المحدد");
+    expect(ordersScreen).toContain("طباعة الجميع");
+    expect(warehouseScreen).toContain("pendingOrdersCount");
+    expect(warehouseScreen).toContain("warehouse-representative-orders");
+  });
 });

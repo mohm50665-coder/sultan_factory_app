@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -15,6 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AdminBadgeIcon } from "@/components/admin-badge-icon";
 import { AdminCard } from "@/components/admin-card";
 import { useLanguage } from "@/lib/language-context";
+import { representativeService } from "@/lib/services/representative.service";
 
 interface WarehouseSection {
   id: string;
@@ -23,6 +24,7 @@ interface WarehouseSection {
   color: string;
   route: string;
   description: string;
+  badge?: number;
 }
 
 export default function WarehouseScreen() {
@@ -31,6 +33,18 @@ export default function WarehouseScreen() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const isAr = language === "ar";
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  const loadPendingOrdersCount = useCallback(async () => {
+    try {
+      const rows: any = await representativeService.transactions.list({ transactionType: "order" });
+      setPendingOrdersCount((rows || []).filter((row: any) => ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(row.status)).length);
+    } catch {
+      setPendingOrdersCount(0);
+    }
+  }, []);
+
+  useEffect(() => { void loadPendingOrdersCount(); }, [loadPendingOrdersCount]);
 
   const WAREHOUSE_SECTIONS: WarehouseSection[] = [
     {
@@ -56,6 +70,7 @@ export default function WarehouseScreen() {
       color: "#f59e0b",
       route: "/warehouse-representative-orders",
       description: isAr ? "استلام الطلبات المحولة من المندوبين وإخراجها وتنفيذها" : "Receive, issue and execute representative sales orders",
+      badge: pendingOrdersCount,
     },
     {
       id: "raw_in",
@@ -124,6 +139,7 @@ export default function WarehouseScreen() {
               <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
                 <MaterialIcons name={section.icon as any} size={28} color={section.color} />
               </View>
+              {section.badge !== undefined && section.badge > 0 && <View style={styles.countBadge}><Text style={styles.countBadgeText}>{section.badge}</Text></View>}
             </View>
           </TouchableOpacity>
         ))}
@@ -192,6 +208,21 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
     alignItems: "flex-end",
+  },
+  countBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#dc2626",
+    marginLeft: 8,
+  },
+  countBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "900",
   },
   sectionLabel: {
     fontSize: 15,
