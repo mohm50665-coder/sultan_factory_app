@@ -273,8 +273,11 @@ export default function ManufacturingStageScreen() {
         // سجل المصدر الذي تم تأكيد استلامه في المرحلة التالية يبقى للتقارير فقط،
         // ولا يظهر كبطاقة تشغيلية معلقة في المرحلة السابقة أو التالية.
         let filtered = merged.filter((d: any) => {
+          const isQueueRecord = Array.isArray(queue) && queue.some((queued: any) => Number(queued?.id) === Number(d?.id));
           const isCurrentStageRecord = d.stageName === stage && (!d.receiverStage || d.movementStatus === "delivered");
-          const isWaitingForThisStage = d.movementStatus === "delivered" && d.receiverStage === stage && samePersonName(d.expectedReceiver, user?.name);
+          // نتيجة listReceiptQueue مصفاة خادمياً حسب حساب المستخدم؛ لا نسقطها مرة ثانية
+          // بسبب اختلاف مسافة أو اسم مستلم قديم، وإلا تختفي عهدة الجوال من شاشة الروسو.
+          const isWaitingForThisStage = d.movementStatus === "delivered" && d.receiverStage === stage && (isQueueRecord || samePersonName(d.expectedReceiver, user?.name));
           return (isCurrentStageRecord || isWaitingForThisStage) && String(d.productName || "").trim() && ((Number(d.quantityDozen) || 0) * 12 + (Number(d.quantityPair) || 0) > 0);
         });
         // العامل يرى العهدة الواردة له وسجلاته الحالية فقط؛ الأدمن يرى الجميع.

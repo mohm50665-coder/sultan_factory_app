@@ -59,6 +59,12 @@ describe("Rosso to Qalb handover hardening", () => {
     expect(trackingUi).toContain("false && selectedProduct");
   });
 
+  it("trusts the server-filtered receipt queue instead of dropping mobile custody on a second name filter", () => {
+    expect(ui).toContain("const isQueueRecord = Array.isArray(queue)");
+    expect(ui).toContain("isQueueRecord || samePersonName(d.expectedReceiver, user?.name)");
+    expect(ui).toContain("نتيجة listReceiptQueue مصفاة خادمياً حسب حساب المستخدم");
+  });
+
   it("refreshes every manufacturing stage so mobile actions appear without reopening the screen", () => {
     expect(ui).toContain("setInterval(() => { void loadEntries(false); }, 10000)");
     expect(ui).toContain("onPress={() => void loadEntries(true)}");
