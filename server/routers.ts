@@ -4482,7 +4482,18 @@ export const appRouter = router({
     search: protectedProcedure.input(z.object({ query: z.string().min(1) })).query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.isActive, 1), or(like(finishedWarehouseStockTable.productName, `%${input.query}%`), like(finishedWarehouseStockTable.barcode, `%${input.query}%`), like(finishedWarehouseStockTable.productSize, `%${input.query}%`), like(finishedWarehouseStockTable.productColor, `%${input.query}%`)))).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
+      const query = input.query.trim();
+      const compactQuery = query.replace(/\s+/g, "");
+      return db.select().from(finishedWarehouseStockTable).where(and(
+        eq(finishedWarehouseStockTable.isActive, 1),
+        or(
+          like(finishedWarehouseStockTable.productName, `%${query}%`),
+          like(sql`REPLACE(${finishedWarehouseStockTable.productName}, ' ', '')`, `%${compactQuery}%`),
+          like(finishedWarehouseStockTable.barcode, `%${query}%`),
+          like(finishedWarehouseStockTable.productSize, `%${query}%`),
+          like(finishedWarehouseStockTable.productColor, `%${query}%`),
+        ),
+      )).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
     }),
     summary: protectedProcedure.query(async () => {
       const db = await getDb();
