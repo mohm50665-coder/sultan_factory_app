@@ -25,6 +25,10 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("stageSummary");
     expect(summary).toContain("مراحل التصنيع — كل مرحلة مستقلة");
     expect(summary).toContain("المسلّم المحتسب");
+    expect(summary).toContain("productionOnlyWorkMinutes");
+    expect(summary).toContain("stageDurationSummary");
+    expect(summary).toContain("const productionWorkMinutes = productionOnlyWorkMinutes + stageWorkMinutes");
+    expect(summary).toContain("مدة المرحلة");
   });
 
   it("explains the calculation and links remaining quantities to the dedicated inventory", () => {
