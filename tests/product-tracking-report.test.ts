@@ -7,6 +7,10 @@ const source = readFileSync(resolve(process.cwd(), "app/product-tracking.tsx"), 
 describe("Product tracking location and handover report", () => {
   it("supports optional date ranges and independent product or employee filtering", () => {
     expect(source).toContain("dateToFilter");
+    expect(source).toContain("const dateOnly = (value: unknown)");
+    expect(source).toContain("const handoverEventDate = (row: any)");
+    expect(source).toContain("const inAppliedDateRange = (value: unknown)");
+    expect(source).toContain("if (!appliedDateFilter && !appliedDateToFilter) return true;");
     expect(source).toContain("rowDate >= appliedDateFilter");
     expect(source).toContain("rowDate <= appliedDateToFilter");
     expect(source).toContain("setProductFilter");
@@ -14,6 +18,12 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("مسح كل الفلاتر");
     expect(source).toContain("defaultSaturdayThursdayRange");
     expect(source).toContain("start: dateKey(start), end: dateKey(end)");
+  });
+
+  it("filters handover cards, summaries, and timelines by the applied movement date", () => {
+    expect(source).toContain("handoverRecords.filter((row) => String(row.productName || \"\") === productName && inAppliedDateRange(handoverEventDate(row)))");
+    expect(source).toContain("const rowDate = handoverEventDate(row);");
+    expect(source).toContain("تاريخ الحركة ضمن النطاق:");
   });
 
   it("uses a date picker for both report range boundaries", () => {

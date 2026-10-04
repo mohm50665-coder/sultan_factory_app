@@ -25,6 +25,15 @@ const STAGES = [
 const numberValue = (value: unknown) => Number(value || 0) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
 const dateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+const dateOnly = (value: unknown) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const slashDate = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (slashDate) return `${slashDate[3]}-${String(slashDate[2]).padStart(2, "0")}-${String(slashDate[1]).padStart(2, "0")}`;
+  const parsed = new Date(raw);
+  return Number.isFinite(parsed.getTime()) ? dateKey(parsed) : "";
+};
 const defaultSaturdayThursdayRange = () => {
   const current = new Date();
   const start = new Date(current);
@@ -141,7 +150,7 @@ export default function ProductTrackingScreen() {
     const groups: Record<string, any> = {};
     production
       .filter((row) => {
-        const rowDate = String(row.date || row.createdAt || "").slice(0, 10);
+        const rowDate = dateOnly(row.date || row.createdAt || row.updatedAt);
         return (!appliedDateFilter || rowDate >= appliedDateFilter) && (!appliedDateToFilter || rowDate <= appliedDateToFilter);
       })
       .forEach((row) => {
@@ -180,24 +189,30 @@ export default function ProductTrackingScreen() {
     if (!name && !employee.name) return "غير محدد";
     return [employee.name || name, employee.department || "القسم غير محدد"].filter(Boolean).join(" — ");
   };
-  const productTimeline = (productName: string) => handoverRecords.filter((row) => String(row.productName || "") === productName).sort((a, b) => String(a.createdAt || a.deliveredAt || a.receivedAt || "").localeCompare(String(b.createdAt || b.deliveredAt || b.receivedAt || "")));
+  const handoverEventDate = (row: any) => dateOnly(row.deliveredAt || row.receivedAt || row.createdAt || row.trackingDate || row.date);
+  const inAppliedDateRange = (value: unknown) => {
+    if (!appliedDateFilter && !appliedDateToFilter) return true;
+    const rowDate = dateOnly(value);
+    return Boolean(rowDate) && (!appliedDateFilter || rowDate >= appliedDateFilter) && (!appliedDateToFilter || rowDate <= appliedDateToFilter);
+  };
+  const productTimeline = (productName: string) => handoverRecords.filter((row) => String(row.productName || "") === productName && inAppliedDateRange(handoverEventDate(row))).sort((a, b) => String(a.createdAt || a.deliveredAt || a.receivedAt || "").localeCompare(String(b.createdAt || b.deliveredAt || b.receivedAt || "")));
   const stageForProduct = (productName: string) => {
     const tracked = handoverRecords
-      .filter((row) => String(row.productName || "") === productName)
+      .filter((row) => String(row.productName || "") === productName && inAppliedDateRange(handoverEventDate(row)))
       .sort((a, b) => String(b.deliveredAt || b.receivedAt || b.createdAt || "").localeCompare(String(a.deliveredAt || a.receivedAt || a.createdAt || "")));
     if (tracked[0]?.currentStage) return tracked[0].currentStage;
     const rows = manufacturing
-      .filter((row) => String(row.productName || "") === productName)
+      .filter((row) => String(row.productName || "") === productName && inAppliedDateRange(handoverEventDate(row)))
       .sort((a, b) => String(b.movementAt || b.createdAt || "").localeCompare(String(a.movementAt || a.createdAt || "")));
     return rows[0]?.stageName || "production";
   };
 
   const latestTrackingForProduct = (productName: string) => handoverRecords
-    .filter((row) => String(row.productName || "") === productName)
+    .filter((row) => String(row.productName || "") === productName && inAppliedDateRange(handoverEventDate(row)))
     .sort((a, b) => String(b.deliveredAt || b.receivedAt || b.createdAt || "").localeCompare(String(a.deliveredAt || a.receivedAt || a.createdAt || "")))[0] || null;
 
   const latestProductionForProduct = (productName: string) => production
-    .filter((row) => String(row.productName || "") === productName)
+    .filter((row) => String(row.productName || "") === productName && inAppliedDateRange(handoverEventDate(row)))
     .sort((a, b) => String(b.createdAt || b.updatedAt || b.date || "").localeCompare(String(a.createdAt || a.updatedAt || a.date || "")))[0] || null;
 
   const locationForProduct = (productName: string) => {
@@ -223,7 +238,7 @@ export default function ProductTrackingScreen() {
     const employee = employeeFilter.trim().toLowerCase();
     const product = productFilter.trim().toLowerCase();
     return handoverRecords.filter((row) => {
-      const rowDate = String(row.trackingDate || row.deliveredAt || row.receivedAt || row.createdAt || "").slice(0, 10);
+      const rowDate = handoverEventDate(row);
       const dateMatches = (!appliedDateFilter || rowDate >= appliedDateFilter) && (!appliedDateToFilter || rowDate <= appliedDateToFilter);
       const productMatches = !product || [row.productName, row.productBarcode, row.productColor, row.productSize].some((value) => String(value || "").toLowerCase().includes(product));
       const stageMatches = stageFilter === "all" || String(row.previousStage || "") === stageFilter || String(row.currentStage || "") === stageFilter || String(row.receiverStage || "") === stageFilter;
@@ -302,7 +317,7 @@ export default function ProductTrackingScreen() {
       const receivedQty = `${numberValue(row.receivedQuantityDozen ?? row.quantityDozen)} درزن + ${numberValue(row.receivedQuantityPairs ?? row.quantityPairs)} زوج`;
       const difference = `${numberValue(row.shortageDozen)} درزن + ${numberValue(row.shortagePairs)} زوج`;
       const status = row.handoverStatus === "pending" ? "تحت الإجراء - بانتظار تأكيد المستلم" : row.receivedBy ? "مستلم ومؤكد" : location.status;
-      return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(row.productName || "غير محدد")}</strong>؛ المقاس: ${escapeHtml(row.productSize || catalog.size || "غير محدد")}؛ اللون: ${escapeHtml(row.productColor || catalog.color || "غير محدد")}؛ الباركود: ${escapeHtml(row.productBarcode || catalog.barcode || "غير محدد")}</td><td><strong>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</strong>؛ المرحلة التالية: ${escapeHtml(stageLabel(row.receiverStage))}؛ الموقع الحالي: ${escapeHtml(location.label)}</td><td><strong>يوم وتاريخ الحركة:</strong> ${escapeHtml(formatActionTime(row.trackingDate || row.date))}؛ <strong>يوم وتاريخ ووقت التسليم:</strong> ${escapeHtml(formatActionTime(row.deliveredAt))}؛ <strong>يوم وتاريخ ووقت الاستلام:</strong> ${escapeHtml(formatActionTime(row.receivedAt))}؛ <strong class="duration">مدة بقاء المنتج لدى المرحلة: ${escapeHtml(elapsedLabel(duration, true))}</strong></td><td><strong>الموظف المسلّم:</strong>؛ ${escapeHtml(employeeCompactLabel(row.deliveredBy) || "غير محدد")}؛ <strong>الموظف المستلم المحدد:</strong>؛ ${escapeHtml(employeeCompactLabel(row.expectedReceiver) || "غير محدد")}؛ <strong>الموظف المستلم فعلياً:</strong>؛ ${escapeHtml(employeeCompactLabel(row.receivedBy) || "لم يؤكد بعد")}</td><td>كمية التسليم: ${escapeHtml(deliveredQty)}؛ كمية الاستلام: ${escapeHtml(receivedQty)}؛ <strong class="${numberValue(row.shortageDozen) + numberValue(row.shortagePairs) > 0 ? "danger" : "ok"}">الفرق/النقص: ${escapeHtml(difference)}</strong></td><td>الحالة الحالية: ${escapeHtml(status)}؛ ${escapeHtml(row.notes || "لا توجد ملاحظات")}</td></tr>`;
+      return `<tr><td>${index + 1}</td><td><strong>${escapeHtml(row.productName || "غير محدد")}</strong>؛ المقاس: ${escapeHtml(row.productSize || catalog.size || "غير محدد")}؛ اللون: ${escapeHtml(row.productColor || catalog.color || "غير محدد")}؛ الباركود: ${escapeHtml(row.productBarcode || catalog.barcode || "غير محدد")}</td><td><strong>${escapeHtml(stageLabel(row.previousStage))} ← ${escapeHtml(stageLabel(row.currentStage))}</strong>؛ المرحلة التالية: ${escapeHtml(stageLabel(row.receiverStage))}؛ الموقع الحالي: ${escapeHtml(location.label)}</td><td><strong>تاريخ الحركة ضمن النطاق:</strong> ${escapeHtml(handoverEventDate(row))}؛ <strong>يوم وتاريخ ووقت التسليم:</strong> ${escapeHtml(formatActionTime(row.deliveredAt))}؛ <strong>يوم وتاريخ ووقت الاستلام:</strong> ${escapeHtml(formatActionTime(row.receivedAt))}؛ <strong class="duration">مدة بقاء المنتج لدى المرحلة: ${escapeHtml(elapsedLabel(duration, true))}</strong></td><td><strong>الموظف المسلّم:</strong>؛ ${escapeHtml(employeeCompactLabel(row.deliveredBy) || "غير محدد")}؛ <strong>الموظف المستلم المحدد:</strong>؛ ${escapeHtml(employeeCompactLabel(row.expectedReceiver) || "غير محدد")}؛ <strong>الموظف المستلم فعلياً:</strong>؛ ${escapeHtml(employeeCompactLabel(row.receivedBy) || "لم يؤكد بعد")}</td><td>كمية التسليم: ${escapeHtml(deliveredQty)}؛ كمية الاستلام: ${escapeHtml(receivedQty)}؛ <strong class="${numberValue(row.shortageDozen) + numberValue(row.shortagePairs) > 0 ? "danger" : "ok"}">الفرق/النقص: ${escapeHtml(difference)}</strong></td><td>الحالة الحالية: ${escapeHtml(status)}؛ ${escapeHtml(row.notes || "لا توجد ملاحظات")}</td></tr>`;
     }).join("");
     const summaryRows = employeeSummary.map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${item.deliveredCount}</td><td>${item.deliveredDozen} درزن + ${item.deliveredPairs} زوج</td><td>${item.receivedCount}</td><td>${item.receivedDozen} درزن + ${item.receivedPairs} زوج</td></tr>`).join("");
     const printWindow = window.open("", "_blank", "width=1400,height=900");
