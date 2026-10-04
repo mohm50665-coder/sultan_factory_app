@@ -213,11 +213,15 @@ function validateTransaction(input: z.infer<typeof transactionSchema>) {
   }
   if (input.transactionType === "order") {
     if (input.items.some((item) => itemQuantityDozen(item) <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل كمية صحيحة بالدرزن أو الزوج" });
-    if (!input.paymentMethod) throw new TRPCError({ code: "BAD_REQUEST", message: "طريقة الدفع إلزامية" });
-    if ((input.paymentAmount || 0) <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "مبلغ الطلب يجب أن يكون أكبر من صفر" });
-    if (input.paymentMethod === "cash" && (!input.receiptNumber || !input.receiptDate)) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم سند القبض وتاريخه إلزاميان للدفع النقدي" });
-    if (input.paymentMethod === "transfer" && !input.attachments.some((attachment) => attachment.type === "transfer_receipt")) throw new TRPCError({ code: "BAD_REQUEST", message: "إيصال التحويل إلزامي" });
-    if (input.paymentMethod === "credit" && ![30, 60, 90].includes(Number(input.creditDays))) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد مدة الآجل 30 أو 60 أو 90 يوماً" });
+    // مبلغ الطلب اختياري. إذا لم توجد قيمة، يُحفظ الطلب بدون أي متطلبات دفع.
+    // أما عند إدخال قيمة موجبة فتُطبق متطلبات طريقة الدفع المناسبة.
+    const hasPaymentAmount = Number(input.paymentAmount || 0) > 0;
+    if (hasPaymentAmount) {
+      if (!input.paymentMethod) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد طريقة الدفع عند إدخال مبلغ" });
+      if (input.paymentMethod === "cash" && (!input.receiptNumber || !input.receiptDate)) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم سند القبض وتاريخه إلزاميان للدفع النقدي" });
+      if (input.paymentMethod === "transfer" && !input.attachments.some((attachment) => attachment.type === "transfer_receipt")) throw new TRPCError({ code: "BAD_REQUEST", message: "إيصال التحويل إلزامي" });
+      if (input.paymentMethod === "credit" && ![30, 60, 90].includes(Number(input.creditDays))) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد مدة الآجل 30 أو 60 أو 90 يوماً" });
+    }
   }
   if (["custom", "sample"].includes(input.transactionType)) {
     for (const item of input.items) {

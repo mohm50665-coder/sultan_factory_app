@@ -28,6 +28,13 @@ describe("Representative workflow contract", () => {
     expect(customers).not.toContain("longitude");
   });
 
+  it("allows an order to be saved without an amount or payment receipt", () => {
+    expect(transactions).toContain('المبلغ (اختياري)');
+    expect(transactions).not.toContain('مبلغ الطلب إلزامي');
+    expect(server).toContain('const hasPaymentAmount = Number(input.paymentAmount || 0) > 0');
+    expect(server).toContain('// مبلغ الطلب اختياري');
+  });
+
   it("shows only customer names in search and routes incomplete customers to the directory", () => {
     expect(server).toContain("isComplete: missingFields.length === 0");
     expect(server).toContain("missingFields");
