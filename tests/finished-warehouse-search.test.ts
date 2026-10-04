@@ -23,4 +23,10 @@ describe("finished warehouse product search", () => {
     expect(screenSource).toContain("bottomProductResults");
     expect(screenSource).not.toContain("stockSuggestions[activeStockSearchIndex] || []).slice(0, 12)");
   });
+
+  it("filters the existing product results by the optional size", () => {
+    expect(screenSource).toContain("stockSearchResults");
+    expect(screenSource).toContain("normalizeVariantSearchValue(stock.productSize) === normalizedSize");
+    expect(screenSource).toContain("placeholder=\"المقاس (اختياري)\"");
+  });
 });
