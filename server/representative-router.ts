@@ -94,9 +94,18 @@ const itemSchema = z.object({
   color: z.string().min(1),
   quantity: z.number().int().positive(),
   quantityUnit: z.enum(["dozen", "pair"]),
+  quantityDozen: z.number().int().nonnegative().optional().default(0),
+  quantityPair: z.number().int().nonnegative().max(11).optional().default(0),
   productType: z.string().optional(),
   yarnRatios: z.record(z.string(), z.number()).optional(),
 });
+
+function itemQuantityDozen(item: any): number {
+  const dozen = Number(item.quantityDozen || 0);
+  const pairs = Number(item.quantityPair || 0);
+  if (dozen > 0 || pairs > 0) return dozen + pairs / 12;
+  return item.quantityUnit === "pair" ? Number(item.quantity || 0) / 12 : Number(item.quantity || 0);
+}
 
 const transactionSchema = z.object({
   transactionType: z.enum(["order", "visit", "return", "custom", "sample"]),
@@ -178,7 +187,7 @@ async function validateWarehouseStockForOrder(db: any, input: z.infer<typeof tra
   for (const item of input.items) {
     const barcode = String(item.barcode || "").trim().toUpperCase();
     if (barcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: `اختر نسخة المستودع للمنتج ${item.productName}` });
-    const requestedDozen = item.quantityUnit === "pair" ? Number(item.quantity) / 12 : Number(item.quantity);
+    const requestedDozen = itemQuantityDozen(item);
     requestedByBarcode.set(barcode, (requestedByBarcode.get(barcode) || 0) + requestedDozen);
   }
   for (const [barcode, requestedDozen] of requestedByBarcode) {
@@ -203,6 +212,7 @@ function validateTransaction(input: z.infer<typeof transactionSchema>) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "موعد التسليم إلزامي" });
   }
   if (input.transactionType === "order") {
+    if (input.items.some((item) => itemQuantityDozen(item) <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل كمية صحيحة بالدرزن أو الزوج" });
     if (!input.paymentMethod) throw new TRPCError({ code: "BAD_REQUEST", message: "طريقة الدفع إلزامية" });
     if ((input.paymentAmount || 0) <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "مبلغ الطلب يجب أن يكون أكبر من صفر" });
     if (input.paymentMethod === "cash" && (!input.receiptNumber || !input.receiptDate)) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم سند القبض وتاريخه إلزاميان للدفع النقدي" });
@@ -625,7 +635,7 @@ export const representativeRouter = router({
             for (const item of detail.items || []) {
               const barcode = String(item.barcode || "").trim().toUpperCase();
               if (barcode.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: `الصنف ${item.productName || "غير محدد"} لا يحتوي على باركود صالح` });
-              const quantityDozen = item.quantityUnit === "pair" ? Number(item.quantity || 0) / 12 : Number(item.quantity || 0);
+              const quantityDozen = itemQuantityDozen(item);
               if (!(quantityDozen > 0)) throw new TRPCError({ code: "BAD_REQUEST", message: `كمية الصنف ${item.productName || barcode} غير صالحة` });
               requestedByBarcode.set(barcode, (requestedByBarcode.get(barcode) || 0) + quantityDozen);
             }

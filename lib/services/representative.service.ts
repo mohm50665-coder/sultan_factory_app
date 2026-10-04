@@ -15,6 +15,8 @@ export type RepresentativeItemInput = {
   color: string;
   quantity: number;
   quantityUnit: "dozen" | "pair";
+  quantityDozen?: number;
+  quantityPair?: number;
   productType?: string;
   yarnRatios?: Record<string, number>;
 };

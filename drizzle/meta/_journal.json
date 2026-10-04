@@ -204,6 +204,20 @@
       "when": 1791121083357,
       "tag": "0028_lean_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1791130914626,
+      "tag": "0029_damp_guardsmen",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1791131063833,
+      "tag": "0030_romantic_norman_osborn",
+      "breakpoints": true
     }
   ]
 }
