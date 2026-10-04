@@ -118,7 +118,25 @@ export default function DailySummaryScreen() {
   const productionPairsEquivalent = filtered.production.reduce((sum, row) => sum + rowPairs(row), 0);
   const totalYarnUsed = filtered.production.reduce((sum, row) => sum + rowYarnTotal(row), 0);
   const totalNeedlesUsed = filtered.production.reduce((sum, row) => sum + numberValue(row.needlesUsed), 0);
-  const productionWorkMinutes = filtered.production.reduce((sum, row) => sum + (numberValue(row.productionHours) * 60) + numberValue(row.productionMinutes), 0);
+  // مدة الوردية تُكرر على صفوف المنتجات داخل نفس الماكينة والوردية؛ لا يجوز جمعها لكل صف.
+  // نأخذ مدة واحدة فقط لكل (اليوم + الماكينة + الوردية)، ثم نضع سقفاً واقعياً قدره 24 ساعة لليوم.
+  const productionWorkMinutes = (() => {
+    const segments = new Map<string, { date: string; minutes: number }>();
+    filtered.production.forEach((row: any) => {
+      const date = dateOnly(row.date || row.createdAt) || "unknown";
+      const machine = String(row.machineNumber || row.machineId || "unknown");
+      const shift = String(row.shiftNumber || row.shiftStart || row.shiftEnd || "unknown");
+      const hours = Math.min(24, Math.max(0, Math.floor(numberValue(row.productionHours))));
+      const minutes = Math.min(59, Math.max(0, Math.floor(numberValue(row.productionMinutes))));
+      const duration = hours * 60 + minutes;
+      const key = `${date}|${machine}|${shift}`;
+      const current = segments.get(key);
+      if (!current || duration > current.minutes) segments.set(key, { date, minutes: duration });
+    });
+    const byDate = new Map<string, number>();
+    segments.forEach(({ date, minutes }) => byDate.set(date, (byDate.get(date) || 0) + minutes));
+    return Array.from(byDate.values()).reduce((sum, minutes) => sum + Math.min(24 * 60, minutes), 0);
+  })();
   const wasteThread = filtered.production.reduce((sum, row) => sum + numberValue(row.wasteThreadGrams), 0);
   const wasteSocks = filtered.production.reduce((sum, row) => sum + numberValue(row.wasteSocksGrams), 0);
   const totalWastePercentage = totalYarnUsed > 0 ? (((wasteThread + wasteSocks) / totalYarnUsed) * 100).toFixed(2) : "0.00";

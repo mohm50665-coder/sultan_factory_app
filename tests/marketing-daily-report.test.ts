@@ -25,7 +25,7 @@ describe("Marketing and sales daily report", () => {
     expect(dailySummary).toContain('template: "marketing_daily"');
     expect(dailySummary).toContain('reportType: "sales"');
     expect(dailySummary).toContain("startDate: reportDate");
-    expect(dailySummary).toContain("endDate: reportDate");
+    expect(dailySummary).toContain("endDate: reportEndDate");
     expect(apiService).toContain('create: (data: { reportName: string; reportType: "sales"');
   });
 });
