@@ -46,6 +46,31 @@ const elapsedLabel = (minutes: number | null, isAr = true) => {
   return `${hours ? `${hours} ${isAr ? "ساعة" : "hour(s)"} ` : ""}${mins} ${isAr ? "دقيقة" : "minute(s)"}`;
 };
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>\"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" } as Record<string, string>)[c] || c);
+const handoverIdentity = (row: any) => {
+  const productIdentity = row.productionId ?? row.productBarcode ?? `${row.productName}|${row.productSize}|${row.productColor}`;
+  const machineIdentity = Array.isArray(row.machineNumbers) ? row.machineNumbers.join(",") : String(row.machineNumbers || row.machineNumber || "");
+  return [productIdentity, row.previousStage || "", row.currentStage || row.receiverStage || "", dateOnly(row.trackingDate || row.handoverDate || row.createdAt), numberValue(row.quantityDozen), numberValue(row.quantityPairs ?? row.quantityPair), machineIdentity].join("|");
+};
+const canonicalizeHandovers = (rows: any[]) => {
+  const grouped = new Map<string, any>();
+  rows.forEach((row) => {
+    const key = handoverIdentity(row);
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, { ...row, _hasDelivered: Boolean(row.deliveredBy || row.deliveredAt || row.handoverStatus === "delivered"), _hasReceived: Boolean(row.receivedBy || row.receivedAt || row.handoverStatus === "received"), _deliveredBy: row.deliveredBy, _receivedBy: row.receivedBy, _deliveredAt: row.deliveredAt, _receivedAt: row.receivedAt });
+      return;
+    }
+    current._hasDelivered ||= Boolean(row.deliveredBy || row.deliveredAt || row.handoverStatus === "delivered");
+    current._hasReceived ||= Boolean(row.receivedBy || row.receivedAt || row.handoverStatus === "received");
+    current._deliveredBy ||= row.deliveredBy;
+    current._receivedBy ||= row.receivedBy;
+    current._deliveredAt ||= row.deliveredAt;
+    current._receivedAt ||= row.receivedAt;
+    current.shortageDozen = Math.max(numberValue(current.shortageDozen), numberValue(row.shortageDozen));
+    current.shortagePairs = Math.max(numberValue(current.shortagePairs), numberValue(row.shortagePairs));
+  });
+  return Array.from(grouped.values()).map((row) => ({ ...row, deliveredBy: row._deliveredBy, receivedBy: row._receivedBy, deliveredAt: row._deliveredAt, receivedAt: row._receivedAt }));
+};
 
 export default function DailySummaryScreen() {
   const router = useRouter();
@@ -145,7 +170,10 @@ export default function DailySummaryScreen() {
   const antiSlip = filtered.manufacturing.filter((row) => /مانع|anti.?slip/i.test(String(row.stageName || row.productType || "")));
   const salesTotal = filtered.sales.reduce((sum, row) => sum + numberValue(row.amount), 0);
   const collectionTotal = filtered.collection.reduce((sum, row) => sum + numberValue(row.amount), 0);
-  const handovers = filtered.tracking;
+  // الإنتاج هو مصدر الكمية الوحيد. قد يحتوي الانتقال صفاً للتسليم وصفاً للاستلام؛
+  // ندمجهما قبل الجمع حتى لا تتضاعف الكمية في التقرير.
+  const productionIds = useMemo(() => new Set(filtered.production.map((row: any) => String(row.id))), [filtered.production]);
+  const handovers = useMemo(() => canonicalizeHandovers(filtered.tracking.filter((row: any) => row.productionId !== null && row.productionId !== undefined && productionIds.has(String(row.productionId)))), [filtered.tracking, productionIds]);
   const delivered = handovers.filter((row) => row.deliveredBy);
   const received = handovers.filter((row) => row.receivedBy);
   const pending = handovers.filter((row) => row.deliveredBy && !row.receivedAt);
