@@ -306,11 +306,11 @@ const transitionSchema = z.object({
 export const representativeRouter = router({
   customers: router({
     list: protectedProcedure.input(z.object({ search: z.string().optional().default("") }).optional()).query(async ({ input, ctx }) => {
-      if (!isAdmin(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!isAdmin(ctx.user) && !isSalesManager(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return [];
       const search = input?.search?.trim() || "";
-      const scope = isAdmin(ctx.user) ? eq(customers.isActive, 1) : and(eq(customers.isActive, 1), eq(customers.assignedRepresentativeId, Number(ctx.user.id)));
+      const scope = isAdmin(ctx.user) || isSalesManager(ctx.user) ? eq(customers.isActive, 1) : and(eq(customers.isActive, 1), eq(customers.assignedRepresentativeId, Number(ctx.user.id)));
       const rows = await db.select().from(customers).where(search ? and(scope, like(customers.name, `%${search}%`)) : scope).orderBy(customers.name);
       const [attachmentRows, salesRows, collectionRows] = await Promise.all([
         rows.length ? db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1)) : Promise.resolve([]),
@@ -381,7 +381,7 @@ export const representativeRouter = router({
     }),
 
     getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
-      if (!isAdmin(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      if (!isAdmin(ctx.user) && !isSalesManager(ctx.user) && !isRepresentativeEmployee(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
       const db = await getDb();
       if (!db) return null;
       const rows = await db.select().from(customers).where(and(eq(customers.id, input.id), eq(customers.isActive, 1))).limit(1);

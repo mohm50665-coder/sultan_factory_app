@@ -42,6 +42,11 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("assignedRepresentativeName");
   });
 
+  it("allows the sales and marketing manager to search all active customers", () => {
+    expect(server).toContain("!isSalesManager(ctx.user) && !isRepresentativeEmployee(ctx.user)");
+    expect(server).toContain("isAdmin(ctx.user) || isSalesManager(ctx.user) ? eq(customers.isActive, 1)");
+  });
+
   it("displays imported customer fields and keeps missing fields available for completion", () => {
     expect(customers).toContain("postalCode");
     expect(customers).toContain("buildingNumber");
