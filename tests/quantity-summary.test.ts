@@ -17,6 +17,14 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("quantityDifferencePairs");
     expect(summary).toContain("difference-positive");
     expect(summary).toContain("difference-negative");
+    expect(summary).toContain("rawDeliveredQuantityPairs");
+    expect(summary).toContain("Math.min(receivedQuantityPairs, rawDeliveredQuantityPairs)");
+  });
+
+  it("separates manufacturing stages in the comprehensive report", () => {
+    expect(summary).toContain("stageSummary");
+    expect(summary).toContain("مراحل التصنيع — كل مرحلة مستقلة");
+    expect(summary).toContain("المسلّم المحتسب");
   });
 
   it("explains the calculation and links remaining quantities to the dedicated inventory", () => {
