@@ -101,6 +101,7 @@ const itemSchema = z.object({
 const transactionSchema = z.object({
   transactionType: z.enum(["order", "visit", "return", "custom", "sample"]),
   customerId: z.number().int().positive(),
+  customerStatus: z.enum(["new", "old"]).default("old"),
   orderDate: z.string().min(10),
   deliveryDate: z.string().optional().default(""),
   paymentMethod: z.enum(["cash", "transfer", "credit"]).optional(),
@@ -110,7 +111,7 @@ const transactionSchema = z.object({
   creditDays: z.union([z.literal(30), z.literal(60), z.literal(90)]).optional(),
   visitReport: z.string().optional().default(""),
   returnReason: z.string().optional().default(""),
-  items: z.array(itemSchema).min(1),
+  items: z.array(itemSchema).default([]),
   attachments: z.array(attachmentSchema).default([]),
 });
 
@@ -191,6 +192,7 @@ async function validateWarehouseStockForOrder(db: any, input: z.infer<typeof tra
 }
 
 function validateTransaction(input: z.infer<typeof transactionSchema>) {
+  if (input.transactionType !== "visit" && input.items.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "أضف صنفاً واحداً على الأقل لهذه المعاملة" });
   if (input.transactionType === "visit" && input.visitReport.trim().length < 5) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "تقرير الزيارة إلزامي ويجب أن يوضح نتيجة الزيارة" });
   }

@@ -1,0 +1,1 @@
+ALTER TABLE `representativeTransactions` ADD `customerStatus` varchar(20) DEFAULT 'old' NOT NULL;

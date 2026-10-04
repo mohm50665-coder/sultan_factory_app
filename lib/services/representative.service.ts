@@ -48,6 +48,7 @@ export type CustomerInput = {
 export type RepresentativeTransactionInput = {
   transactionType: "order" | "visit" | "return" | "custom" | "sample";
   customerId: number;
+  customerStatus: "new" | "old";
   orderDate: string;
   deliveryDate?: string;
   paymentMethod?: "cash" | "transfer" | "credit";

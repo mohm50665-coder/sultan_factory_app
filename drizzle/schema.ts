@@ -950,6 +950,7 @@ export const representativeTransactions = mysqlTable("representativeTransactions
   representativeName: varchar("representativeName", { length: 255 }).notNull(),
   customerId: int("customerId").notNull(),
   customerName: varchar("customerName", { length: 255 }).notNull(),
+  customerStatus: varchar("customerStatus", { length: 20 }).default("old").notNull(),
   customerVersion: int("customerVersion").default(1).notNull(),
   status: varchar("status", { length: 80 }).default("DRAFT").notNull(),
   currentDepartment: varchar("currentDepartment", { length: 100 }).default("sales_representative").notNull(),

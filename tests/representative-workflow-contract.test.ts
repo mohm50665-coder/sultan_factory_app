@@ -92,4 +92,13 @@ describe("Representative workflow contract", () => {
     expect(approvals).toContain("correctiveAction");
     expect(server).toContain("PENDING_SALES_RESOLUTION");
   });
+
+  it("separates visits from product orders and preserves customer classification", () => {
+    expect(transactions).toContain('type === "visit" ? [] : items');
+    expect(transactions).toContain('visitAction');
+    expect(transactions).toContain('visitNotes');
+    expect(transactions).toContain('customerStatus === "new"');
+    expect(server).toContain('customerStatus: z.enum(["new", "old"]).default("old")');
+    expect(server).toContain('input.transactionType !== "visit" && input.items.length === 0');
+  });
 });
