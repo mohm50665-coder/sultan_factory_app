@@ -2,8 +2,7 @@
   "build_command": "pnpm run build",
   "capabilities": [
     "db",
-    "server",
-    "user"
+    "server"
   ],
   "dev_command": "pnpm run dev",
   "env_vars": {
@@ -16,25 +15,22 @@
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310519663396423140/PAoTpRZYv26mjfaeASDQLQ",
-    "access_key_id": "ASIAZV3A2ECZOQ7WNDQW",
-    "secret_access_key": "/9+pZlvDUpBkPxIJDpVaJ2ew+86OBXYzMfXQkpH5",
-    "session_token": "IQoJb3JpZ2luX2VjELv//////////wEaCXVzLWVhc3QtMSJGMEQCIEEIrLjl5Vs/NvFtKWEMO8OnJCBTmUOx47afo9RFb9KMAiAWSxAIQ8x5i+osZ1AqGf7HTRrggddqu/wGDla14RAieCr/AwiE//////////8BEAQaDDY2NTM4NjA5ODg2NiIMVuqFDybG86F31XW8KtMDtmj6pHf9UF/9oHGUkQE5i43aZUsSEZMGBtMix9koKcCsAL2rl7MTNKxqJH/V9OBxq4YDhFvny8/8ANUyHLtGQvG+7lJm9no4jBGK7oRSF+JDPEee7EeKDRk/nGDyIZkVl5HagYPE6Fk2RvKWRkRq6qYVXQMlYAmTdM04y/e5EjjdMPOyK/WhvYmFZ8TvrkeIN8rC3cjO8UF946qbJ/W6jBlLdzD8QxMEuesToymWFI5y2wnKvYIwukLJGr4NWRZSQLUIX8+HugVzGh7JdpoHfNSImEq3Hto7z3Uw/PlcOKWpCV2pGexi47BC0Bb0FHlTqd+hNuVGI1Fe0XsADOYoI2yP7RMQjyWPiE/Ht4pw9u9yaPgS8Y2zuRyVWUj+SMLa6UvYbWW5Rp5hoxPqq0MzZDD0shmaAJQ3y4ZTfgX/l/wrEfRaTf1D36iZpMmdVQEn4e0Uw9CmtPeaQ4NEPtkqIMU/lTL8zJJ2XghSiQTngivy0hGREyIJbCGE5ZB0bzgjZEyyYFGViS4vGoEeAZgT8XtyztV712ahI6qev2FXVQnYBeYhYMpc4WMOsM7Q3rJTRLQx1Knp68JmI9urCzu29aJFOWM6OifkzpJBfHs19nEkekkwq5WK1QY6ngEW7ARUk7ClTvGIcBZQArx/G6VLs5UpTyuD+I+BqI7l2OPETlTYBcFC1wRtJZxXs3vCBZ8o/Jp3ouoVy+aGzu3ExTc9TLPIBw5A55tL7QGY5OxaY4NCl+Po5zZRxv3mEtji/yGX+NT8LAM2wRoDCmaqVUH+08Fa4PMwOFqrYwWFhZyFR2Pdxz/6xa1ORjTZImAzfBMmYuicJAmLKH4toA==",
-    "expiration": "2026-09-10T22:47:07.000Z",
+    "access_key_id": "ASIAZV3A2ECZOKNTML2J",
+    "secret_access_key": "xP4DER+En44ydPTk01BCSHcGe6NJqQEf5nUnLH0N",
+    "session_token": "IQoJb3JpZ2luX2VjEBYaCXVzLWVhc3QtMSJHMEUCIQC2gTxnlJ1WJKFS4gshMVLsmZMrMDIWxS06sci94K9qvwIgeDaaCgbHekmfcBstmCJ0+GWM3+JVSXwCZf66bGVNXsQq/wMI3v//////////ARAEGgw2NjUzODYwOTg4NjYiDFkY7oGXpKPJJetwpSrTA+F5syhZqZrMVcesB9BYLYxASEqGSUeyucrp+Uzd8V8qna51LOBP6w77FyIKqG89DVz0coHyg2B8wsikNTjwmSn0LXMWemt3e6+82vE6Y9BWKM031LKUsoOKOUeuaT6BCq3Z39rmuLhJXA/MpGb92HnI6Dk8a4qzuRRo2Ml5SM5l1y01602GGANiI6/P5wdfRFLr1qIkOFe+SpkiVU7gd1ALCz8M3J98lh1gXDjcL6uxdVtQQf4dFG2NtzR2WyIFA6wp3kicYJQmHdfFmWu447yugMxJ2MgpacjRbuUaAbutNYjCqOtW4CFhYH+ck0GaaIovxE3sTYeCdrps2rhebO4qLSzY36GkqGvCVAg0GX487jXMJvd0soXu5Fbfdpcx4YjXe/lsHmvkCNh1JE3HiMjh/5fvRaNrCzj7BpK+hQdizjUB7b1lMIxHrGxTczZXwQ7dane3MAN7kNTyNJmsoHx4P8AcIqBlmjZzMH0bDE0qFYwhhlFMGliOTJbYa9JufAMQDtVZnQBpKdacsMxTGYdMEfO6kJjUiFMH/DFvKIvMxbyGBakhNczbsXouc1jzi6ptQplKJK5L+aowRVQUgxFRbmztKJL8Yr9qEbXQAU5kN+J1MKLCjtYGOp0Bj2i884kytgj0xwi3OMAkuOP1j1Vz4HRB5iUy9mbMCc4ApayfJlFgPRxwJ2e8wneLRO7dNonL/sS2RNN/5GP4Ux8b3ZgknDVJm8wf+JwkHUenbXrxGce1DpieU6D+BNGeQS+E9SCnEZFnEplVasz7qxLodlygV1rBM3HFY+QjREPJ3ZZhJ137cGHjQdVtusV6Szv//LUOVqEb8E1QJA==",
+    "expiration": "2026-10-06T01:07:46.000Z",
     "backend": "GIT_BACKEND_S3"
   },
   "name": "sultan_factory_app",
   "path": "/home/ubuntu/sultan_factory_app",
   "port": 3000,
+  "runtime_endpoints": null,
   "secrets": {
     "BUILT_IN_FORGE_API_KEY": "CjP3Q4rh5YHLuKk9yewEy9",
     "BUILT_IN_FORGE_API_URL": "https://forge.manus.ai",
-    "EXPO_APP_QR_URL": "exps://8081-is7rxal4fvjehdimw52t4-3ae33ad0.sg1.manus.computer",
-    "EXPO_PACKAGER_PROXY_URL": "https://8081-is7rxal4fvjehdimw52t4-3ae33ad0.sg1.manus.computer",
-    "EXPO_PUBLIC_API_BASE_URL": "https://3000-is7rxal4fvjehdimw52t4-3ae33ad0.sg1.manus.computer",
-    "EXPO_PUBLIC_OAUTH_PORTAL_URL": "https://manus.im",
-    "EXPO_PUBLIC_OAUTH_SERVER_URL": "https://api.manus.im",
-    "EXPO_PUBLIC_OWNER_NAME": "محمد المغربي",
-    "EXPO_PUBLIC_OWNER_OPEN_ID": "Ar58c2XRSoYAKZUe4mWxTD",
+    "EXPO_APP_QR_URL": "exps://8081-i9cutt91jjnkyimso5ncx-b930c70a.sg2.manus.computer",
+    "EXPO_PACKAGER_PROXY_URL": "https://8081-i9cutt91jjnkyimso5ncx-b930c70a.sg2.manus.computer",
+    "EXPO_PUBLIC_API_BASE_URL": "https://3000-i9cutt91jjnkyimso5ncx-b930c70a.sg2.manus.computer",
     "GOOGLE_PLAY_EMAIL": "mohm50665@gmail.com",
     "GOOGLE_PLAY_PACKAGE_ID": "com.alsultanfactory",
     "GOOGLE_PLAY_SHA1_FINGERPRINT": "E7:EE:84:1B:D2:AC:AF:57:27:BF:6B:34:A9:B3:B7:BF:AB:E9:E8:A8:4C:93:1D:BA:9F:DB:3A:14:89:D9:30:7B",
@@ -43,7 +39,8 @@
     "OAUTH_SERVER_URL": "https://api.manus.im",
     "OWNER_NAME": "محمد المغربي",
     "OWNER_OPEN_ID": "Ar58c2XRSoYAKZUe4mWxTD",
-    "REACT_NATIVE_PACKAGER_HOSTNAME": "8081-is7rxal4fvjehdimw52t4-3ae33ad0.sg1.manus.computer",
+    "REACT_NATIVE_PACKAGER_HOSTNAME": "8081-i9cutt91jjnkyimso5ncx-b930c70a.sg2.manus.computer",
+    "SULTAN_FACTORY_AUTO_HANDOVER_CHECK": "enabled",
     "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
     "VITE_ANALYTICS_WEBSITE_ID": "993141ea-28f6-424d-9b70-e839018315f4",
     "VITE_APP_ID": "PAoTpRZYv26mjfaeASDQLQ",

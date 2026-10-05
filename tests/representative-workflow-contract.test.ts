@@ -19,8 +19,8 @@ describe("Representative workflow contract", () => {
     expect(representative).toContain('route: "/representative-approvals"');
   });
 
-  it("keeps order, payment, delivery and signature fields in the order record", () => {
-    for (const field of ["deliveryDate", "paymentMethod", "paymentAmount", "receiptNumber", "creditDays", "customerSignature", "representativeSignature"]) {
+  it("keeps order, delivery and signature fields in the order record", () => {
+    for (const field of ["deliveryDate", "customerSignature", "representativeSignature"]) {
       expect(transactions).toContain(field);
     }
     expect(customers).not.toContain("CustomerMapPicker");
@@ -28,11 +28,11 @@ describe("Representative workflow contract", () => {
     expect(customers).not.toContain("longitude");
   });
 
-  it("allows an order to be saved without an amount or payment receipt", () => {
-    expect(transactions).toContain('المبلغ (اختياري)');
-    expect(transactions).not.toContain('مبلغ الطلب إلزامي');
-    expect(server).toContain('const hasPaymentAmount = Number(input.paymentAmount || 0) > 0');
-    expect(server).toContain('// مبلغ الطلب اختياري');
+  it("does not include amount or payment fields in a new order", () => {
+    expect(transactions).not.toContain("paymentAmount");
+    expect(transactions).not.toContain("paymentMethod");
+    expect(server).not.toContain("const hasPaymentAmount");
+    expect(server).not.toContain("إيصال التحويل إلزامي");
   });
 
   it("shows only customer names in search and routes incomplete customers to the directory", () => {
@@ -51,7 +51,8 @@ describe("Representative workflow contract", () => {
 
   it("allows the sales and marketing manager to search all active customers", () => {
     expect(server).toContain("!isSalesManager(ctx.user) && !isRepresentativeEmployee(ctx.user)");
-    expect(server).toContain("isAdmin(ctx.user) || isSalesManager(ctx.user) ? eq(customers.isActive, 1)");
+    expect(server).toContain("isAdmin(ctx.user) || isSalesManager(ctx.user)");
+    expect(server).toContain("assignedRepresentativeName");
   });
 
   it("displays imported customer fields and keeps missing fields available for completion", () => {

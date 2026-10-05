@@ -38,7 +38,8 @@ const isRepresentativeEmployee = (user: any) => {
   const position = normalize(user?.position);
   if (["admin", "manager", "supervisor"].includes(role)) return false;
   if (position.includes("مدير") || position.includes("مشرف") || position.includes("manager") || position.includes("supervisor")) return false;
-  return position.includes("مندوب") || position.includes("representative") || position.includes("sales rep");
+  return position.includes("مندوب") || position.includes("representative") || position.includes("sales rep")
+    || (role === "user" && matchesDepartment(user?.department, SALES_NAMES));
 };
 const isRepresentative = (user: any) => isAdmin(user) || isRepresentativeEmployee(user);
 
@@ -113,11 +114,6 @@ const transactionSchema = z.object({
   customerStatus: z.enum(["new", "old"]).default("old"),
   orderDate: z.string().min(10),
   deliveryDate: z.string().optional().default(""),
-  paymentMethod: z.enum(["cash", "transfer", "credit"]).optional(),
-  paymentAmount: z.number().min(0).optional().default(0),
-  receiptNumber: z.string().optional().default(""),
-  receiptDate: z.string().optional().default(""),
-  creditDays: z.union([z.literal(30), z.literal(60), z.literal(90)]).optional(),
   visitReport: z.string().optional().default(""),
   returnReason: z.string().optional().default(""),
   items: z.array(itemSchema).default([]),
@@ -178,7 +174,10 @@ function getMissingCustomerFields(customer: any): string[] {
 function canAccessCustomer(user: any, customer: any) {
   if (isAdmin(user) || isSalesManager(user)) return true;
   if (!isRepresentativeEmployee(user)) return false;
-  return Number(customer?.assignedRepresentativeId) === Number(user.id);
+  const assignedIdMatches = Number(customer?.assignedRepresentativeId) === Number(user.id);
+  const assignedNameMatches = normalize(customer?.assignedRepresentativeName) !== ""
+    && normalize(customer?.assignedRepresentativeName) === normalize(user?.name);
+  return assignedIdMatches || assignedNameMatches;
 }
 
 async function validateWarehouseStockForOrder(db: any, input: z.infer<typeof transactionSchema>) {
@@ -213,15 +212,6 @@ function validateTransaction(input: z.infer<typeof transactionSchema>) {
   }
   if (input.transactionType === "order") {
     if (input.items.some((item) => itemQuantityDozen(item) <= 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل كمية صحيحة بالدرزن أو الزوج" });
-    // مبلغ الطلب اختياري. إذا لم توجد قيمة، يُحفظ الطلب بدون أي متطلبات دفع.
-    // أما عند إدخال قيمة موجبة فتُطبق متطلبات طريقة الدفع المناسبة.
-    const hasPaymentAmount = Number(input.paymentAmount || 0) > 0;
-    if (hasPaymentAmount) {
-      if (!input.paymentMethod) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد طريقة الدفع عند إدخال مبلغ" });
-      if (input.paymentMethod === "cash" && (!input.receiptNumber || !input.receiptDate)) throw new TRPCError({ code: "BAD_REQUEST", message: "رقم سند القبض وتاريخه إلزاميان للدفع النقدي" });
-      if (input.paymentMethod === "transfer" && !input.attachments.some((attachment) => attachment.type === "transfer_receipt")) throw new TRPCError({ code: "BAD_REQUEST", message: "إيصال التحويل إلزامي" });
-      if (input.paymentMethod === "credit" && ![30, 60, 90].includes(Number(input.creditDays))) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد مدة الآجل 30 أو 60 أو 90 يوماً" });
-    }
   }
   if (["custom", "sample"].includes(input.transactionType)) {
     for (const item of input.items) {
@@ -326,7 +316,12 @@ export const representativeRouter = router({
       const db = await getDb();
       if (!db) return [];
       const search = input?.search?.trim() || "";
-      const scope = isAdmin(ctx.user) || isSalesManager(ctx.user) ? eq(customers.isActive, 1) : and(eq(customers.isActive, 1), eq(customers.assignedRepresentativeId, Number(ctx.user.id)));
+      const scope = isAdmin(ctx.user) || isSalesManager(ctx.user)
+        ? eq(customers.isActive, 1)
+        : and(
+            eq(customers.isActive, 1),
+            sql`(${customers.assignedRepresentativeId} = ${Number(ctx.user.id)} OR LOWER(TRIM(${customers.assignedRepresentativeName})) = LOWER(TRIM(${String(ctx.user.name || "")})))`,
+          );
       const rows = await db.select().from(customers).where(search ? and(scope, like(customers.name, `%${search}%`)) : scope).orderBy(customers.name);
       const [attachmentRows, salesRows, collectionRows] = await Promise.all([
         rows.length ? db.select({ customerId: representativeAttachments.customerId, attachmentType: representativeAttachments.attachmentType }).from(representativeAttachments).where(eq(representativeAttachments.isActive, 1)) : Promise.resolve([]),
@@ -530,7 +525,7 @@ export const representativeRouter = router({
       const now = new Date();
       const { items, ...header } = input;
       return db.transaction(async (tx: any) => {
-        const result = await tx.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments, signedSnapshot: { customer, items, paymentMethod: input.paymentMethod, paymentAmount: input.paymentAmount, deliveryDate: input.deliveryDate } });
+        const result = await tx.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments, signedSnapshot: { customer, items, deliveryDate: input.deliveryDate } });
         const id = Number(result[0].insertId);
         await tx.insert(representativeTransactionItems).values(items.map((item) => ({ ...item, transactionId: id })));
         if (input.attachments.length) await tx.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
@@ -572,7 +567,7 @@ export const representativeRouter = router({
       const detail = await getDetail(db, input.id);
       if (!detail || !canViewTransaction(ctx.user, detail)) throw new TRPCError({ code: "FORBIDDEN" });
       if (!isAdmin(ctx.user) && Number(detail.representativeId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "التوقيع يسجل من حساب المندوب صاحب المعاملة" });
-      const signedSnapshot = { referenceCode: detail.referenceCode, customer: detail.customer, items: detail.items, paymentMethod: detail.paymentMethod, paymentAmount: detail.paymentAmount, deliveryDate: detail.deliveryDate, transactionType: detail.transactionType, customerVersion: detail.customerVersion };
+      const signedSnapshot = { referenceCode: detail.referenceCode, customer: detail.customer, items: detail.items, deliveryDate: detail.deliveryDate, transactionType: detail.transactionType, customerVersion: detail.customerVersion };
       const result = await db.insert(representativeDeclarations).values({ transactionId: input.id, declarationType: input.declarationType, declarationText: input.declarationText, declarerName: input.declarerName, declarerRole: input.declarerRole, signerUserId: Number(ctx.user.id), signatureData: input.signatureData, signatureAttachmentUrl: input.signatureData, signedSnapshot });
       await db.insert(representativeAttachments).values({ transactionId: input.id, attachmentType: `signature_${input.declarationType}`, fileName: `signature-${input.declarationType}-${Date.now()}.svg`, fileUrl: input.signatureData, mimeType: "image/svg+xml", uploadedBy: Number(ctx.user.id) });
       await insertEvent(db, detail, ctx.user, detail.status, `sign_${input.declarationType}`, input.declarationText);
@@ -602,7 +597,7 @@ export const representativeRouter = router({
       if (!detail || detail.transactionType !== "order" || detail.status !== "DRAFT") throw new TRPCError({ code: "BAD_REQUEST", message: "الطلب غير صالح للإرسال المباشر" });
       if (Number(detail.representativeId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN" });
       const now = new Date();
-      const updated = await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, paymentMethod: detail.paymentMethod, paymentAmount: detail.paymentAmount, deliveryDate: detail.deliveryDate } }).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "DRAFT")));
+      const updated = await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, deliveryDate: detail.deliveryDate } }).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "DRAFT")));
       const affectedRows = Number((updated as any)?.[0]?.affectedRows ?? (updated as any)?.affectedRows ?? 0);
       if (affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: "لم يتم إرسال الطلب؛ تغيّرت حالته أو تم إرساله مسبقاً" });
       await insertEvent(db, detail, ctx.user, "PENDING_WAREHOUSE_ISSUE", "submit_order_to_warehouse", "اعتماد الطلب وإرساله مباشرة إلى المستودعات");

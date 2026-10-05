@@ -53,11 +53,6 @@ export type RepresentativeTransactionInput = {
   customerStatus: "new" | "old";
   orderDate: string;
   deliveryDate?: string;
-  paymentMethod?: "cash" | "transfer" | "credit";
-  paymentAmount?: number;
-  receiptNumber?: string;
-  receiptDate?: string;
-  creditDays?: 30 | 60 | 90;
   visitReport?: string;
   returnReason?: string;
   items: RepresentativeItemInput[];
