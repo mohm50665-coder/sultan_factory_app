@@ -84,6 +84,15 @@ describe("Product tracking location and handover report", () => {
     expect(source).toContain("القسم غير محدد");
   });
 
+  it("separates the detailed report by source stage and shows remaining quantities per stage", () => {
+    expect(source).toContain("sourceStageForRow");
+    expect(source).toContain("stageHandoverGroups");
+    expect(source).toContain("stageRemainingLabel");
+    expect(source).toContain("تقرير الاستلام والتسليم — مفصول حسب المرحلة");
+    expect(source).toContain("الباقي/النقص");
+    expect(source).toContain('class=\"stage-heading\"');
+  });
+
   it("keeps identical movement rows from appearing repeatedly in the report", () => {
     const serverSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
     expect(serverSource).toContain("const seen = new Set<string>();");
