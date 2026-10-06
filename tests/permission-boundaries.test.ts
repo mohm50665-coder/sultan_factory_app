@@ -51,6 +51,15 @@ describe("Permission boundary contract", () => {
     expect(usersManagement).toContain("updateUserProfile");
   });
 
+  it("archives deleted employees so historical user-linked records remain intact", () => {
+    expect(router).toContain("const ARCHIVED_USER_PREFIX = \"__deleted_employee__\"");
+    expect(router).toContain("لا نحذف الصف فعلياً حتى لا تنكسر سجلات الإنتاج والتسليم والتقارير");
+    expect(router).toContain("archivedUsername");
+    expect(router).toContain("isActive: 0");
+    expect(router).toContain("NOT LIKE");
+    expect(usersManagement).toContain("الاحتفاظ بسجلاته التاريخية");
+  });
+
   it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {
     expect(toolsPermissions).not.toContain("id: 'employee_performance'");
     expect(toolsPermissions).not.toContain("id: 'sample_requests'");

@@ -75,6 +75,7 @@ import { calculateAchievementPercentage, getPerformanceRating } from "../shared/
 import { representativeRouter } from "./representative-router.js";
 
 const COOKIE_NAME = "session_id";
+const ARCHIVED_USER_PREFIX = "__deleted_employee__";
 
 // قوائم الصلاحيات الرسمية: لا تُضاف أي صلاحية تلقائياً، وأي قيمة خارجها تُرفض من الخادم.
 const DASHBOARD_PERMISSION_IDS = new Set([
@@ -885,7 +886,9 @@ export const appRouter = router({
     getAllUsers: adminProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      const result = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
+      const result = await db.select().from(usersTable)
+        .where(sql`${usersTable.username} NOT LIKE ${`${ARCHIVED_USER_PREFIX}%`}`)
+        .orderBy(desc(usersTable.createdAt));
       return result.map((u) => ({
         id: u.id,
         name: u.name,
@@ -956,7 +959,7 @@ export const appRouter = router({
     getPendingUsers: adminProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(usersTable).where(eq(usersTable.isActive, 0));
+      return db.select().from(usersTable).where(and(eq(usersTable.isActive, 0), sql`${usersTable.username} NOT LIKE ${`${ARCHIVED_USER_PREFIX}%`}`));
     }),
 
     deleteUser: adminProcedure
@@ -965,12 +968,25 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (ctx.user?.id === input.userId) throw new Error("لا يمكنك حذف حساب الأدمن المستخدم حالياً");
-        const target = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        const target = await db.select({ id: usersTable.id, username: usersTable.username, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
         if (!target.length) throw new Error("المستخدم غير موجود أو تم حذفه مسبقاً");
-        await db.delete(usersTable).where(eq(usersTable.id, input.userId));
-        const remaining = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
-        if (remaining.length) throw new Error("تعذر حذف المستخدم من قاعدة البيانات");
-        return { success: true, deletedUserId: input.userId };
+        if (String(target[0].username || "").startsWith(ARCHIVED_USER_PREFIX)) {
+          throw new Error("تم حذف الموظف مسبقاً");
+        }
+        // لا نحذف الصف فعلياً حتى لا تنكسر سجلات الإنتاج والتسليم والتقارير المرتبطة بـ userId.
+        // الأرشفة تمنع الدخول وتخفي الحساب من قائمة الموظفين، مع الاحتفاظ بالتاريخ الرقابي.
+        const archivedUsername = `${ARCHIVED_USER_PREFIX}${input.userId}_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+        const archivedEmail = `${ARCHIVED_USER_PREFIX}${input.userId}_${randomUUID().replace(/-/g, "").slice(0, 16)}@deleted.local`;
+        await db.update(usersTable).set({
+          username: archivedUsername,
+          email: archivedEmail,
+          phone: null,
+          password: randomUUID(),
+          isActive: 0,
+          allowedSections: null,
+          toolPermissions: null,
+        }).where(eq(usersTable.id, input.userId));
+        return { success: true, deletedUserId: input.userId, archived: true, message: "تم حذف الحساب مع الاحتفاظ بالسجلات التاريخية" };
       }),
 
     resetUserPassword: adminProcedure

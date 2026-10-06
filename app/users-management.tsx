@@ -210,7 +210,7 @@ export default function UsersManagementScreen() {
             try {
               await adminService.deleteUser(userId);
               await loadUsers();
-              Alert.alert(isAr ? "تم الحذف" : "Deleted", isAr ? "تم حذف المستخدم بنجاح" : "User deleted successfully");
+              Alert.alert(isAr ? "تم الحذف" : "Deleted", isAr ? "تم حذف الحساب وإخفاؤه من قائمة الموظفين مع الاحتفاظ بسجلاته التاريخية" : "The account was deleted from the employee list while historical records were preserved");
             } catch (error) {
               const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف المستخدم" : "Could not delete user");
               Alert.alert(isAr ? "تعذر الحذف" : "Delete failed", message);
