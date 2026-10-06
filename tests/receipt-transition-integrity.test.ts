@@ -33,6 +33,15 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain("samePersonName(expectedReceiver, receiverUsername)");
   });
 
+  it("enforces segregation of duties in both delivery and receipt paths", () => {
+    expect(routersSource).toContain("function assertSegregationOfDuties");
+    expect(routersSource).toContain("لا يجوز للموظف نفسه تسليم واستلام نفس العهدة");
+    expect(routersSource).toContain("assertSegregationOfDuties(db, record.movementBy, ctx.user, expectedReceiver)");
+    expect(routersSource).toContain("assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver)");
+    expect(stageSource).toContain("لا يمكنك استلام عهدة سلّمتها بنفسك");
+    expect(stageSource).toContain("isSameAsCurrentUser(product.movementBy)");
+  });
+
   it("places the production receiver selection after product details and before save controls", () => {
     const receiverBlock = productionSource.indexOf("بيانات المستلم — آخر خطوة قبل الحفظ");
     const yarnDetails = productionSource.indexOf("أوزان الخيوط حسب النوع");

@@ -41,6 +41,7 @@ interface ProductItem {
   barcode?: string;
   receivedBy?: string;
   receivedAt?: string;
+  movementBy?: string;
   movementAt?: string;
   blockedByActiveCustody?: boolean;
   activeCustodyProductName?: string;
@@ -311,6 +312,7 @@ export default function ManufacturingStageScreen() {
             sampleRequestId: d.sampleRequestId || null,
             receivedBy: d.receivedBy || "",
             receivedAt: d.receivedAt ? String(d.receivedAt) : "",
+            movementBy: d.movementBy || "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
             blockedByActiveCustody: Boolean(d.blockedByActiveCustody),
             activeCustodyProductName: d.activeCustodyProductName || "",
@@ -569,6 +571,7 @@ export default function ManufacturingStageScreen() {
   };
 
   const isCurrentUserReceiver = (product: ProductItem) => samePersonName(product.expectedReceiver, user?.name) || samePersonName(product.expectedReceiver, (user as any)?.username);
+  const isSameAsCurrentUser = (person: unknown) => samePersonName(person, user?.name) || samePersonName(person, (user as any)?.username);
 
   const handleConfirmReceipt = async (product: ProductItem) => {
     if (!product.id) {
@@ -761,7 +764,12 @@ export default function ManufacturingStageScreen() {
                   {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "بانتظار تأكيد المستلم" : "Awaiting receiver confirmation") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
                 </Text>
               </View>
-              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && (
+              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && isSameAsCurrentUser(product.movementBy) && (
+                <View style={{ marginTop: 8, backgroundColor: "#fef2f2", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#fca5a5" }}>
+                  <Text style={{ color: "#b91c1c", fontWeight: "800", fontSize: 12, textAlign: "right" }}>{isAr ? "مرفوض: لا يمكنك استلام عهدة سلّمتها بنفسك" : "Blocked: you cannot receive a custody you delivered yourself"}</Text>
+                </View>
+              )}
+              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && !isSameAsCurrentUser(product.movementBy) && (
                 <TouchableOpacity disabled={processingProductId === Number(product.id)} onPress={() => void handleConfirmReceipt(product)} style={{ marginTop: 8, backgroundColor: "#16a34a", borderRadius: 8, paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}>
                   <MaterialIcons name="verified" size={18} color="#ffffff" />
                   <Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 12 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : (isAr ? "استلمت" : "I received it")}</Text>
@@ -780,7 +788,8 @@ export default function ManufacturingStageScreen() {
                   {getProductNextStageOptions(product).map((stageId) => {
                     const workers = receiverStageWorkers[stageId] || (stageId === nextStageId ? nextStageWorkers : []);
                     if (!workers.length) return null;
-                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{workers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}</View></View>;
+                    const differentWorkers = workers.filter((receiver) => !isSameAsCurrentUser(receiver));
+                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{differentWorkers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}</View></View>;
                   })}
                 </View>
               )}

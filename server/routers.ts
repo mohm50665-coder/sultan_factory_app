@@ -226,6 +226,27 @@ function samePersonName(left: unknown, right: unknown) {
   return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
 }
 
+function sameAccountIdentity(left: unknown, user: any) {
+  const leftValue = normalizePersonName(left);
+  if (!leftValue) return false;
+  const aliases = [user?.name, user?.username].map(normalizePersonName).filter(Boolean);
+  // بعض السجلات التشغيلية القديمة تحفظ الاسم مع المسمى بعد شرطة طويلة.
+  const leftBase = leftValue.split(/\s*[—–-]\s*/)[0].trim();
+  return aliases.some((alias) => alias === leftValue || alias === leftBase);
+}
+
+async function assertSegregationOfDuties(db: any, senderLabel: unknown, receiverUser: any, receiverLabel?: unknown) {
+  if (sameAccountIdentity(senderLabel, receiverUser) || (receiverLabel !== undefined && samePersonName(senderLabel, receiverLabel))) {
+    throw new TRPCError({ code: "CONFLICT", message: "لا يجوز للموظف نفسه تسليم واستلام نفس العهدة" });
+  }
+  // تحقق إضافي بالمعرّف عندما يكون اسم المسلم محفوظاً كاسم أو اسم مستخدم.
+  const accounts = await db.select({ id: usersTable.id, name: usersTable.name, username: usersTable.username }).from(usersTable);
+  const senderAccount = accounts.find((account: any) => samePersonName(account.name, senderLabel) || samePersonName(account.username, senderLabel));
+  if (senderAccount && Number(senderAccount.id) === Number(receiverUser?.id)) {
+    throw new TRPCError({ code: "CONFLICT", message: "لا يجوز للموظف نفسه تسليم واستلام نفس العهدة" });
+  }
+}
+
 function isAutomaticHandoverActive(recordDate?: string | null) {
   return getRiyadhDate() >= AUTO_HANDOVER_START_DATE || String(recordDate || "") >= AUTO_HANDOVER_START_DATE;
 }
@@ -1676,6 +1697,8 @@ export const appRouter = router({
         const receiverUsername = String((ctx.user as any).username || "").trim();
         const expectedReceiver = String(record.expectedReceiver || "").trim();
         const receiverStage = normalizeManufacturingStage(record.receiverStage);
+        // المسلم محفوظ في movementBy؛ أما userId فقد يكون صاحب سجل الإنتاج أو منشئ السجل الآلي.
+        await assertSegregationOfDuties(db, record.movementBy, ctx.user, expectedReceiver);
         const isExplicitlyAssigned = Boolean(expectedReceiver && receiverStage) && (
           samePersonName(expectedReceiver, receiverName) || samePersonName(expectedReceiver, receiverUsername)
         );
@@ -1871,6 +1894,7 @@ export const appRouter = router({
           throw new TRPCError({ code: "CONFLICT", message: "تم تسليم هذه العهدة إلى المرحلة التالية مسبقاً؛ استخدم بطاقة القلب الجديدة لإكمال المسار" });
         }
         const actorName = String(ctx.user.name || "").trim();
+        const actorUsername = String((ctx.user as any).username || "").trim();
         if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
         const requestedStage = normalizeManufacturingStage((input as any).receiverStage);
         const allowedStages = allowedNextStages(record.stageName, record.productType);
@@ -1878,7 +1902,7 @@ export const appRouter = router({
         if (!targetStage || !allowedStages.includes(targetStage)) throw new Error("التسليم إلى هذه المرحلة غير مسموح؛ يجب اتباع مسار التصنيع المحدد");
         const expectedReceiver = input.expectedReceiver.trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
-        if (samePersonName(expectedReceiver, actorName)) throw new Error("لا يمكن للموظف تسليم المنتج لنفسه");
+        await assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver);
         const quantityDozen = record.quantityDozen ?? 0;
         const quantityPair = record.quantityPair ?? 0;
         if (input.quantityDozen !== undefined && Number(input.quantityDozen) !== Number(quantityDozen)) throw new TRPCError({ code: "FORBIDDEN", message: "كمية التسليم تنتقل تلقائياً من سجل الإنتاج ولا يمكن تعديلها" });
