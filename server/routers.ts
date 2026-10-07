@@ -230,10 +230,11 @@ function samePersonName(left: unknown, right: unknown) {
 function sameAccountIdentity(left: unknown, user: any) {
   const leftValue = normalizePersonName(left);
   if (!leftValue) return false;
+  // بعض السجلات التشغيلية القديمة تحفظ الاسم التشغيلي مع المسمى بعد شرطة طويلة.
+  const base = (value: string) => value.split(/\s*[—–-]\s*/)[0].trim();
+  const leftBase = base(leftValue);
   const aliases = [user?.name, user?.username].map(normalizePersonName).filter(Boolean);
-  // بعض السجلات التشغيلية القديمة تحفظ الاسم مع المسمى بعد شرطة طويلة.
-  const leftBase = leftValue.split(/\s*[—–-]\s*/)[0].trim();
-  return aliases.some((alias) => alias === leftValue || alias === leftBase);
+  return aliases.some((alias) => alias === leftValue || alias === leftBase || base(alias) === leftBase);
 }
 
 async function assertSegregationOfDuties(db: any, senderLabel: unknown, receiverUser: any, receiverLabel?: unknown) {
@@ -1796,8 +1797,10 @@ export const appRouter = router({
             // تاريخ المنتج هو تاريخ الإنتاج الأصلي، وليس تاريخ ضغط زر الاستلام.
             date: sourceProduction?.date || record.date || getRiyadhDate(receivedAt),
             movementStatus: "received",
-            movementBy: receiverName,
-            movementAt: receivedAt,
+            // هذه البطاقة تمثل استلام المرحلة التالية؛ المسلم الحقيقي هو موظف المرحلة السابقة
+            // المحفوظ في السجل المصدر، وليس الموظف الذي ضغط زر الاستلام.
+            movementBy: record.movementBy || record.workerName || null,
+            movementAt: record.movementAt || null,
             receivedBy: receiverName,
             receivedAt,
             userId: ctx.user.id,

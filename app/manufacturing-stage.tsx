@@ -80,6 +80,13 @@ function samePersonName(left: unknown, right: unknown) {
   return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
 }
 
+function sameAccountLabel(left: unknown, right: unknown) {
+  const normalizeBase = (value: unknown) => normalizePersonName(value).split(/\s*[—–-]\s*/)[0].trim();
+  const a = normalizeBase(left);
+  const b = normalizeBase(right);
+  return Boolean(a && b && a === b);
+}
+
 export default function ManufacturingStageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -571,7 +578,7 @@ export default function ManufacturingStageScreen() {
   };
 
   const isCurrentUserReceiver = (product: ProductItem) => samePersonName(product.expectedReceiver, user?.name) || samePersonName(product.expectedReceiver, (user as any)?.username);
-  const isSameAsCurrentUser = (person: unknown) => samePersonName(person, user?.name) || samePersonName(person, (user as any)?.username);
+  const isSameAsCurrentUser = (person: unknown) => samePersonName(person, user?.name) || samePersonName(person, (user as any)?.username) || sameAccountLabel(person, user?.name) || sameAccountLabel(person, (user as any)?.username);
 
   const handleConfirmReceipt = async (product: ProductItem) => {
     if (!product.id) {

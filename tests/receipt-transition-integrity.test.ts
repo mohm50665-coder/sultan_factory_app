@@ -42,6 +42,18 @@ describe("Receipt and handover integrity", () => {
     expect(stageSource).toContain("isSameAsCurrentUser(product.movementBy)");
   });
 
+  it("preserves the actual previous-stage sender on the automatically created next-stage custody", () => {
+    expect(routersSource).toContain("المسلم الحقيقي هو موظف المرحلة السابقة");
+    expect(routersSource).toContain("movementBy: record.movementBy || record.workerName || null");
+    expect(routersSource).toContain("movementAt: record.movementAt || null");
+    expect(routersSource).not.toContain("movementBy: receiverName,\n            movementAt: receivedAt");
+  });
+
+  it("matches employee identity even when a stage title is appended to the name", () => {
+    expect(routersSource).toContain("base(alias) === leftBase");
+    expect(stageSource).toContain("sameAccountLabel(person, user?.name)");
+  });
+
   it("places the production receiver selection after product details and before save controls", () => {
     const receiverBlock = productionSource.indexOf("بيانات المستلم — آخر خطوة قبل الحفظ");
     const yarnDetails = productionSource.indexOf("أوزان الخيوط حسب النوع");
