@@ -64,6 +64,12 @@ interface WorkerEntry {
   notes: string;
 }
 
+interface WorkerOption {
+  id: number;
+  workerName: string;
+  username?: string;
+}
+
 // بيانات العمال لكل مرحلة - سيتم تعريفها داخل الدالة
 function normalizePersonName(value: unknown) {
   return String(value ?? "")
@@ -179,9 +185,9 @@ export default function ManufacturingStageScreen() {
   const isStorageStage = stage === "storage";
 
   // Load workers from server
-  const [stageWorkers, setStageWorkers] = useState<string[]>([]);
-  const [nextStageWorkers, setNextStageWorkers] = useState<string[]>([]);
-  const [receiverStageWorkers, setReceiverStageWorkers] = useState<Record<string, string[]>>({});
+  const [stageWorkers, setStageWorkers] = useState<WorkerOption[]>([]);
+  const [nextStageWorkers, setNextStageWorkers] = useState<WorkerOption[]>([]);
+  const [receiverStageWorkers, setReceiverStageWorkers] = useState<Record<string, WorkerOption[]>>({});
   const [savedProducts, setSavedProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [entriesRefreshing, setEntriesRefreshing] = useState(false);
@@ -192,13 +198,17 @@ export default function ManufacturingStageScreen() {
           manufacturingWorkersService.eligible(stage),
           ...nextStageOptions.map((stageId) => manufacturingWorkersService.eligible(stageId)),
         ]);
-        const names = Array.isArray(workers) ? workers.map((w: any) => String(w.workerName || w.name || "").trim()).filter(Boolean) : [];
-        setStageWorkers(names);
-        const workersByStage: Record<string, string[]> = {};
+        const toWorkerOption = (worker: any): WorkerOption | null => {
+          const workerName = String(worker?.workerName || worker?.name || "").trim();
+          const id = Number(worker?.id);
+          return workerName && Number.isFinite(id) ? { id, workerName, username: String(worker?.username || "").trim() || undefined } : null;
+        };
+        const options = Array.isArray(workers) ? workers.map(toWorkerOption).filter(Boolean) as WorkerOption[] : [];
+        setStageWorkers(options);
+        const workersByStage: Record<string, WorkerOption[]> = {};
         nextStageOptions.forEach((stageId, index) => {
           const rows = nextWorkersByStage[index];
-          const names = Array.isArray(rows) ? rows.map((w: any) => String(w.workerName || w.name || "").trim()).filter(Boolean) : [];
-          workersByStage[stageId] = names;
+          workersByStage[stageId] = Array.isArray(rows) ? rows.map(toWorkerOption).filter(Boolean) as WorkerOption[] : [];
         });
         setReceiverStageWorkers(workersByStage);
         setNextStageWorkers(workersByStage[nextStageId] || []);
@@ -577,8 +587,9 @@ export default function ManufacturingStageScreen() {
     ]);
   };
 
-  const isCurrentUserReceiver = (product: ProductItem) => samePersonName(product.expectedReceiver, user?.name) || samePersonName(product.expectedReceiver, (user as any)?.username);
-  const isSameAsCurrentUser = (person: unknown) => samePersonName(person, user?.name) || samePersonName(person, (user as any)?.username) || sameAccountLabel(person, user?.name) || sameAccountLabel(person, (user as any)?.username);
+  const isCurrentUserReceiver = (product: ProductItem) => sameAccountLabel(product.expectedReceiver, user?.name) || sameAccountLabel(product.expectedReceiver, (user as any)?.username);
+  const isSameAsCurrentUser = (person: unknown) => sameAccountLabel(person, user?.name) || sameAccountLabel(person, (user as any)?.username);
+  const isCurrentUserOption = (worker: WorkerOption) => Number(worker.id) === Number(user?.id) || isSameAsCurrentUser(worker.workerName) || isSameAsCurrentUser(worker.username);
 
   const handleConfirmReceipt = async (product: ProductItem) => {
     if (!product.id) {
@@ -795,8 +806,8 @@ export default function ManufacturingStageScreen() {
                   {getProductNextStageOptions(product).map((stageId) => {
                     const workers = receiverStageWorkers[stageId] || (stageId === nextStageId ? nextStageWorkers : []);
                     if (!workers.length) return null;
-                    const differentWorkers = workers.filter((receiver) => !isSameAsCurrentUser(receiver));
-                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{differentWorkers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver}</Text></TouchableOpacity>)}</View></View>;
+                    const differentWorkers = workers.filter((receiver) => !isCurrentUserOption(receiver));
+                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{differentWorkers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver.id}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver.workerName)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver.workerName}</Text></TouchableOpacity>)}</View></View>;
                   })}
                 </View>
               )}
@@ -852,7 +863,7 @@ export default function ManufacturingStageScreen() {
       {showTrash && isAdmin && <View style={{ margin: 12, padding: 12, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: "#f59e0b" }}><Text style={{ color: "#b45309", fontWeight: "800", textAlign: isAr ? "right" : "left" }}>{isAr ? "سلة مهملات مراحل التسليم — الاسترجاع متاح خلال 30 يوماً" : "Stage trash — restore available for 30 days"}</Text>{trashEntries.length === 0 ? <Text style={{ color: colors.muted, textAlign: isAr ? "right" : "left", marginTop: 8 }}>{isAr ? "لا توجد سجلات محذوفة" : "No deleted records"}</Text> : trashEntries.map((entry: any) => <View key={String(entry.id)} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><TouchableOpacity onPress={() => handleRestore(entry)} style={{ backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>{isAr ? "استرجاع" : "Restore"}</Text></TouchableOpacity><Text style={{ color: colors.foreground, flex: 1, textAlign: "right", marginRight: 8, fontSize: 11 }}>{[entry.productName, entry.workerName, entry.date].filter(Boolean).join(" | ")}</Text></View>)}</View>}
       {showStageReport && (() => {
         const report = getStageReport();
-        const reportWorkers = Array.from(new Set([...(stageWorkers || []), ...entries.map((entry) => entry.workerName).filter(Boolean)]));
+        const reportWorkers = Array.from(new Set([...(stageWorkers || []).map((worker) => worker.workerName), ...entries.map((entry) => entry.workerName).filter(Boolean)]));
         const periodButton = (period: "daily" | "weekly" | "monthly", labelAr: string, labelEn: string) => (
           <TouchableOpacity
             key={period}
@@ -1132,9 +1143,9 @@ export default function ManufacturingStageScreen() {
                             </View>}
                             <Text style={{ color: "#166534", fontWeight: "700", fontSize: 11, marginTop: 7, textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[product.receiverStage || nextStageId]?.name || nextStageConfig.name}</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
-                              {(receiverStageWorkers[product.receiverStage || nextStageId] || nextStageWorkers).map((receiver) => (
-                                <TouchableOpacity key={receiver} onPress={() => updateProduct(index, "expectedReceiver", receiver)} style={{ backgroundColor: samePersonName(product.expectedReceiver, receiver) ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
-                                  <Text style={{ color: samePersonName(product.expectedReceiver, receiver) ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver}</Text>
+                              {(receiverStageWorkers[product.receiverStage || nextStageId] || nextStageWorkers).filter((receiver) => !isCurrentUserOption(receiver)).map((receiver) => (
+                                <TouchableOpacity key={receiver.id} onPress={() => updateProduct(index, "expectedReceiver", receiver.workerName)} style={{ backgroundColor: sameAccountLabel(product.expectedReceiver, receiver.workerName) ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
+                                  <Text style={{ color: sameAccountLabel(product.expectedReceiver, receiver.workerName) ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver.workerName}</Text>
                                 </TouchableOpacity>
                               ))}
                             </View>

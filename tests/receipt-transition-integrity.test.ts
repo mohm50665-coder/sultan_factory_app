@@ -29,7 +29,7 @@ describe("Receipt and handover integrity", () => {
   });
 
   it("allows the receiver to confirm by display name or username", () => {
-    expect(stageSource).toContain("samePersonName(product.expectedReceiver, (user as any)?.username)");
+    expect(stageSource).toContain("sameAccountLabel(product.expectedReceiver, (user as any)?.username)");
     expect(routersSource).toContain("samePersonName(expectedReceiver, receiverUsername)");
   });
 
