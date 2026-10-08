@@ -1888,7 +1888,7 @@ export const appRouter = router({
       }),
 
     deliverToNextStage: protectedProcedure
-      .input(z.object({ id: z.number(), expectedReceiver: z.string().min(1), receiverStage: z.string().optional(), quantityDozen: z.number().int().nonnegative().optional(), quantityPair: z.number().int().nonnegative().optional(), notes: z.string().max(1000).optional() }))
+      .input(z.object({ id: z.number(), expectedReceiver: z.string().min(1), receiverUserId: z.number().int().positive().optional(), receiverStage: z.string().optional(), quantityDozen: z.number().int().nonnegative().optional(), quantityPair: z.number().int().nonnegative().optional(), notes: z.string().max(1000).optional() }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
@@ -1919,7 +1919,15 @@ export const appRouter = router({
         const allowedStages = allowedNextStages(record.stageName, record.productType);
         const targetStage = requestedStage || allowedStages[0] || null;
         if (!targetStage || !allowedStages.includes(targetStage)) throw new Error("التسليم إلى هذه المرحلة غير مسموح؛ يجب اتباع مسار التصنيع المحدد");
-        const expectedReceiver = input.expectedReceiver.trim();
+        const receiverAccounts = await getEligibleStageAccounts(db, targetStage);
+        if (input.receiverUserId && Number(input.receiverUserId) === Number(ctx.user.id)) {
+          throw new TRPCError({ code: "CONFLICT", message: "لا يجوز للموظف نفسه تسليم واستلام نفس العهدة" });
+        }
+        const selectedReceiver = input.receiverUserId
+          ? receiverAccounts.find((account: any) => Number(account.id) === Number(input.receiverUserId))
+          : receiverAccounts.find((account: any) => samePersonName(account.workerName, input.expectedReceiver) || samePersonName(account.username, input.expectedReceiver));
+        if (!selectedReceiver) throw new Error("المستلم المحدد لا يملك حساباً مفعلاً أو لا ينتمي إلى القسم التالي");
+        const expectedReceiver = String(selectedReceiver.workerName || selectedReceiver.username || "").trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
         await assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver);
         const quantityDozen = record.quantityDozen ?? 0;

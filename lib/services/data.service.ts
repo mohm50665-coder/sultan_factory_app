@@ -214,7 +214,7 @@ export const manufacturingStageService = {
     return await trpcCall("manufacturing.listReceiptQueue", { stageName }, "query") || [];
   },
 
-  async deliverToNextStage(data: { id: number; expectedReceiver: string; receiverStage?: string; quantityDozen?: number; quantityPair?: number; notes?: string }): Promise<{ success: boolean; receiverStage: string; expectedReceiver: string; deliveredAt: string | Date; idempotent?: boolean }> {
+  async deliverToNextStage(data: { id: number; expectedReceiver: string; receiverUserId?: number; receiverStage?: string; quantityDozen?: number; quantityPair?: number; notes?: string }): Promise<{ success: boolean; receiverStage: string; expectedReceiver: string; deliveredAt: string | Date; idempotent?: boolean }> {
     return await trpcCall("manufacturing.deliverToNextStage", data);
   },
 

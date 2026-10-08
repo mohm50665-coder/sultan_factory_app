@@ -40,6 +40,8 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain("assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver)");
     expect(stageSource).toContain("لا يمكنك استلام عهدة سلّمتها بنفسك");
     expect(stageSource).toContain("isSameAsCurrentUser(product.movementBy)");
+    expect(routersSource).toContain("receiverUserId: z.number().int().positive().optional()");
+    expect(routersSource).toContain("Number(input.receiverUserId) === Number(ctx.user.id)");
   });
 
   it("preserves the actual previous-stage sender on the automatically created next-stage custody", () => {

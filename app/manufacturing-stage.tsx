@@ -36,6 +36,7 @@ interface ProductItem {
   quantityPairs: string;
   movementStatus: "none" | "received" | "delivered";
   expectedReceiver?: string;
+  expectedReceiverId?: number;
   receiverStage?: string;
   productType?: string;
   barcode?: string;
@@ -433,6 +434,11 @@ export default function ManufacturingStageScreen() {
     newProducts[index] = { ...newProducts[index], [field]: value };
     setProducts(newProducts);
   };
+  const selectReceiver = (index: number, receiver: WorkerOption) => {
+    const newProducts = [...products];
+    newProducts[index] = { ...newProducts[index], expectedReceiver: receiver.workerName, expectedReceiverId: receiver.id };
+    setProducts(newProducts);
+  };
 
   const showStageMessage = (title: string, message: string) => {
     if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -615,7 +621,7 @@ export default function ManufacturingStageScreen() {
     }
   };
 
-  const handleDeliverProduct = async (product: ProductItem, receiverStage: string, expectedReceiver: string) => {
+  const handleDeliverProduct = async (product: ProductItem, receiverStage: string, expectedReceiver: string, receiverUserId?: number) => {
     if (!product.id || !expectedReceiver) return;
     const productId = Number(product.id);
     if (processingProductId === productId) return;
@@ -625,6 +631,7 @@ export default function ManufacturingStageScreen() {
         id: productId,
         receiverStage,
         expectedReceiver,
+        receiverUserId,
         quantityDozen: Number(product.quantityDozen) || 0,
         quantityPair: Number(product.quantityPairs) || 0,
       });
@@ -807,7 +814,7 @@ export default function ManufacturingStageScreen() {
                     const workers = receiverStageWorkers[stageId] || (stageId === nextStageId ? nextStageWorkers : []);
                     if (!workers.length) return null;
                     const differentWorkers = workers.filter((receiver) => !isCurrentUserOption(receiver));
-                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{differentWorkers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver.id}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver.workerName)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver.workerName}</Text></TouchableOpacity>)}</View></View>;
+                    return <View key={stageId} style={{ marginTop: 7 }}><Text style={{ color: "#1e40af", fontSize: 10, fontWeight: "900", textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[stageId]?.name || stageId}</Text><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>{differentWorkers.map((receiver) => <TouchableOpacity key={`${stageId}-${receiver.id}`} disabled={processingProductId === Number(product.id)} onPress={() => void handleDeliverProduct(product, stageId, receiver.workerName, receiver.id)} style={{ backgroundColor: "#2563eb", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, opacity: processingProductId === Number(product.id) ? 0.55 : 1 }}><Text style={{ color: "#ffffff", fontWeight: "800", fontSize: 11 }}>{processingProductId === Number(product.id) ? (isAr ? "جارٍ الحفظ..." : "Saving...") : receiver.workerName}</Text></TouchableOpacity>)}</View></View>;
                   })}
                 </View>
               )}
@@ -1138,13 +1145,13 @@ export default function ManufacturingStageScreen() {
                               {nextStageOptions.map((stageId) => {
                                 const stageOption = STAGE_CONFIG[stageId];
                                 const selectedStage = product.receiverStage || nextStageId;
-                                return <TouchableOpacity key={stageId} onPress={() => { updateProduct(index, "receiverStage", stageId); updateProduct(index, "expectedReceiver", ""); }} style={{ backgroundColor: selectedStage === stageId ? "#166534" : "#ffffff", borderWidth: 1, borderColor: "#166534", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selectedStage === stageId ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{stageOption?.name || stageId}</Text></TouchableOpacity>;
+                                return <TouchableOpacity key={stageId} onPress={() => { updateProduct(index, "receiverStage", stageId); updateProduct(index, "expectedReceiver", ""); const nextProducts = [...products]; nextProducts[index] = { ...nextProducts[index], receiverStage: stageId, expectedReceiver: "", expectedReceiverId: undefined }; setProducts(nextProducts); }} style={{ backgroundColor: selectedStage === stageId ? "#166534" : "#ffffff", borderWidth: 1, borderColor: "#166534", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}><Text style={{ color: selectedStage === stageId ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{stageOption?.name || stageId}</Text></TouchableOpacity>;
                               })}
                             </View>}
                             <Text style={{ color: "#166534", fontWeight: "700", fontSize: 11, marginTop: 7, textAlign: isAr ? "right" : "left" }}>{STAGE_CONFIG[product.receiverStage || nextStageId]?.name || nextStageConfig.name}</Text>
                             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
                               {(receiverStageWorkers[product.receiverStage || nextStageId] || nextStageWorkers).filter((receiver) => !isCurrentUserOption(receiver)).map((receiver) => (
-                                <TouchableOpacity key={receiver.id} onPress={() => updateProduct(index, "expectedReceiver", receiver.workerName)} style={{ backgroundColor: sameAccountLabel(product.expectedReceiver, receiver.workerName) ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
+                                <TouchableOpacity key={receiver.id} onPress={() => selectReceiver(index, receiver)} style={{ backgroundColor: Number(product.expectedReceiverId) === receiver.id || sameAccountLabel(product.expectedReceiver, receiver.workerName) ? "#16a34a" : "#ffffff", borderWidth: 1, borderColor: "#16a34a", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6 }}>
                                   <Text style={{ color: sameAccountLabel(product.expectedReceiver, receiver.workerName) ? "#ffffff" : "#166534", fontWeight: "800", fontSize: 11 }}>{receiver.workerName}</Text>
                                 </TouchableOpacity>
                               ))}
