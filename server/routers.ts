@@ -1917,7 +1917,9 @@ export const appRouter = router({
         }
         const actorName = String(ctx.user.name || "").trim();
         const actorUsername = String((ctx.user as any).username || "").trim();
-        if (ctx.user.role !== "admin" && !samePersonName(record.receivedBy || record.workerName, actorName)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
+        // في السجلات الآلية workerName هو حامل العهدة الحالي؛ receivedBy قد يكون
+        // اسماً تاريخياً من عملية استلام قديمة ولا يجوز أن يمنع صاحب البطاقة الحالي.
+        if (ctx.user.role !== "admin" && !samePersonName(record.workerName || record.receivedBy, actorName) && !samePersonName(record.workerName || record.receivedBy, actorUsername)) throw new Error("لا يمكن تسليم عهدة موظف آخر");
         const requestedStage = normalizeManufacturingStage((input as any).receiverStage);
         const allowedStages = allowedNextStages(record.stageName, record.productType);
         const targetStage = requestedStage || allowedStages[0] || null;
