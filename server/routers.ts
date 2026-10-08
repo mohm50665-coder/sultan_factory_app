@@ -1932,7 +1932,9 @@ export const appRouter = router({
         if (!selectedReceiver) throw new Error("المستلم المحدد لا يملك حساباً مفعلاً أو لا ينتمي إلى القسم التالي");
         const expectedReceiver = String(selectedReceiver.workerName || selectedReceiver.username || "").trim();
         await validateStageReceiver(db, targetStage, expectedReceiver);
-        await assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver);
+        // فصل المهام في التسليم يعتمد على معرّف الحساب بعد اختيار الحساب الفعلي.
+        // لا نستخدم مقارنة الاسم هنا؛ فقد يتكرر الاسم أو يختلف الاسم التشغيلي
+        // عن اسم الدخول، مما كان يرفض تسليماً صحيحاً لموظف آخر.
         const quantityDozen = record.quantityDozen ?? 0;
         const quantityPair = record.quantityPair ?? 0;
         if (input.quantityDozen !== undefined && Number(input.quantityDozen) !== Number(quantityDozen)) throw new TRPCError({ code: "FORBIDDEN", message: "كمية التسليم تنتقل تلقائياً من سجل الإنتاج ولا يمكن تعديلها" });

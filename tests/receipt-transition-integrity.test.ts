@@ -38,7 +38,8 @@ describe("Receipt and handover integrity", () => {
     expect(routersSource).toContain("لا يجوز للموظف نفسه تسليم واستلام نفس العهدة");
     expect(routersSource).toContain("const actualSenderLabel = String(record.workerName || record.movementBy || \"\").trim()");
     expect(routersSource).toContain("assertSegregationOfDuties(db, actualSenderLabel, ctx.user, expectedReceiver)");
-    expect(routersSource).toContain("assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver)");
+    expect(routersSource).toContain("فصل المهام في التسليم يعتمد على معرّف الحساب");
+    expect(routersSource).not.toContain("assertSegregationOfDuties(db, actorName || actorUsername, ctx.user, expectedReceiver)");
     expect(stageSource).toContain("لا يمكنك استلام عهدة سلّمتها بنفسك");
     expect(stageSource).toContain("isSameAsCurrentUser(product.movementBy)");
     expect(routersSource).toContain("receiverUserId: z.number().int().positive().optional()");
