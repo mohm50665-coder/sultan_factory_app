@@ -43,6 +43,7 @@ interface ProductItem {
   receivedBy?: string;
   receivedAt?: string;
   movementBy?: string;
+  custodyOwner?: string;
   movementAt?: string;
   blockedByActiveCustody?: boolean;
   activeCustodyProductName?: string;
@@ -331,6 +332,7 @@ export default function ManufacturingStageScreen() {
             receivedBy: d.receivedBy || "",
             receivedAt: d.receivedAt ? String(d.receivedAt) : "",
             movementBy: d.movementBy || "",
+            custodyOwner: d.workerName || d.receivedBy || d.movementBy || "",
             movementAt: d.movementAt ? String(d.movementAt) : "",
             blockedByActiveCustody: Boolean(d.blockedByActiveCustody),
             activeCustodyProductName: d.activeCustodyProductName || "",
@@ -789,7 +791,7 @@ export default function ManufacturingStageScreen() {
                   {product.movementStatus === "received" ? (isAr ? "مستلم" : "Received") : product.movementStatus === "delivered" ? (isAr ? "بانتظار تأكيد المستلم" : "Awaiting receiver confirmation") : (isAr ? "بانتظار التسليم أو الاستلام" : "Pending delivery or receipt")}
                 </Text>
               </View>
-              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && isSameAsCurrentUser(product.movementBy) && (
+              {product.movementStatus === "delivered" && isCurrentUserReceiver(product) && isSameAsCurrentUser(product.custodyOwner) && (
                 <View style={{ marginTop: 8, backgroundColor: "#fef2f2", borderRadius: 8, padding: 9, borderWidth: 1, borderColor: "#fca5a5" }}>
                   <Text style={{ color: "#b91c1c", fontWeight: "800", fontSize: 12, textAlign: "right" }}>{isAr ? "مرفوض: لا يمكنك استلام عهدة سلّمتها بنفسك" : "Blocked: you cannot receive a custody you delivered yourself"}</Text>
                 </View>

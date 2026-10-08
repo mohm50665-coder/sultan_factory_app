@@ -1714,8 +1714,11 @@ export const appRouter = router({
         const receiverUsername = String((ctx.user as any).username || "").trim();
         const expectedReceiver = String(record.expectedReceiver || "").trim();
         const receiverStage = normalizeManufacturingStage(record.receiverStage);
-        // المسلم محفوظ في movementBy؛ أما userId فقد يكون صاحب سجل الإنتاج أو منشئ السجل الآلي.
-        await assertSegregationOfDuties(db, record.movementBy, ctx.user, expectedReceiver);
+        // workerName هو حامل العهدة في هذه المرحلة وهو المسلم الفعلي عند تسليمها.
+        // movementBy قد يكون قيمة تاريخية/موروثة من سجل آلي سابق، لذلك لا يُستخدم
+        // وحده لمنع الاستلام حتى لا تُرفض حركة صحيحة لموظف آخر.
+        const actualSenderLabel = String(record.workerName || record.movementBy || "").trim();
+        await assertSegregationOfDuties(db, actualSenderLabel, ctx.user, expectedReceiver);
         const isExplicitlyAssigned = Boolean(expectedReceiver && receiverStage) && (
           samePersonName(expectedReceiver, receiverName) || samePersonName(expectedReceiver, receiverUsername)
         );
