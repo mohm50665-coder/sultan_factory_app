@@ -85,6 +85,16 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("requiredMissing");
   });
 
+  it("prevents duplicate customer creation while preserving editing", () => {
+    expect(server).toContain("customerIdentityKey");
+    expect(server).toContain("customerCreationLocks");
+    expect(server).toContain("هذا العميل مسجل مسبقاً");
+    expect(server).toContain("finally {");
+    expect(customers).toContain("if (saving) return");
+    expect(customers).toContain("disabled={saving}");
+    expect(customers).toContain("حفظ التعديل");
+  });
+
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
     expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");

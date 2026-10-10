@@ -28,6 +28,15 @@ const CUSTOMER_REQUIRED_ATTACHMENTS = ["commercial_register", "national_address"
 const YARN_KEYS = ["cotton", "bamboo", "nylon", "polyester", "rubber", "spandex"] as const;
 
 const normalize = (value: unknown) => String(value || "").normalize("NFKC").replace(/[\u064B-\u065F\u0670]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+const normalizePhone = (value: unknown) => String(value || "").replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))).replace(/\D/g, "");
+const customerCreationLocks = new Set<string>();
+function customerIdentityKey(customer: { customerType?: string; name?: string; commercialRegister?: string; contactPhone?: string; ownerPhone?: string }) {
+  const type = String(customer.customerType || "institution");
+  const register = normalize(customer.commercialRegister);
+  if (type === "institution" && register) return `${type}|register|${register}`;
+  const phone = normalizePhone(customer.contactPhone || customer.ownerPhone);
+  return `${type}|name-phone|${normalize(customer.name)}|${phone}`;
+}
 const matchesDepartment = (value: unknown, aliases: string[]) => aliases.some((alias) => normalize(value) === normalize(alias) || normalize(value).includes(normalize(alias)));
 const isAdmin = (user: any) => user?.role === "admin";
 const isSalesManager = (user: any) => isAdmin(user) || (["manager", "supervisor"].includes(user?.role) && matchesDepartment(user?.department, SALES_NAMES)) || normalize(user?.position).includes("مدير المبيعات") || normalize(user?.position).includes("مدير التسويق");
@@ -406,18 +415,24 @@ export const representativeRouter = router({
       validateStoredCustomer(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
-      const duplicate = input.customerType === "institution" && input.commercialRegister
-        ? await db.select({ id: customers.id }).from(customers).where(eq(customers.commercialRegister, input.commercialRegister)).limit(1)
-        : [];
-      if (duplicate[0]) throw new TRPCError({ code: "CONFLICT", message: "السجل التجاري مسجل لعميل سابق" });
-      const customerCode = makeReference("CUS");
-      const assignedRepresentativeId = isAdmin(ctx.user) ? (input.assignedRepresentativeId || null) : Number(ctx.user.id);
-      const assignedRepresentativeName = assignedRepresentativeId === Number(ctx.user.id) ? String(ctx.user.name || ctx.user.username) : String(input.assignedRepresentativeName || "");
-      const result = await db.insert(customers).values({ ...input, assignedRepresentativeId, assignedRepresentativeName, email: input.email || "", contactEmail: input.contactEmail || "", customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
-      const id = Number(result[0].insertId);
-      await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
-      await writeAudit(db, ctx.user, "create", "customers", id, null, input, `إنشاء ملف العميل ${customerCode}`);
-      return { success: true, id, customerCode };
+      const identityKey = customerIdentityKey(input);
+      if (customerCreationLocks.has(identityKey)) throw new TRPCError({ code: "CONFLICT", message: "جارٍ حفظ هذا العميل؛ لا تعاود الضغط على زر الحفظ" });
+      customerCreationLocks.add(identityKey);
+      try {
+        const activeRows = await db.select({ id: customers.id, customerType: customers.customerType, name: customers.name, commercialRegister: customers.commercialRegister, contactPhone: customers.contactPhone, ownerPhone: customers.ownerPhone }).from(customers).where(eq(customers.isActive, 1));
+        const duplicate = activeRows.find((row) => customerIdentityKey(row) === identityKey);
+        if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "هذا العميل مسجل مسبقاً بنفس الاسم وبيانات التواصل أو السجل التجاري" });
+        const customerCode = makeReference("CUS");
+        const assignedRepresentativeId = isAdmin(ctx.user) ? (input.assignedRepresentativeId || null) : Number(ctx.user.id);
+        const assignedRepresentativeName = assignedRepresentativeId === Number(ctx.user.id) ? String(ctx.user.name || ctx.user.username) : String(input.assignedRepresentativeName || "");
+        const result = await db.insert(customers).values({ ...input, assignedRepresentativeId, assignedRepresentativeName, email: input.email || "", contactEmail: input.contactEmail || "", customerCode, isTaxRegistered: input.isTaxRegistered ? 1 : 0, createdBy: Number(ctx.user.id), updatedBy: Number(ctx.user.id) });
+        const id = Number(result[0].insertId);
+        await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ customerId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
+        await writeAudit(db, ctx.user, "create", "customers", id, null, input, `إنشاء ملف العميل ${customerCode}`);
+        return { success: true, id, customerCode };
+      } finally {
+        customerCreationLocks.delete(identityKey);
+      }
     }),
 
     update: protectedProcedure.input(customerSchema.extend({ id: z.number().int().positive() })).mutation(async ({ input, ctx }) => {
