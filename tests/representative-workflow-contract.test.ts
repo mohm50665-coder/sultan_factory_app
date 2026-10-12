@@ -95,6 +95,15 @@ describe("Representative workflow contract", () => {
     expect(customers).toContain("حفظ التعديل");
   });
 
+  it("prints approval details fully localized in Arabic", () => {
+    const approvalsSource = read("app/representative-approvals.tsx");
+    for (const label of ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_EXECUTED", "const ACTION", "const DEPARTMENT", "تقرير الطلب والمعاملة", "lang=\"ar\""]) {
+      expect(approvalsSource).toContain(label);
+    }
+    expect(approvalsSource).toContain("STATUS[event.toStatus] || event.toStatus");
+    expect(approvalsSource).toContain("ACTION[event.action] || event.action");
+  });
+
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
     expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
