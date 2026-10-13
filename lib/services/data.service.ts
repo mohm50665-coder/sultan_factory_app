@@ -471,6 +471,7 @@ export const sampleRequestsService = {
     list: (input?: { sampleRequestId?: number; employeeId?: number }) => trpcCall("sampleRequests.penalties.list", input || {}, "query"),
     create: (input: { sampleRequestId: number; employeeId: number; employeeName: string; level: "warning" | "salary_deduction" | "customer_compensation"; amount: number; reason: string; correctiveAction?: string }) => trpcCall("sampleRequests.penalties.create", input),
     update: (input: { id: number; data: { level?: "warning" | "salary_deduction" | "customer_compensation"; amount?: number; reason?: string; correctiveAction?: string; status?: "open" | "acknowledged" | "closed" } }) => trpcCall("sampleRequests.penalties.update", input),
+    approve: (input: { id: number; decision: "approved" | "rejected"; notes?: string }) => trpcCall("sampleRequests.penalties.approve", input),
     delete: (input: { id: number }) => trpcCall("sampleRequests.penalties.delete", input),
   },
 };
