@@ -40,9 +40,9 @@ export function FormInput({
   const colors = useColors();
 
   return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+    <View style={{ marginBottom: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: "800", color: colors.foreground }}>
           {label}
         </Text>
         {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
@@ -55,7 +55,7 @@ export function FormInput({
             color: colors.foreground,
             backgroundColor: colors.surface,
           },
-          multiline && { minHeight: 100 },
+          multiline && { minHeight: 76 },
         ]}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
@@ -67,7 +67,7 @@ export function FormInput({
         numberOfLines={numberOfLines}
         editable={editable}
       />
-      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 3 }}>{error}</Text>}
     </View>
   );
 }
@@ -94,9 +94,9 @@ export function FormNumberInput({
   const colors = useColors();
 
   return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+    <View style={{ marginBottom: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: "800", color: colors.foreground }}>
           {label}
         </Text>
         {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
@@ -131,7 +131,7 @@ export function FormNumberInput({
           </Text>
         )}
       </View>
-      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 3 }}>{error}</Text>}
     </View>
   );
 }
@@ -164,9 +164,9 @@ export function FormSelect({
   const selectedLabel = options.find((opt) => opt.value === value)?.label || label;
 
   return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
+    <View style={{ marginBottom: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: "800", color: colors.foreground }}>
           {label}
         </Text>
         {required && <Text style={{ color: colors.error, marginLeft: 4 }}>*</Text>}
@@ -213,8 +213,8 @@ export function FormSelect({
                   setIsOpen(false);
                 }}
                 style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
                   borderBottomWidth: 1,
                   borderBottomColor: colors.border,
                   backgroundColor: value === option.value ? colors.primary + "20" : "transparent",
@@ -234,7 +234,7 @@ export function FormSelect({
         </View>
       )}
 
-      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{error}</Text>}
+      {error && <Text style={{ color: colors.error, fontSize: 12, marginTop: 3 }}>{error}</Text>}
     </View>
   );
 }
@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
   },
 });
