@@ -457,6 +457,10 @@ export const sampleRequestsService = {
     sampleMediaAttachments?: unknown[];
     notes?: string;
   }) => trpcCall("sampleRequests.create", input),
+  createApprovalLink: (input: { id: number }) => trpcCall("sampleRequests.createApprovalLink", input),
+  getCustomerApproval: (token: string) => trpcCall("sampleRequests.getCustomerApproval", { token }, "query"),
+  approveByCustomer: (input: { token: string; decision: "approved" | "rejected"; reason?: string; attachments?: unknown[] }) => trpcCall("sampleRequests.approveByCustomer", input),
+  finalizeAfterCustomerApproval: (input: { id: number }) => trpcCall("sampleRequests.finalizeAfterCustomerApproval", input),
   updateStatus: (input: { id: number; status: string; notes?: string }) => trpcCall("sampleRequests.updateStatus", input),
   update: (input: { id: number; clientName: string; productName: string; productSize: string; productColor: string; quantity: number; quantityUnit: "dozen" | "pair"; specifications: string; notes?: string }) => trpcCall("sampleRequests.update", input),
   delete: (input: { id: number }) => trpcCall("sampleRequests.delete", input),

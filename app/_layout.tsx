@@ -25,7 +25,7 @@ export const unstable_settings = {
 };
 
 // الشاشات التي لا تتطلب تسجيل دخول
-const AUTH_SCREENS = ["login", "register", "forgot-password"];
+const AUTH_SCREENS = ["login", "register", "forgot-password", "sample-approval"];
 
 // Error Boundary to prevent white screen crash
 class ErrorBoundary extends React.Component<
@@ -168,6 +168,7 @@ function NavigationContent() {
       <Stack.Screen name="production-requests" />
       <Stack.Screen name="custom-manufacturing" />
       <Stack.Screen name="sample-requests" />
+      <Stack.Screen name="sample-approval" />
     </Stack>
   );
 }

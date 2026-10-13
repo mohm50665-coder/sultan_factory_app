@@ -2086,6 +2086,7 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const referenceCode = `SMP-${getRiyadhDate().replace(/-/g, "")}-${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+        const customerApprovalToken = randomUUID().replace(/-/g, "");
         const result = await db.insert(sampleRequestsTable).values({
           referenceCode,
           requesterId: ctx.user.id,
@@ -2103,10 +2104,65 @@ export const appRouter = router({
           transferReceiptAttachments: input.transferReceiptAttachments,
           signatureAttachments: input.signatureAttachments,
           sampleMediaAttachments: input.sampleMediaAttachments || [],
+          customerApprovalToken,
+          customerApprovalStatus: "pending",
+          customerApprovalAttachments: [],
+          initialSavedAt: new Date(),
           status: "pending_sales",
           notes: input.notes || null,
         });
-        return { success: true, id: result[0].insertId, referenceCode };
+        return { success: true, id: result[0].insertId, referenceCode, customerApprovalToken };
+      }),
+    createApprovalLink: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "طلب العينة غير موجود" });
+        if (ctx.user.role !== "admin" && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية إنشاء رابط الاعتماد" });
+        const token = request.customerApprovalToken || randomUUID().replace(/-/g, "");
+        await db.update(sampleRequestsTable).set({ customerApprovalToken: token, customerApprovalStatus: request.customerApprovalStatus || "pending" }).where(eq(sampleRequestsTable.id, input.id));
+        return { success: true, token, referenceCode: request.referenceCode };
+      }),
+    getCustomerApproval: publicProcedure
+      .input(z.object({ token: z.string().min(20).max(120) }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return null;
+        const rows = await db.select({ id: sampleRequestsTable.id, referenceCode: sampleRequestsTable.referenceCode, clientName: sampleRequestsTable.clientName, productName: sampleRequestsTable.productName, productSize: sampleRequestsTable.productSize, productColor: sampleRequestsTable.productColor, quantity: sampleRequestsTable.quantity, quantityUnit: sampleRequestsTable.quantityUnit, specifications: sampleRequestsTable.specifications, designAttachments: sampleRequestsTable.designAttachments, sampleMediaAttachments: sampleRequestsTable.sampleMediaAttachments, customerApprovalStatus: sampleRequestsTable.customerApprovalStatus, customerApprovalReason: sampleRequestsTable.customerApprovalReason, customerApprovedAt: sampleRequestsTable.customerApprovedAt, status: sampleRequestsTable.status }).from(sampleRequestsTable).where(eq(sampleRequestsTable.customerApprovalToken, input.token)).limit(1);
+        const request = rows[0];
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "رابط اعتماد العينة غير صالح أو منتهي" });
+        return request;
+      }),
+    approveByCustomer: publicProcedure
+      .input(z.object({ token: z.string().min(20).max(120), decision: z.enum(["approved", "rejected"]), reason: z.string().max(2000).optional(), attachments: z.array(z.unknown()).max(10).optional() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select({ id: sampleRequestsTable.id, customerApprovalStatus: sampleRequestsTable.customerApprovalStatus }).from(sampleRequestsTable).where(eq(sampleRequestsTable.customerApprovalToken, input.token)).limit(1);
+        const request = rows[0];
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "رابط اعتماد العينة غير صالح أو منتهي" });
+        if (["approved", "rejected"].includes(String(request.customerApprovalStatus))) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
+        if (input.decision === "rejected" && !input.reason?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "سبب عدم الموافقة إلزامي" });
+        const updated = await db.update(sampleRequestsTable).set({ customerApprovalStatus: input.decision, customerApprovalReason: input.reason?.trim() || null, customerApprovalAttachments: input.attachments || [], customerApprovedAt: new Date() }).where(and(eq(sampleRequestsTable.id, request.id), eq(sampleRequestsTable.customerApprovalStatus, "pending")));
+        if (Number((updated as any)?.[0]?.affectedRows || 0) === 0) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
+        return { success: true, status: input.decision };
+      }),
+    finalizeAfterCustomerApproval: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const rows = await db.select().from(sampleRequestsTable).where(eq(sampleRequestsTable.id, input.id)).limit(1);
+        const request = rows[0];
+        if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "طلب العينة غير موجود" });
+        const isProduction = ctx.user.role === "admin" || isProductionAuthority(ctx.user);
+        if (!isProduction && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية الحفظ النهائي" });
+        if (request.customerApprovalStatus !== "approved") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن الحفظ النهائي قبل موافقة العميل" });
+        await db.update(sampleRequestsTable).set({ finalSavedAt: new Date(), status: request.status === "approved_sales" ? "approved_production" : request.status }).where(eq(sampleRequestsTable.id, input.id));
+        return { success: true };
       }),
 
     updateStatus: protectedProcedure
