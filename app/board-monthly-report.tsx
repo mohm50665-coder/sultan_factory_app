@@ -74,6 +74,48 @@ interface ReportData {
   previousManufacturingRequests: ReportData["manufacturingRequests"];
 }
 
+type ReportPeriod = "daily" | "weekly" | "monthly";
+
+function dateOnly(value: unknown): string {
+  if (!value) return "";
+  const raw = String(value);
+  const match = raw.match(/(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] || "";
+}
+
+function periodRange(period: ReportPeriod, month: number, year: number): { start: string; end: string; label: string } {
+  const today = new Date();
+  let start: Date;
+  let end: Date;
+  if (period === "monthly") {
+    start = new Date(year, month, 1);
+    end = new Date(year, month + 1, 0);
+  } else if (period === "daily") {
+    start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    end = new Date(start);
+  } else {
+    // أسبوع العمل يبدأ السبت وينتهي الخميس، والجمعة خارج نطاق التشغيل.
+    const day = today.getDay();
+    const daysFromSaturday = (day + 1) % 7;
+    start = new Date(today);
+    start.setDate(today.getDate() - daysFromSaturday);
+    end = new Date(start);
+    end.setDate(start.getDate() + 5);
+  }
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { start: iso(start), end: iso(end), label: `${iso(start)} — ${iso(end)}` };
+}
+
+function rowDate(row: any): string {
+  return dateOnly(row?.date || row?.orderDate || row?.expenseDate || row?.collectionDate || row?.dueDate || row?.createdAt || row?.updatedAt);
+}
+
+function inRange(row: any, start: string, end: string): boolean {
+  const value = rowDate(row);
+  // السجل غير المؤرخ لا يُنسب إلى فترة؛ يظهر فقط في التقارير العامة/المراجعة.
+  return Boolean(value) && value >= start && value <= end;
+}
+
 export default function BoardMonthlyReport() {
   const router = useRouter();
   const colors = useColors();
@@ -84,6 +126,8 @@ export default function BoardMonthlyReport() {
   const [isExporting, setIsExporting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [period, setPeriod] = useState<ReportPeriod>("monthly");
+  const range = periodRange(period, selectedMonth, selectedYear);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
@@ -105,13 +149,13 @@ export default function BoardMonthlyReport() {
 
   useEffect(() => {
     loadReportData();
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, period]);
 
   const loadReportData = async () => {
     setIsLoading(true);
     try {
       // Load production data
-      const prodEntries = await productionService.getAll() || [];
+      const prodEntries = (await productionService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
       let totalDozen = 0, totalPairs = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
       let prodCount = 0;
       prodEntries.forEach((item: any) => {
@@ -128,7 +172,7 @@ export default function BoardMonthlyReport() {
       const wastePercentage = totalProd > 0 ? (totalWaste / totalProd) * 100 : 0;
 
       // Load sales data
-      const salesEntries = await salesService.getAll() || [];
+      const salesEntries = (await salesService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
       let salesTotal = 0, cashAmount = 0, creditAmount = 0;
       salesEntries.forEach((item: any) => {
         const amount = parseFloat(item.amount || item.totalAmount || "0");
@@ -141,7 +185,7 @@ export default function BoardMonthlyReport() {
       });
 
       // Load expenses data
-      const expEntries = await expensesService.getAll() || [];
+      const expEntries = (await expensesService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
       let expTotal = 0;
       const expCategories: Record<string, number> = {};
       expEntries.forEach((item: any) => {
@@ -157,7 +201,7 @@ export default function BoardMonthlyReport() {
       const stopped = await maintenanceEntriesService.getBySection("stopped") || [];
 
       // Load tasks data
-      const tasksEntries = await taskService.getAll() || [];
+      const tasksEntries = (await taskService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
       const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
       const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
       const tasksOverdue = tasksEntries.filter((t: any) => t.result === "overdue" || t.status === "overdue").length;
@@ -168,7 +212,7 @@ export default function BoardMonthlyReport() {
       let collectionTotal = 0;
       if (collectionStr) {
         const collectionEntries = JSON.parse(collectionStr);
-        collectionEntries.forEach((item: any) => {
+        collectionEntries.filter((item: any) => inRange(item, range.start, range.end)).forEach((item: any) => {
           collectionTotal += parseFloat(item.amount || "0");
         });
       }
@@ -233,7 +277,7 @@ export default function BoardMonthlyReport() {
     if (!reportData) return;
     setIsExporting(true);
     try {
-      const monthLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
+      const monthLabel = `${period === "monthly" ? `${monthNames[selectedMonth]} ${selectedYear}` : period === "weekly" ? (isAr ? "الأسبوع الحالي" : "Current week") : (isAr ? "اليوم" : "Today")} (${range.label})`;
       const pdfData: PDFReportData = {
         title: isAr ? "التقرير الشهري لمجلس الإدارة" : "Monthly Board Report",
         subtitle: monthLabel,
@@ -247,7 +291,6 @@ export default function BoardMonthlyReport() {
               { label: isAr ? "إجمالي الإنتاج" : "Total Production", value: `${reportData.production.totalDozen} ${isAr ? "دزينة" : "dozen"}` },
               { label: isAr ? "إجمالي المبيعات" : "Total Sales", value: `${reportData.sales.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "إجمالي المصروفات" : "Total Expenses", value: `${reportData.expenses.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "صافي الربح" : "Net Profit", value: `${(reportData.sales.totalAmount - reportData.expenses.totalAmount).toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "إجمالي التحصيل" : "Total Collection", value: `${reportData.collection.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "المهام المكتملة" : "Tasks Completed", value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
             ],
@@ -273,12 +316,6 @@ export default function BoardMonthlyReport() {
                 value: `${reportData.collection.collectionRate.toFixed(0)}%`,
                 target: "100%",
                 status: reportData.collection.collectionRate >= 80 ? "good" : reportData.collection.collectionRate >= 60 ? "warning" : "bad",
-              },
-              {
-                title: isAr ? "هامش الربح" : "Profit Margin",
-                value: reportData.sales.totalAmount > 0 ? `${(((reportData.sales.totalAmount - reportData.expenses.totalAmount) / reportData.sales.totalAmount) * 100).toFixed(1)}%` : "0%",
-                target: isAr ? "أكثر من 20%" : "Above 20%",
-                status: reportData.sales.totalAmount > 0 && ((reportData.sales.totalAmount - reportData.expenses.totalAmount) / reportData.sales.totalAmount) >= 0.2 ? "good" : "warning",
               },
             ],
           },
@@ -449,10 +486,10 @@ export default function BoardMonthlyReport() {
           </TouchableOpacity>
           <View style={styles.headerContent}>
             <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {isAr ? "التقرير الشهري لمجلس الإدارة" : "Monthly Board Report"}
+              {isAr ? "التقرير الموحد لمجلس الإدارة" : "Unified Board Report"}
             </Text>
             <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-              {isAr ? "تقرير شامل قابل للطباعة" : "Comprehensive printable report"}
+              {isAr ? "ملخص تشغيلي واضح حسب الفترة" : "Clear operating summary by period"}
             </Text>
           </View>
           <View style={[styles.headerIcon, { backgroundColor: "#7C3AED20" }]}>
@@ -460,8 +497,21 @@ export default function BoardMonthlyReport() {
           </View>
         </View>
 
-        {/* Month Selector */}
-        <View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {/* Period Selector */}
+        <View style={[styles.periodSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.monthLabel, { color: colors.muted }]}>{isAr ? "الفترة:" : "Period:"}</Text>
+          <View style={styles.periodButtons}>
+            {([
+              ["daily", isAr ? "يومي" : "Daily"],
+              ["weekly", isAr ? "أسبوعي" : "Weekly"],
+              ["monthly", isAr ? "شهري" : "Monthly"],
+            ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => setPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
+          </View>
+          <Text style={[styles.rangeText, { color: colors.foreground }]}>{isAr ? "من — إلى:" : "From — To:"} {range.label}</Text>
+        </View>
+
+        {/* Month Selector (used for monthly comparison) */}
+        {period === "monthly" && <><View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={[styles.monthLabel, { color: colors.muted }]}>
             {isAr ? "اختر الشهر:" : "Select Month:"}
           </Text>
@@ -506,6 +556,7 @@ export default function BoardMonthlyReport() {
             ))}
           </View>
         )}
+        </>}
 
         {/* Loading State */}
         {isLoading && (
@@ -525,24 +576,17 @@ export default function BoardMonthlyReport() {
               <View style={[styles.summaryCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
                 <MaterialIcons name="precision-manufacturing" size={22} color="#2563EB" />
                 <Text style={[styles.summaryValue, { color: "#2563EB" }]}>{reportData.production.totalDozen}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? "دزينة إنتاج" : "Dozen Produced"}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? (reportData.production.totalEntries ? "دزينة إنتاج" : "لا يوجد نشاط إنتاجي") : (reportData.production.totalEntries ? "Dozen Produced" : "No production activity")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }]}>
                 <MaterialIcons name="point-of-sale" size={22} color="#16A34A" />
                 <Text style={[styles.summaryValue, { color: "#16A34A" }]}>{reportData.sales.totalAmount.toLocaleString()}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? "ريال مبيعات" : "SAR Sales"}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? (reportData.sales.totalEntries ? "ريال مبيعات مسجلة" : "لا يوجد نشاط مبيعات") : (reportData.sales.totalEntries ? "SAR Sales" : "No sales activity")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
                 <MaterialIcons name="money-off" size={22} color="#DC2626" />
                 <Text style={[styles.summaryValue, { color: "#DC2626" }]}>{reportData.expenses.totalAmount.toLocaleString()}</Text>
                 <Text style={styles.summaryLabel}>{isAr ? "ريال مصروفات" : "SAR Expenses"}</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: "#F5F3FF", borderColor: "#DDD6FE" }]}>
-                <MaterialIcons name="trending-up" size={22} color="#7C3AED" />
-                <Text style={[styles.summaryValue, { color: "#7C3AED" }]}>
-                  {(reportData.sales.totalAmount - reportData.expenses.totalAmount).toLocaleString()}
-                </Text>
-                <Text style={styles.summaryLabel}>{isAr ? "صافي الربح" : "Net Profit"}</Text>
               </View>
             </View>
 
@@ -728,6 +772,12 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 12, marginTop: 2 },
   headerIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   monthSelector: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: 12, borderWidth: 1, gap: 12 },
+  periodSelector: { marginHorizontal: 16, marginBottom: 12, padding: 10, borderRadius: 10, borderWidth: 1, gap: 8 },
+  periodButtons: { flexDirection: "row-reverse", gap: 6 },
+  periodButton: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 7, backgroundColor: "#E5E7EB" },
+  periodButtonText: { fontSize: 12, fontWeight: "800" },
+  rangeText: { textAlign: "right", fontSize: 11, fontWeight: "700" },
+
   monthLabel: { fontSize: 14, fontWeight: "600" },
   monthButton: { flex: 1, flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, borderWidth: 1, gap: 8 },
   monthButtonText: { flex: 1, fontSize: 14, fontWeight: "600" },
