@@ -14,7 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, salesService, expensesService, taskService } from "@/lib/services/api.service";
+import { productionService, salesService, expensesService, taskService, productManufacturingRequestService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -61,6 +61,15 @@ interface ReportData {
   collection: {
     totalAmount: number;
     collectionRate: number;
+  };
+  manufacturingRequests: {
+    total: number;
+    produced: number;
+    notProduced: number;
+    pending: number;
+    producedDozen: number;
+    notProducedDozen: number;
+    failureReasons: { reason: string; count: number; quantityDozen: number }[];
   };
 }
 
@@ -163,6 +172,7 @@ export default function BoardMonthlyReport() {
         });
       }
       const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
+      const manufacturingRequests = await productManufacturingRequestService.monthlyReport(`${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`);
 
       setReportData({
         production: {
@@ -201,6 +211,7 @@ export default function BoardMonthlyReport() {
           totalAmount: collectionTotal,
           collectionRate,
         },
+        manufacturingRequests,
       });
     } catch (error) {
       console.error("Error loading report data:", error);
@@ -333,6 +344,20 @@ export default function BoardMonthlyReport() {
               { label: isAr ? "متأخرة" : "Overdue", value: `${reportData.tasks.overdue}` },
               { label: isAr ? "نسبة الإنجاز" : "Completion Rate", value: `${reportData.tasks.completionRate.toFixed(0)}%` },
             ],
+          },
+          {
+            title: isAr ? "طلبات التصنيع وأسباب التعثر" : "Manufacturing Requests & Failure Reasons",
+            type: "table",
+            data: {
+              headers: [isAr ? "البند" : "Item", isAr ? "القيمة" : "Value", isAr ? "النسبة" : "Rate"],
+              rows: [
+                [isAr ? "إجمالي الطلبات" : "Total Requests", `${reportData.manufacturingRequests.total}`, "100%"],
+                [isAr ? "تم الإنتاج" : "Produced", `${reportData.manufacturingRequests.produced} / ${reportData.manufacturingRequests.producedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [isAr ? "لم يتم الإنتاج" : "Not Produced", `${reportData.manufacturingRequests.notProduced} / ${reportData.manufacturingRequests.notProducedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [isAr ? "لم تسجل النتيجة" : "Pending Result", `${reportData.manufacturingRequests.pending}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                ...reportData.manufacturingRequests.failureReasons.map((item) => [item.reason, `${item.count} / ${item.quantityDozen} درزن`, `${reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%`]),
+              ],
+            },
           },
           {
             title: isAr ? "التوصيات" : "Recommendations",
@@ -550,6 +575,14 @@ export default function BoardMonthlyReport() {
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               {isAr ? "تفاصيل الأقسام" : "Section Details"}
             </Text>
+
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }] }>
+              <View style={styles.detailHeader}><MaterialIcons name="assignment-late" size={20} color="#DC2626" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "طلبات التصنيع وأسباب التعثر" : "Manufacturing Requests"}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "تم الإنتاج" : "Produced"}</Text><Text style={[styles.detailValue, { color: "#15803D" }]}>{reportData.manufacturingRequests.produced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم يتم الإنتاج" : "Not produced"}</Text><Text style={[styles.detailValue, { color: "#DC2626" }]}>{reportData.manufacturingRequests.notProduced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم تسجل النتيجة" : "Pending"}</Text><Text style={[styles.detailValue, { color: "#B45309" }]}>{reportData.manufacturingRequests.pending} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              {reportData.manufacturingRequests.failureReasons.slice(0, 5).map((item) => <View key={item.reason} style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{item.reason}</Text><Text style={[styles.detailValue, { color: "#7C3AED" }]}>{item.count} ({reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%)</Text></View>)}
+            </View>
 
             {/* Production Details */}
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

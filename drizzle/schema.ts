@@ -898,6 +898,8 @@ export const sampleRequests = mysqlTable("sampleRequests", {
   receivedAt: timestamp("receivedAt"),
   receivedBy: varchar("receivedBy", { length: 255 }),
   customerApprovalToken: varchar("customerApprovalToken", { length: 120 }),
+  customerApprovalExpiresAt: timestamp("customerApprovalExpiresAt"),
+  customerApprovalRevokedAt: timestamp("customerApprovalRevokedAt"),
   customerApprovalStatus: varchar("customerApprovalStatus", { length: 30 }).default("pending").notNull(),
   customerApprovalReason: text("customerApprovalReason"),
   customerApprovalAttachments: json("customerApprovalAttachments"),

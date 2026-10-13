@@ -458,6 +458,7 @@ export const sampleRequestsService = {
     notes?: string;
   }) => trpcCall("sampleRequests.create", input),
   createApprovalLink: (input: { id: number }) => trpcCall("sampleRequests.createApprovalLink", input),
+  revokeApprovalLink: (input: { id: number }) => trpcCall("sampleRequests.revokeApprovalLink", input),
   getCustomerApproval: (token: string) => trpcCall("sampleRequests.getCustomerApproval", { token }, "query"),
   approveByCustomer: (input: { token: string; decision: "approved" | "rejected"; reason?: string; attachments?: unknown[] }) => trpcCall("sampleRequests.approveByCustomer", input),
   finalizeAfterCustomerApproval: (input: { id: number }) => trpcCall("sampleRequests.finalizeAfterCustomerApproval", input),

@@ -48,4 +48,30 @@ describe("sample approval and manufacturing production result", () => {
     expect(screen).toContain("setProductionFilter");
     expect(screen).toContain("التقرير الشهري للإنتاج");
   });
+
+  it("supports expiring and revoking customer approval links", () => {
+    const schema = read("drizzle/schema.ts");
+    const router = read("server/routers.ts");
+    const service = read("lib/services/data.service.ts");
+    const screen = read("app/sample-requests.tsx");
+    expect(schema).toContain('customerApprovalExpiresAt: timestamp("customerApprovalExpiresAt")');
+    expect(schema).toContain('customerApprovalRevokedAt: timestamp("customerApprovalRevokedAt")');
+    expect(router).toContain("revokeApprovalLink: protectedProcedure");
+    expect(router).toContain("رابط اعتماد العينة منتهي أو تم إبطاله");
+    expect(router).toContain("7 * 24 * 60 * 60 * 1000");
+    expect(service).toContain("revokeApprovalLink");
+    expect(screen).toContain("إبطال الرابط");
+    expect(screen).toContain("صلاحية الرابط حتى");
+  });
+
+  it("exports the monthly manufacturing report and shows failure rates on the board report", () => {
+    const requestScreen = read("app/product-manufacturing-request.tsx");
+    const boardScreen = read("app/board-monthly-report.tsx");
+    expect(requestScreen).toContain("application/vnd.ms-excel");
+    expect(requestScreen).toContain('exportMonthlyReport("excel")');
+    expect(requestScreen).toContain('exportMonthlyReport("pdf")');
+    expect(boardScreen).toContain("manufacturingRequests");
+    expect(boardScreen).toContain("أسباب التعثر");
+    expect(boardScreen).toContain("failureReasons.map");
+  });
 });
