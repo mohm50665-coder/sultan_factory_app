@@ -74,6 +74,7 @@ export default function UsersManagementScreen() {
   const colors = useColors();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editRole, setEditRole] = useState("");
@@ -102,17 +103,42 @@ export default function UsersManagementScreen() {
   const [departmentChanges, setDepartmentChanges] = useState<ActivityLogEntry[]>([]);
 
   const loadUsers = useCallback(async () => {
-    const [allUsers, logs] = await Promise.all([
+    const [allUsers, logs, pending] = await Promise.all([
       adminService.getAllUsers(),
       activityLogService.getAll(200),
+      adminService.getPendingUsers(),
     ]);
     setUsers(allUsers);
+    setPendingUsers((pending || []) as User[]);
     setDepartmentChanges(logs.filter((log) => log.entityType === "user_department"));
   }, []);
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const getRegistrationLink = () => typeof window !== "undefined"
+    ? `${window.location.origin}/register`
+    : "https://sultanapp-paotprzy.manus.space/register";
+
+  const handleCopyRegistrationLink = async () => {
+    const link = getRegistrationLink();
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) await navigator.clipboard.writeText(link);
+    } finally {
+      Alert.alert(isAr ? "رابط التسجيل" : "Registration link", link);
+    }
+  };
+
+  const handleApproveUser = async (pendingUser: User) => {
+    try {
+      await adminService.approveUser(pendingUser.id);
+      await loadUsers();
+      Alert.alert(isAr ? "تم الاعتماد" : "Approved", isAr ? `تم اعتماد وتفعيل حساب ${pendingUser.name}` : `${pendingUser.name}'s account is approved and active`);
+    } catch (error: any) {
+      Alert.alert(isAr ? "تعذر الاعتماد" : "Approval failed", error?.message || (isAr ? "تعذر اعتماد الحساب" : "Could not approve account"));
+    }
+  };
 
   const handleToggleActive = async (userId: number) => {
     if (userId === currentUser?.id) {
@@ -319,6 +345,38 @@ export default function UsersManagementScreen() {
           </TouchableOpacity>
         ) : <View style={{ width: 40 }} />}
       </View>
+
+      {currentUser?.role === "admin" && (
+        <View style={styles.registrationPanel}>
+          <View style={styles.registrationPanelText}>
+            <Text style={styles.registrationTitle}>{isAr ? "رابط تسجيل الموظفين" : "Employee registration link"}</Text>
+            <Text style={styles.registrationHint}>{isAr ? "أرسل الرابط للموظف؛ أي تسجيل جديد يبقى معلقاً حتى يعتمد من الأدمن." : "Send this link to employees; every new registration stays pending until approved by an admin."}</Text>
+            <Text selectable style={styles.registrationLink}>{getRegistrationLink()}</Text>
+          </View>
+          <TouchableOpacity onPress={handleCopyRegistrationLink} style={styles.registrationButton}>
+            <MaterialIcons name="content-copy" size={18} color="#fff" />
+            <Text style={styles.registrationButtonText}>{isAr ? "نسخ الرابط" : "Copy link"}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {currentUser?.role === "admin" && pendingUsers.length > 0 && (
+        <View style={styles.pendingPanel}>
+          <Text style={styles.pendingTitle}>{isAr ? `طلبات التسجيل بانتظار التعميد (${pendingUsers.length})` : `Pending registrations (${pendingUsers.length})`}</Text>
+          {pendingUsers.map((pendingUser) => (
+            <View key={pendingUser.id} style={styles.pendingRow}>
+              <View style={styles.pendingInfo}>
+                <Text style={styles.pendingName}>{pendingUser.name}</Text>
+                <Text style={styles.pendingDetails}>{pendingUser.username} · {getDepartmentLabel(pendingUser.department || "")} · {pendingUser.position || (isAr ? "بدون منصب" : "No position")}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleApproveUser(pendingUser)} style={styles.approveButton}>
+                <MaterialIcons name="verified" size={18} color="#fff" />
+                <Text style={styles.approveButtonText}>{isAr ? "اعتماد وتفعيل" : "Approve"}</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -826,6 +884,21 @@ const styles = StyleSheet.create({
   modalLabel: { fontSize: 13, fontWeight: "700", color: "#374151", textAlign: "right", marginBottom: 8 },
   addUserHeaderBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0a7ea4", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8 },
   addUserHeaderText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  registrationPanel: { marginHorizontal: 16, marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#bfdbfe", flexDirection: "row", alignItems: "center", gap: 10 },
+  registrationPanelText: { flex: 1 },
+  registrationTitle: { color: "#1e3a8a", fontSize: 14, fontWeight: "800", textAlign: "right" },
+  registrationHint: { color: "#475569", fontSize: 11, lineHeight: 16, textAlign: "right", marginTop: 3 },
+  registrationLink: { color: "#0369a1", fontSize: 11, marginTop: 5, textAlign: "right" },
+  registrationButton: { backgroundColor: "#0a7ea4", borderRadius: 9, paddingHorizontal: 10, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 5 },
+  registrationButtonText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  pendingPanel: { marginHorizontal: 16, marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fcd34d" },
+  pendingTitle: { color: "#92400e", fontSize: 14, fontWeight: "800", textAlign: "right", marginBottom: 8 },
+  pendingRow: { backgroundColor: "#fff", borderRadius: 9, padding: 9, marginTop: 6, flexDirection: "row", alignItems: "center", gap: 8 },
+  pendingInfo: { flex: 1 },
+  pendingName: { color: "#111827", fontSize: 13, fontWeight: "800", textAlign: "right" },
+  pendingDetails: { color: "#64748b", fontSize: 11, textAlign: "right", marginTop: 3 },
+  approveButton: { backgroundColor: "#15803d", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 4 },
+  approveButtonText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   modalInput: {
     borderWidth: 1,
     borderColor: "#E5E7EB",

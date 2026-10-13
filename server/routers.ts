@@ -106,7 +106,7 @@ const normalizeToolPermissions = (value: unknown): Record<string, boolean> => {
 const REPRESENTATIVE_SECTIONS = new Set(["orders_visits", "custom_manufacturing", "collection"]);
 const OFFICIAL_DEPARTMENT_IDS = new Set([
   "production", "machines", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage",
-  "administrative", "sales", "maintenance", "board_representative", "warehouse", "employees", "government_tenders",
+  "administrative", "sales", "maintenance", "board_representative", "board_chair", "executive_management", "warehouse", "employees", "government_tenders",
 ]);
 
 function assertOfficialDepartment(value: string | null | undefined) {
@@ -939,6 +939,17 @@ export const appRouter = router({
         const user = result[0];
         await db.update(usersTable).set({ isActive: user.isActive ? 0 : 1 }).where(eq(usersTable.id, input.userId));
         return { success: true, isActive: !user.isActive };
+      }),
+    approveUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.update(usersTable)
+          .set({ isActive: 1 })
+          .where(and(eq(usersTable.id, input.userId), eq(usersTable.isActive, 0)));
+        if (!result[0]?.affectedRows) throw new Error("الحساب غير موجود أو تم اعتماده مسبقاً");
+        return { success: true, isActive: true };
       }),
 
     changeUserRole: adminProcedure

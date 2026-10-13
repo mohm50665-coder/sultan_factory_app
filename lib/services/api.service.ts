@@ -48,6 +48,7 @@ export async function trpcCall(endpoint: string, body?: any, method: "query" | "
 // ===== Admin / User Management =====
 export const adminService = {
   getAllUsers: () => trpcCall("admin.getAllUsers", undefined, "query"),
+  approveUser: (userId: number) => trpcCall("admin.approveUser", { userId }),
   toggleUserActive: (userId: number) => trpcCall("admin.toggleUserActive", { userId }),
   changeUserRole: (userId: number, role: "user" | "admin") => trpcCall("admin.changeUserRole", { userId, role }),
   deleteUser: (userId: number) => trpcCall("admin.deleteUser", { userId }),

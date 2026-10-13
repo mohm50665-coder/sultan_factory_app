@@ -20,6 +20,8 @@ export const DEPARTMENT_OPTIONS: DepartmentOption[] = [
   { id: "sales", labelAr: "إدارة التسويق والمبيعات", labelEn: "Marketing & Sales Management", icon: "point-of-sale" },
   { id: "maintenance", labelAr: "قسم الصيانة", labelEn: "Maintenance Department", icon: "build" },
   { id: "board_representative", labelAr: "ممثل مجلس الإدارة", labelEn: "Board Representative", icon: "groups" },
+  { id: "board_chair", labelAr: "رئيس مجلس الإدارة", labelEn: "Chairman of the Board", icon: "account-balance" },
+  { id: "executive_management", labelAr: "الإدارة العليا", labelEn: "Executive Management", icon: "corporate-fare" },
   { id: "warehouse", labelAr: "قسم المستودعات", labelEn: "Warehouse Department", icon: "warehouse" },
   { id: "employees", labelAr: "الموظفين", labelEn: "Employees", icon: "people" },
   { id: "government_tenders", labelAr: "المناقصات الحكومية والعسكرية", labelEn: "Government & Military Tenders", icon: "gavel" },
