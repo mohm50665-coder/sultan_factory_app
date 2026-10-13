@@ -2148,7 +2148,10 @@ export const appRouter = router({
         if (input.decision === "rejected" && !input.reason?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "سبب عدم الموافقة إلزامي" });
         const updated = await db.update(sampleRequestsTable).set({ customerApprovalStatus: input.decision, customerApprovalReason: input.reason?.trim() || null, customerApprovalAttachments: input.attachments || [], customerApprovedAt: new Date() }).where(and(eq(sampleRequestsTable.id, request.id), eq(sampleRequestsTable.customerApprovalStatus, "pending")));
         if (Number((updated as any)?.[0]?.affectedRows || 0) === 0) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
-        await db.insert(alertsTable).values({
+        const activeUsers = input.decision === "approved" ? await db.select({ id: usersTable.id, role: usersTable.role, department: usersTable.department }).from(usersTable).where(eq(usersTable.isActive, 1)) : [];
+        const recipientIds = new Set<number>([Number(request.requesterId)]);
+        if (input.decision === "approved") activeUsers.filter((candidate: any) => candidate.role === "admin" || String(candidate.department || "").toLowerCase() === "production").forEach((candidate: any) => recipientIds.add(Number(candidate.id)));
+        await Promise.all(Array.from(recipientIds).map((userId) => db.insert(alertsTable).values({
           type: "sample_delivery",
           title: input.decision === "approved" ? "تمت موافقة العميل على العينة" : "لم يوافق العميل على العينة",
           message: input.decision === "approved"
@@ -2157,8 +2160,8 @@ export const appRouter = router({
           severity: input.decision === "approved" ? "info" : "warning",
           read: 0,
           data: { sampleRequestId: request.id, referenceCode: request.referenceCode, customerDecision: input.decision },
-          userId: Number(request.requesterId),
-        });
+          userId,
+        })));
         return { success: true, status: input.decision };
       }),
     finalizeAfterCustomerApproval: protectedProcedure
@@ -4670,6 +4673,21 @@ export const appRouter = router({
       const dept = String(ctx.user.department || "").toLowerCase();
       if (["sales", "marketing", "production"].includes(dept) || ["manager", "supervisor"].includes(String(ctx.user.role))) return rows;
       return rows.filter((row) => Number(row.requesterId) === Number(ctx.user.id));
+    }),
+    monthlyReport: protectedProcedure.input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/, "صيغة الشهر يجب أن تكون YYYY-MM") })).query(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) return { month: input.month, total: 0, produced: 0, notProduced: 0, pending: 0, producedDozen: 0, notProducedDozen: 0, failureReasons: [] };
+      const allRows = await db.select().from(productManufacturingRequestsTable).where(like(productManufacturingRequestsTable.orderDate, `${input.month}%`)).orderBy(desc(productManufacturingRequestsTable.updatedAt));
+      const dept = String(ctx.user.department || "").toLowerCase();
+      const rows = ctx.user.role === "admin" || ["sales", "marketing", "production"].includes(dept) || ["manager", "supervisor"].includes(String(ctx.user.role)) ? allRows : allRows.filter((row) => Number(row.requesterId) === Number(ctx.user.id));
+      const reasons = new Map<string, { reason: string; count: number; quantityDozen: number }>();
+      for (const row of rows) {
+        if (row.productionStatus === "not_produced") {
+          const reason = String(row.productionFailureReason || "غير محدد").trim() || "غير محدد";
+          const current = reasons.get(reason) || { reason, count: 0, quantityDozen: 0 };
+          current.count += 1; current.quantityDozen += Number(row.quantityDozen || 0); reasons.set(reason, current);
+        }
+      }
+      return { month: input.month, total: rows.length, produced: rows.filter((row) => row.productionStatus === "produced").length, notProduced: rows.filter((row) => row.productionStatus === "not_produced").length, pending: rows.filter((row) => row.productionStatus === "pending").length, producedDozen: rows.filter((row) => row.productionStatus === "produced").reduce((sum, row) => sum + Number(row.quantityDozen || 0), 0), notProducedDozen: rows.filter((row) => row.productionStatus === "not_produced").reduce((sum, row) => sum + Number(row.quantityDozen || 0), 0), failureReasons: Array.from(reasons.values()).sort((a, b) => b.count - a.count) };
     }),
     create: protectedProcedure.input(z.object({ customerId: z.number().optional(), customerName: z.string().min(2), productName: z.string().min(1), barcode: z.string().min(2, "باركود المنتج إلزامي"), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), orderDate: z.string().min(10), deliveryDate: z.string().min(10), attachments: z.array(z.any()).default([]), signature: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");

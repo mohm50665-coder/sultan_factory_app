@@ -312,6 +312,7 @@ export const finishedWarehouseService = {
 
 export const productManufacturingRequestService = {
   list: () => trpcCall("productManufacturingRequests.list", undefined, "query"),
+  monthlyReport: (month: string) => trpcCall("productManufacturingRequests.monthlyReport", { month }, "query"),
   create: (data: any) => trpcCall("productManufacturingRequests.create", data),
   decide: (data: any) => trpcCall("productManufacturingRequests.decide", data),
   setProductionResult: (data: any) => trpcCall("productManufacturingRequests.setProductionResult", data),

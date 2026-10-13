@@ -25,6 +25,8 @@ describe("sample approval and manufacturing production result", () => {
     expect(router).toContain("تمت موافقة العميل على العينة");
     expect(router).toContain("لم يوافق العميل على العينة");
     expect(router).toContain("request.requesterId");
+    expect(router).toContain('candidate.role === "admin"');
+    expect(router).toContain('department || "").toLowerCase() === "production"');
   });
 
   it("provides an explicit production result and requires a reason when production fails", () => {
@@ -39,8 +41,11 @@ describe("sample approval and manufacturing production result", () => {
     expect(router).toContain("سبب عدم الإنتاج إلزامي");
     expect(router).toContain("يجب تسجيل نتيجة الإنتاج أولاً");
     expect(api).toContain("productManufacturingRequests.setProductionResult");
+    expect(api).toContain("productManufacturingRequests.monthlyReport");
     expect(screen).toContain("تم الإنتاج");
     expect(screen).toContain("لم يتم الإنتاج");
     expect(screen).toContain("productionFailureReason");
+    expect(screen).toContain("setProductionFilter");
+    expect(screen).toContain("التقرير الشهري للإنتاج");
   });
 });
