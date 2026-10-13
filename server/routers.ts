@@ -212,6 +212,28 @@ function getRiyadhDate(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
+function addBusinessDays(start: Date, days: number) {
+  const result = new Date(start);
+  let remaining = days;
+  while (remaining > 0) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay();
+    if (day !== 5 && day !== 6) remaining -= 1;
+  }
+  return result;
+}
+
+function addBusinessHours(start: Date, hours: number) {
+  const result = new Date(start);
+  let remaining = hours;
+  while (remaining > 0) {
+    result.setHours(result.getHours() + 1);
+    const day = result.getDay();
+    if (day !== 5 && day !== 6) remaining -= 1;
+  }
+  return result;
+}
+
 function normalizePersonName(value: unknown) {
   return String(value ?? "")
     .normalize("NFKC")
@@ -2087,7 +2109,11 @@ export const appRouter = router({
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         const referenceCode = `SMP-${getRiyadhDate().replace(/-/g, "")}-${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
         const customerApprovalToken = randomUUID().replace(/-/g, "");
-        const customerApprovalExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const customerApprovalExpiresAt = addBusinessDays(now, 7);
+        const sampleProductionDueAt = addBusinessDays(now, 3);
+        const customerRequestDueAt = addBusinessHours(now, 4);
+        const sampleFormDueAt = addBusinessHours(now, 2);
         const result = await db.insert(sampleRequestsTable).values({
           referenceCode,
           requesterId: ctx.user.id,
@@ -2108,6 +2134,10 @@ export const appRouter = router({
           customerApprovalToken,
           customerApprovalExpiresAt,
           customerApprovalRevokedAt: null,
+          sampleProductionDueAt,
+          customerRequestReceivedAt: now,
+          customerRequestDueAt,
+          sampleFormDueAt,
           customerApprovalStatus: "pending",
           customerApprovalAttachments: [],
           initialSavedAt: new Date(),
@@ -2126,8 +2156,9 @@ export const appRouter = router({
         if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "طلب العينة غير موجود" });
         if (ctx.user.role !== "admin" && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية إنشاء رابط الاعتماد" });
         const token = request.customerApprovalToken || randomUUID().replace(/-/g, "");
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await db.update(sampleRequestsTable).set({ customerApprovalToken: token, customerApprovalExpiresAt: expiresAt, customerApprovalRevokedAt: null, customerApprovalStatus: request.customerApprovalStatus || "pending" }).where(eq(sampleRequestsTable.id, input.id));
+        const expiresAt = addBusinessDays(new Date(), 7);
+        const customerApprovalDueAt = addBusinessDays(new Date(), 1);
+        await db.update(sampleRequestsTable).set({ customerApprovalToken: token, customerApprovalExpiresAt: expiresAt, customerApprovalDueAt, customerApprovalRevokedAt: null, customerApprovalStatus: request.customerApprovalStatus || "pending" }).where(eq(sampleRequestsTable.id, input.id));
         return { success: true, token, referenceCode: request.referenceCode, expiresAt };
       }),
     revokeApprovalLink: protectedProcedure
@@ -2164,7 +2195,8 @@ export const appRouter = router({
         if (request.customerApprovalRevokedAt || (request.customerApprovalExpiresAt && new Date(request.customerApprovalExpiresAt).getTime() < Date.now())) throw new TRPCError({ code: "NOT_FOUND", message: "رابط اعتماد العينة منتهي أو تم إبطاله" });
         if (["approved", "rejected"].includes(String(request.customerApprovalStatus))) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
         if (input.decision === "rejected" && !input.reason?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "سبب عدم الموافقة إلزامي" });
-        const updated = await db.update(sampleRequestsTable).set({ customerApprovalStatus: input.decision, customerApprovalReason: input.reason?.trim() || null, customerApprovalAttachments: input.attachments || [], customerApprovedAt: new Date() }).where(and(eq(sampleRequestsTable.id, request.id), eq(sampleRequestsTable.customerApprovalStatus, "pending")));
+        const approvalNow = new Date();
+        const updated = await db.update(sampleRequestsTable).set({ customerApprovalStatus: input.decision, customerApprovalReason: input.reason?.trim() || null, customerApprovalAttachments: input.attachments || [], customerApprovedAt: approvalNow, correctionDueAt: input.decision === "rejected" ? addBusinessDays(approvalNow, 1) : null }).where(and(eq(sampleRequestsTable.id, request.id), eq(sampleRequestsTable.customerApprovalStatus, "pending")));
         if (Number((updated as any)?.[0]?.affectedRows || 0) === 0) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
         const activeUsers = input.decision === "approved" ? await db.select({ id: usersTable.id, role: usersTable.role, department: usersTable.department }).from(usersTable).where(eq(usersTable.isActive, 1)) : [];
         const recipientIds = new Set<number>([Number(request.requesterId)]);
@@ -2193,7 +2225,8 @@ export const appRouter = router({
         const isProduction = ctx.user.role === "admin" || isProductionAuthority(ctx.user);
         if (!isProduction && Number(request.requesterId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN", message: "لا تملك صلاحية الحفظ النهائي" });
         if (request.customerApprovalStatus !== "approved") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن الحفظ النهائي قبل موافقة العميل" });
-        await db.update(sampleRequestsTable).set({ finalSavedAt: new Date(), status: request.status === "approved_sales" ? "approved_production" : request.status }).where(eq(sampleRequestsTable.id, input.id));
+        const finalNow = new Date();
+        await db.update(sampleRequestsTable).set({ finalSavedAt: finalNow, executionDueAt: addBusinessDays(finalNow, 5), executionLatestDueAt: addBusinessDays(finalNow, 20), status: request.status === "approved_sales" ? "approved_production" : request.status }).where(eq(sampleRequestsTable.id, input.id));
         return { success: true };
       }),
 

@@ -58,7 +58,14 @@ describe("sample approval and manufacturing production result", () => {
     expect(schema).toContain('customerApprovalRevokedAt: timestamp("customerApprovalRevokedAt")');
     expect(router).toContain("revokeApprovalLink: protectedProcedure");
     expect(router).toContain("رابط اعتماد العينة منتهي أو تم إبطاله");
-    expect(router).toContain("7 * 24 * 60 * 60 * 1000");
+    expect(router).toContain("addBusinessDays(new Date(), 7)");
+    expect(router).toContain("customerApprovalDueAt = addBusinessDays(new Date(), 1)");
+    expect(router).toContain("addBusinessHours(now, 4)");
+    expect(router).toContain("addBusinessHours(now, 2)");
+    expect(router).toContain("correctionDueAt");
+    expect(router).toContain("executionLatestDueAt");
+    expect(schema).toContain('customerRequestDueAt: timestamp("customerRequestDueAt")');
+    expect(schema).toContain('sampleFormDueAt: timestamp("sampleFormDueAt")');
     expect(service).toContain("revokeApprovalLink");
     expect(screen).toContain("إبطال الرابط");
     expect(screen).toContain("صلاحية الرابط حتى");
@@ -73,5 +80,6 @@ describe("sample approval and manufacturing production result", () => {
     expect(boardScreen).toContain("manufacturingRequests");
     expect(boardScreen).toContain("أسباب التعثر");
     expect(boardScreen).toContain("failureReasons.map");
+    expect(boardScreen).toContain("previousManufacturingRequests");
   });
 });

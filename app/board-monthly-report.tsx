@@ -71,6 +71,7 @@ interface ReportData {
     notProducedDozen: number;
     failureReasons: { reason: string; count: number; quantityDozen: number }[];
   };
+  previousManufacturingRequests: ReportData["manufacturingRequests"];
 }
 
 export default function BoardMonthlyReport() {
@@ -172,7 +173,13 @@ export default function BoardMonthlyReport() {
         });
       }
       const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
-      const manufacturingRequests = await productManufacturingRequestService.monthlyReport(`${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`);
+      const manufacturingMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
+      const previousDate = new Date(selectedYear, selectedMonth - 1, 1);
+      const previousManufacturingMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
+      const [manufacturingRequests, previousManufacturingRequests] = await Promise.all([
+        productManufacturingRequestService.monthlyReport(manufacturingMonth),
+        productManufacturingRequestService.monthlyReport(previousManufacturingMonth),
+      ]);
 
       setReportData({
         production: {
@@ -212,6 +219,7 @@ export default function BoardMonthlyReport() {
           collectionRate,
         },
         manufacturingRequests,
+        previousManufacturingRequests,
       });
     } catch (error) {
       console.error("Error loading report data:", error);
@@ -355,6 +363,8 @@ export default function BoardMonthlyReport() {
                 [isAr ? "تم الإنتاج" : "Produced", `${reportData.manufacturingRequests.produced} / ${reportData.manufacturingRequests.producedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
                 [isAr ? "لم يتم الإنتاج" : "Not Produced", `${reportData.manufacturingRequests.notProduced} / ${reportData.manufacturingRequests.notProducedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
                 [isAr ? "لم تسجل النتيجة" : "Pending Result", `${reportData.manufacturingRequests.pending}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [isAr ? "تغير الإنتاج عن الشهر السابق" : "Production change vs prior month", `${reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} طلب`, `${reportData.previousManufacturingRequests.produced ? ((reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced) / reportData.previousManufacturingRequests.produced * 100).toFixed(1) : 0}%`],
+                [isAr ? "تغير التعثر عن الشهر السابق" : "Failure change vs prior month", `${reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} طلب`, `${reportData.previousManufacturingRequests.notProduced ? ((reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced) / reportData.previousManufacturingRequests.notProduced * 100).toFixed(1) : 0}%`],
                 ...reportData.manufacturingRequests.failureReasons.map((item) => [item.reason, `${item.count} / ${item.quantityDozen} درزن`, `${reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%`]),
               ],
             },
@@ -582,6 +592,9 @@ export default function BoardMonthlyReport() {
               <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم يتم الإنتاج" : "Not produced"}</Text><Text style={[styles.detailValue, { color: "#DC2626" }]}>{reportData.manufacturingRequests.notProduced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
               <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم تسجل النتيجة" : "Pending"}</Text><Text style={[styles.detailValue, { color: "#B45309" }]}>{reportData.manufacturingRequests.pending} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
               {reportData.manufacturingRequests.failureReasons.slice(0, 5).map((item) => <View key={item.reason} style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{item.reason}</Text><Text style={[styles.detailValue, { color: "#7C3AED" }]}>{item.count} ({reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%)</Text></View>)}
+              <Text style={{ color: colors.foreground, textAlign: "right", fontWeight: "900", marginTop: 8 }}>مقارنة بالشهر السابق</Text>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>تغير تم الإنتاج</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.produced >= reportData.previousManufacturingRequests.produced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} طلب</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>تغير لم يتم الإنتاج</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.notProduced <= reportData.previousManufacturingRequests.notProduced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} طلب</Text></View>
             </View>
 
             {/* Production Details */}

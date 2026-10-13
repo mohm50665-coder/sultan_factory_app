@@ -239,6 +239,20 @@
       "when": 1791888234451,
       "tag": "0033_volatile_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "5",
+      "when": 1791889510628,
+      "tag": "0034_grey_george_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1791889653828,
+      "tag": "0035_fine_ultimates",
+      "breakpoints": true
     }
   ]
 }
