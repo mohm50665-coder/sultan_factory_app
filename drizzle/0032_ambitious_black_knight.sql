@@ -1,0 +1,2 @@
+ALTER TABLE `productManufacturingRequests` ADD `productionStatus` varchar(30) DEFAULT 'pending' NOT NULL;--> statement-breakpoint
+ALTER TABLE `productManufacturingRequests` ADD `productionFailureReason` text;

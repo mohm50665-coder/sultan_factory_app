@@ -2141,13 +2141,24 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
-        const rows = await db.select({ id: sampleRequestsTable.id, customerApprovalStatus: sampleRequestsTable.customerApprovalStatus }).from(sampleRequestsTable).where(eq(sampleRequestsTable.customerApprovalToken, input.token)).limit(1);
+        const rows = await db.select({ id: sampleRequestsTable.id, referenceCode: sampleRequestsTable.referenceCode, requesterId: sampleRequestsTable.requesterId, customerApprovalStatus: sampleRequestsTable.customerApprovalStatus }).from(sampleRequestsTable).where(eq(sampleRequestsTable.customerApprovalToken, input.token)).limit(1);
         const request = rows[0];
         if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "رابط اعتماد العينة غير صالح أو منتهي" });
         if (["approved", "rejected"].includes(String(request.customerApprovalStatus))) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
         if (input.decision === "rejected" && !input.reason?.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "سبب عدم الموافقة إلزامي" });
         const updated = await db.update(sampleRequestsTable).set({ customerApprovalStatus: input.decision, customerApprovalReason: input.reason?.trim() || null, customerApprovalAttachments: input.attachments || [], customerApprovedAt: new Date() }).where(and(eq(sampleRequestsTable.id, request.id), eq(sampleRequestsTable.customerApprovalStatus, "pending")));
         if (Number((updated as any)?.[0]?.affectedRows || 0) === 0) throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل قرار العميل مسبقاً" });
+        await db.insert(alertsTable).values({
+          type: "sample_delivery",
+          title: input.decision === "approved" ? "تمت موافقة العميل على العينة" : "لم يوافق العميل على العينة",
+          message: input.decision === "approved"
+            ? `وافق العميل على العينة ${request.referenceCode}. يمكنك متابعة الحفظ النهائي.`
+            : `رفض العميل العينة ${request.referenceCode}.${input.reason?.trim() ? ` السبب: ${input.reason.trim()}` : ""}`,
+          severity: input.decision === "approved" ? "info" : "warning",
+          read: 0,
+          data: { sampleRequestId: request.id, referenceCode: request.referenceCode, customerDecision: input.decision },
+          userId: Number(request.requesterId),
+        });
         return { success: true, status: input.decision };
       }),
     finalizeAfterCustomerApproval: protectedProcedure
@@ -4704,6 +4715,23 @@ export const appRouter = router({
       if (recipientDepartment) await db.insert(internalMessagesTable).values({ subject: `طلب تصنيع منتج ${request.referenceCode}`, body: input.notes || `طلب يحتاج إجراء: ${toStatus}`, senderId: Number(ctx.user.id), recipientDepartment, relatedType: "productManufacturingRequest", relatedId: input.id, attachments: input.attachments });
       return { success: true, status: toStatus };
     }),
+    setProductionResult: protectedProcedure.input(z.object({ id: z.number(), result: z.enum(["produced", "not_produced"]), reason: z.string().max(2000).optional(), signature: z.string().optional(), attachments: z.array(z.any()).default([]) })).mutation(async ({ input, ctx }) => {
+      const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      if (ctx.user.role !== "admin" && !isProductionAuthority(ctx.user)) throw new TRPCError({ code: "FORBIDDEN", message: "تسجيل نتيجة الإنتاج من صلاحية مدير الإنتاج أو الأدمن فقط" });
+      const rows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
+      const request = rows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
+      if (request.status !== "IN_PRODUCTION") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن تسجيل نتيجة الإنتاج قبل بدء الإنتاج" });
+      if (request.productionStatus !== "pending") throw new TRPCError({ code: "CONFLICT", message: "تم تسجيل نتيجة الإنتاج مسبقاً" });
+      const reason = input.reason?.trim() || "";
+      if (input.result === "not_produced" && !reason) throw new TRPCError({ code: "BAD_REQUEST", message: "سبب عدم الإنتاج إلزامي" });
+      const productionStatus = input.result === "produced" ? "produced" : "not_produced";
+      const nextSignatures = [...(Array.isArray(request.signatures) ? request.signatures : []), ...(input.signature ? [{ userId: Number(ctx.user.id), name: ctx.user.name, signature: input.signature, at: new Date().toISOString() }] : [])];
+      const nextAttachments = [...(Array.isArray(request.attachments) ? request.attachments : []), ...input.attachments];
+      await db.update(productManufacturingRequestsTable).set({ productionStatus, productionFailureReason: input.result === "not_produced" ? reason : null, decisionNotes: input.result === "not_produced" ? reason : "تم الإنتاج", attachments: nextAttachments, signatures: nextSignatures }).where(and(eq(productManufacturingRequestsTable.id, input.id), eq(productManufacturingRequestsTable.productionStatus, "pending")));
+      await db.insert(productManufacturingRequestEventsTable).values({ requestId: input.id, action: "production_result", fromStatus: request.status, toStatus: request.status, actorId: Number(ctx.user.id), actorName: String(ctx.user.name), notes: input.result === "not_produced" ? reason : "تم الإنتاج", signature: input.signature, attachments: input.attachments });
+      await db.insert(alertsTable).values({ type: "sample_delivery", title: input.result === "produced" ? "تم إنتاج طلب التصنيع" : "لم يتم إنتاج طلب التصنيع", message: input.result === "produced" ? `تم إنتاج الطلب ${request.referenceCode} ويمكن للمستودع متابعة التنفيذ.` : `لم يتم إنتاج الطلب ${request.referenceCode}. السبب: ${reason}`, severity: input.result === "produced" ? "info" : "warning", read: 0, data: { manufacturingRequestId: request.id, referenceCode: request.referenceCode, productionStatus }, userId: Number(request.requesterId) });
+      return { success: true, productionStatus };
+    }),
     fulfill: protectedProcedure.input(z.object({ id: z.number(), stockId: z.number().optional(), signature: z.string().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
       const dept = String(ctx.user.department || "").toLowerCase();
@@ -4711,6 +4739,7 @@ export const appRouter = router({
       const requestRows = await db.select().from(productManufacturingRequestsTable).where(eq(productManufacturingRequestsTable.id, input.id)).limit(1);
       const request = requestRows[0]; if (!request) throw new TRPCError({ code: "NOT_FOUND", message: "الطلب غير موجود" });
       if (request.status !== "IN_PRODUCTION") throw new TRPCError({ code: "BAD_REQUEST", message: "لا يمكن إغلاق الطلب قبل اعتماده وبدء الإنتاج" });
+      if (request.productionStatus !== "produced") throw new TRPCError({ code: "BAD_REQUEST", message: request.productionStatus === "not_produced" ? `لا يمكن إغلاق الطلب لأن الإنتاج لم يتم. السبب: ${request.productionFailureReason || "غير محدد"}` : "يجب تسجيل نتيجة الإنتاج أولاً" });
       const stockRows = input.stockId ? await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.id, input.stockId), eq(finishedWarehouseStockTable.barcode, request.barcode), eq(finishedWarehouseStockTable.isActive, 1))).limit(1) : await db.select().from(finishedWarehouseStockTable).where(and(eq(finishedWarehouseStockTable.barcode, request.barcode), eq(finishedWarehouseStockTable.isActive, 1))).limit(1);
       const stock = stockRows[0]; if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: "لا يوجد رصيد مطابق للصنف في المستودع" });
       if (Number(stock.quantityDozen) < Number(request.quantityDozen)) throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد المتاح ${stock.quantityDozen} درزن، والمطلوب ${request.quantityDozen} درزن` });

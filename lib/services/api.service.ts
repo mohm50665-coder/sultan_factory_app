@@ -314,6 +314,7 @@ export const productManufacturingRequestService = {
   list: () => trpcCall("productManufacturingRequests.list", undefined, "query"),
   create: (data: any) => trpcCall("productManufacturingRequests.create", data),
   decide: (data: any) => trpcCall("productManufacturingRequests.decide", data),
+  setProductionResult: (data: any) => trpcCall("productManufacturingRequests.setProductionResult", data),
   update: (data: any) => trpcCall("productManufacturingRequests.update", data),
   delete: (id: number) => trpcCall("productManufacturingRequests.delete", { id }),
   fulfill: (data: any) => trpcCall("productManufacturingRequests.fulfill", data),

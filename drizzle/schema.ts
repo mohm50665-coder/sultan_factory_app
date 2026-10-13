@@ -1210,6 +1210,8 @@ export const productManufacturingRequests = mysqlTable("productManufacturingRequ
   deliveryDate: varchar("deliveryDate", { length: 20 }).notNull(),
   status: varchar("status", { length: 50 }).default("PENDING_SALES").notNull(),
   currentDepartment: varchar("currentDepartment", { length: 80 }).default("sales").notNull(),
+  productionStatus: varchar("productionStatus", { length: 30 }).default("pending").notNull(),
+  productionFailureReason: text("productionFailureReason"),
   decisionNotes: text("decisionNotes"),
   correctiveAction: text("correctiveAction"),
   attachments: json("attachments").notNull(),
