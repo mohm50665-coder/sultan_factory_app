@@ -4752,6 +4752,28 @@ export const appRouter = router({
       const items = rows.map((row) => ({ ...row, isLow: Number(row.quantityDozen) < Number(row.minimumDozen), ageDays: row.lastMovementAt ? Math.floor((Date.now() - new Date(row.lastMovementAt).getTime()) / 86400000) : null, activityStatus: row.lastMovementAt && Date.now() - new Date(row.lastMovementAt).getTime() <= 30 * 86400000 ? "active" : "stagnant" }));
       return { items, totals: { products: rows.length, quantityDozen: rows.reduce((sum, row) => sum + Number(row.quantityDozen), 0), zeroOrLow: items.filter((row) => row.isLow).length } };
     }),
+    movements: protectedProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select({
+        id: finishedWarehouseMovementsTable.id,
+        stockId: finishedWarehouseMovementsTable.stockId,
+        movementType: finishedWarehouseMovementsTable.movementType,
+        quantityDozen: finishedWarehouseMovementsTable.quantityDozen,
+        sourceType: finishedWarehouseMovementsTable.sourceType,
+        sourceId: finishedWarehouseMovementsTable.sourceId,
+        notes: finishedWarehouseMovementsTable.notes,
+        userId: finishedWarehouseMovementsTable.userId,
+        createdAt: finishedWarehouseMovementsTable.createdAt,
+        productName: finishedWarehouseStockTable.productName,
+        productSize: finishedWarehouseStockTable.productSize,
+        productColor: finishedWarehouseStockTable.productColor,
+        qualityGrade: finishedWarehouseStockTable.qualityGrade,
+        barcode: finishedWarehouseStockTable.barcode,
+      }).from(finishedWarehouseMovementsTable)
+        .leftJoin(finishedWarehouseStockTable, eq(finishedWarehouseMovementsTable.stockId, finishedWarehouseStockTable.id))
+        .orderBy(desc(finishedWarehouseMovementsTable.createdAt));
+    }),
     receiveFromStorage: protectedProcedure.input(z.object({ barcode: z.string().min(2, "باركود المنتج إلزامي"), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), qualityGrade: z.string().default("first"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin" && !["production", "warehouse", "storage"].includes(String(ctx.user.department || "").toLowerCase())) throw new TRPCError({ code: "FORBIDDEN", message: "إضافة مخزون الإنتاج التام من الإنتاج أو التخزين أو الأدمن فقط" });
       const db = await getDb();

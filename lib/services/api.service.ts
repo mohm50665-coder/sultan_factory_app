@@ -303,6 +303,7 @@ export const governmentTendersService = {
 
 export const finishedWarehouseService = {
   list: () => trpcCall("finishedWarehouse.list", undefined, "query"),
+  movements: () => trpcCall("finishedWarehouse.movements", undefined, "query"),
   search: (query: string) => trpcCall("finishedWarehouse.search", { query }, "query"),
   summary: () => trpcCall("finishedWarehouse.summary", undefined, "query"),
   receiveFromStorage: (data: any) => trpcCall("finishedWarehouse.receiveFromStorage", data),

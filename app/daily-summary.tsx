@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { alertsService } from "@/lib/services/server-data.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
-import { adminService, administrativeService, boardDataService, collectionService, expensesService, financialReportsService, governmentTendersService, maintenanceService, manufacturingService, meetingsService, meetingOutputsService, productTrackingService, productionCostsLocalService, productionService, productsService, reportsService, salesService, savedProductCostsService, taskService, warehouseService } from "@/lib/services/api.service";
+import { adminService, administrativeService, boardDataService, collectionService, expensesService, financialReportsService, finishedWarehouseService, governmentTendersService, maintenanceService, manufacturingService, meetingsService, meetingOutputsService, productTrackingService, productionCostsLocalService, productionService, productsService, reportsService, salesService, savedProductCostsService, taskService, warehouseService } from "@/lib/services/api.service";
 
 const REPORT_TIME_ZONE = "Asia/Riyadh";
 const localDateKey = (value: Date = new Date()) => {
@@ -97,7 +97,7 @@ export default function DailySummaryScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     const results = await Promise.allSettled([
-      productionService.getAll(), manufacturingService.getAll(), productTrackingService.list(), salesService.getAll(), collectionService.getAll(), maintenanceEntriesService.getBySection("orders_visits"), maintenanceEntriesService.getBySection("custom_manufacturing"), expensesService.getAll(), Promise.allSettled([maintenanceService.getMaintained(), maintenanceService.getStopped(), maintenanceService.getRecommendations()]), taskService.getAll(), Promise.allSettled([warehouseService.getRawMaterials(), warehouseService.getConsumption(), warehouseService.getIncoming()]), administrativeService.getAll(), productsService.list(), meetingsService.list(), meetingOutputsService.list(), financialReportsService.list(), productionCostsLocalService.list(), savedProductCostsService.list(), governmentTendersService.list(), boardDataService.getAll(),
+      productionService.getAll(), manufacturingService.getAll(), productTrackingService.list(), salesService.getAll(), collectionService.getAll(), maintenanceEntriesService.getBySection("orders_visits"), maintenanceEntriesService.getBySection("custom_manufacturing"), expensesService.getAll(), Promise.allSettled([maintenanceService.getMaintained(), maintenanceService.getStopped(), maintenanceService.getRecommendations()]), taskService.getAll(), Promise.allSettled([warehouseService.getRawMaterials(), warehouseService.getConsumption(), warehouseService.getIncoming(), finishedWarehouseService.movements()]), administrativeService.getAll(), productsService.list(), meetingsService.list(), meetingOutputsService.list(), financialReportsService.list(), productionCostsLocalService.list(), savedProductCostsService.list(), governmentTendersService.list(), boardDataService.getAll(),
     ]);
     const keys = ["production", "manufacturing", "tracking", "sales", "collection", "ordersVisits", "customManufacturing", "expenses", "maintenance", "tasks", "warehouse", "administrative", "products", "meetings", "meetingOutputs", "financialReports", "localCosts", "savedProductCosts", "tenders", "boardData"];
     const next: Record<string, any[]> = {};
@@ -107,8 +107,15 @@ export default function DailySummaryScreen() {
       if (key === "maintenance") {
         next[key] = Array.isArray(value) ? value.flatMap((part: any) => part?.status === "fulfilled" && Array.isArray(part.value) ? part.value : []) : [];
       } else if (key === "warehouse") {
-        const movementLabels = ["مواد خام", "صرف مواد", "مواد واردة"];
-        next[key] = Array.isArray(value) ? value.flatMap((part: any, partIndex: number) => part?.status === "fulfilled" && Array.isArray(part.value) ? part.value.map((row: any) => ({ ...row, movementType: movementLabels[partIndex] || "حركة مستودع" })) : []) : [];
+        const movementLabels = ["مواد خام", "صرف مواد", "مواد واردة", "دخول إنتاج تام"];
+        next[key] = Array.isArray(value) ? value.flatMap((part: any, partIndex: number) => part?.status === "fulfilled" && Array.isArray(part.value) ? part.value.map((row: any) => ({
+          ...row,
+          movementType: movementLabels[partIndex] || "حركة مستودع",
+          materialName: row.materialName || row.productName || row.barcode || "—",
+          quantity: row.quantity ?? row.quantityDozen,
+          unit: row.unit || (partIndex === 3 ? "درزن" : "—"),
+          source: partIndex === 3 ? (row.sourceType === "manufacturing_storage" ? "مرحلة التخزين" : row.sourceType) : undefined,
+        })) : []) : [];
       } else next[key] = Array.isArray(value) ? value : [];
     });
     setData(next);
