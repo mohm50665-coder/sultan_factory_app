@@ -82,4 +82,24 @@ describe("sample approval and manufacturing production result", () => {
     expect(boardScreen).toContain("failureReasons.map");
     expect(boardScreen).toContain("previousManufacturingRequests");
   });
+
+  it("supports deadline alerts, compliance reporting, and editable penalties", () => {
+    const schema = read("drizzle/schema.ts");
+    const router = read("server/routers.ts");
+    const service = read("lib/services/data.service.ts");
+    const screen = read("app/sample-compliance.tsx");
+    expect(schema).toContain("deadline_alert");
+    expect(schema).toContain("sampleRequestPenalties");
+    expect(router).toContain("deadlineComplianceReport");
+    expect(router).toContain("lastDeadlineAlertKey");
+    expect(router).toContain("penalties: router");
+    expect(router).toContain('create: adminProcedure.input(z.object({ sampleRequestId');
+    expect(router).toContain('update: adminProcedure.input(z.object({ id: z.number().int().positive()');
+    expect(router).toContain('delete: adminProcedure.input(z.object({ id: z.number().int().positive()');
+    expect(service).toContain("deadlineComplianceReport");
+    expect(service).toContain("sampleRequests.penalties");
+    expect(screen).toContain("نسبة الالتزام");
+    expect(screen).toContain("حفظ التعديل");
+    expect(screen).toContain("حذف");
+  });
 });

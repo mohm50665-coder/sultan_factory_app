@@ -466,4 +466,11 @@ export const sampleRequestsService = {
   update: (input: { id: number; clientName: string; productName: string; productSize: string; productColor: string; quantity: number; quantityUnit: "dozen" | "pair"; specifications: string; notes?: string }) => trpcCall("sampleRequests.update", input),
   delete: (input: { id: number }) => trpcCall("sampleRequests.delete", input),
   completeDelivery: (input: { id: number; deliveredTo: string; receivedBy: string }) => trpcCall("sampleRequests.completeDelivery", input),
+  deadlineComplianceReport: (input?: { month?: string }) => trpcCall("sampleRequests.deadlineComplianceReport", input || {}, "query"),
+  penalties: {
+    list: (input?: { sampleRequestId?: number; employeeId?: number }) => trpcCall("sampleRequests.penalties.list", input || {}, "query"),
+    create: (input: { sampleRequestId: number; employeeId: number; employeeName: string; level: "warning" | "salary_deduction" | "customer_compensation"; amount: number; reason: string; correctiveAction?: string }) => trpcCall("sampleRequests.penalties.create", input),
+    update: (input: { id: number; data: { level?: "warning" | "salary_deduction" | "customer_compensation"; amount?: number; reason?: string; correctiveAction?: string; status?: "open" | "acknowledged" | "closed" } }) => trpcCall("sampleRequests.penalties.update", input),
+    delete: (input: { id: number }) => trpcCall("sampleRequests.penalties.delete", input),
+  },
 };

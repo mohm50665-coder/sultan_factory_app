@@ -365,7 +365,7 @@ export type InsertProductionCost = typeof productionCosts.$inferInsert;
 // جدول التنبيهات
 export const alerts = mysqlTable("alerts", {
   id: int("id").autoincrement().primaryKey(),
-  type: mysqlEnum("type", ["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert", "sample_delivery"]).notNull(),
+  type: mysqlEnum("type", ["cost_exceeded", "low_productivity", "pending_procedure", "quality_issue", "safety_alert", "sample_delivery", "deadline_alert", "penalty"]).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   severity: mysqlEnum("severity", ["info", "warning", "critical"]).notNull(),
@@ -908,6 +908,7 @@ export const sampleRequests = mysqlTable("sampleRequests", {
   correctionDueAt: timestamp("correctionDueAt"),
   executionDueAt: timestamp("executionDueAt"),
   executionLatestDueAt: timestamp("executionLatestDueAt"),
+  lastDeadlineAlertKey: varchar("lastDeadlineAlertKey", { length: 80 }),
   customerApprovalStatus: varchar("customerApprovalStatus", { length: 30 }).default("pending").notNull(),
   customerApprovalReason: text("customerApprovalReason"),
   customerApprovalAttachments: json("customerApprovalAttachments"),
@@ -1247,3 +1248,22 @@ export const productManufacturingRequestEvents = mysqlTable("productManufacturin
 });
 export type ProductManufacturingRequestEvent = typeof productManufacturingRequestEvents.$inferSelect;
 export type InsertProductManufacturingRequestEvent = typeof productManufacturingRequestEvents.$inferInsert;
+
+// سجل العقوبات والإجراءات التصحيحية المرتبطة بطلبات العينات
+export const sampleRequestPenalties = mysqlTable("sampleRequestPenalties", {
+  id: int("id").autoincrement().primaryKey(),
+  sampleRequestId: int("sampleRequestId").notNull(),
+  employeeId: int("employeeId").notNull(),
+  employeeName: varchar("employeeName", { length: 255 }).notNull(),
+  level: mysqlEnum("level", ["warning", "salary_deduction", "customer_compensation"]).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2, mode: "number" }).default(0).notNull(),
+  reason: text("reason").notNull(),
+  correctiveAction: text("correctiveAction"),
+  status: mysqlEnum("status", ["open", "acknowledged", "closed"]).default("open").notNull(),
+  createdById: int("createdById").notNull(),
+  createdByName: varchar("createdByName", { length: 255 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SampleRequestPenalty = typeof sampleRequestPenalties.$inferSelect;
+export type InsertSampleRequestPenalty = typeof sampleRequestPenalties.$inferInsert;

@@ -51,6 +51,7 @@ import {
   products as productsTable,
   internalMessages as internalMessagesTable,
   sampleRequests as sampleRequestsTable,
+  sampleRequestPenalties as sampleRequestPenaltiesTable,
   customers as customersTable,
   representativeTransactions as representativeTransactionsTable,
   representativeTransactionItems as representativeTransactionItemsTable,
@@ -2085,7 +2086,33 @@ export const appRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(sampleRequestsTable).orderBy(desc(sampleRequestsTable.createdAt));
+      const requests = await db.select().from(sampleRequestsTable).orderBy(desc(sampleRequestsTable.createdAt));
+      const admins = await db.select({ id: usersTable.id }).from(usersTable).where(and(eq(usersTable.role, "admin"), eq(usersTable.isActive, 1)));
+      const recipients = Array.from(new Set([ctx.user.id, ...admins.map((row) => row.id)]));
+      const now = Date.now();
+      for (const request of requests) {
+        if (["completed", "rejected_sales"].includes(request.status)) continue;
+        const deadlines: Array<{ key: string; label: string; dueAt: Date | null }> = [
+          { key: "intake", label: "استقبال طلب العميل", dueAt: request.customerRequestDueAt },
+          { key: "form", label: "تعبئة نموذج العينة", dueAt: request.sampleFormDueAt },
+          { key: "sample", label: "إصدار العينة والكوستين", dueAt: request.sampleProductionDueAt },
+          { key: "approval", label: "اعتماد العميل", dueAt: request.customerApprovalDueAt },
+          { key: "correction", label: "معالجة ملاحظات العميل", dueAt: request.correctionDueAt },
+          { key: "execution", label: "بدء التنفيذ", dueAt: request.executionDueAt },
+        ];
+        const deadline = deadlines.filter((item) => item.dueAt).sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime()).find((item) => new Date(item.dueAt!).getTime() >= now - 24 * 60 * 60 * 1000);
+        if (!deadline) continue;
+        const due = new Date(deadline.dueAt!).getTime();
+        const overdue = due < now;
+        const alertKey = `${deadline.key}:${overdue ? "overdue" : "before"}`;
+        if (request.lastDeadlineAlertKey === alertKey) continue;
+        const message = overdue
+          ? `تجاوز موعد ${deadline.label} للطلب ${request.referenceCode}`
+          : `تبقى أقل من 24 ساعة على موعد ${deadline.label} للطلب ${request.referenceCode}`;
+        await db.insert(alertsTable).values(recipients.map((userId) => ({ type: "deadline_alert" as const, title: overdue ? "طلب متأخر" : "تنبيه موعد قريب", message, severity: overdue ? "critical" as const : "warning" as const, read: 0, data: { sampleRequestId: request.id, referenceCode: request.referenceCode, deadline: deadline.key, dueAt: deadline.dueAt, overdue }, userId })));
+        await db.update(sampleRequestsTable).set({ lastDeadlineAlertKey: alertKey }).where(eq(sampleRequestsTable.id, request.id));
+      }
+      return requests;
     }),
 
     create: protectedProcedure
@@ -2302,6 +2329,40 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    deadlineComplianceReport: protectedProcedure
+      .input(z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { month: input.month || getRiyadhDate().slice(0, 7), summary: { total: 0, onTime: 0, overdue: 0 }, byDepartment: [], byEmployee: [] };
+        const month = input.month || getRiyadhDate().slice(0, 7);
+        const start = new Date(`${month}-01T00:00:00+03:00`);
+        const end = new Date(start); end.setMonth(end.getMonth() + 1);
+        const requests = await db.select().from(sampleRequestsTable).where(and(gte(sampleRequestsTable.createdAt, start), lte(sampleRequestsTable.createdAt, end)));
+        const rows = requests.map((request) => {
+          const dueDates = [request.customerRequestDueAt, request.sampleFormDueAt, request.sampleProductionDueAt, request.customerApprovalDueAt, request.correctionDueAt, request.executionDueAt].filter(Boolean).map((value) => new Date(value as Date).getTime());
+          const latestDue = dueDates.length ? Math.max(...dueDates) : null;
+          const referenceTime = request.finalSavedAt || request.customerApprovedAt || request.initialSavedAt || request.createdAt;
+          const onTime = latestDue === null || new Date(referenceTime).getTime() <= latestDue;
+          return { request, onTime };
+        });
+        const group = (key: "requesterDepartment" | "requesterName") => Array.from(new Map(rows.map(({ request, onTime }) => { const name = String(request[key] || "غير محدد"); return [name, { name, total: 0, onTime: 0, overdue: 0 }]; })).values()).map((item) => { rows.filter(({ request }) => String(request[key] || "غير محدد") === item.name).forEach(({ onTime }) => { item.total += 1; onTime ? item.onTime += 1 : item.overdue += 1; }); return { ...item, compliancePercentage: item.total ? Number((item.onTime / item.total * 100).toFixed(1)) : 0 }; });
+        return { month, summary: { total: rows.length, onTime: rows.filter((row) => row.onTime).length, overdue: rows.filter((row) => !row.onTime).length }, byDepartment: group("requesterDepartment"), byEmployee: group("requesterName") };
+      }),
+    penalties: router({
+      list: protectedProcedure.input(z.object({ sampleRequestId: z.number().int().positive().optional(), employeeId: z.number().int().positive().optional() }).optional()).query(async ({ input }) => {
+        const db = await getDb(); if (!db) return [];
+        const filters = [input?.sampleRequestId ? eq(sampleRequestPenaltiesTable.sampleRequestId, input.sampleRequestId) : undefined, input?.employeeId ? eq(sampleRequestPenaltiesTable.employeeId, input.employeeId) : undefined].filter(Boolean) as any[];
+        return db.select().from(sampleRequestPenaltiesTable).where(filters.length ? and(...filters) : undefined).orderBy(desc(sampleRequestPenaltiesTable.createdAt));
+      }),
+      create: adminProcedure.input(z.object({ sampleRequestId: z.number().int().positive(), employeeId: z.number().int().positive(), employeeName: z.string().min(1), level: z.enum(["warning", "salary_deduction", "customer_compensation"]), amount: z.number().nonnegative().default(0), reason: z.string().min(3), correctiveAction: z.string().optional() })).mutation(async ({ input, ctx }) => {
+        const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة");
+        const result = await db.insert(sampleRequestPenaltiesTable).values({ ...input, createdById: ctx.user.id, createdByName: ctx.user.name, status: "open" });
+        await db.insert(alertsTable).values({ type: "penalty", title: "إجراء جزائي مسجل", message: `تم تسجيل إجراء جزائي على ${input.employeeName} للطلب رقم ${input.sampleRequestId}`, severity: "warning", read: 0, data: { sampleRequestId: input.sampleRequestId, penaltyId: result[0].insertId }, userId: input.employeeId });
+        return { success: true, id: result[0].insertId };
+      }),
+      update: adminProcedure.input(z.object({ id: z.number().int().positive(), data: z.object({ level: z.enum(["warning", "salary_deduction", "customer_compensation"]).optional(), amount: z.number().nonnegative().optional(), reason: z.string().min(3).optional(), correctiveAction: z.string().optional(), status: z.enum(["open", "acknowledged", "closed"]).optional() }) })).mutation(async ({ input }) => { const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة"); await db.update(sampleRequestPenaltiesTable).set(input.data).where(eq(sampleRequestPenaltiesTable.id, input.id)); return { success: true }; }),
+      delete: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ input }) => { const db = await getDb(); if (!db) throw new Error("قاعدة البيانات غير متاحة"); await db.delete(sampleRequestPenaltiesTable).where(eq(sampleRequestPenaltiesTable.id, input.id)); return { success: true }; }),
+    }),
     completeDelivery: protectedProcedure
       .input(z.object({ id: z.number(), deliveredTo: z.string().min(1), receivedBy: z.string().min(1) }))
       .mutation(async ({ input, ctx }) => {

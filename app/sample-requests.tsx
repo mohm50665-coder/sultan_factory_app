@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { router } from "expo-router";
 import { Alert, Platform, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
@@ -172,6 +173,7 @@ export default function SampleRequestsScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <BackButton />
+          <TouchableOpacity onPress={() => router.push("/sample-compliance" as any)} style={{ backgroundColor: "#7c3aed", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 8, marginLeft: 8 }}><Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>الالتزام والإجراءات</Text></TouchableOpacity>
           <View style={{ alignItems: "flex-end", flex: 1 }}><Text style={{ color: colors.foreground, fontSize: 22, fontWeight: "900" }}>{isAr ? "طلبات العينات" : "Sample Requests"}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>{isAr ? "طلب واحد مرتبط بالإنتاج والعهدة والتسليم" : "One request linked to production, custody and delivery"}</Text></View>
           <MaterialIcons name="science" size={28} color={colors.primary} />
         </View>
