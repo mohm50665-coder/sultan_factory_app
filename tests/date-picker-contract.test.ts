@@ -50,4 +50,11 @@ describe("Global date picker contract", () => {
       expect(source, field).toContain(field);
     }
   });
+
+  it("shows all comprehensive report records by default and only filters after date entry", () => {
+    const source = read("app/daily-summary.tsx");
+    expect(source).toContain("useState(true)");
+    expect(source).toContain("setShowAllDates(false)");
+    expect(source).toContain('onPress={() => setShowAllDates(true)}');
+  });
 });
