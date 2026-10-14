@@ -34,6 +34,7 @@ interface ReportData {
     totalEntries: number;
     wasteThread: number;
     wasteSocks: number;
+    yarnWeight: number;
     wasteNeedles: number;
     secondGrade: number;
     wastePercentage: number;
@@ -216,20 +217,25 @@ export default function BoardMonthlyReport() {
       const productionRaw = await productionService.getAll().catch(() => []);
       const prodEntries = (Array.isArray(productionRaw) ? productionRaw : (productionRaw as any)?.items || (productionRaw as any)?.rows || [])
         .filter((row: any) => inRange(row, range.start, range.end));
-      let totalDozen = 0, totalPairs = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
+      let totalDozen = 0, totalPairs = 0, totalYarnWeight = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
       let prodCount = 0;
       prodEntries.forEach((item: any) => {
         totalDozen += parseInt(item.productionDozen || "0");
         totalPairs += parseInt(item.productionPairs || "0");
+        const productionPairs = (parseFloat(item.productionDozen || "0") * 12) + parseFloat(item.productionPairs || "0");
+        const yarnWeightPerPair = ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"]
+          .reduce((sum, field) => sum + (parseFloat(item[field] || "0") || 0), 0);
+        totalYarnWeight += yarnWeightPerPair * productionPairs;
         wasteThread += parseInt(item.wasteThreadGrams || "0");
         wasteSocks += parseInt(item.wasteSocksGrams || "0");
         wasteNeedles += parseInt(item.wasteNeedles || "0");
         secondGrade += parseInt(item.secondGradePairs || "0");
         prodCount++;
       });
-      const totalProd = totalDozen * 12 + totalPairs;
       const totalWaste = wasteThread + wasteSocks;
-      const wastePercentage = totalProd > 0 ? (totalWaste / totalProd) * 100 : 0;
+      // نفس معادلة شاشة الإنتاج: الهدر بالجرام ÷ وزن الخيوط المستخدم بالجرام.
+      // لا يجوز قسمة الجرام على عدد الأزواج؛ ذلك كان سبب ظهور 71% بدلاً من 1.87%.
+      const wastePercentage = totalYarnWeight > 0 ? (totalWaste / totalYarnWeight) * 100 : 0;
 
       // Load operational sales from both legacy sales records and representative transactions.
       // The representative workflow is the current source for orders/visits and must not be omitted.
@@ -327,6 +333,7 @@ export default function BoardMonthlyReport() {
           totalEntries: prodCount,
           wasteThread,
           wasteSocks,
+          yarnWeight: totalYarnWeight,
           wasteNeedles,
           secondGrade,
           wastePercentage,
@@ -435,6 +442,7 @@ export default function BoardMonthlyReport() {
                 [isAr ? "عدد الإدخالات" : "Total Entries", `${reportData.production.totalEntries}`],
                 [isAr ? "هدر الخيوط (جرام)" : "Thread Waste (g)", `${reportData.production.wasteThread}`],
                 [isAr ? "هدر الجوارب (جرام)" : "Socks Waste (g)", `${reportData.production.wasteSocks}`],
+                [isAr ? "وزن الخيوط المستخدم (جرام)" : "Yarn Used (g)", `${reportData.production.yarnWeight.toFixed(2)}`],
                 [isAr ? "هدر الإبر (حبة)" : "Needle Waste (pcs)", `${reportData.production.wasteNeedles}`],
                 [isAr ? "النخب الثاني (أزواج)" : "Second Grade (Pairs)", `${reportData.production.secondGrade}`],
               ],
