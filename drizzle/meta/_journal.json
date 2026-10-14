@@ -274,6 +274,13 @@
       "when": 1792004696160,
       "tag": "0038_lame_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1792005893091,
+      "tag": "0039_cooing_smasher",
+      "breakpoints": true
     }
   ]
 }

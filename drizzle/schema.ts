@@ -992,6 +992,8 @@ export const representativeTransactions = mysqlTable("representativeTransactions
   rejectionReason: text("rejectionReason"),
   correctiveAction: json("correctiveAction"),
   submittedAt: timestamp("submittedAt"),
+  warehouseDeadlineAt: timestamp("warehouseDeadlineAt"),
+  warehouseOverdueNotifiedAt: timestamp("warehouseOverdueNotifiedAt"),
   closedAt: timestamp("closedAt"),
   deletedAt: timestamp("deletedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

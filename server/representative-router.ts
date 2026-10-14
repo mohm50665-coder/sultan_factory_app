@@ -63,6 +63,12 @@ const parseArray = (value: unknown): any[] => {
 
 const getRiyadhDate = (date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 const makeReference = (prefix: string) => `${prefix}-${getRiyadhDate().replace(/-/g, "")}-${randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+const warehouseDeadlineFor = (orderDate: string | null | undefined, fallback = new Date()) => {
+  const parsed = orderDate && /^\d{4}-\d{2}-\d{2}$/.test(orderDate)
+    ? new Date(`${orderDate}T00:00:00+03:00`)
+    : new Date(fallback);
+  return new Date((Number.isNaN(parsed.getTime()) ? fallback.getTime() : parsed.getTime()) + 48 * 60 * 60 * 1000);
+};
 
 const attachmentSchema = z.object({
   type: z.string().min(1),
@@ -493,7 +499,8 @@ export const representativeRouter = router({
         ...row,
         customer: customerById.get(Number(row.customerId)) || null,
         items: parseArray(row.productData),
-        isOverdue: !["CLOSED", "CLOSED_REJECTED", "REJECTED_SALES"].includes(row.status) && now - new Date(row.updatedAt).getTime() > 3 * 24 * 60 * 60 * 1000,
+        isOverdue: row.transactionType === "order" && Boolean(row.warehouseDeadlineAt) && !["WAREHOUSE_EXECUTED", "REPRESENTATIVE_CLOSED", "CLOSED", "CLOSED_REJECTED", "REJECTED_SALES"].includes(row.status) && now > new Date(row.warehouseDeadlineAt as Date).getTime(),
+        overdueResponsible: row.transactionType === "order" && row.warehouseDeadlineAt && now > new Date(row.warehouseDeadlineAt).getTime() ? "المستودعات" : null,
       }));
     }),
 
@@ -517,14 +524,16 @@ export const representativeRouter = router({
       if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
       const referenceCode = makeReference(input.transactionType === "sample" ? "SMP" : input.transactionType === "custom" ? "CUSM" : input.transactionType === "visit" ? "VIS" : input.transactionType === "return" ? "RET" : "ORD");
       const { items, ...header } = input;
-      const result = await db.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "DRAFT", currentDepartment: "sales_representative", productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments });
+      const initialStatus = input.transactionType === "visit" ? "RECORDED" : "DRAFT";
+      const initialDepartment = input.transactionType === "visit" ? "closed" : "sales_representative";
+      const result = await db.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: initialStatus, currentDepartment: initialDepartment, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments });
       const id = Number(result[0].insertId);
       await db.insert(representativeTransactionItems).values(items.map((item) => ({ ...item, transactionId: id })));
       if (input.attachments.length) await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
-      const transaction = { id, referenceCode, status: "DRAFT", representativeId: Number(ctx.user.id) };
-      await insertEvent(db, transaction, ctx.user, "DRAFT", "create_draft", "إنشاء مسودة المعاملة");
+      const transaction = { id, referenceCode, status: initialStatus, representativeId: Number(ctx.user.id) };
+      await insertEvent(db, transaction, ctx.user, initialStatus, input.transactionType === "visit" ? "record_visit" : "create_draft", input.transactionType === "visit" ? "تسجيل الزيارة كمعلومة تشغيلية؛ لا تدخل في مسار الاعتماد" : "إنشاء مسودة المعاملة");
       await writeAudit(db, ctx.user, "create", "representativeTransactions", id, null, input, `إنشاء مسودة ${referenceCode}`);
-      return { success: true, id, referenceCode };
+      return { success: true, id, referenceCode, status: initialStatus };
     }),
 
     createAndSubmitOrder: protectedProcedure.input(transactionSchema).mutation(async ({ input, ctx }) => {
@@ -532,7 +541,6 @@ export const representativeRouter = router({
       validateTransaction(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
-      await validateWarehouseStockForOrder(db, input);
       const customerRows = await db.select().from(customers).where(and(eq(customers.id, input.customerId), eq(customers.isActive, 1))).limit(1);
       const customer = customerRows[0];
       if (!customer) throw new Error("العميل غير موجود");
@@ -541,15 +549,15 @@ export const representativeRouter = router({
       const now = new Date();
       const { items, ...header } = input;
       return db.transaction(async (tx: any) => {
-        const result = await tx.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments, signedSnapshot: { customer, items, deliveryDate: input.deliveryDate } });
+        const result = await tx.insert(representativeTransactions).values({ ...header, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name), customerName: customer.name, customerVersion: customer.version, status: "PENDING_SALES_APPROVAL", currentDepartment: "sales_management", submittedAt: now, productData: items, yarnRatios: items.map((item) => item.yarnRatios || {}), attachments: input.attachments, signedSnapshot: { customer, items, deliveryDate: input.deliveryDate } });
         const id = Number(result[0].insertId);
         await tx.insert(representativeTransactionItems).values(items.map((item) => ({ ...item, transactionId: id })));
         if (input.attachments.length) await tx.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, expiresAt: attachment.expiresAt, uploadedBy: Number(ctx.user.id) })));
-        const transaction = { id, referenceCode, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", representativeId: Number(ctx.user.id) };
-        await insertEvent(tx, transaction, ctx.user, "PENDING_WAREHOUSE_ISSUE", "create_and_submit_order", "حفظ الطلب وإرساله مباشرة إلى المستودعات");
-        await writeAudit(tx, ctx.user, "create", "representativeTransactions", id, null, input, `إنشاء وإرسال الطلب ${referenceCode} إلى المستودعات`);
-        await notifyNext(tx, ctx.user, transaction, "PENDING_WAREHOUSE_ISSUE");
-        return { success: true, sent: true, id, referenceCode, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse" };
+        const transaction = { id, referenceCode, status: "PENDING_SALES_APPROVAL", currentDepartment: "sales_management", representativeId: Number(ctx.user.id) };
+        await insertEvent(tx, transaction, ctx.user, "PENDING_SALES_APPROVAL", "create_and_submit_order", "حفظ الطلب وإرساله إلى مدير التسويق والمبيعات للاعتماد قبل المستودعات");
+        await writeAudit(tx, ctx.user, "create", "representativeTransactions", id, null, input, `إنشاء وإرسال الطلب ${referenceCode} إلى اعتماد التسويق والمبيعات`);
+        await notifyNext(tx, ctx.user, transaction, "PENDING_SALES_APPROVAL");
+        return { success: true, sent: true, id, referenceCode, status: "PENDING_SALES_APPROVAL", currentDepartment: "sales_management" };
       });
     }),
 
@@ -557,7 +565,6 @@ export const representativeRouter = router({
       validateTransaction(input);
       const db = await getDb();
       if (!db) throw new Error("قاعدة البيانات غير متاحة");
-      await validateWarehouseStockForOrder(db, input);
       const rows = await db.select().from(representativeTransactions).where(eq(representativeTransactions.id, input.id)).limit(1);
       const current = rows[0];
       if (!current || current.status !== "DRAFT") throw new Error("يمكن تعديل المسودة فقط");
@@ -613,12 +620,12 @@ export const representativeRouter = router({
       if (!detail || detail.transactionType !== "order" || detail.status !== "DRAFT") throw new TRPCError({ code: "BAD_REQUEST", message: "الطلب غير صالح للإرسال المباشر" });
       if (Number(detail.representativeId) !== Number(ctx.user.id)) throw new TRPCError({ code: "FORBIDDEN" });
       const now = new Date();
-      const updated = await db.update(representativeTransactions).set({ status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, deliveryDate: detail.deliveryDate } }).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "DRAFT")));
+      const updated = await db.update(representativeTransactions).set({ status: "PENDING_SALES_APPROVAL", currentDepartment: "sales_management", submittedAt: now, signedSnapshot: { customer: detail.customer, items: detail.items, deliveryDate: detail.deliveryDate } }).where(and(eq(representativeTransactions.id, input.id), eq(representativeTransactions.status, "DRAFT")));
       const affectedRows = Number((updated as any)?.[0]?.affectedRows ?? (updated as any)?.affectedRows ?? 0);
       if (affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: "لم يتم إرسال الطلب؛ تغيّرت حالته أو تم إرساله مسبقاً" });
-      await insertEvent(db, detail, ctx.user, "PENDING_WAREHOUSE_ISSUE", "submit_order_to_warehouse", "اعتماد الطلب وإرساله مباشرة إلى المستودعات");
-      await notifyNext(db, ctx.user, detail, "PENDING_WAREHOUSE_ISSUE");
-      return { success: true, sent: true, status: "PENDING_WAREHOUSE_ISSUE", currentDepartment: "warehouse", referenceCode: detail.referenceCode };
+      await insertEvent(db, detail, ctx.user, "PENDING_SALES_APPROVAL", "submit_order_for_sales_approval", "إرسال الطلب إلى مدير التسويق والمبيعات للاعتماد قبل المستودعات");
+      await notifyNext(db, ctx.user, detail, "PENDING_SALES_APPROVAL");
+      return { success: true, sent: true, status: "PENDING_SALES_APPROVAL", currentDepartment: "sales_management", referenceCode: detail.referenceCode };
     }),
     transition: protectedProcedure.input(transitionSchema).mutation(async ({ input, ctx }) => {
       const db = await getDb();
@@ -630,7 +637,8 @@ export const representativeRouter = router({
       switch (input.action) {
         case "sales_approve":
           if (!isSalesManager(ctx.user) || detail.status !== "PENDING_SALES_APPROVAL") throw new TRPCError({ code: "FORBIDDEN", message: "هذه الخطوة لمدير التسويق والمبيعات" });
-          nextStatus = ["custom", "sample"].includes(detail.transactionType) ? "PENDING_PRODUCTION_APPROVAL" : detail.transactionType === "order" ? "PENDING_WAREHOUSE_INVOICE" : "CLOSED";
+          nextStatus = ["custom", "sample"].includes(detail.transactionType) ? "PENDING_PRODUCTION_APPROVAL" : detail.transactionType === "order" ? "PENDING_WAREHOUSE_ISSUE" : "CLOSED";
+          if (detail.transactionType === "order") patch.warehouseDeadlineAt = warehouseDeadlineFor(detail.orderDate);
           if (["visit", "return"].includes(detail.transactionType)) patch.closedAt = new Date();
           break;
         case "sales_reject":
@@ -882,21 +890,24 @@ export const representativeRouter = router({
     const rows = await db.select().from(representativeTransactions).where(isNull(representativeTransactions.deletedAt)).orderBy(desc(representativeTransactions.updatedAt));
     if (isAdmin(ctx.user)) return rows;
     if (isSalesManager(ctx.user)) return rows.filter((row) => ["PENDING_SALES_APPROVAL", "PENDING_SALES_RESOLUTION"].includes(row.status));
-    if (isWarehouseManager(ctx.user)) return rows.filter((row) => row.status === "PENDING_WAREHOUSE_INVOICE");
+    if (isWarehouseManager(ctx.user)) return rows.filter((row) => ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED", "PENDING_WAREHOUSE_INVOICE"].includes(row.status));
     if (isProductionManager(ctx.user)) return rows.filter((row) => ["PENDING_PRODUCTION_APPROVAL", "IN_PRODUCTION"].includes(row.status));
     return rows.filter((row) => Number(row.representativeId) === Number(ctx.user.id) && ["RETURNED_TO_REPRESENTATIVE", "READY_FOR_REPRESENTATIVE"].includes(row.status));
   }),
 
   scanOverdue: protectedProcedure.mutation(async ({ ctx }) => {
-    if (!isSalesManager(ctx.user) && !isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+    if (!isSalesManager(ctx.user) && !isWarehouseManager(ctx.user) && !isAdmin(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
     const db = await getDb();
     if (!db) throw new Error("قاعدة البيانات غير متاحة");
-    const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-    const rows = await db.select().from(representativeTransactions).where(and(isNull(representativeTransactions.deletedAt), lte(representativeTransactions.updatedAt, cutoff)));
-    const overdue = rows.filter((row) => !["CLOSED", "CLOSED_REJECTED", "REJECTED_SALES"].includes(row.status));
+    const rows = await db.select().from(representativeTransactions).where(and(isNull(representativeTransactions.deletedAt), eq(representativeTransactions.transactionType, "order")));
+    const now = Date.now();
+    const overdue = rows.filter((row) => Boolean(row.warehouseDeadlineAt) && now > new Date(row.warehouseDeadlineAt as Date).getTime() && ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(row.status));
     for (const row of overdue) {
-      const existing = await db.select({ id: internalMessages.id }).from(internalMessages).where(and(eq(internalMessages.relatedType, "representative_overdue"), eq(internalMessages.relatedId, row.id))).limit(1);
-      if (!existing[0]) await db.insert(internalMessages).values({ subject: `تنبيه تأخير ${row.referenceCode}`, body: `المعاملة ${row.referenceCode} متأخرة أكثر من ثلاثة أيام وحالتها ${row.status}`, senderId: Number(ctx.user.id), recipientUserId: Number(row.representativeId), relatedType: "representative_overdue", relatedId: row.id, attachments: [] });
+      if (!row.warehouseOverdueNotifiedAt) {
+        await db.insert(internalMessages).values({ subject: `تأخير إخراج الطلب ${row.referenceCode}`, body: `تجاوز طلب العميل مهلة 48 ساعة المحددة لإخراجه من المستودع. الحالة: ${row.status}. المسؤول عن الإجراء: المستودعات. يجب توثيق سبب التأخير والإجراء المتخذ.`, senderId: Number(ctx.user.id), recipientDepartment: "warehouse", relatedType: "representative_order_overdue", relatedId: row.id, attachments: [] });
+        await db.insert(internalMessages).values({ subject: `تأخير طلب العميل ${row.referenceCode}`, body: `تجاوز الطلب مهلة 48 ساعة لإخراجه من المستودع. المسؤول الحالي: المستودعات.`, senderId: Number(ctx.user.id), recipientUserId: Number(row.representativeId), relatedType: "representative_order_overdue", relatedId: row.id, attachments: [] });
+        await db.update(representativeTransactions).set({ warehouseOverdueNotifiedAt: new Date() }).where(eq(representativeTransactions.id, row.id));
+      }
     }
     return { success: true, overdueCount: overdue.length };
   }),

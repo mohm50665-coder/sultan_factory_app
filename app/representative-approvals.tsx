@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { representativeService } from "@/lib/services/representative.service";
 
-const STATUS: Record<string, string> = { DRAFT: "مسودة", PENDING_SALES_APPROVAL: "بانتظار اعتماد مدير التسويق والمبيعات", REJECTED_SALES: "مرفوض من مدير التسويق والمبيعات", PENDING_WAREHOUSE_ISSUE: "بانتظار تنفيذ المستودع", WAREHOUSE_PARTIAL: "تنفيذ جزئي — بانتظار رد المندوب", WAREHOUSE_EXECUTED: "تم تنفيذ الطلب من المستودع", PENDING_WAREHOUSE_INVOICE: "بانتظار إصدار الفاتورة من المستودع", RETURNED_TO_REPRESENTATIVE: "عادت للمندوب لاستلام الفاتورة", PENDING_PRODUCTION_APPROVAL: "بانتظار اعتماد مدير الإنتاج", REJECTED_PRODUCTION: "مرفوض من مدير الإنتاج", PENDING_SALES_RESOLUTION: "بانتظار الحل والإجراء التصحيحي", IN_PRODUCTION: "قيد التصنيع", READY_FOR_REPRESENTATIVE: "جاهز لاستلام المندوب", REPRESENTATIVE_CLOSED: "أغلقه المندوب", CLOSED: "مغلق", CLOSED_REJECTED: "مغلق بالرفض" };
+const STATUS: Record<string, string> = { DRAFT: "مسودة", RECORDED: "زيارة مسجلة — معلومات فقط", PENDING_SALES_APPROVAL: "بانتظار اعتماد مدير التسويق والمبيعات", REJECTED_SALES: "مرفوض من مدير التسويق والمبيعات", PENDING_WAREHOUSE_ISSUE: "معتمد — بانتظار إخراج المستودع خلال 48 ساعة", WAREHOUSE_PARTIAL: "تنفيذ جزئي — بانتظار رد المندوب", WAREHOUSE_NOT_EXECUTED: "لم يتم التنفيذ — بانتظار رد المندوب", WAREHOUSE_EXECUTED: "تم تنفيذ الطلب من المستودع", PENDING_WAREHOUSE_INVOICE: "بانتظار إصدار الفاتورة من المستودع", RETURNED_TO_REPRESENTATIVE: "عادت للمندوب لاستلام الفاتورة", PENDING_PRODUCTION_APPROVAL: "بانتظار اعتماد مدير الإنتاج", REJECTED_PRODUCTION: "مرفوض من مدير الإنتاج", PENDING_SALES_RESOLUTION: "بانتظار الحل والإجراء التصحيحي", IN_PRODUCTION: "قيد التصنيع", READY_FOR_REPRESENTATIVE: "جاهز لاستلام المندوب", REPRESENTATIVE_CLOSED: "أغلقه المندوب", CLOSED: "مغلق", CLOSED_REJECTED: "مغلق بالرفض" };
 const TYPE: Record<string, string> = { order: "طلب عادي", visit: "زيارة", return: "مرتجع", custom: "تصنيع خاص", sample: "عينة" };
 const ACTION: Record<string, string> = { create_draft: "إنشاء مسودة", submit: "إرسال للاعتماد", sales_approve: "اعتماد التسويق والمبيعات", sales_reject: "رفض التسويق والمبيعات", warehouse_invoice: "إصدار الفاتورة", warehouse_execute: "تنفيذ المستودع", warehouse_partial: "تنفيذ جزئي من المستودع", representative_respond: "رد المندوب", representative_close_order: "إغلاق الطلب من المندوب", representative_close: "إغلاق المعاملة", production_approve: "اعتماد الإنتاج", production_reject: "رفض الإنتاج", sales_resubmit: "إعادة التوجيه بعد التصحيح", sales_accept_rejection: "قبول الرفض وإغلاق الطلب", production_ready: "إنهاء التصنيع", representative_receive: "استلام المندوب", soft_delete: "حذف آمن للمسودة" };
 const DEPARTMENT: Record<string, string> = { sales_management: "إدارة التسويق والمبيعات", warehouse: "المستودعات", production: "الإنتاج", sales_representative: "المندوب", admin: "الإدارة العامة" };
@@ -40,7 +40,7 @@ export default function RepresentativeApprovalsScreen() {
     try {
       if (isManager) await representativeService.scanOverdue().catch(() => null);
       const approvalRows = await representativeService.approvals();
-      const list = Array.isArray(approvalRows) ? approvalRows : [];
+      const list = Array.isArray(approvalRows) ? approvalRows.filter((row: any) => row.transactionType !== "visit" && row.status !== "RECORDED") : [];
       setRows(list);
       const requestedId = Number(params.id || 0);
       if (requestedId) setSelected(await representativeService.transactions.getById(requestedId));
