@@ -40,6 +40,8 @@ const dateOnly = (value: unknown) => {
   const sqlDate = text.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]|$)/);
   if (sqlDate) return sqlDate[1];
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const legacy = text.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (legacy) return `${legacy[3]}-${legacy[2].padStart(2, "0")}-${legacy[1].padStart(2, "0")}`;
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : localDateKey(parsed);
 };
@@ -85,7 +87,9 @@ export default function DailySummaryScreen() {
   const isAr = language === "ar";
   const canExportPdf = user?.role === "admin";
   const canManageMarketingDaily = user?.role === "admin" || ["sales", "marketing", "sales_manager"].includes(String(user?.department || "").toLowerCase());
-  const [reportDate, setReportDate] = useState(today());
+  const currentDate = today();
+  const currentMonthStart = `${currentDate.slice(0, 7)}-01`;
+  const [reportDate, setReportDate] = useState(currentMonthStart);
   const [reportEndDate, setReportEndDate] = useState(today());
   const [showAllDates, setShowAllDates] = useState(false);
   const [loading, setLoading] = useState(true);

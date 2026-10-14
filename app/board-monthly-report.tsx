@@ -82,7 +82,10 @@ function dateOnly(value: unknown): string {
   if (!value) return "";
   const raw = String(value);
   const match = raw.match(/(\d{4}-\d{2}-\d{2})/);
-  return match?.[1] || "";
+  if (match?.[1]) return match[1];
+  const legacy = raw.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (legacy) return `${legacy[3]}-${legacy[2].padStart(2, "0")}-${legacy[1].padStart(2, "0")}`;
+  return "";
 }
 
 function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
@@ -120,7 +123,7 @@ function DateField({ value, onChange, label, colors }: { value: string; onChange
 }
 
 function rowDate(row: any): string {
-  return dateOnly(row?.date || row?.orderDate || row?.expenseDate || row?.collectionDate || row?.dueDate || row?.createdAt || row?.updatedAt);
+  return dateOnly(row?.date || row?.orderDate || row?.invoiceDate || row?.receiptDate || row?.collectionDate || row?.expenseDate || row?.reportDate || row?.targetDate || row?.dueDate || row?.createdAt || row?.updatedAt);
 }
 
 function inRange(row: any, start: string, end: string): boolean {
@@ -209,9 +212,10 @@ export default function BoardMonthlyReport() {
 
       // Load operational sales from both legacy sales records and representative transactions.
       // The representative workflow is the current source for orders/visits and must not be omitted.
-      const [legacySales, representativeTransactions] = await Promise.all([
+      const [legacySales, representativeTransactions, representativeCollections] = await Promise.all([
         salesService.getAll().catch(() => []),
         representativeService.transactions.list({}).catch(() => []),
+        representativeService.collections.list({}).catch(() => []),
       ]);
       const salesEntries = [...(legacySales || []), ...(representativeTransactions || [])]
         .filter((row: any) => inRange(row, range.start, range.end));
@@ -258,6 +262,9 @@ export default function BoardMonthlyReport() {
           collectionTotal += parseFloat(item.amount || "0");
         });
       }
+      (representativeCollections || []).filter((item: any) => inRange(item, range.start, range.end)).forEach((item: any) => {
+        collectionTotal += parseFloat(item.collectedAmount || item.amount || "0");
+      });
       const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
       const reportMonth = period === "custom" ? range.start.slice(0, 7) : `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
       const manufacturingMonth = reportMonth;
