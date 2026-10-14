@@ -83,6 +83,10 @@ export const representativeService = {
     list: (filters?: Record<string, unknown>) => trpcCall("representative.collections.list", filters || {}, "query"),
     create: (data: Record<string, unknown>) => trpcCall("representative.collections.create", data),
   },
+  sales: {
+    list: (filters?: Record<string, unknown>) => trpcCall("representative.sales.list", filters || {}, "query"),
+    create: (data: Record<string, unknown>) => trpcCall("representative.sales.create", data),
+  },
   approvals: () => trpcCall("representative.approvals", undefined, "query"),
   performance: {
     summary: (filters?: Record<string, unknown>) => trpcCall("representative.performance.summary", filters || {}, "query"),

@@ -1093,6 +1093,23 @@ export const representativeCollections = mysqlTable("representativeCollections",
 });
 export type RepresentativeCollection = typeof representativeCollections.$inferSelect;
 
+// مبيعات المندوب المرتبطة تلقائياً بملف العميل والفاتورة
+export const representativeSales = mysqlTable("representativeSales", {
+  id: int("id").autoincrement().primaryKey(),
+  referenceCode: varchar("referenceCode", { length: 40 }).notNull().unique(),
+  representativeId: int("representativeId").notNull(),
+  representativeName: varchar("representativeName", { length: 255 }).notNull(),
+  customerId: int("customerId").notNull(),
+  customerName: varchar("customerName", { length: 255 }).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 100 }).notNull(),
+  amount: decimal("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
+  invoiceDate: varchar("invoiceDate", { length: 20 }).notNull(),
+  attachments: json("attachments").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type RepresentativeSale = typeof representativeSales.$inferSelect;
+
 // أوزان معايير تقييم المندوب القابلة للضبط من الإدارة
 export const representativePerformanceWeights = mysqlTable("representativePerformanceWeights", {
   id: int("id").autoincrement().primaryKey(),

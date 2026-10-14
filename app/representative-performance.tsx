@@ -37,6 +37,7 @@ export default function RepresentativePerformanceScreen() {
   const modules = [
     { title: "دليل العملاء", description: "ملف مركزي ومرفقات وموقع العميل", icon: "business", color: "#0369a1", route: "/representative-customers" },
     { title: "الطلبات والزيارات", description: "طلبات متعددة المنتجات وزيارات ومرتجعات", icon: "assignment", color: "#0f766e", route: { pathname: "/representative-transactions", params: { type: "order" } } },
+    { title: "المبيعات", description: "اسم العميل ورقم الفاتورة والمبلغ وتاريخها", icon: "shopping-cart", color: "#c2410c", route: "/representative-sales" },
     { title: "التصنيع الخاص والعينات", description: "المواصفات ونسب الخيوط ودورة العينة", icon: "design-services", color: "#7c3aed", route: { pathname: "/representative-transactions", params: { type: "custom" } } },
     { title: "التحصيل", description: "ربط العميل والفاتورة وإثبات الدفع", icon: "payments", color: "#15803d", route: "/representative-collections" },
     { title: "المتابعة والاعتمادات", description: "المسؤول الحالي والمدة وسجل الإجراءات", icon: "fact-check", color: "#b45309", route: "/representative-approvals" },

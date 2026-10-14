@@ -13,6 +13,7 @@ import {
   representativeCollections,
   representativeDeclarations,
   representativePerformanceWeights,
+  representativeSales,
   representativeTransactionItems,
   representativeTransactions,
   representativeWorkflowEvents,
@@ -790,6 +791,32 @@ export const representativeRouter = router({
     }),
   }),
 
+  sales: router({
+    list: protectedProcedure.input(z.object({ representativeId: z.number().optional(), customerId: z.number().optional() }).optional()).query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const conditions: any[] = [];
+      if (input?.representativeId) conditions.push(eq(representativeSales.representativeId, input.representativeId));
+      if (input?.customerId) conditions.push(eq(representativeSales.customerId, input.customerId));
+      if (!isAdmin(ctx.user) && !isSalesManager(ctx.user)) conditions.push(eq(representativeSales.representativeId, Number(ctx.user.id)));
+      return db.select().from(representativeSales).where(conditions.length ? and(...conditions) : undefined).orderBy(desc(representativeSales.createdAt));
+    }),
+    create: protectedProcedure.input(z.object({ customerId: z.number(), invoiceNumber: z.string().trim().min(1), amount: z.number().positive(), invoiceDate: z.string().min(10), attachments: z.array(attachmentSchema).default([]) })).mutation(async ({ input, ctx }) => {
+      if (!isRepresentative(ctx.user)) throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new Error("قاعدة البيانات غير متاحة");
+      const customerRows = await db.select().from(customers).where(and(eq(customers.id, input.customerId), eq(customers.isActive, 1))).limit(1);
+      const customer = customerRows[0];
+      if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "العميل غير موجود" });
+      if (!canAccessCustomer(ctx.user, customer)) throw new TRPCError({ code: "FORBIDDEN", message: "العميل غير موجود في قائمة العملاء المخصصة لحسابك" });
+      const referenceCode = makeReference("SAL");
+      const result = await db.insert(representativeSales).values({ ...input, referenceCode, representativeId: Number(ctx.user.id), representativeName: String(ctx.user.name || ctx.user.username), customerName: customer.name, attachments: input.attachments });
+      const id = Number(result[0].insertId);
+      await writeAudit(db, ctx.user, "create", "representativeSales", id, null, input, `تسجيل مبيعات ${referenceCode}`);
+      return { success: true, id, referenceCode };
+    }),
+  }),
+
   performance: router({
     summary: protectedProcedure.input(z.object({ startDate: z.string().optional(), endDate: z.string().optional(), representativeId: z.number().optional() }).optional()).query(async ({ input, ctx }) => {
       const db = await getDb();
@@ -809,13 +836,18 @@ export const representativeRouter = router({
       if (input?.startDate) collectionConditions.push(gte(representativeCollections.collectionDate, input.startDate));
       if (input?.endDate) collectionConditions.push(lte(representativeCollections.collectionDate, input.endDate));
       const allCollections = await db.select().from(representativeCollections).where(collectionConditions.length ? and(...collectionConditions) : undefined);
+      const salesConditions: any[] = [];
+      if (input?.startDate) salesConditions.push(gte(representativeSales.invoiceDate, input.startDate));
+      if (input?.endDate) salesConditions.push(lte(representativeSales.invoiceDate, input.endDate));
+      const allSales = await db.select().from(representativeSales).where(salesConditions.length ? and(...salesConditions) : undefined);
       const activeUsers = await db.select().from(users).where(eq(users.isActive, 1));
       const reps = activeUsers.filter((candidate) => isRepresentativeEmployee(candidate) && (!input?.representativeId || Number(candidate.id) === input.representativeId));
       const visibleReps = isAdmin(ctx.user) || isSalesManager(ctx.user) ? reps : reps.filter((candidate) => Number(candidate.id) === Number(ctx.user.id));
       const representatives = visibleReps.map((rep) => {
         const tx = allTransactions.filter((row) => Number(row.representativeId) === Number(rep.id));
         const col = allCollections.filter((row) => Number(row.representativeId) === Number(rep.id));
-        const salesAmount = tx.filter((row) => row.transactionType === "order").reduce((sum, row) => sum + Number(row.paymentAmount || 0), 0);
+        const saleRows = allSales.filter((row) => Number(row.representativeId) === Number(rep.id));
+        const salesAmount = tx.filter((row) => row.transactionType === "order").reduce((sum, row) => sum + Number(row.paymentAmount || 0), 0) + saleRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
         const collectionAmount = col.reduce((sum, row) => sum + Number(row.collectedAmount || 0), 0);
         const closedOrders = tx.filter((row) => row.status === "CLOSED").length;
         const avgDuration = tx.length ? tx.reduce((sum, row) => sum + Math.max(0, (new Date(row.closedAt || row.updatedAt).getTime() - new Date(row.createdAt).getTime()) / 60000), 0) / tx.length : 0;
@@ -827,7 +859,7 @@ export const representativeRouter = router({
           return { key: criterion.criterionKey, name: criterion.criterionName, weight: Number(criterion.weight), target, actual: value, achievement };
         });
         const score = criteria.reduce((sum: number, criterion: any) => sum + criterion.achievement * (criterion.weight / 100), 0);
-        return { representative: { id: rep.id, name: rep.name, username: rep.username, phone: rep.phone, email: rep.email }, totals: { transactions: tx.length, orders: tx.filter((row) => row.transactionType === "order").length, visits: tx.filter((row) => row.transactionType === "visit").length, custom: tx.filter((row) => row.transactionType === "custom").length, samples: tx.filter((row) => row.transactionType === "sample").length, collections: col.length, salesAmount, collectionAmount, closedOrders, avgDurationMinutes: Math.round(avgDuration) }, criteria, score: Number(score.toFixed(2)) };
+        return { representative: { id: rep.id, name: rep.name, username: rep.username, phone: rep.phone, email: rep.email }, totals: { transactions: tx.length, orders: tx.filter((row) => row.transactionType === "order").length, sales: saleRows.length, visits: tx.filter((row) => row.transactionType === "visit").length, custom: tx.filter((row) => row.transactionType === "custom").length, samples: tx.filter((row) => row.transactionType === "sample").length, collections: col.length, salesAmount, collectionAmount, closedOrders, avgDurationMinutes: Math.round(avgDuration) }, criteria, score: Number(score.toFixed(2)) };
       });
       return { representatives, weights: effectiveWeights };
     }),
