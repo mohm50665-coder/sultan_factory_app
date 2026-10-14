@@ -16,8 +16,10 @@ import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { productionService, salesService, expensesService, taskService, productManufacturingRequestService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
+import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { TextInput } from "react-native";
 
 interface MonthOption {
   label: string;
@@ -74,7 +76,7 @@ interface ReportData {
   previousManufacturingRequests: ReportData["manufacturingRequests"];
 }
 
-type ReportPeriod = "daily" | "weekly" | "monthly";
+type ReportPeriod = "daily" | "weekly" | "monthly" | "custom";
 
 function dateOnly(value: unknown): string {
   if (!value) return "";
@@ -83,7 +85,10 @@ function dateOnly(value: unknown): string {
   return match?.[1] || "";
 }
 
-function periodRange(period: ReportPeriod, month: number, year: number): { start: string; end: string; label: string } {
+function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
+  if (period === "custom" && customStart && customEnd) {
+    return { start: customStart, end: customEnd, label: `${customStart} — ${customEnd}` };
+  }
   const today = new Date();
   let start: Date;
   let end: Date;
@@ -127,7 +132,10 @@ export default function BoardMonthlyReport() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [period, setPeriod] = useState<ReportPeriod>("monthly");
-  const range = periodRange(period, selectedMonth, selectedYear);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [customStart, setCustomStart] = useState(todayIso);
+  const [customEnd, setCustomEnd] = useState(todayIso);
+  const range = periodRange(period, selectedMonth, selectedYear, customStart, customEnd);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
@@ -149,7 +157,7 @@ export default function BoardMonthlyReport() {
 
   useEffect(() => {
     loadReportData();
-  }, [selectedMonth, selectedYear, period]);
+  }, [selectedMonth, selectedYear, period, customStart, customEnd]);
 
   const loadReportData = async () => {
     setIsLoading(true);
@@ -171,8 +179,14 @@ export default function BoardMonthlyReport() {
       const totalWaste = wasteThread + wasteSocks;
       const wastePercentage = totalProd > 0 ? (totalWaste / totalProd) * 100 : 0;
 
-      // Load sales data
-      const salesEntries = (await salesService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
+      // Load operational sales from both legacy sales records and representative transactions.
+      // The representative workflow is the current source for orders/visits and must not be omitted.
+      const [legacySales, representativeTransactions] = await Promise.all([
+        salesService.getAll().catch(() => []),
+        representativeService.transactions.list({}).catch(() => []),
+      ]);
+      const salesEntries = [...(legacySales || []), ...(representativeTransactions || [])]
+        .filter((row: any) => inRange(row, range.start, range.end));
       let salesTotal = 0, cashAmount = 0, creditAmount = 0;
       salesEntries.forEach((item: any) => {
         const amount = parseFloat(item.amount || item.totalAmount || "0");
@@ -217,8 +231,9 @@ export default function BoardMonthlyReport() {
         });
       }
       const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
-      const manufacturingMonth = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
-      const previousDate = new Date(selectedYear, selectedMonth - 1, 1);
+      const reportMonth = period === "custom" ? range.start.slice(0, 7) : `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
+      const manufacturingMonth = reportMonth;
+      const previousDate = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
       const previousManufacturingMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
       const [manufacturingRequests, previousManufacturingRequests] = await Promise.all([
         productManufacturingRequestService.monthlyReport(manufacturingMonth),
@@ -505,10 +520,35 @@ export default function BoardMonthlyReport() {
               ["daily", isAr ? "يومي" : "Daily"],
               ["weekly", isAr ? "أسبوعي" : "Weekly"],
               ["monthly", isAr ? "شهري" : "Monthly"],
+              ["custom", isAr ? "نطاق مخصص" : "Custom range"],
             ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => setPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
           </View>
           <Text style={[styles.rangeText, { color: colors.foreground }]}>{isAr ? "من — إلى:" : "From — To:"} {range.label}</Text>
         </View>
+        {period === "custom" && <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.customDateField}>
+            <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "من تاريخ" : "From date"}</Text>
+            <TextInput
+              value={customStart}
+              onChangeText={(value) => setCustomStart(value.replace(/[^0-9-]/g, "").slice(0, 10))}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              style={[styles.customDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              accessibilityLabel={isAr ? "من تاريخ" : "From date"}
+            />
+          </View>
+          <View style={styles.customDateField}>
+            <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "إلى تاريخ" : "To date"}</Text>
+            <TextInput
+              value={customEnd}
+              onChangeText={(value) => setCustomEnd(value.replace(/[^0-9-]/g, "").slice(0, 10))}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              style={[styles.customDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
+              accessibilityLabel={isAr ? "إلى تاريخ" : "To date"}
+            />
+          </View>
+        </View>}
 
         {/* Month Selector (used for monthly comparison) */}
         {period === "monthly" && <><View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -777,6 +817,10 @@ const styles = StyleSheet.create({
   periodButton: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: 7, backgroundColor: "#E5E7EB" },
   periodButtonText: { fontSize: 12, fontWeight: "800" },
   rangeText: { textAlign: "right", fontSize: 11, fontWeight: "700" },
+  customDateRow: { flexDirection: "row-reverse", gap: 10, marginHorizontal: 16, marginBottom: 12, padding: 10, borderRadius: 10, borderWidth: 1 },
+  customDateField: { flex: 1, gap: 4 },
+  customDateLabel: { textAlign: "right", fontSize: 12, fontWeight: "800" },
+  customDateInput: { height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, textAlign: "right", fontSize: 14 },
 
   monthLabel: { fontSize: 14, fontWeight: "600" },
   monthButton: { flex: 1, flexDirection: "row", alignItems: "center", padding: 10, borderRadius: 8, borderWidth: 1, gap: 8 },
