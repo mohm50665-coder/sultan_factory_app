@@ -76,7 +76,7 @@ interface ReportData {
   previousManufacturingRequests: ReportData["manufacturingRequests"];
 }
 
-type ReportPeriod = "daily" | "weekly" | "monthly" | "custom";
+type ReportPeriod = "daily" | "twoDays" | "weekly" | "monthly" | "custom";
 
 function dateOnly(value: unknown): string {
   if (!value) return "";
@@ -101,6 +101,10 @@ function periodRange(period: ReportPeriod, month: number, year: number, customSt
   } else if (period === "daily") {
     start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     end = new Date(start);
+  } else if (period === "twoDays") {
+    end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    start = new Date(end);
+    start.setDate(end.getDate() - 1);
   } else {
     // أسبوع العمل يبدأ السبت وينتهي الخميس، والجمعة خارج نطاق التشغيل.
     const day = today.getDay();
@@ -163,6 +167,13 @@ export default function BoardMonthlyReport() {
     if (value === "monthly") {
       start = new Date(selectedYear, selectedMonth, 1);
       end = new Date(selectedYear, selectedMonth + 1, 0);
+    } else if (value === "daily") {
+      start = new Date(now);
+      end = new Date(now);
+    } else if (value === "twoDays") {
+      end = new Date(now);
+      start = new Date(now);
+      start.setDate(now.getDate() - 1);
     } else if (value === "weekly") {
       const daysFromSaturday = (now.getDay() + 1) % 7;
       start.setDate(now.getDate() - daysFromSaturday);
@@ -553,6 +564,7 @@ export default function BoardMonthlyReport() {
           <View style={styles.periodButtons}>
             {([
               ["daily", isAr ? "يومي" : "Daily"],
+              ["twoDays", isAr ? "يومان" : "2 days"],
               ["weekly", isAr ? "أسبوعي" : "Weekly"],
               ["monthly", isAr ? "شهري" : "Monthly"],
               ["custom", isAr ? "نطاق مخصص" : "Custom range"],
