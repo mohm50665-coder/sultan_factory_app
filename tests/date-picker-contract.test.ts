@@ -57,4 +57,10 @@ describe("Global date picker contract", () => {
     expect(source).toContain("setShowAllDates(false)");
     expect(source).toContain('onPress={() => setShowAllDates(true)}');
   });
+
+  it("does not render department zero cards while the report is loading", () => {
+    const source = read("app/daily-summary.tsx");
+    expect(source).toContain("جارٍ تحميل بيانات جميع الإدارات...");
+    expect(source).toContain("loading ? <View");
+  });
 });
