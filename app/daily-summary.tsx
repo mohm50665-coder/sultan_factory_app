@@ -35,6 +35,10 @@ const rowWastePercent = (row: any) => { const used = rowYarnTotal(row); return u
 const dateOnly = (value: unknown) => {
   if (!value) return "";
   const text = String(value);
+  // MySQL DATETIME values arrive as `YYYY-MM-DD HH:mm:ss`; keep the
+  // database date instead of relying on browser parsing/time-zone rules.
+  const sqlDate = text.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]|$)/);
+  if (sqlDate) return sqlDate[1];
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : localDateKey(parsed);
@@ -85,7 +89,7 @@ export default function DailySummaryScreen() {
   const [reportEndDate, setReportEndDate] = useState(today());
   const [showAllDates, setShowAllDates] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Record<string, any[]>>({ production: [], manufacturing: [], tracking: [], sales: [], collection: [], ordersVisits: [], customManufacturing: [], expenses: [], maintenance: [], tasks: [], warehouse: [], warehouseStock: [], administrative: [], products: [], meetings: [], meetingOutputs: [], financialReports: [], localCosts: [], savedProductCosts: [], tenders: [], boardData: [] });
+  const [data, setData] = useState<Record<string, any[]>>({ production: [], manufacturing: [], tracking: [], sales: [], collection: [], ordersVisits: [], customManufacturing: [], expenses: [], maintenance: [], tasks: [], warehouse: [], warehouseMovements: [], warehouseStock: [], administrative: [], products: [], meetings: [], meetingOutputs: [], financialReports: [], localCosts: [], savedProductCosts: [], tenders: [], boardData: [] });
   const [users, setUsers] = useState<any[]>([]);
   const [marketingNotes, setMarketingNotes] = useState("");
   const [savingMarketingReport, setSavingMarketingReport] = useState(false);
@@ -121,6 +125,19 @@ export default function DailySummaryScreen() {
       } else next[key] = Array.isArray(value) ? value : [];
       if (key === "warehouse") {
         const parts = Array.isArray(value) ? value : [];
+        const movementPart = parts[3];
+        next.warehouseMovements = movementPart?.status === "fulfilled" && Array.isArray(movementPart.value)
+          ? movementPart.value.map((row: any) => ({
+            ...row,
+            movementType: row.movementType || "دخول إنتاج تام",
+            materialName: row.materialName || row.productName || row.barcode || "—",
+            quantity: row.quantity ?? row.quantityDozen,
+            unit: row.unit || "درزن",
+            source: row.sourceType === "manufacturing_storage" ? "مرحلة التخزين" : row.sourceType,
+            _isWarehouseSnapshot: false,
+            createdAt: row.createdAt || row.lastMovementAt,
+          }))
+          : [];
         const stockPart = parts[4];
         next.warehouseStock = stockPart?.status === "fulfilled" && Array.isArray(stockPart.value) ? stockPart.value : [];
       }
@@ -316,7 +333,10 @@ export default function DailySummaryScreen() {
 
   const representativeTransactions = useMemo(() => representativeReport.transactions.filter((row) => showAllDates || rowMatchesDate({ date: row.orderDate || row.date, createdAt: row.createdAt })), [representativeReport.transactions, reportDate, reportEndDate, showAllDates]);
   const representativeCollections = useMemo(() => representativeReport.collections.filter((row) => showAllDates || rowMatchesDate({ date: row.collectionDate || row.date, createdAt: row.createdAt })), [representativeReport.collections, reportDate, reportEndDate, showAllDates]);
-  const warehouseMovements = useMemo(() => filtered.warehouse.filter((row: any) => !row._isWarehouseSnapshot), [filtered.warehouse]);
+  // Use the dedicated movement result, not the mixed raw-material/current-stock
+  // array. This prevents the report from losing finished-warehouse movements
+  // when one of the other warehouse queries is empty or has a different shape.
+  const warehouseMovements = useMemo(() => (data.warehouseMovements || []).filter(rowMatchesDate), [data.warehouseMovements, reportDate, reportEndDate, showAllDates]);
   const warehouseStock = useMemo(() => data.warehouseStock || [], [data.warehouseStock]);
   // المبيعات التشغيلية تُسجل في معاملات المندوبين، بينما جدول sales القديم قد يحتوي سجلات تاريخية فقط.
   const reportSalesRows = useMemo(() => [
