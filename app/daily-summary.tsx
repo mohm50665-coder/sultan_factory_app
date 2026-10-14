@@ -20,6 +20,16 @@ const localDateKey = (value: Date = new Date()) => {
 };
 const today = () => localDateKey();
 const numberValue = (value: unknown) => Number(value || 0) || 0;
+// بعض مسارات التقارير تعيد مصفوفة مباشرة، وبعضها يعيد {items}/{rows}/{data}.
+// يجب توحيدها قبل الفلترة حتى لا يتحول مصدر صحيح إلى صفر صامتاً.
+const rowsFromResponse = (value: any): any[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.rows)) return value.rows;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.results)) return value.results;
+  return [];
+};
 const rowPairs = (row: any) => numberValue(row.productionDozen) * 12 + numberValue(row.productionPairs);
 const handoverPairs = (row: any) => numberValue(row.quantityDozen) * 12 + numberValue(row.quantityPairs ?? row.quantityPair);
 const shortagePairs = (row: any) => numberValue(row.shortageDozen) * 12 + numberValue(row.shortagePairs);
@@ -125,25 +135,28 @@ export default function DailySummaryScreen() {
       const result = results[index];
       const value = result.status === "fulfilled" ? result.value : [];
       if (key === "maintenance") {
-        next[key] = Array.isArray(value) ? value.flatMap((part: any) => part?.status === "fulfilled" && Array.isArray(part.value) ? part.value : []) : [];
+        next[key] = rowsFromResponse(value).flatMap((part: any) => part?.status === "fulfilled" ? rowsFromResponse(part.value) : rowsFromResponse(part));
       } else if (key === "warehouse") {
         const movementLabels = ["مواد خام", "صرف مواد", "مواد واردة", "دخول إنتاج تام", "رصيد مستودع حالي"];
-        next[key] = Array.isArray(value) ? value.flatMap((part: any, partIndex: number) => part?.status === "fulfilled" && Array.isArray(part.value) ? part.value.map((row: any) => ({
-          ...row,
-          movementType: movementLabels[partIndex] || "حركة مستودع",
-          materialName: row.materialName || row.productName || row.barcode || "—",
-          quantity: row.quantity ?? row.quantityDozen,
-          unit: row.unit || (partIndex === 3 ? "درزن" : "—"),
-          source: partIndex === 3 ? (row.sourceType === "manufacturing_storage" ? "مرحلة التخزين" : row.sourceType) : undefined,
-          _isWarehouseSnapshot: partIndex === 4,
-          createdAt: row.createdAt || row.lastMovementAt,
-        })) : []) : [];
-      } else next[key] = Array.isArray(value) ? value : [];
+        next[key] = rowsFromResponse(value).flatMap((part: any, partIndex: number) => {
+          const rows = part?.status === "fulfilled" ? rowsFromResponse(part.value) : rowsFromResponse(part);
+          return rows.map((row: any) => ({
+            ...row,
+            movementType: movementLabels[partIndex] || "حركة مستودع",
+            materialName: row.materialName || row.productName || row.barcode || "—",
+            quantity: row.quantity ?? row.quantityDozen,
+            unit: row.unit || (partIndex === 3 ? "درزن" : "—"),
+            source: partIndex === 3 ? (row.sourceType === "manufacturing_storage" ? "مرحلة التخزين" : row.sourceType) : undefined,
+            _isWarehouseSnapshot: partIndex === 4,
+            createdAt: row.createdAt || row.lastMovementAt,
+          }));
+        });
+      } else next[key] = rowsFromResponse(value);
       if (key === "warehouse") {
-        const parts = Array.isArray(value) ? value : [];
+        const parts = rowsFromResponse(value);
         const movementPart = parts[3];
-        next.warehouseMovements = movementPart?.status === "fulfilled" && Array.isArray(movementPart.value)
-          ? movementPart.value.map((row: any) => ({
+        next.warehouseMovements = movementPart?.status === "fulfilled"
+          ? rowsFromResponse(movementPart.value).map((row: any) => ({
             ...row,
             movementType: row.movementType || "دخول إنتاج تام",
             materialName: row.materialName || row.productName || row.barcode || "—",
@@ -155,7 +168,7 @@ export default function DailySummaryScreen() {
           }))
           : [];
         const stockPart = parts[4];
-        next.warehouseStock = stockPart?.status === "fulfilled" && Array.isArray(stockPart.value) ? stockPart.value : [];
+        next.warehouseStock = stockPart?.status === "fulfilled" ? rowsFromResponse(stockPart.value) : [];
       }
     });
     setData(next);
@@ -166,8 +179,8 @@ export default function DailySummaryScreen() {
     ]);
     setRepresentativeReport({
       summary: representativeResults[0]?.status === "fulfilled" ? representativeResults[0].value || { representatives: [] } : { representatives: [] },
-      transactions: representativeResults[1]?.status === "fulfilled" && Array.isArray(representativeResults[1].value) ? representativeResults[1].value : [],
-      collections: representativeResults[2]?.status === "fulfilled" && Array.isArray(representativeResults[2].value) ? representativeResults[2].value : [],
+      transactions: representativeResults[1]?.status === "fulfilled" ? rowsFromResponse(representativeResults[1].value) : [],
+      collections: representativeResults[2]?.status === "fulfilled" ? rowsFromResponse(representativeResults[2].value) : [],
     });
     setLoading(false);
   }, []);
@@ -191,6 +204,12 @@ export default function DailySummaryScreen() {
       row.orderDate,
       row.collectionDate,
       row.deliveryDate,
+      row.visitDate,
+      row.requestDate,
+      row.productionDate,
+      row.movementDate,
+      row.transactionDate,
+      row.eventDate,
       row.submittedAt,
       row.closedAt,
       row.trackingDate,
@@ -377,12 +396,20 @@ export default function DailySummaryScreen() {
   const warehouseMovements = useMemo(() => (data.warehouseMovements || []).filter(rowMatchesDate), [data.warehouseMovements, reportDate, reportEndDate, showAllDates]);
   const warehouseStock = useMemo(() => data.warehouseStock || [], [data.warehouseStock]);
   // المبيعات التشغيلية تُسجل في معاملات المندوبين، بينما جدول sales القديم قد يحتوي سجلات تاريخية فقط.
-  const reportSalesRows = useMemo(() => [
-    ...filtered.sales.map((row: any) => ({ ...row, reportSource: "سجل المبيعات" })),
-    ...representativeTransactions
-      .filter((row: any) => ["order", "custom", "sample"].includes(String(row.transactionType || "").toLowerCase()))
-      .map((row: any) => ({ ...row, reportSource: "طلبات المندوبين" })),
-  ], [filtered.sales, representativeTransactions]);
+  const reportSalesRows = useMemo(() => {
+    const operational = representativeTransactions
+      .filter((row: any) => ["order", "custom", "sample", "return", "visit"].includes(String(row.transactionType || "").toLowerCase()))
+      .map((row: any) => ({ ...row, reportSource: "طلبات وحركة المندوبين" }));
+    const legacy = filtered.sales.map((row: any) => ({ ...row, reportSource: "سجل المبيعات" }));
+    const visits = filtered.ordersVisits.map((row: any) => ({ ...row, reportSource: "الطلبات والزيارات التشغيلية" }));
+    const seen = new Set<string>();
+    return [...legacy, ...operational, ...visits].filter((row: any) => {
+      const key = `${row.id ?? ""}|${row.referenceCode ?? ""}|${row.orderDate ?? row.date ?? row.createdAt ?? ""}|${row.reportSource}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filtered.sales, filtered.ordersVisits, representativeTransactions]);
   const representativePerformanceRows = useMemo(() => {
     const summaryRows = Array.isArray(representativeReport.summary?.representatives) ? representativeReport.summary.representatives : [];
     const byId = new Map<string, { name: string; orders: number; visits: number; custom: number; samples: number; collections: number; collected: number; score: number }>();
