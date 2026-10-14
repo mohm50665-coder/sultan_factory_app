@@ -14,7 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, salesService, expensesService, taskService, productManufacturingRequestService } from "@/lib/services/api.service";
+import { productionService, salesService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
@@ -63,6 +63,13 @@ interface ReportData {
   collection: {
     totalAmount: number;
     collectionRate: number;
+  };
+  warehouse: {
+    movementCount: number;
+    receiptDozen: number;
+    issueDozen: number;
+    stockItems: number;
+    stockDozen: number;
   };
   manufacturingRequests: {
     total: number;
@@ -127,7 +134,7 @@ function DateField({ value, onChange, label, colors }: { value: string; onChange
 }
 
 function rowDate(row: any): string {
-  return dateOnly(row?.date || row?.orderDate || row?.invoiceDate || row?.receiptDate || row?.collectionDate || row?.expenseDate || row?.reportDate || row?.targetDate || row?.dueDate || row?.createdAt || row?.updatedAt);
+  return dateOnly(row?.date || row?.orderDate || row?.invoiceDate || row?.receiptDate || row?.collectionDate || row?.expenseDate || row?.reportDate || row?.targetDate || row?.dueDate || row?.productionDate || row?.movementDate || row?.submittedAt || row?.createdAt || row?.updatedAt || row?.lastMovementAt || row?.movementAt);
 }
 
 function inRange(row: any, start: string, end: string): boolean {
@@ -206,7 +213,8 @@ export default function BoardMonthlyReport() {
     try {
       // Load production data
       // كل مصدر اختياري يعزل خطأه؛ لا يجوز أن يؤدي تعذر تقرير فرعي إلى إخفاء بقية التقرير.
-      const prodEntries = (await productionService.getAll().catch(() => []))
+      const productionRaw = await productionService.getAll().catch(() => []);
+      const prodEntries = (Array.isArray(productionRaw) ? productionRaw : (productionRaw as any)?.items || (productionRaw as any)?.rows || [])
         .filter((row: any) => inRange(row, range.start, range.end));
       let totalDozen = 0, totalPairs = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
       let prodCount = 0;
@@ -225,18 +233,21 @@ export default function BoardMonthlyReport() {
 
       // Load operational sales from both legacy sales records and representative transactions.
       // The representative workflow is the current source for orders/visits and must not be omitted.
-      const [legacySales, representativeTransactions, representativeCollections] = await Promise.all([
+      const [legacySalesRaw, representativeTransactionsRaw, representativeCollectionsRaw] = await Promise.all([
         salesService.getAll().catch(() => []),
         representativeService.transactions.list({}).catch(() => []),
         representativeService.collections.list({}).catch(() => []),
       ]);
-      const salesEntries = [...(legacySales || []), ...(representativeTransactions || [])]
+      const legacySales = Array.isArray(legacySalesRaw) ? legacySalesRaw : (legacySalesRaw as any)?.items || (legacySalesRaw as any)?.rows || [];
+      const representativeTransactions = Array.isArray(representativeTransactionsRaw) ? representativeTransactionsRaw : (representativeTransactionsRaw as any)?.items || (representativeTransactionsRaw as any)?.rows || [];
+      const representativeCollections = Array.isArray(representativeCollectionsRaw) ? representativeCollectionsRaw : (representativeCollectionsRaw as any)?.items || (representativeCollectionsRaw as any)?.rows || [];
+      const salesEntries = [...legacySales, ...representativeTransactions.filter((row: any) => row.transactionType === "order")]
         .filter((row: any) => inRange(row, range.start, range.end));
       let salesTotal = 0, cashAmount = 0, creditAmount = 0;
       salesEntries.forEach((item: any) => {
-        const amount = parseFloat(item.amount || item.totalAmount || "0");
+        const amount = parseFloat(item.amount ?? item.totalAmount ?? item.paymentAmount ?? "0");
         salesTotal += amount;
-        if (item.paymentMethod === "cash" || item.paymentMethod === "نقدي") {
+        if (item.paymentMethod === "cash" || item.paymentMethod === "نقدي" || item.collectionMethod === "cash") {
           cashAmount += amount;
         } else {
           creditAmount += amount;
@@ -283,6 +294,12 @@ export default function BoardMonthlyReport() {
         collectionTotal += parseFloat(item.collectedAmount || item.amount || "0");
       });
       const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
+      const [warehouseMovementsRaw, warehouseStockRaw] = await Promise.all([
+        finishedWarehouseService.movements().catch(() => []),
+        finishedWarehouseService.list().catch(() => []),
+      ]);
+      const warehouseMovements = (Array.isArray(warehouseMovementsRaw) ? warehouseMovementsRaw : (warehouseMovementsRaw as any)?.items || (warehouseMovementsRaw as any)?.rows || []).filter((row: any) => inRange(row, range.start, range.end));
+      const warehouseStock = Array.isArray(warehouseStockRaw) ? warehouseStockRaw : (warehouseStockRaw as any)?.items || (warehouseStockRaw as any)?.rows || [];
       const reportMonth = period === "custom" ? range.start.slice(0, 7) : `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
       const manufacturingMonth = reportMonth;
       const previousDate = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
@@ -339,6 +356,13 @@ export default function BoardMonthlyReport() {
         collection: {
           totalAmount: collectionTotal,
           collectionRate,
+        },
+        warehouse: {
+          movementCount: warehouseMovements.length,
+          receiptDozen: warehouseMovements.filter((row: any) => row.movementType === "receipt").reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
+          issueDozen: warehouseMovements.filter((row: any) => row.movementType === "issue").reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
+          stockItems: warehouseStock.length,
+          stockDozen: warehouseStock.reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
         },
         manufacturingRequests,
         previousManufacturingRequests,
@@ -677,6 +701,11 @@ export default function BoardMonthlyReport() {
                 <MaterialIcons name="money-off" size={22} color="#DC2626" />
                 <Text style={[styles.summaryValue, { color: "#DC2626" }]}>{reportData.expenses.totalAmount.toLocaleString()}</Text>
                 <Text style={styles.summaryLabel}>{isAr ? "ريال مصروفات" : "SAR Expenses"}</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
+                <MaterialIcons name="inventory-2" size={22} color="#C2410C" />
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.warehouse.stockDozen.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? `درزن بالمستودع — ${reportData.warehouse.movementCount} حركة` : `Warehouse dozen — ${reportData.warehouse.movementCount} movements`}</Text>
               </View>
             </View>
 
