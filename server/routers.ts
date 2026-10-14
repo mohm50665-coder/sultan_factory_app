@@ -4787,7 +4787,7 @@ export const appRouter = router({
       if (!db) return [];
       const query = input.query.trim();
       const compactQuery = query.replace(/\s+/g, "");
-      return db.select().from(finishedWarehouseStockTable).where(and(
+      const stockRows = await db.select().from(finishedWarehouseStockTable).where(and(
         eq(finishedWarehouseStockTable.isActive, 1),
         or(
           like(finishedWarehouseStockTable.productName, `%${query}%`),
@@ -4797,6 +4797,40 @@ export const appRouter = router({
           like(finishedWarehouseStockTable.productColor, `%${query}%`),
         ),
       )).orderBy(desc(finishedWarehouseStockTable.quantityDozen)).limit(50);
+      const catalogRows = await db.select().from(productsTable).where(and(
+        eq(productsTable.isActive, 1),
+        or(
+          like(productsTable.name, `%${query}%`),
+          like(sql`REPLACE(${productsTable.name}, ' ', '')`, `%${compactQuery}%`),
+          like(productsTable.barcode, `%${query}%`),
+          like(productsTable.size, `%${query}%`),
+          like(productsTable.color, `%${query}%`),
+        ),
+      )).orderBy(desc(productsTable.updatedAt)).limit(50);
+      const stockByBarcode = new Map(stockRows.map((row) => [String(row.barcode).toUpperCase(), row]));
+      const merged = catalogRows.map((product) => {
+        const stock = stockByBarcode.get(String(product.barcode).toUpperCase());
+        if (stock) return { ...stock, catalogProductId: product.id, source: "warehouse" as const };
+        return {
+          id: `catalog-${product.id}`,
+          catalogProductId: product.id,
+          barcode: product.barcode,
+          productName: product.name,
+          productSize: product.size || "",
+          productColor: product.color || "",
+          qualityGrade: "first",
+          quantityDozen: 0,
+          minimumDozen: 50,
+          isActive: 1,
+          source: "catalog" as const,
+          noStockYet: true,
+        };
+      });
+      const catalogBarcodes = new Set(catalogRows.map((row) => String(row.barcode).toUpperCase()));
+      const stockOnly = stockRows
+        .filter((row) => !catalogBarcodes.has(String(row.barcode).toUpperCase()))
+        .map((row) => ({ ...row, source: "warehouse" as const }));
+      return [...merged, ...stockOnly].slice(0, 50);
     }),
     summary: protectedProcedure.query(async () => {
       const db = await getDb();
