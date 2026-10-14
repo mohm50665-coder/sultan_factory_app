@@ -237,7 +237,7 @@ function validateTransaction(input: z.infer<typeof transactionSchema>) {
 
 function statusTargetDepartment(status: string) {
   if (["PENDING_SALES_APPROVAL", "PENDING_SALES_RESOLUTION"].includes(status)) return "sales_management";
-  if (["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(status)) return "warehouse";
+  if (["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(status)) return "warehouse";
   if (["PENDING_PRODUCTION_APPROVAL", "IN_PRODUCTION"].includes(status)) return "production";
   if (["RETURNED_TO_REPRESENTATIVE", "READY_FOR_REPRESENTATIVE"].includes(status)) return "sales_representative";
   return "closed";
@@ -304,14 +304,14 @@ async function getDetail(db: any, id: number) {
 function canViewTransaction(user: any, transaction: any) {
   if (isAdmin(user) || isSalesManager(user)) return true;
   if (Number(transaction.representativeId) === Number(user.id)) return true;
-  if (isWarehouseManager(user)) return ["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_EXECUTED", "RETURNED_TO_REPRESENTATIVE", "REPRESENTATIVE_CLOSED", "CLOSED"].includes(transaction.status);
+  if (isWarehouseManager(user)) return ["PENDING_WAREHOUSE_INVOICE", "PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED", "WAREHOUSE_EXECUTED", "RETURNED_TO_REPRESENTATIVE", "REPRESENTATIVE_CLOSED", "CLOSED"].includes(transaction.status);
   if (isProductionManager(user)) return ["custom", "sample"].includes(transaction.transactionType);
   return false;
 }
 
 const transitionSchema = z.object({
   id: z.number().int().positive(),
-  action: z.enum(["sales_approve", "sales_reject", "warehouse_invoice", "warehouse_execute", "warehouse_partial", "representative_respond", "representative_close_order", "representative_close", "production_approve", "production_reject", "sales_resubmit", "sales_accept_rejection", "production_ready", "representative_receive"]),
+  action: z.enum(["sales_approve", "sales_reject", "warehouse_invoice", "warehouse_execute", "warehouse_partial", "warehouse_not_executed", "representative_respond", "representative_close_order", "representative_close", "production_approve", "production_reject", "sales_resubmit", "sales_accept_rejection", "production_ready", "representative_receive"]),
   notes: z.string().optional().default(""),
   attachments: z.array(attachmentSchema).optional().default([]),
   invoiceNumber: z.string().optional(),
@@ -683,12 +683,16 @@ export const representativeRouter = router({
           if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب ملاحظة تفصيلية عن عدم التوفر أو التنفيذ الجزئي" });
           nextStatus = "WAREHOUSE_PARTIAL"; patch.rejectionReason = input.notes;
           break;
+        case "warehouse_not_executed":
+          if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_NOT_EXECUTED"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب سبب عدم تنفيذ الطلب" });
+          nextStatus = "WAREHOUSE_NOT_EXECUTED"; patch.rejectionReason = input.notes;
+          break;
         case "representative_respond":
-          if (Number(detail.representativeId) !== Number(ctx.user.id) || detail.status !== "WAREHOUSE_PARTIAL" || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل رد المندوب قبل إعادة الطلب للمستودع" });
+          if (Number(detail.representativeId) !== Number(ctx.user.id) || !["WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "أدخل رد المندوب قبل إعادة الطلب للمستودع" });
           nextStatus = "PENDING_WAREHOUSE_ISSUE"; patch.correctiveAction = { action: input.notes, evidence: input.attachments };
           break;
         case "representative_close_order":
-          if (Number(detail.representativeId) !== Number(ctx.user.id) || !["WAREHOUSE_PARTIAL", "WAREHOUSE_EXECUTED"].includes(detail.status)) throw new TRPCError({ code: "FORBIDDEN" });
+          if (Number(detail.representativeId) !== Number(ctx.user.id) || !["WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED", "WAREHOUSE_EXECUTED"].includes(detail.status)) throw new TRPCError({ code: "FORBIDDEN" });
           nextStatus = "REPRESENTATIVE_CLOSED"; patch.closedAt = new Date();
           break;
         case "representative_close":
@@ -728,10 +732,10 @@ export const representativeRouter = router({
       if (input.attachments.length) await db.insert(representativeAttachments).values(input.attachments.map((attachment) => ({ transactionId: input.id, attachmentType: attachment.type, fileName: attachment.name, fileUrl: attachment.url, mimeType: attachment.mimeType, uploadedBy: Number(ctx.user.id) })));
       await writeAudit(db, ctx.user, "transition", "representativeTransactions", input.id, detail, { nextStatus, ...patch }, `${input.action}: ${detail.referenceCode}`);
       await notifyNext(db, ctx.user, detail, nextStatus, input.notes);
-      if (nextStatus === "WAREHOUSE_PARTIAL") {
+      if (["WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(nextStatus)) {
         await db.insert(internalMessages).values({
-          subject: `رد من المستودع على الطلب ${detail.referenceCode}`,
-          body: `أعاد المستودع الطلب ${detail.referenceCode} بتنفيذ جزئي أو عدم توفر. الملاحظات: ${input.notes}`,
+          subject: `${nextStatus === "WAREHOUSE_NOT_EXECUTED" ? "عدم تنفيذ" : "تنفيذ جزئي"} طلب ${detail.referenceCode}`,
+          body: `أفاد المستودع بحالة الطلب ${detail.referenceCode}: ${nextStatus === "WAREHOUSE_NOT_EXECUTED" ? "لم يتم التنفيذ" : "تم التنفيذ جزئياً"}. التفاصيل: ${input.notes}`,
           senderId: Number(ctx.user.id),
           recipientUserId: Number(detail.representativeId),
           relatedType: "representative_transaction",

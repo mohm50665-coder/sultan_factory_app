@@ -88,6 +88,17 @@ describe("finished warehouse workflow", () => {
     expect(screen).toContain("تم التنفيذ وخصم الرصيد");
   });
 
+  it("separates not-executed and partial execution responses and keeps the reason visible", () => {
+    const router = read("server/representative-router.ts");
+    const screen = read("app/warehouse-representative-orders.tsx");
+    expect(router).toContain('case "warehouse_not_executed"');
+    expect(router).toContain('nextStatus = "WAREHOUSE_NOT_EXECUTED"');
+    expect(router).toContain('"WAREHOUSE_NOT_EXECUTED"');
+    expect(screen).toContain("لم يتم التنفيذ");
+    expect(screen).toContain("تم التنفيذ الجزئي");
+    expect(screen).toContain("النواقص/الملاحظات");
+  });
+
   it("provides Word, Excel and PDF report actions and notifies the representative on partial execution", () => {
     const screen = read("app/warehouse-representative-orders.tsx");
     const router = read("server/representative-router.ts");
@@ -95,7 +106,7 @@ describe("finished warehouse workflow", () => {
     expect(screen).toContain('downloadReport("excel")');
     expect(screen).toContain("printPdf");
     expect(screen).toContain("picture-as-pdf");
-    expect(router).toContain('nextStatus === "WAREHOUSE_PARTIAL"');
+    expect(router).toContain('nextStatus === "WAREHOUSE_NOT_EXECUTED" ? "عدم تنفيذ" : "تنفيذ جزئي"');
     expect(router).toContain("recipientUserId: Number(detail.representativeId)");
   });
 
@@ -109,5 +120,6 @@ describe("finished warehouse workflow", () => {
     expect(ordersScreen).toContain("طباعة الجميع");
     expect(warehouseScreen).toContain("pendingOrdersCount");
     expect(warehouseScreen).toContain("warehouse-representative-orders");
+    expect(warehouseScreen).toContain('route: "/warehouse-representative-orders"');
   });
 });

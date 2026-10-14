@@ -38,7 +38,7 @@ export default function WarehouseScreen() {
   const loadPendingOrdersCount = useCallback(async () => {
     try {
       const rows: any = await representativeService.transactions.list({ transactionType: "order" });
-      setPendingOrdersCount((rows || []).filter((row: any) => ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(row.status)).length);
+      setPendingOrdersCount((rows || []).filter((row: any) => ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(row.status)).length);
     } catch {
       setPendingOrdersCount(0);
     }
@@ -65,7 +65,7 @@ export default function WarehouseScreen() {
     },
     {
       id: "representative_orders",
-      label: isAr ? "طلبات المناديب / طلبات المبيعات" : "Representative / Sales Orders",
+      label: isAr ? "طلبات المناديب / طلبات العملاء" : "Representative / Customer Orders",
       icon: "assignment",
       color: "#f59e0b",
       route: "/warehouse-representative-orders",
@@ -98,11 +98,11 @@ export default function WarehouseScreen() {
     },
     {
       id: "customer_orders",
-      label: isAr ? "طلبات العملاء" : "Customer Orders",
+      label: isAr ? "طلبات العملاء المحولة للمستودع" : "Customer Orders Sent to Warehouse",
       icon: "shopping-bag",
       color: "#0a7ea4",
-      route: "/orders-visits",
-      description: isAr ? "عرض طلبات العملاء وحالة التجهيز" : "View customer orders and preparation status",
+      route: "/warehouse-representative-orders",
+      description: isAr ? "عرض كل طلبات المندوبين والعملاء وتنفيذها أو تسجيل النواقص" : "View and execute all representative/customer orders or record shortages",
     },
   ];
 
