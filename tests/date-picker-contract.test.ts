@@ -43,4 +43,11 @@ describe("Global date picker contract", () => {
     expect(source).toContain('setCustomStart(value); setPeriod("custom")');
     expect(source).toContain('setCustomEnd(value); setPeriod("custom")');
   });
+
+  it("includes operational dates used by sales, collections, orders, and warehouse movements", () => {
+    const source = read("app/daily-summary.tsx");
+    for (const field of ["row.orderDate", "row.collectionDate", "row.deliveryDate", "row.submittedAt", "row.closedAt", "row.lastMovementAt", "row.movementAt"]) {
+      expect(source, field).toContain(field);
+    }
+  });
 });
