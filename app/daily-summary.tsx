@@ -184,7 +184,7 @@ export default function DailySummaryScreen() {
     const end = reportEndDate || start;
     const low = start <= end ? start : end;
     const high = start <= end ? end : start;
-    return [row.date, row.trackingDate, row.invoiceDate, row.receiptDate, row.maintenanceDate, row.stopDate, row.createdDate, row.createdAt]
+    return [row.date, row.trackingDate, row.invoiceDate, row.receiptDate, row.maintenanceDate, row.stopDate, row.createdDate, row.createdAt, row.lastMovementAt, row.movementAt]
       .map(dateOnly)
       .some((value) => value && value >= low && value <= high);
   };

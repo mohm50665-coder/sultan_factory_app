@@ -205,7 +205,9 @@ export default function BoardMonthlyReport() {
     setIsLoading(true);
     try {
       // Load production data
-      const prodEntries = (await productionService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
+      // كل مصدر اختياري يعزل خطأه؛ لا يجوز أن يؤدي تعذر تقرير فرعي إلى إخفاء بقية التقرير.
+      const prodEntries = (await productionService.getAll().catch(() => []))
+        .filter((row: any) => inRange(row, range.start, range.end));
       let totalDozen = 0, totalPairs = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
       let prodCount = 0;
       prodEntries.forEach((item: any) => {
@@ -242,7 +244,8 @@ export default function BoardMonthlyReport() {
       });
 
       // Load expenses data
-      const expEntries = (await expensesService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
+      const expEntries = (await expensesService.getAll().catch(() => []))
+        .filter((row: any) => inRange(row, range.start, range.end));
       let expTotal = 0;
       const expCategories: Record<string, number> = {};
       expEntries.forEach((item: any) => {
@@ -253,12 +256,15 @@ export default function BoardMonthlyReport() {
       });
 
       // Load maintenance data
-      const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
-      const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
-      const stopped = await maintenanceEntriesService.getBySection("stopped") || [];
+      const [periodic, emergency, stopped] = await Promise.all([
+        maintenanceEntriesService.getBySection("periodic").catch(() => []),
+        maintenanceEntriesService.getBySection("emergency").catch(() => []),
+        maintenanceEntriesService.getBySection("stopped").catch(() => []),
+      ]);
 
       // Load tasks data
-      const tasksEntries = (await taskService.getAll() || []).filter((row: any) => inRange(row, range.start, range.end));
+      const tasksEntries = (await taskService.getAll().catch(() => []))
+        .filter((row: any) => inRange(row, range.start, range.end));
       const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
       const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
       const tasksOverdue = tasksEntries.filter((t: any) => t.result === "overdue" || t.status === "overdue").length;
@@ -281,10 +287,21 @@ export default function BoardMonthlyReport() {
       const manufacturingMonth = reportMonth;
       const previousDate = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
       const previousManufacturingMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
-      const [manufacturingRequests, previousManufacturingRequests] = await Promise.all([
-        productManufacturingRequestService.monthlyReport(manufacturingMonth),
-        productManufacturingRequestService.monthlyReport(previousManufacturingMonth),
+      const emptyManufacturingReport = {
+        total: 0,
+        produced: 0,
+        notProduced: 0,
+        pending: 0,
+        producedDozen: 0,
+        notProducedDozen: 0,
+        failureReasons: [] as { reason: string; count: number; quantityDozen: number }[],
+      };
+      const [manufacturingResult, previousManufacturingResult] = await Promise.all([
+        productManufacturingRequestService.monthlyReport(manufacturingMonth).catch(() => emptyManufacturingReport),
+        productManufacturingRequestService.monthlyReport(previousManufacturingMonth).catch(() => emptyManufacturingReport),
       ]);
+      const manufacturingRequests = manufacturingResult || emptyManufacturingReport;
+      const previousManufacturingRequests = previousManufacturingResult || emptyManufacturingReport;
 
       setReportData({
         production: {
