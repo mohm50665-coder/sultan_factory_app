@@ -1917,10 +1917,52 @@ export const appRouter = router({
         if (canonicalBarcode.length < 2) throw new TRPCError({ code: "CONFLICT", message: "لا يمكن تخزين منتج بلا باركود صادر من الإنتاج" });
         if (input.barcode.trim().toUpperCase() !== canonicalBarcode) throw new TRPCError({ code: "FORBIDDEN", message: "باركود التخزين ينتقل من الإنتاج ولا يمكن تعديله في المراحل" });
         const storedAt = new Date();
-        await db.update(manufacturingStagesTable).set({ barcode: canonicalBarcode, productType: `STORED:${canonicalBarcode}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
-        if (record.sampleRequestId) {
-          await db.update(sampleRequestsTable).set({ status: "ready_for_requester" }).where(eq(sampleRequestsTable.id, record.sampleRequestId));
-        }
+        await db.transaction(async (tx: any) => {
+          const existingMovement = await tx.select({ id: finishedWarehouseMovementsTable.id })
+            .from(finishedWarehouseMovementsTable)
+            .where(and(
+              eq(finishedWarehouseMovementsTable.sourceType, "manufacturing_storage"),
+              eq(finishedWarehouseMovementsTable.sourceId, Number(record.id)),
+            )).limit(1);
+          if (!existingMovement[0]) {
+            const stockRows = await tx.select().from(finishedWarehouseStockTable)
+              .where(eq(finishedWarehouseStockTable.barcode, canonicalBarcode)).limit(1);
+            let stockId: number;
+            if (stockRows[0]) {
+              stockId = Number(stockRows[0].id);
+              await tx.update(finishedWarehouseStockTable).set({
+                quantityDozen: Number(stockRows[0].quantityDozen || 0) + Number(record.quantityDozen || 0),
+                lastMovementAt: storedAt,
+              }).where(eq(finishedWarehouseStockTable.id, stockId));
+            } else {
+              const inserted = await tx.insert(finishedWarehouseStockTable).values({
+                barcode: canonicalBarcode,
+                productName: record.productName || "منتج إنتاج تام",
+                productSize: record.productSize || "",
+                productColor: record.productColor || "",
+                qualityGrade: record.qualityGrade || "first",
+                quantityDozen: Number(record.quantityDozen || 0),
+                lastMovementAt: storedAt,
+                createdBy: Number(ctx.user.id),
+              });
+              stockId = Number(inserted[0].insertId);
+            }
+            await tx.insert(finishedWarehouseMovementsTable).values({
+              stockId,
+              movementType: "receipt",
+              quantityDozen: Number(record.quantityDozen || 0),
+              sourceType: "manufacturing_storage",
+              sourceId: Number(record.id),
+              notes: `إدخال مباشر من مرحلة التخزين — ${record.productName || canonicalBarcode}`,
+              userId: Number(ctx.user.id),
+              createdAt: storedAt,
+            });
+          }
+          await tx.update(manufacturingStagesTable).set({ barcode: canonicalBarcode, productType: `STORED:${canonicalBarcode}`, stageCompletedAt: storedAt }).where(eq(manufacturingStagesTable.id, record.id));
+          if (record.sampleRequestId) {
+            await tx.update(sampleRequestsTable).set({ status: "ready_for_requester" }).where(eq(sampleRequestsTable.id, record.sampleRequestId));
+          }
+        });
         return { success: true, barcode: input.barcode.trim().toUpperCase(), storedAt };
       }),
 

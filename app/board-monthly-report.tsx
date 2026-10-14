@@ -89,7 +89,7 @@ function dateOnly(value: unknown): string {
 }
 
 function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
-  if (customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd)) {
+  if (period === "custom" && customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd)) {
     return { start: customStart, end: customEnd, label: `${customStart} — ${customEnd}` };
   }
   const today = new Date();
@@ -575,11 +575,11 @@ export default function BoardMonthlyReport() {
         <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.customDateField}>
             <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "من تاريخ" : "From date"}</Text>
-            <DateField value={customStart} onChange={setCustomStart} label={isAr ? "من تاريخ" : "From date"} colors={colors} />
+            <DateField value={customStart} onChange={(value) => { setCustomStart(value); setPeriod("custom"); }} label={isAr ? "من تاريخ" : "From date"} colors={colors} />
           </View>
           <View style={styles.customDateField}>
             <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "إلى تاريخ" : "To date"}</Text>
-            <DateField value={customEnd} onChange={setCustomEnd} label={isAr ? "إلى تاريخ" : "To date"} colors={colors} />
+            <DateField value={customEnd} onChange={(value) => { setCustomEnd(value); setPeriod("custom"); }} label={isAr ? "إلى تاريخ" : "To date"} colors={colors} />
           </View>
         </View>
 

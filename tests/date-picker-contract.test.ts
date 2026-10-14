@@ -35,4 +35,12 @@ describe("Global date picker contract", () => {
       expect(source, file).not.toContain("placeholder=\"YYYY-MM-DD\"");
     }
   });
+
+  it("does not let custom dates override the selected monthly period", () => {
+    const source = read("app/board-monthly-report.tsx");
+    expect(source).toContain('period === "custom" && customStart && customEnd');
+    expect(source).toContain('period === "monthly"');
+    expect(source).toContain('setCustomStart(value); setPeriod("custom")');
+    expect(source).toContain('setCustomEnd(value); setPeriod("custom")');
+  });
 });

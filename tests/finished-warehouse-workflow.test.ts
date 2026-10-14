@@ -33,6 +33,14 @@ describe("finished warehouse workflow", () => {
     expect(router).toContain("تنبيه انخفاض مخزون الإنتاج التام");
   });
 
+  it("records completed storage as one idempotent warehouse receipt", () => {
+    const router = read("server/routers.ts");
+    expect(router).toContain("completeStorage: protectedProcedure");
+    expect(router).toContain("db.transaction");
+    expect(router).toContain('sourceType: "manufacturing_storage"');
+    expect(router).toContain("finishedWarehouseMovementsTable");
+  });
+
   it("contains the approval chain and official evidence fields for manufacturing requests", () => {
     const screen = read("app/product-manufacturing-request.tsx");
     const router = read("server/routers.ts");
