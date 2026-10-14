@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -86,7 +86,7 @@ function dateOnly(value: unknown): string {
 }
 
 function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
-  if (period === "custom" && customStart && customEnd) {
+  if (customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd)) {
     return { start: customStart, end: customEnd, label: `${customStart} — ${customEnd}` };
   }
   const today = new Date();
@@ -111,6 +111,14 @@ function periodRange(period: ReportPeriod, month: number, year: number, customSt
   return { start: iso(start), end: iso(end), label: `${iso(start)} — ${iso(end)}` };
 }
 
+function DateField({ value, onChange, label, colors }: { value: string; onChange: (value: string) => void; label: string; colors: any }) {
+  const inputStyle = { height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, textAlign: "right" as const, fontSize: 14, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background };
+  if (Platform.OS === "web") {
+    return React.createElement("input", { type: "date", value, onChange: (event: any) => onChange(event.currentTarget.value), "aria-label": label, style: inputStyle });
+  }
+  return <TextInput value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" accessibilityLabel={label} style={inputStyle} />;
+}
+
 function rowDate(row: any): string {
   return dateOnly(row?.date || row?.orderDate || row?.expenseDate || row?.collectionDate || row?.dueDate || row?.createdAt || row?.updatedAt);
 }
@@ -132,9 +140,10 @@ export default function BoardMonthlyReport() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [period, setPeriod] = useState<ReportPeriod>("monthly");
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const [customStart, setCustomStart] = useState(todayIso);
-  const [customEnd, setCustomEnd] = useState(todayIso);
+  const currentMonthStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
+  const currentMonthEnd = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+  const [customStart, setCustomStart] = useState(currentMonthStart);
+  const [customEnd, setCustomEnd] = useState(currentMonthEnd);
   const range = periodRange(period, selectedMonth, selectedYear, customStart, customEnd);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -142,6 +151,25 @@ export default function BoardMonthlyReport() {
   const monthNamesAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthNames = isAr ? monthNamesAr : monthNamesEn;
+
+  const selectPeriod = (value: ReportPeriod) => {
+    const now = new Date();
+    const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    let start = new Date(now);
+    let end = new Date(now);
+    if (value === "monthly") {
+      start = new Date(selectedYear, selectedMonth, 1);
+      end = new Date(selectedYear, selectedMonth + 1, 0);
+    } else if (value === "weekly") {
+      const daysFromSaturday = (now.getDay() + 1) % 7;
+      start.setDate(now.getDate() - daysFromSaturday);
+      end = new Date(start);
+      end.setDate(start.getDate() + 5);
+    }
+    setPeriod(value);
+    setCustomStart(iso(start));
+    setCustomEnd(iso(end));
+  };
 
   // Generate last 12 months options
   const monthOptions: MonthOption[] = [];
@@ -521,34 +549,20 @@ export default function BoardMonthlyReport() {
               ["weekly", isAr ? "أسبوعي" : "Weekly"],
               ["monthly", isAr ? "شهري" : "Monthly"],
               ["custom", isAr ? "نطاق مخصص" : "Custom range"],
-            ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => setPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
+            ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => selectPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
           </View>
           <Text style={[styles.rangeText, { color: colors.foreground }]}>{isAr ? "من — إلى:" : "From — To:"} {range.label}</Text>
         </View>
-        {period === "custom" && <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.customDateField}>
             <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "من تاريخ" : "From date"}</Text>
-            <TextInput
-              value={customStart}
-              onChangeText={(value) => setCustomStart(value.replace(/[^0-9-]/g, "").slice(0, 10))}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numbers-and-punctuation"
-              style={[styles.customDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-              accessibilityLabel={isAr ? "من تاريخ" : "From date"}
-            />
+            <DateField value={customStart} onChange={setCustomStart} label={isAr ? "من تاريخ" : "From date"} colors={colors} />
           </View>
           <View style={styles.customDateField}>
             <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "إلى تاريخ" : "To date"}</Text>
-            <TextInput
-              value={customEnd}
-              onChangeText={(value) => setCustomEnd(value.replace(/[^0-9-]/g, "").slice(0, 10))}
-              placeholder="YYYY-MM-DD"
-              keyboardType="numbers-and-punctuation"
-              style={[styles.customDateInput, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }]}
-              accessibilityLabel={isAr ? "إلى تاريخ" : "To date"}
-            />
+            <DateField value={customEnd} onChange={setCustomEnd} label={isAr ? "إلى تاريخ" : "To date"} colors={colors} />
           </View>
-        </View>}
+        </View>
 
         {/* Month Selector (used for monthly comparison) */}
         {period === "monthly" && <><View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
