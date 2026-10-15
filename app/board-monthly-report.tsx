@@ -401,6 +401,8 @@ export default function BoardMonthlyReport() {
               { label: isAr ? "إجمالي المبيعات" : "Total Sales", value: `${reportData.sales.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "إجمالي المصروفات" : "Total Expenses", value: `${reportData.expenses.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "إجمالي التحصيل" : "Total Collection", value: `${reportData.collection.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
+              { label: isAr ? "هدر الخيوط" : "Yarn Waste", value: `${reportData.production.wasteThread.toLocaleString()} ${isAr ? "جرام" : "g"}` },
+              { label: isAr ? "نسبة الهدر" : "Waste Rate", value: `${reportData.production.wastePercentage.toFixed(1)}%` },
               { label: isAr ? "المهام المكتملة" : "Tasks Completed", value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
             ],
           },
@@ -443,6 +445,7 @@ export default function BoardMonthlyReport() {
                 [isAr ? "هدر الخيوط (جرام)" : "Thread Waste (g)", `${reportData.production.wasteThread}`],
                 [isAr ? "هدر الجوارب (جرام)" : "Socks Waste (g)", `${reportData.production.wasteSocks}`],
                 [isAr ? "وزن الخيوط المستخدم (جرام)" : "Yarn Used (g)", `${reportData.production.yarnWeight.toFixed(2)}`],
+                [isAr ? "نسبة الهدر" : "Waste Rate", `${reportData.production.wastePercentage.toFixed(1)}%`],
                 [isAr ? "هدر الإبر (حبة)" : "Needle Waste (pcs)", `${reportData.production.wasteNeedles}`],
                 [isAr ? "النخب الثاني (أزواج)" : "Second Grade (Pairs)", `${reportData.production.secondGrade}`],
               ],
@@ -715,6 +718,16 @@ export default function BoardMonthlyReport() {
                 <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.warehouse.stockDozen.toLocaleString()}</Text>
                 <Text style={styles.summaryLabel}>{isAr ? `درزن بالمستودع — ${reportData.warehouse.movementCount} حركة` : `Warehouse dozen — ${reportData.warehouse.movementCount} movements`}</Text>
               </View>
+              <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
+                <MaterialIcons name="scale" size={22} color="#C2410C" />
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.production.wasteThread.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? "هدر الخيوط — جرام" : "Yarn waste — grams"}</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: reportData.production.wastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.wastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
+                <MaterialIcons name="percent" size={22} color={reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
+                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{reportData.production.wastePercentage.toFixed(1)}%</Text>
+                <Text style={styles.summaryLabel}>{isAr ? "نسبة هدر الخيوط" : "Yarn waste rate"}</Text>
+              </View>
             </View>
 
             {/* KPI Indicators */}
@@ -891,8 +904,8 @@ export default function BoardMonthlyReport() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 120 },
-  header: { flexDirection: "row", alignItems: "center", margin: 16, padding: 16, borderRadius: 16, borderWidth: 1, gap: 12 },
+  container: { paddingBottom: 60 },
+  header: { flexDirection: "row", alignItems: "center", margin: 8, padding: 10, borderRadius: 10, borderWidth: 1, gap: 8 },
   backBtn: { padding: 4 },
   headerContent: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: "bold" },
@@ -917,17 +930,17 @@ const styles = StyleSheet.create({
   monthOptionText: { fontSize: 14 },
   loadingContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 60 },
   loadingText: { marginTop: 12, fontSize: 14 },
-  summaryGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 16 },
-  summaryCard: { width: "47%", margin: "1.5%", padding: 14, borderRadius: 12, borderWidth: 1, alignItems: "center", gap: 4 },
-  summaryValue: { fontSize: 18, fontWeight: "bold" },
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 6, marginBottom: 8 },
+  summaryCard: { width: "48%", margin: "1%", padding: 8, borderRadius: 8, borderWidth: 1, alignItems: "center", gap: 2 },
+  summaryValue: { fontSize: 16, fontWeight: "bold" },
   summaryLabel: { fontSize: 11, color: "#6B7280", textAlign: "center" },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", paddingHorizontal: 16, marginBottom: 12, marginTop: 8 },
-  kpiGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 16 },
-  kpiCard: { width: "47%", margin: "1.5%", padding: 12, borderRadius: 10, borderWidth: 1, alignItems: "center", gap: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: "bold", paddingHorizontal: 10, marginBottom: 6, marginTop: 5 },
+  kpiGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 6, marginBottom: 8 },
+  kpiCard: { width: "48%", margin: "1%", padding: 8, borderRadius: 8, borderWidth: 1, alignItems: "center", gap: 2 },
   kpiIndicator: { width: 8, height: 8, borderRadius: 4, position: "absolute", top: 10, right: 10 },
   kpiTitle: { fontSize: 11, textAlign: "center" },
   kpiValue: { fontSize: 20, fontWeight: "bold" },
-  detailCard: { marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 12, borderWidth: 1 },
+  detailCard: { marginHorizontal: 10, marginBottom: 8, padding: 10, borderRadius: 8, borderWidth: 1 },
   detailHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
   detailTitle: { fontSize: 15, fontWeight: "bold" },
   detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },

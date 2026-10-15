@@ -42,32 +42,34 @@ function generateHTMLReport(report: PDFReportData): string {
   <title>${report.title}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Arial', 'Tahoma', sans-serif; direction: rtl; padding: 20px; background: #fff; color: #1a1a1a; }
-    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #0a7ea4; }
-    .header h1 { font-size: 24px; color: #0a7ea4; margin-bottom: 8px; }
-    .header h2 { font-size: 16px; color: #666; margin-bottom: 4px; }
-    .header .date { font-size: 13px; color: #999; }
-    .section { margin-bottom: 24px; page-break-inside: avoid; }
-    .section-title { font-size: 18px; font-weight: bold; color: #0a7ea4; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
-    th { background: #0a7ea4; color: white; padding: 10px 8px; text-align: right; font-weight: bold; }
-    td { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right; }
+    body { font-family: 'Arial', 'Tahoma', sans-serif; direction: rtl; padding: 10px; background: #fff; color: #1a1a1a; font-size: 12px; }
+    .header { text-align: center; margin-bottom: 12px; padding: 8px 0 10px; border-bottom: 2px solid #0a7ea4; position: relative; }
+    .header h1 { font-size: 20px; color: #0a7ea4; margin-bottom: 3px; }
+    .header h2 { font-size: 14px; color: #666; margin-bottom: 2px; }
+    .header .date { font-size: 11px; color: #777; }
+    .print-button { position: absolute; left: 0; top: 4px; border: 1px solid #0a7ea4; background: #e0f2fe; color: #075985; border-radius: 5px; padding: 5px 9px; cursor: pointer; font-weight: bold; }
+    .section { margin-bottom: 10px; }
+    .section-title { font-size: 14px; font-weight: bold; color: #0a7ea4; margin-bottom: 5px; padding-bottom: 3px; border-bottom: 1px solid #e5e7eb; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 7px; font-size: 11px; }
+    th { background: #0a7ea4; color: white; padding: 5px 6px; text-align: right; font-weight: bold; }
+    td { padding: 4px 6px; border-bottom: 1px solid #e5e7eb; text-align: right; }
     tr:nth-child(even) { background: #f9fafb; }
-    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .summary-card { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px; text-align: center; }
-    .summary-card .value { font-size: 24px; font-weight: bold; color: #0a7ea4; }
-    .summary-card .label { font-size: 12px; color: #666; margin-top: 4px; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .kpi-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+    .summary-card { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 5px; padding: 7px 4px; text-align: center; }
+    .summary-card .value { font-size: 17px; font-weight: bold; color: #0a7ea4; }
+    .summary-card .label { font-size: 10px; color: #666; margin-top: 2px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+    .kpi-card { border: 1px solid #e5e7eb; border-radius: 5px; padding: 7px; }
     .kpi-card .kpi-title { font-size: 12px; color: #666; }
     .kpi-card .kpi-value { font-size: 20px; font-weight: bold; margin-top: 4px; }
     .kpi-card .kpi-target { font-size: 11px; color: #999; margin-top: 2px; }
     .kpi-good { border-right: 4px solid #22c55e; }
     .kpi-warning { border-right: 4px solid #f59e0b; }
     .kpi-bad { border-right: 4px solid #ef4444; }
-    .text-section { background: #f9fafb; padding: 16px; border-radius: 8px; line-height: 1.8; }
-    .footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 11px; color: #999; }
-    @media print { body { padding: 0; } .header { page-break-after: avoid; } }
+    .text-section { background: #f9fafb; padding: 8px; border-radius: 5px; line-height: 1.45; }
+    .footer { margin-top: 12px; padding-top: 7px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 10px; color: #999; }
+    @media print { body { padding: 0; } .header { page-break-after: avoid; } .print-button { display: none; } .section { break-inside: avoid; } }
+    @media (max-width: 700px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
   </style>
 </head>
 <body>
@@ -76,6 +78,7 @@ function generateHTMLReport(report: PDFReportData): string {
     <h2>${report.title}</h2>
     ${report.subtitle ? `<p>${report.subtitle}</p>` : ""}
     <p class="date">${report.date}</p>
+    <button class="print-button" onclick="window.print()">🖨 طباعة</button>
   </div>
   ${sectionsHTML}
   <div class="footer">

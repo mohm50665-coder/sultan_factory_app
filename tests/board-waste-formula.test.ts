@@ -16,4 +16,10 @@ describe("board report waste formula", () => {
     expect(source).not.toContain("const wastePercentage = totalProd > 0 ? (totalWaste / totalProd) * 100 : 0");
     expect(source).toContain("yarnWeight: totalYarnWeight");
   });
+
+  it("shows yarn waste quantity and waste rate in the executive summary and export", () => {
+    expect(source).toContain("هدر الخيوط — جرام");
+    expect(source).toContain("نسبة هدر الخيوط");
+    expect(source).toContain("نسبة الهدر");
+  });
 });
