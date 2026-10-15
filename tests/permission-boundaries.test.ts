@@ -58,7 +58,7 @@ describe("Permission boundary contract", () => {
     expect(router).toContain("hardDeleted: true");
     expect(router).toContain("NOT LIKE");
     expect(usersManagement).toContain("حذف نهائي");
-    expect(usersManagement).toContain("تعطيل الحساب");
+    expect(usersManagement).toContain('isAr ? "تعطيل"');
   });
 
   it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {

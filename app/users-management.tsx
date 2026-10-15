@@ -97,6 +97,8 @@ export default function UsersManagementScreen() {
   const [profilePosition, setProfilePosition] = useState("");
   const [profileDepartment, setProfileDepartment] = useState("");
   const [profileRole, setProfileRole] = useState<User["role"]>("user");
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [showProfileDepartmentPicker, setShowProfileDepartmentPicker] = useState(false);
   const [departmentPickerSearch, setDepartmentPickerSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -225,39 +227,24 @@ export default function UsersManagementScreen() {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك حذف حسابك الخاص" : "You cannot delete your own account");
       return;
     }
-    Alert.alert(
-      isAr ? "اختر الإجراء" : "Choose an action",
-      isAr ? `الحساب: ${userName}` : `Account: ${userName}`,
-      [
-        { text: isAr ? "إلغاء" : "Cancel" },
-        {
-          text: isAr ? "تعطيل الحساب" : "Disable account",
-          onPress: async () => {
-            try {
-              await adminService.toggleUserActive(userId);
-              await loadUsers();
-              Alert.alert(isAr ? "تم التعطيل" : "Disabled", isAr ? "تم تعطيل الحساب." : "The account was disabled.");
-            } catch (error) {
-              Alert.alert(isAr ? "تعذر التعطيل" : "Disable failed", error instanceof Error ? error.message : "Unable to disable account");
-            }
-          },
-        },
-        {
-          text: isAr ? "حذف نهائي" : "Delete permanently",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await adminService.deleteUser(userId);
-              await loadUsers();
-              Alert.alert(isAr ? "تم الحذف النهائي" : "Permanently deleted", isAr ? "تم حذف الحساب نهائياً من النظام." : "The account was permanently deleted.");
-            } catch (error) {
-              const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف المستخدم" : "Could not delete user");
-              Alert.alert(isAr ? "تعذر الحذف" : "Delete failed", message);
-            }
-          },
-        },
-      ]
-    );
+    const target = users.find((item) => item.id === userId);
+    if (target) setDeleteTarget(target);
+  };
+
+  const executeDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      await adminService.deleteUser(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadUsers();
+      Alert.alert(isAr ? "تم الحذف النهائي" : "Permanently deleted", isAr ? "تم حذف الحساب نهائياً من النظام." : "The account was permanently deleted.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف المستخدم" : "Could not delete user");
+      Alert.alert(isAr ? "تعذر الحذف" : "Delete failed", message);
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   const duplicateUsernames = users.filter((u, index, list) => list.findIndex((item) => item.username.trim().toLowerCase() === u.username.trim().toLowerCase()) !== index);
@@ -556,6 +543,41 @@ export default function UsersManagementScreen() {
       )}
 
       </ScrollView>
+
+      <Modal visible={Boolean(deleteTarget)} transparent animationType="fade" onRequestClose={() => setDeleteTarget(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteModalContent}>
+            <MaterialIcons name="warning" size={34} color="#b91c1c" />
+            <Text style={styles.deleteModalTitle}>{isAr ? "إجراء على حساب الموظف" : "Employee account action"}</Text>
+            <Text style={styles.deleteModalText}>{isAr ? `الحساب المحدد: ${deleteTarget?.name || "-"}` : `Selected account: ${deleteTarget?.name || "-"}`}</Text>
+            <Text style={styles.deleteModalHint}>{isAr ? "اختر الإجراء المطلوب. الحذف النهائي يزيل الحساب فعليًا ولا يمكن التراجع عنه." : "Choose an action. Permanent deletion removes the account and cannot be undone."}</Text>
+            <View style={styles.deleteModalActions}>
+              <TouchableOpacity onPress={() => setDeleteTarget(null)} style={styles.cancelBtn} disabled={deleteBusy}>
+                <Text style={styles.cancelBtnText}>{isAr ? "إلغاء" : "Cancel"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!deleteTarget) return;
+                  try {
+                    await adminService.toggleUserActive(deleteTarget.id);
+                    setDeleteTarget(null);
+                    await loadUsers();
+                  } catch (error) {
+                    Alert.alert(isAr ? "تعذر التعطيل" : "Disable failed", error instanceof Error ? error.message : "Unable to disable account");
+                  }
+                }}
+                style={styles.disableActionBtn}
+                disabled={deleteBusy}
+              >
+                <Text style={styles.deleteActionText}>{isAr ? "تعطيل" : "Disable"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={executeDeleteUser} style={styles.deleteActionBtn} disabled={deleteBusy}>
+                <Text style={styles.deleteActionText}>{deleteBusy ? (isAr ? "جارٍ..." : "Working...") : (isAr ? "حذف نهائي" : "Delete permanently")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal تعديل بيانات التسجيل والقسم */}
       <Modal visible={showProfileModal} transparent animationType="slide">
@@ -1057,4 +1079,12 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
   },
+  deleteModalContent: { backgroundColor: "#fff", borderRadius: 16, padding: 20, width: "92%", maxWidth: 520, alignItems: "center", borderWidth: 1, borderColor: "#fecaca" },
+  deleteModalTitle: { color: "#991b1b", fontSize: 18, fontWeight: "900", marginTop: 8, textAlign: "center" },
+  deleteModalText: { color: "#111827", fontSize: 14, fontWeight: "800", marginTop: 8, textAlign: "center" },
+  deleteModalHint: { color: "#64748b", fontSize: 12, lineHeight: 18, marginTop: 6, textAlign: "center" },
+  deleteModalActions: { width: "100%", flexDirection: "row", gap: 8, marginTop: 18 },
+  disableActionBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, backgroundColor: "#fef3c7", alignItems: "center" },
+  deleteActionBtn: { flex: 1, borderRadius: 10, paddingVertical: 12, backgroundColor: "#b91c1c", alignItems: "center" },
+  deleteActionText: { color: "#fff", fontWeight: "900", fontSize: 12 },
 });

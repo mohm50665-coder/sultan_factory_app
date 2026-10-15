@@ -1006,14 +1006,19 @@ export const appRouter = router({
         const target = await db.select({ id: usersTable.id, username: usersTable.username, email: usersTable.email, isActive: usersTable.isActive }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
         if (!target.length) throw new Error("المستخدم غير موجود أو تم حذفه مسبقاً");
         // الحذف هنا فعلي ونهائي بناءً على تأكيد الأدمن، مع منع حذف الحساب الحالي فقط.
-        await db.insert(activityLogTable).values({
-          action: "delete_user",
-          entityType: "user",
-          entityId: input.userId,
-          details: { employeeName: target[0].username, permanent: true, wasActive: Boolean(target[0].isActive) },
-          userId: ctx.user!.id,
-        } as any);
         await db.delete(usersTable).where(eq(usersTable.id, input.userId));
+        // تسجيل التدقيق best-effort بعد الحذف حتى لا يمنع السجل عملية الحذف الفعلية.
+        try {
+          await db.insert(activityLogTable).values({
+            action: "delete_user",
+            entityType: "user",
+            entityId: input.userId,
+            details: { employeeName: target[0].username, permanent: true, wasActive: Boolean(target[0].isActive) },
+            userId: ctx.user!.id,
+          } as any);
+        } catch (auditError) {
+          console.warn("[Admin] User deleted; audit log insert failed", auditError);
+        }
         return { success: true, deletedUserId: input.userId, archived: false, hardDeleted: true, message: "تم حذف الحساب نهائياً" };
       }),
 

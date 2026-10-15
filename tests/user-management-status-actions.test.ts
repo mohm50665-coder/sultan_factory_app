@@ -16,7 +16,7 @@ describe("User management status actions", () => {
     expect(source).toContain('"تفعيل"');
     expect(source).toContain('"تعطيل"');
     expect(source).toContain('"حذف"');
-    expect(source).toContain("تعطيل الحساب");
+    expect(source).toContain('isAr ? "تعطيل"');
     expect(source).toContain("حذف نهائي");
     expect(source).toContain("اختر الإجراء");
   });
