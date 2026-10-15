@@ -225,6 +225,11 @@ export default function UsersManagementScreen() {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك حذف حسابك الخاص" : "You cannot delete your own account");
       return;
     }
+    const target = users.find((item) => item.id === userId);
+    if (target?.isActive) {
+      Alert.alert(isAr ? "يجب تعطيل الحساب أولاً" : "Disable the account first", isAr ? "لا يمكن حذف موظف نشط. اضغط تعطيل ثم أعد محاولة الحذف." : "An active employee cannot be deleted. Disable the account first, then try again.");
+      return;
+    }
     Alert.alert(
       isAr ? "إجراء على حساب الموظف" : "Choose account action",
       isAr ? `اختر الإجراء المناسب للحساب: ${userName}` : `Choose an action for: ${userName}`,
@@ -234,8 +239,6 @@ export default function UsersManagementScreen() {
           text: isAr ? "تعطيل فقط" : "Disable only",
           onPress: async () => {
             try {
-              const target = users.find((item) => item.id === userId);
-              if (target?.isActive) await adminService.toggleUserActive(userId);
               await loadUsers();
               Alert.alert(isAr ? "تم التعطيل" : "Disabled", isAr ? "تم تعطيل الحساب مع الاحتفاظ به وسجلاته." : "The account was disabled and its records were preserved.");
             } catch (error: any) {
@@ -432,7 +435,7 @@ export default function UsersManagementScreen() {
             ["inactive", isAr ? `معطل (${users.filter((u) => !u.isActive).length})` : `Disabled (${users.filter((u) => !u.isActive).length})`],
             ["pending", isAr ? `بانتظار التفعيل (${pendingUsers.length})` : `Pending (${pendingUsers.length})`],
           ] as const).map(([value, label]) => (
-            <TouchableOpacity key={value} onPress={() => setStatusFilter(value)} style={[styles.filterChip, statusFilter === value && styles.filterChipActive]}>
+            <TouchableOpacity key={value} onPress={() => { setStatusFilter(value); setDepartmentFilter("all"); }} style={[styles.filterChip, statusFilter === value && styles.filterChipActive]}>
               <Text style={[styles.filterChipText, statusFilter === value && styles.filterChipTextActive]}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -816,14 +819,16 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   statCard: {
+    flex: 1,
     borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 16,
+    marginHorizontal: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     alignItems: "center",
   },
   statNumber: {
@@ -837,7 +842,7 @@ const styles = StyleSheet.create({
   },
   pageScroll: { flex: 1 },
   pageContent: { paddingBottom: 28 },
-  filterPanel: { paddingHorizontal: 8, paddingBottom: 5 },
+  filterPanel: { paddingHorizontal: 8, paddingBottom: 4 },
   filterTitle: { fontSize: 12, fontWeight: "800", color: "#374151", textAlign: "right", marginBottom: 4 },
   filterRow: { flexDirection: "row", gap: 5, paddingBottom: 2 },
   filterChip: { borderWidth: 1, borderColor: "#dbe3ea", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: "#fff" },
@@ -936,12 +941,12 @@ const styles = StyleSheet.create({
   modalLabel: { fontSize: 13, fontWeight: "700", color: "#374151", textAlign: "right", marginBottom: 8 },
   addUserHeaderBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#0a7ea4", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 8 },
   addUserHeaderText: { color: "#fff", fontSize: 11, fontWeight: "800" },
-  registrationPanel: { marginHorizontal: 16, marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#bfdbfe", flexDirection: "row", alignItems: "center", gap: 10 },
+  registrationPanel: { marginHorizontal: 8, marginTop: 6, padding: 7, borderRadius: 9, backgroundColor: "#eff6ff", borderWidth: 1, borderColor: "#bfdbfe", flexDirection: "row", alignItems: "center", gap: 7 },
   registrationPanelText: { flex: 1 },
-  registrationTitle: { color: "#1e3a8a", fontSize: 14, fontWeight: "800", textAlign: "right" },
-  registrationHint: { color: "#475569", fontSize: 11, lineHeight: 16, textAlign: "right", marginTop: 3 },
-  registrationLink: { color: "#0369a1", fontSize: 11, marginTop: 5, textAlign: "right" },
-  registrationButton: { backgroundColor: "#0a7ea4", borderRadius: 9, paddingHorizontal: 10, paddingVertical: 9, flexDirection: "row", alignItems: "center", gap: 5 },
+  registrationTitle: { color: "#1e3a8a", fontSize: 12, fontWeight: "800", textAlign: "right" },
+  registrationHint: { color: "#475569", fontSize: 10, lineHeight: 14, textAlign: "right", marginTop: 2 },
+  registrationLink: { color: "#0369a1", fontSize: 10, marginTop: 3, textAlign: "right" },
+  registrationButton: { backgroundColor: "#0a7ea4", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 7, flexDirection: "row", alignItems: "center", gap: 4 },
   registrationButtonText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   pendingPanel: { marginHorizontal: 16, marginTop: 10, padding: 12, borderRadius: 12, backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fcd34d" },
   pendingTitle: { color: "#92400e", fontSize: 14, fontWeight: "800", textAlign: "right", marginBottom: 8 },
