@@ -367,6 +367,8 @@ export default function UsersManagementScreen() {
         ) : <View style={{ width: 40 }} />}
       </View>
 
+      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
+
       {currentUser?.role === "admin" && (
         <View style={styles.registrationPanel}>
           <View style={styles.registrationPanelText}>
@@ -449,7 +451,7 @@ export default function UsersManagementScreen() {
       </View>
 
       {/* Users List */}
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      <View style={styles.list}>
         <View style={styles.listHeading}>
           <Text style={styles.listHeadingText}>{isAr ? "قائمة جميع الموظفين" : "All employees"}</Text>
           <Text style={styles.listHeadingCount}>{isAr ? `${filteredUsers.length} حساب ظاهر` : `${filteredUsers.length} accounts shown`}</Text>
@@ -533,7 +535,7 @@ export default function UsersManagementScreen() {
             </View>
           </View>
         ))}
-      </ScrollView>
+      </View>
 
       {/* سجل تغييرات الأقسام */}
       {currentUser?.role === "admin" && (
@@ -553,6 +555,8 @@ export default function UsersManagementScreen() {
           })}
         </View>
       )}
+
+      </ScrollView>
 
       {/* Modal تعديل بيانات التسجيل والقسم */}
       <Modal visible={showProfileModal} transparent animationType="slide">
@@ -813,13 +817,13 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   statCard: {
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   statNumber: {
@@ -831,10 +835,12 @@ const styles = StyleSheet.create({
     color: "#687076",
     marginTop: 2,
   },
-  filterPanel: { paddingHorizontal: 16, paddingBottom: 8 },
-  filterTitle: { fontSize: 13, fontWeight: "700", color: "#374151", textAlign: "right", marginBottom: 7 },
-  filterRow: { flexDirection: "row", gap: 7, paddingBottom: 3 },
-  filterChip: { borderWidth: 1, borderColor: "#dbe3ea", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#fff" },
+  pageScroll: { flex: 1 },
+  pageContent: { paddingBottom: 28 },
+  filterPanel: { paddingHorizontal: 8, paddingBottom: 5 },
+  filterTitle: { fontSize: 12, fontWeight: "800", color: "#374151", textAlign: "right", marginBottom: 4 },
+  filterRow: { flexDirection: "row", gap: 5, paddingBottom: 2 },
+  filterChip: { borderWidth: 1, borderColor: "#dbe3ea", borderRadius: 14, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: "#fff" },
   filterChipActive: { borderColor: "#0a7ea4", backgroundColor: "#e0f7fa" },
   filterChipText: { fontSize: 12, color: "#475569" },
   filterChipTextActive: { color: "#0a7ea4", fontWeight: "800" },
@@ -851,14 +857,12 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
   },
-  listContent: {
-    padding: 16,
-  },
+  listContent: { padding: 8 },
   userCard: {
     backgroundColor: "white",
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    padding: 10,
+    marginBottom: 7,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     flexDirection: "row",
