@@ -36,4 +36,14 @@ describe("representative sales module", () => {
     expect(router).toContain("saleRows.reduce");
     expect(router).toContain("sales: saleRows.length");
   });
+
+  it("uses a compact responsive invoice form without horizontal customer scrolling", () => {
+    const screen = read("app/representative-sales.tsx");
+    expect(screen).toContain("useWindowDimensions");
+    expect(screen).toContain("const isWide = width >= 900");
+    expect(screen).toContain("maxWidth: 1280");
+    expect(screen).toContain("invoiceGridStack");
+    expect(screen).toContain("customerResults");
+    expect(screen).not.toContain("contentContainerStyle={styles.customerRow}");
+  });
 });
