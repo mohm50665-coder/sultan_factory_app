@@ -1003,25 +1003,14 @@ export const appRouter = router({
         const db = await getDb();
         if (!db) throw new Error("قاعدة البيانات غير متاحة");
         if (ctx.user?.id === input.userId) throw new Error("لا يمكنك حذف حساب الأدمن المستخدم حالياً");
-        const target = await db.select({ id: usersTable.id, username: usersTable.username, email: usersTable.email }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
+        const target = await db.select({ id: usersTable.id, username: usersTable.username, email: usersTable.email, isActive: usersTable.isActive }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
         if (!target.length) throw new Error("المستخدم غير موجود أو تم حذفه مسبقاً");
-        if (String(target[0].username || "").startsWith(ARCHIVED_USER_PREFIX)) {
-          throw new Error("تم حذف الموظف مسبقاً");
+        if (target[0].isActive) {
+          throw new Error("يجب تعطيل الحساب قبل حذفه نهائياً");
         }
-        // لا نحذف الصف فعلياً حتى لا تنكسر سجلات الإنتاج والتسليم والتقارير المرتبطة بـ userId.
-        // الأرشفة تمنع الدخول وتخفي الحساب من قائمة الموظفين، مع الاحتفاظ بالتاريخ الرقابي.
-        const archivedUsername = `${ARCHIVED_USER_PREFIX}${input.userId}_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-        const archivedEmail = `${ARCHIVED_USER_PREFIX}${input.userId}_${randomUUID().replace(/-/g, "").slice(0, 16)}@deleted.local`;
-        await db.update(usersTable).set({
-          username: archivedUsername,
-          email: archivedEmail,
-          phone: null,
-          password: randomUUID(),
-          isActive: 0,
-          allowedSections: null,
-          toolPermissions: null,
-        }).where(eq(usersTable.id, input.userId));
-        return { success: true, deletedUserId: input.userId, archived: true, message: "تم حذف الحساب مع الاحتفاظ بالسجلات التاريخية" };
+        // الحذف هنا فعلي ونهائي بناءً على طلب الأدمن، ولا يسمح به إلا للحساب المعطّل.
+        await db.delete(usersTable).where(eq(usersTable.id, input.userId));
+        return { success: true, deletedUserId: input.userId, archived: false, hardDeleted: true, message: "تم حذف الحساب نهائياً" };
       }),
 
     resetUserPassword: adminProcedure

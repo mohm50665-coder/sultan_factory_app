@@ -231,29 +231,18 @@ export default function UsersManagementScreen() {
       return;
     }
     Alert.alert(
-      isAr ? "إجراء على حساب الموظف" : "Choose account action",
-      isAr ? `اختر الإجراء المناسب للحساب: ${userName}` : `Choose an action for: ${userName}`,
+      isAr ? "تأكيد الحذف النهائي" : "Confirm permanent deletion",
+      isAr ? `سيتم حذف حساب الموظف نهائياً من النظام: ${userName}\nلا يمكن التراجع عن هذا الإجراء.` : `The employee account will be permanently deleted: ${userName}\nThis cannot be undone.`,
       [
         { text: isAr ? "إلغاء" : "Cancel" },
         {
-          text: isAr ? "تعطيل فقط" : "Disable only",
-          onPress: async () => {
-            try {
-              await loadUsers();
-              Alert.alert(isAr ? "تم التعطيل" : "Disabled", isAr ? "تم تعطيل الحساب مع الاحتفاظ به وسجلاته." : "The account was disabled and its records were preserved.");
-            } catch (error: any) {
-              Alert.alert(isAr ? "تعذر التعطيل" : "Disable failed", error?.message || "Unable to disable account");
-            }
-          },
-        },
-        {
-          text: isAr ? "حذف وإخفاء الحساب" : "Archive and hide",
+          text: isAr ? "حذف نهائي" : "Delete permanently",
           style: "destructive",
           onPress: async () => {
             try {
               await adminService.deleteUser(userId);
               await loadUsers();
-              Alert.alert(isAr ? "تم الحذف" : "Deleted", isAr ? "تم حذف الحساب وإخفاؤه من قائمة الموظفين مع الاحتفاظ بسجلاته التاريخية" : "The account was deleted from the employee list while historical records were preserved");
+              Alert.alert(isAr ? "تم الحذف النهائي" : "Permanently deleted", isAr ? "تم حذف الحساب نهائياً من النظام." : "The account was permanently deleted.");
             } catch (error) {
               const message = error instanceof Error ? error.message : (isAr ? "تعذر حذف المستخدم" : "Could not delete user");
               Alert.alert(isAr ? "تعذر الحذف" : "Delete failed", message);
