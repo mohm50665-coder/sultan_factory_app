@@ -100,6 +100,7 @@ export default function UsersManagementScreen() {
   const [showProfileDepartmentPicker, setShowProfileDepartmentPicker] = useState(false);
   const [departmentPickerSearch, setDepartmentPickerSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "pending">("all");
   const [departmentChanges, setDepartmentChanges] = useState<ActivityLogEntry[]>([]);
 
   const loadUsers = useCallback(async () => {
@@ -225,12 +226,25 @@ export default function UsersManagementScreen() {
       return;
     }
     Alert.alert(
-      isAr ? "تأكيد الحذف" : "Confirm Deletion",
-      isAr ? `هل أنت متأكد من حذف المستخدم "${userName}"؟` : `Are you sure you want to delete user "${userName}"?`,
+      isAr ? "إجراء على حساب الموظف" : "Choose account action",
+      isAr ? `اختر الإجراء المناسب للحساب: ${userName}` : `Choose an action for: ${userName}`,
       [
         { text: isAr ? "إلغاء" : "Cancel" },
         {
-          text: isAr ? "حذف" : "Delete",
+          text: isAr ? "تعطيل فقط" : "Disable only",
+          onPress: async () => {
+            try {
+              const target = users.find((item) => item.id === userId);
+              if (target?.isActive) await adminService.toggleUserActive(userId);
+              await loadUsers();
+              Alert.alert(isAr ? "تم التعطيل" : "Disabled", isAr ? "تم تعطيل الحساب مع الاحتفاظ به وسجلاته." : "The account was disabled and its records were preserved.");
+            } catch (error: any) {
+              Alert.alert(isAr ? "تعذر التعطيل" : "Disable failed", error?.message || "Unable to disable account");
+            }
+          },
+        },
+        {
+          text: isAr ? "حذف وإخفاء الحساب" : "Archive and hide",
           style: "destructive",
           onPress: async () => {
             try {
@@ -298,7 +312,14 @@ export default function UsersManagementScreen() {
     const term = departmentPickerSearch.trim().toLowerCase();
     return !term || `${department.labelAr} ${department.labelEn}`.toLowerCase().includes(term);
   });
-  const filteredUsers = users.filter((u) => departmentFilter === "all" || u.department === departmentFilter);
+  const filteredUsers = users.filter((u) => {
+    const matchesDepartment = departmentFilter === "all" || u.department === departmentFilter;
+    const matchesStatus = statusFilter === "all"
+      || (statusFilter === "active" && Boolean(u.isActive))
+      || (statusFilter === "inactive" && !u.isActive)
+      || (statusFilter === "pending" && !u.isActive);
+    return matchesDepartment && matchesStatus;
+  });
 
   const handleManageSections = (u: User) => {
     setSectionsUser(u);
@@ -361,21 +382,15 @@ export default function UsersManagementScreen() {
       )}
 
       {currentUser?.role === "admin" && pendingUsers.length > 0 && (
-        <View style={styles.pendingPanel}>
-          <Text style={styles.pendingTitle}>{isAr ? `طلبات التسجيل بانتظار التعميد (${pendingUsers.length})` : `Pending registrations (${pendingUsers.length})`}</Text>
-          {pendingUsers.map((pendingUser) => (
-            <View key={pendingUser.id} style={styles.pendingRow}>
-              <View style={styles.pendingInfo}>
-                <Text style={styles.pendingName}>{pendingUser.name}</Text>
-                <Text style={styles.pendingDetails}>{pendingUser.username} · {getDepartmentLabel(pendingUser.department || "")} · {pendingUser.position || (isAr ? "بدون منصب" : "No position")}</Text>
-              </View>
-              <TouchableOpacity onPress={() => handleApproveUser(pendingUser)} style={styles.approveButton}>
-                <MaterialIcons name="verified" size={18} color="#fff" />
-                <Text style={styles.approveButtonText}>{isAr ? "اعتماد وتفعيل" : "Approve"}</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+        <TouchableOpacity
+          onPress={() => setStatusFilter("pending")}
+          style={styles.pendingCompact}
+          accessibilityLabel={isAr ? "عرض الحسابات بانتظار التفعيل" : "Show pending accounts"}
+        >
+          <MaterialIcons name="pending-actions" size={20} color="#92400e" />
+          <Text style={styles.pendingCompactText}>{isAr ? `${pendingUsers.length} حساب بانتظار التفعيل — اضغط لعرضه واعتماده` : `${pendingUsers.length} pending account(s) — tap to review and activate`}</Text>
+          <MaterialIcons name="chevron-left" size={20} color="#92400e" />
+        </TouchableOpacity>
       )}
 
       {/* Stats */}
@@ -407,6 +422,19 @@ export default function UsersManagementScreen() {
 
       {/* فلترة الموظفين حسب القسم */}
       <View style={styles.filterPanel}>
+        <Text style={styles.filterTitle}>{isAr ? "حالة الحساب" : "Account status"}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {([
+            ["all", isAr ? `كل الموظفين (${users.length})` : `All employees (${users.length})`],
+            ["active", isAr ? `نشط (${users.filter((u) => u.isActive).length})` : `Active (${users.filter((u) => u.isActive).length})`],
+            ["inactive", isAr ? `معطل (${users.filter((u) => !u.isActive).length})` : `Disabled (${users.filter((u) => !u.isActive).length})`],
+            ["pending", isAr ? `بانتظار التفعيل (${pendingUsers.length})` : `Pending (${pendingUsers.length})`],
+          ] as const).map(([value, label]) => (
+            <TouchableOpacity key={value} onPress={() => setStatusFilter(value)} style={[styles.filterChip, statusFilter === value && styles.filterChipActive]}>
+              <Text style={[styles.filterChipText, statusFilter === value && styles.filterChipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
         <Text style={styles.filterTitle}>{isAr ? "فلترة الموظفين حسب القسم" : "Filter employees by department"}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           <TouchableOpacity onPress={() => setDepartmentFilter("all")} style={[styles.filterChip, departmentFilter === "all" && styles.filterChipActive]}>
@@ -422,6 +450,10 @@ export default function UsersManagementScreen() {
 
       {/* Users List */}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        <View style={styles.listHeading}>
+          <Text style={styles.listHeadingText}>{isAr ? "قائمة جميع الموظفين" : "All employees"}</Text>
+          <Text style={styles.listHeadingCount}>{isAr ? `${filteredUsers.length} حساب ظاهر` : `${filteredUsers.length} accounts shown`}</Text>
+        </View>
         {filteredUsers.map((u) => (
           <View key={u.id} style={[styles.userCard, !u.isActive && styles.userCardInactive]}>
             <View style={styles.userInfo}>
@@ -466,13 +498,14 @@ export default function UsersManagementScreen() {
               {/* تفعيل/تعطيل */}
               <TouchableOpacity
                 onPress={() => handleToggleActive(u.id)}
-                style={[styles.actionBtn, { backgroundColor: u.isActive ? "#fee2e2" : "#dcfce7" }]}
+                style={[styles.actionTextBtn, { backgroundColor: u.isActive ? "#fee2e2" : "#dcfce7" }]}
               >
                 <MaterialIcons
                   name={u.isActive ? "block" : "check-circle"}
                   size={18}
                   color={u.isActive ? "#b91c1c" : "#15803d"}
                 />
+                <Text style={[styles.actionText, { color: u.isActive ? "#b91c1c" : "#15803d" }]}>{u.isActive ? (isAr ? "تعطيل" : "Disable") : (isAr ? "تفعيل" : "Activate")}</Text>
               </TouchableOpacity>
 
               {users.filter((item) => item.username.trim().toLowerCase() === u.username.trim().toLowerCase()).length > 1 && currentUser?.role === "admin" && (
@@ -492,9 +525,10 @@ export default function UsersManagementScreen() {
               {/* حذف */}
               <TouchableOpacity
                 onPress={() => handleDeleteUser(u.id, u.name)}
-                style={[styles.actionBtn, { backgroundColor: "#fee2e2" }]}
+                style={[styles.actionTextBtn, { backgroundColor: "#fee2e2" }]}
               >
                 <MaterialIcons name="delete" size={18} color="#b91c1c" />
+                <Text style={[styles.actionText, { color: "#b91c1c" }]}>{isAr ? "حذف" : "Delete"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -804,6 +838,9 @@ const styles = StyleSheet.create({
   filterChipActive: { borderColor: "#0a7ea4", backgroundColor: "#e0f7fa" },
   filterChipText: { fontSize: 12, color: "#475569" },
   filterChipTextActive: { color: "#0a7ea4", fontWeight: "800" },
+  listHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2, paddingBottom: 8 },
+  listHeadingText: { color: "#0f172a", fontSize: 15, fontWeight: "900", textAlign: "right" },
+  listHeadingCount: { color: "#64748b", fontSize: 11, fontWeight: "700" },
   auditPanel: { marginHorizontal: 16, marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: "#dbe3ea", backgroundColor: "#f8fafc" },
   auditTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a", textAlign: "right", marginBottom: 8 },
   auditEmpty: { fontSize: 12, color: "#64748b", textAlign: "right" },
@@ -867,6 +904,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  actionTextBtn: {
+    minWidth: 84,
+    minHeight: 34,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 7,
+  },
+  actionText: { fontSize: 10, fontWeight: "900" },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -897,6 +945,8 @@ const styles = StyleSheet.create({
   pendingInfo: { flex: 1 },
   pendingName: { color: "#111827", fontSize: 13, fontWeight: "800", textAlign: "right" },
   pendingDetails: { color: "#64748b", fontSize: 11, textAlign: "right", marginTop: 3 },
+  pendingCompact: { marginHorizontal: 16, marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fcd34d", flexDirection: "row", alignItems: "center", gap: 7 },
+  pendingCompactText: { flex: 1, color: "#92400e", fontSize: 12, fontWeight: "800", textAlign: "right" },
   approveButton: { backgroundColor: "#15803d", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 8, flexDirection: "row", alignItems: "center", gap: 4 },
   approveButtonText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   modalInput: {
