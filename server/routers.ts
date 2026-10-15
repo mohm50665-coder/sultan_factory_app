@@ -1005,10 +1005,14 @@ export const appRouter = router({
         if (ctx.user?.id === input.userId) throw new Error("لا يمكنك حذف حساب الأدمن المستخدم حالياً");
         const target = await db.select({ id: usersTable.id, username: usersTable.username, email: usersTable.email, isActive: usersTable.isActive }).from(usersTable).where(eq(usersTable.id, input.userId)).limit(1);
         if (!target.length) throw new Error("المستخدم غير موجود أو تم حذفه مسبقاً");
-        if (target[0].isActive) {
-          throw new Error("يجب تعطيل الحساب قبل حذفه نهائياً");
-        }
-        // الحذف هنا فعلي ونهائي بناءً على طلب الأدمن، ولا يسمح به إلا للحساب المعطّل.
+        // الحذف هنا فعلي ونهائي بناءً على تأكيد الأدمن، مع منع حذف الحساب الحالي فقط.
+        await db.insert(activityLogTable).values({
+          action: "delete_user",
+          entityType: "user",
+          entityId: input.userId,
+          details: { employeeName: target[0].username, permanent: true, wasActive: Boolean(target[0].isActive) },
+          userId: ctx.user!.id,
+        } as any);
         await db.delete(usersTable).where(eq(usersTable.id, input.userId));
         return { success: true, deletedUserId: input.userId, archived: false, hardDeleted: true, message: "تم حذف الحساب نهائياً" };
       }),

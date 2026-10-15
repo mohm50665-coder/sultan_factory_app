@@ -51,14 +51,14 @@ describe("Permission boundary contract", () => {
     expect(usersManagement).toContain("updateUserProfile");
   });
 
-  it("permanently deletes disabled employees and protects active accounts", () => {
+  it("permanently deletes any employee except the current admin account", () => {
     expect(router).toContain("const ARCHIVED_USER_PREFIX = \"__deleted_employee__\"");
-    expect(router).toContain("يجب تعطيل الحساب قبل حذفه نهائياً");
+    expect(router).toContain("delete_user");
     expect(router).toContain("await db.delete(usersTable)");
     expect(router).toContain("hardDeleted: true");
     expect(router).toContain("NOT LIKE");
     expect(usersManagement).toContain("حذف نهائي");
-    expect(usersManagement).toContain("لا يمكن التراجع عن هذا الإجراء");
+    expect(usersManagement).toContain("تعطيل الحساب");
   });
 
   it("keeps sensitive tools in the dedicated tools-permissions picker and official features in user sections", () => {

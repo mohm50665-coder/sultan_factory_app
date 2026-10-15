@@ -225,16 +225,23 @@ export default function UsersManagementScreen() {
       Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا يمكنك حذف حسابك الخاص" : "You cannot delete your own account");
       return;
     }
-    const target = users.find((item) => item.id === userId);
-    if (target?.isActive) {
-      Alert.alert(isAr ? "يجب تعطيل الحساب أولاً" : "Disable the account first", isAr ? "لا يمكن حذف موظف نشط. اضغط تعطيل ثم أعد محاولة الحذف." : "An active employee cannot be deleted. Disable the account first, then try again.");
-      return;
-    }
     Alert.alert(
-      isAr ? "تأكيد الحذف النهائي" : "Confirm permanent deletion",
-      isAr ? `سيتم حذف حساب الموظف نهائياً من النظام: ${userName}\nلا يمكن التراجع عن هذا الإجراء.` : `The employee account will be permanently deleted: ${userName}\nThis cannot be undone.`,
+      isAr ? "اختر الإجراء" : "Choose an action",
+      isAr ? `الحساب: ${userName}` : `Account: ${userName}`,
       [
         { text: isAr ? "إلغاء" : "Cancel" },
+        {
+          text: isAr ? "تعطيل الحساب" : "Disable account",
+          onPress: async () => {
+            try {
+              await adminService.toggleUserActive(userId);
+              await loadUsers();
+              Alert.alert(isAr ? "تم التعطيل" : "Disabled", isAr ? "تم تعطيل الحساب." : "The account was disabled.");
+            } catch (error) {
+              Alert.alert(isAr ? "تعذر التعطيل" : "Disable failed", error instanceof Error ? error.message : "Unable to disable account");
+            }
+          },
+        },
         {
           text: isAr ? "حذف نهائي" : "Delete permanently",
           style: "destructive",
