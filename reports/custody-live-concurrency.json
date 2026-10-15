@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-15T16:53:11.994Z",
+  "database": "actual MySQL/TiDB",
+  "fulfilled": 1,
+  "rejected": 1,
+  "remainingTestMarkers": 0,
+  "noRealAccountsTouched": true
+}

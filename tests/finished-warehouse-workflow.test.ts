@@ -25,19 +25,21 @@ describe("finished warehouse workflow", () => {
     expect(screen).toContain("product-manufacturing-request");
   });
 
-  it("updates finished stock when a manufacturing handover reaches storage", () => {
+  it("does not add warehouse stock on custody receipt alone", () => {
     const router = read("server/routers.ts");
-    expect(router).toContain("isStorageStage");
+    const receipt = router.slice(router.indexOf("confirmReceipt: protectedProcedure"), router.indexOf("completeStorage: protectedProcedure"));
+    expect(receipt).not.toContain("recordCustodyStockReceipt(");
     expect(router).toContain("finishedWarehouseStockTable");
     expect(router).toContain("manufacturing_storage");
-    expect(router).toContain("تنبيه انخفاض مخزون الإنتاج التام");
+    expect(read("server/pair-inventory.ts")).toContain("تنبيه انخفاض مخزون الإنتاج التام");
   });
 
   it("records completed storage as one idempotent warehouse receipt", () => {
     const router = read("server/routers.ts");
     expect(router).toContain("completeStorage: protectedProcedure");
     expect(router).toContain("db.transaction");
-    expect(router).toContain('sourceType: "manufacturing_storage"');
+    expect(router).toContain("recordCustodyStockReceipt(");
+    expect(read("server/pair-inventory.ts")).toContain("sourceKey");
     expect(router).toContain("finishedWarehouseMovementsTable");
   });
 
@@ -82,7 +84,8 @@ describe("finished warehouse workflow", () => {
     const screen = read("app/warehouse-representative-orders.tsx");
     expect(router).toContain('case "warehouse_execute"');
     expect(router).toContain("db.transaction");
-    expect(router).toContain('movementType: "issue"');
+    expect(router).toContain("changeStockPairs(");
+    expect(read("server/pair-inventory.ts")).toContain("movementType:delta>0?'receipt':'issue'");
     expect(router).toContain("خصم طلب المندوب");
     expect(router).toContain("الرصيد غير كافٍ");
     expect(screen).toContain("تم التنفيذ وخصم الرصيد");

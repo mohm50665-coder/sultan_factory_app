@@ -1,3 +1,4 @@
+import { Redirect as CustodyRedirect, useLocalSearchParams as useCustodyRouteParams } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
@@ -35,7 +36,7 @@ const DEFAULT_STAGES = {
   storage: { labelAr: "التخزين", labelEn: "Storage", icon: "warehouse", color: "#4f46e5", workersAr: [], workersEn: [] },
 };
 
-export default function ManufacturingScreen() {
+function LegacyManufacturingScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   const router = useRouter();
@@ -156,4 +157,10 @@ export default function ManufacturingScreen() {
       )}
     </ScreenContainer>
   );
+}
+
+// Explicit legacy route preserves existing data while all new entries follow the approved V2 policy.
+export default function ManufacturingScreen() {
+ const params=useCustodyRouteParams<{legacy?:string}>();
+ return params.legacy === "1" ? <LegacyManufacturingScreen/> : <CustodyRedirect href="/custody-workbench" />;
 }

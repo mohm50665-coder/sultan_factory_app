@@ -62,20 +62,20 @@ export const production = mysqlTable("production", {
   shiftEnd: varchar("shiftEnd", { length: 10 }).default(""),
   productionDozen: int("productionDozen").default(0),
   productionPairs: int("productionPairs").default(0),
-  wasteThreadGrams: int("wasteThreadGrams").default(0),
-  wasteSocksGrams: int("wasteSocksGrams").default(0),
+  wasteThreadGrams: decimal("wasteThreadGrams", { precision: 14, scale: 6, mode: "number" }).default(0),
+  wasteSocksGrams: decimal("wasteSocksGrams", { precision: 14, scale: 6, mode: "number" }).default(0),
   secondGradeDozen: int("secondGradeDozen").default(0),
   secondGradePairs: int("secondGradePairs").default(0),
   wasteNeedles: int("wasteNeedles").default(0),
   needlesUsed: int("needlesUsed").default(0),
   productionHours: int("productionHours").default(0),
   productionMinutes: int("productionMinutes").default(0),
-  yarnRubber: int("yarnRubber").default(0),
-  yarnSpandex: int("yarnSpandex").default(0),
-  yarnNylon: int("yarnNylon").default(0),
-  yarnCotton: int("yarnCotton").default(0),
-  yarnBamboo: int("yarnBamboo").default(0),
-  yarnSpan: int("yarnSpan").default(0),
+  yarnRubber: decimal("yarnRubber", { precision: 14, scale: 6, mode: "number" }).default(0),
+  yarnSpandex: decimal("yarnSpandex", { precision: 14, scale: 6, mode: "number" }).default(0),
+  yarnNylon: decimal("yarnNylon", { precision: 14, scale: 6, mode: "number" }).default(0),
+  yarnCotton: decimal("yarnCotton", { precision: 14, scale: 6, mode: "number" }).default(0),
+  yarnBamboo: decimal("yarnBamboo", { precision: 14, scale: 6, mode: "number" }).default(0),
+  yarnSpan: decimal("yarnSpan", { precision: 14, scale: 6, mode: "number" }).default(0),
   movementStatus: mysqlEnum("movementStatus", ["none", "received", "delivered"]).default("none").notNull(),
   movementBy: varchar("movementBy", { length: 255 }),
   movementAt: timestamp("movementAt"),
@@ -1200,6 +1200,10 @@ export const finishedWarehouseStock = mysqlTable("finishedWarehouseStock", {
   productColor: varchar("productColor", { length: 100 }).default(""),
   qualityGrade: varchar("qualityGrade", { length: 30 }).default("first").notNull(),
   quantityDozen: decimal("quantityDozen", { precision: 12, scale: 6, mode: "number" }).default(0).notNull(),
+  // NULL preserves legacy amounts until an audited movement or reconciliation.
+  totalPairs: int("totalPairs"),
+  packagePairs: int("packagePairs").default(1).notNull(),
+  productCode: varchar("productCode", { length: 100 }),
   minimumDozen: decimal("minimumDozen", { precision: 12, scale: 6, mode: "number" }).default(50).notNull(),
   lastMovementAt: timestamp("lastMovementAt"),
   isActive: int("isActive").default(1).notNull(),
@@ -1215,6 +1219,8 @@ export const finishedWarehouseMovements = mysqlTable("finishedWarehouseMovements
   stockId: int("stockId").notNull(),
   movementType: mysqlEnum("movementType", ["receipt", "issue", "adjustment"]).notNull(),
   quantityDozen: decimal("quantityDozen", { precision: 12, scale: 6, mode: "number" }).notNull(),
+  totalPairs: int("totalPairs"),
+  sourceKey: varchar("sourceKey", { length: 160 }).unique(),
   sourceType: varchar("sourceType", { length: 60 }).notNull(),
   sourceId: int("sourceId"),
   notes: text("notes"),
@@ -1291,3 +1297,7 @@ export const sampleRequestPenalties = mysqlTable("sampleRequestPenalties", {
 });
 export type SampleRequestPenalty = typeof sampleRequestPenalties.$inferSelect;
 export type InsertSampleRequestPenalty = typeof sampleRequestPenalties.$inferInsert;
+
+// V2 tables are additive: legacy approved movements remain unchanged.
+export * from './custody-schema';
+export * from './custody-samples-schema';

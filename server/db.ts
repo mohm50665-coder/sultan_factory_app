@@ -1,9 +1,10 @@
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { eq, sql } from "drizzle-orm";
+import { createPool } from "mysql2/promise";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _schemaReady: Promise<void> | null = null;
 
 /**
@@ -12,7 +13,7 @@ let _schemaReady: Promise<void> | null = null;
  * and employee-management columns. Add only missing columns at startup so
  * existing data is preserved and old installations self-heal.
  */
-async function ensureUsersSchema(db: NonNullable<ReturnType<typeof drizzle>>) {
+async function ensureUsersSchema(db: MySql2Database<Record<string, unknown>>) {
   const [rows] = await db.execute(sql`
     SELECT COLUMN_NAME AS columnName
     FROM INFORMATION_SCHEMA.COLUMNS
@@ -48,7 +49,15 @@ async function ensureUsersSchema(db: NonNullable<ReturnType<typeof drizzle>>) {
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const databaseUrl = new URL(process.env.DATABASE_URL);
+      const pool = createPool({
+        uri: process.env.DATABASE_URL,
+        ...(databaseUrl.hostname.endsWith("tidbcloud.com") ? { ssl: { rejectUnauthorized: true } } : {}),
+        connectTimeout: 10_000,
+        timezone: "Z",
+        connectionLimit: 10,
+      });
+      _db = drizzle(pool);
       _schemaReady = ensureUsersSchema(_db).catch((error) => {
         console.error("[Database] Users schema migration failed:", error);
         throw error;

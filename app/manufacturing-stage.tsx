@@ -1,3 +1,4 @@
+import { Redirect as CustodyRedirect, useLocalSearchParams as useCustodyRouteParams } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import {
@@ -95,7 +96,7 @@ function sameAccountLabel(left: unknown, right: unknown) {
   return Boolean(a && b && a === b);
 }
 
-export default function ManufacturingStageScreen() {
+function LegacyManufacturingStageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const colors = useColors();
@@ -1256,4 +1257,10 @@ export default function ManufacturingStageScreen() {
       )}
     </ScreenContainer>
   );
+}
+
+// Explicit legacy route preserves existing data while all new entries follow the approved V2 policy.
+export default function ManufacturingStageScreen() {
+ const params=useCustodyRouteParams<{legacy?:string}>();
+ return params.legacy === "1" ? <LegacyManufacturingStageScreen/> : <CustodyRedirect href="/custody-workbench" />;
 }

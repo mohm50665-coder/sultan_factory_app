@@ -1,3 +1,4 @@
+import { Redirect as CustodyRedirect, useLocalSearchParams as useCustodyRouteParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -11,7 +12,7 @@ import { manufacturingStageService } from "@/lib/services/data.service";
 const stageNames: Record<string, string> = { rosso: "الروسو", qalb: "القلب", kawiya: "الكاوية", inspection: "الفحص", packing: "التعبئة والتغليف", antislip: "مانع الانزلاق", storage: "التخزين" };
 const quantity = (row: any) => `${Number(row.quantityDozen || 0)} درزن + ${Number(row.quantityPair || 0)} زوج`;
 
-export default function MyCustodyScreen() {
+function LegacyMyCustodyScreen() {
   const colors = useColors();
   const { language } = useLanguage();
   const router = useRouter();
@@ -30,3 +31,9 @@ export default function MyCustodyScreen() {
 }
 
 const styles = StyleSheet.create({ header: { backgroundColor: "#0a7ea4", padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }, headerText: { flex: 1, alignItems: "flex-end" }, title: { color: "#fff", fontSize: 19, fontWeight: "900" }, subtitle: { color: "#dbeafe", fontSize: 11, marginTop: 3 }, content: { padding: 12, gap: 10, paddingBottom: 50 }, notice: { flexDirection: "row-reverse", alignItems: "center", gap: 8, padding: 10, borderWidth: 1, borderRadius: 10, backgroundColor: "#fff7ed" }, noticeText: { flex: 1, color: "#7c2d12", fontSize: 11, textAlign: "right", lineHeight: 17 }, card: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 11, gap: 9 }, overdueCard: { borderColor: "#fb923c", backgroundColor: "#fffaf5" }, cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }, product: { flex: 1, color: "#0f172a", fontSize: 16, fontWeight: "900", textAlign: "right" }, badge: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 5 }, grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 }, cell: { flex: 1, minWidth: 130, backgroundColor: "#f8fafc", borderWidth: 1, borderColor: "#e2e8f0", borderRadius: 6, padding: 7, color: "#334155", fontSize: 11, textAlign: "right" }, label: { color: "#64748b", fontSize: 10, fontWeight: "800", marginBottom: 3 }, openButton: { backgroundColor: "#0a7ea4", borderRadius: 7, paddingVertical: 9, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 }, openText: { color: "#fff", fontWeight: "900", fontSize: 12 }, empty: { alignItems: "center", paddingVertical: 70, gap: 8 }, emptyTitle: { color: "#15803d", fontSize: 17, fontWeight: "900" }, emptyText: { color: "#64748b", textAlign: "center", fontSize: 12 } });
+
+// Explicit legacy route preserves existing data while all new entries follow the approved V2 policy.
+export default function MyCustodyScreen() {
+ const params=useCustodyRouteParams<{legacy?:string}>();
+ return params.legacy === "1" ? <LegacyMyCustodyScreen/> : <CustodyRedirect href="/custody-workbench" />;
+}

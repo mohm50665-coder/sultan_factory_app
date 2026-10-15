@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { protectedProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
+import { changeStockPairs, legacyDozenToPairs } from "./pair-inventory";
 import {
   auditLog,
   customers,
@@ -655,6 +656,8 @@ export const representativeRouter = router({
           // الخصم والاعتماد والتوثيق داخل معاملة واحدة: لا يصبح الطلب منفذاً
           // ولا يخصم أي رصيد إذا تعذر خصم أحد الأصناف أو كان الرصيد غير كافٍ.
           return db.transaction(async (tx: any) => {
+            const [lockedOrder] = await tx.select().from(representativeTransactions).where(eq(representativeTransactions.id, input.id)).limit(1).for("update");
+            if (lockedOrder?.status !== "PENDING_WAREHOUSE_ISSUE") throw new TRPCError({ code: "CONFLICT", message: "تم تنفيذ هذه الحركة مسبقًا" });
             const requestedByBarcode = new Map<string, number>();
             for (const item of detail.items || []) {
               const barcode = String(item.barcode || "").trim().toUpperCase();
@@ -668,15 +671,8 @@ export const representativeRouter = router({
               const stockRows = await tx.select().from(finishedWarehouseStock).where(and(eq(finishedWarehouseStock.barcode, barcode), eq(finishedWarehouseStock.isActive, 1))).limit(1);
               const stock = stockRows[0];
               if (!stock) throw new TRPCError({ code: "NOT_FOUND", message: `الصنف بالباركود ${barcode} غير موجود في مستودع الإنتاج التام` });
-              const available = Number(stock.quantityDozen || 0);
-              if (available < quantityDozen) throw new TRPCError({ code: "BAD_REQUEST", message: `الرصيد غير كافٍ للصنف ${stock.productName}: المتاح ${available} درزن والمطلوب ${quantityDozen} درزن` });
-              const remainingDozen = available - quantityDozen;
-              const updated = await tx.update(finishedWarehouseStock)
-                .set({ quantityDozen: remainingDozen, lastMovementAt: new Date() })
-                .where(and(eq(finishedWarehouseStock.id, stock.id), eq(finishedWarehouseStock.isActive, 1), gte(finishedWarehouseStock.quantityDozen, quantityDozen)));
-              const affectedRows = Number((updated as any)?.[0]?.affectedRows ?? (updated as any)?.affectedRows ?? 0);
-              if (affectedRows !== 1) throw new TRPCError({ code: "CONFLICT", message: `تغير رصيد الصنف ${stock.productName} أثناء التنفيذ؛ أعد المحاولة` });
-              await tx.insert(finishedWarehouseMovements).values({ stockId: Number(stock.id), movementType: "issue", quantityDozen, sourceType: "representative_order", sourceId: Number(detail.id), notes: `صرف طلب المندوب ${detail.referenceCode}`, userId: Number(ctx.user.id) });
+              const change = await changeStockPairs(tx, Number(stock.id), -legacyDozenToPairs(quantityDozen), Number(ctx.user.id), { type: "representative_order", id: Number(detail.id), key: `representative-issue:${detail.id}:${stock.id}`, notes: `صرف طلب المندوب ${detail.referenceCode}` });
+              const remainingDozen = Number(change.remainingDozen || 0);
               if (remainingDozen < Number(stock.minimumDozen || 0)) {
                 await tx.insert(internalMessages).values({ subject: "تنبيه انخفاض مخزون الإنتاج التام", body: `بعد تنفيذ الطلب ${detail.referenceCode} أصبح رصيد ${stock.productName} هو ${remainingDozen} درزن، والحد الأدنى ${stock.minimumDozen} درزن`, senderId: Number(ctx.user.id), recipientDepartment: "warehouse", relatedType: "finishedWarehouseStock", relatedId: Number(stock.id), attachments: [] });
               }

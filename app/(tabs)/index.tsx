@@ -51,8 +51,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     labelEn: "Production",
     icon: "factory",
     color: "#3b82f6",
-    route: "/production",
-    descriptionAr: "رقم المكينة - الكمية - الهدر - النخب الثاني",
+    route: "/custody-batch-entry",
+    descriptionAr: "دفعات مستقلة — خيوط وأوزان — كميات بالزوج — تتبع العهد",
     descriptionEn: "Machine No. - Quantity - Waste - Second Grade",
     section: "production",
     departments: ["production"],
@@ -137,9 +137,9 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     labelEn: "My Current Custody",
     icon: "assignment-ind",
     color: "#0a7ea4",
-    route: "/my-custody",
+    route: "/custody-workbench",
     descriptionAr: "المنتجات المستلمة لدى الموظف ولم تُسلّم بعد",
-    descriptionEn: "Products received by the employee and not yet delivered",
+    descriptionEn: "Owned custody, actual work and pending confirmations",
     section: "manufacturing",
     departments: ["production", "warehouse", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"],
   },
@@ -149,8 +149,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     labelEn: "Overdue Custody Report",
     icon: "report-problem",
     color: "#c2410c",
-    route: "/overdue-custody-report",
-    descriptionAr: "العهد التي تجاوزت 24 ساعة حسب الموظف والمرحلة",
+    route: "/custody-reports",
+    descriptionAr: "العمل وتأكيد الاستلام وفق حدود المرحلة والوردية المعتمدة",
     descriptionEn: "Custody overdue more than 24 hours by employee and stage",
     section: "reports",
     departments: ["production", "warehouse"],
@@ -161,7 +161,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     labelEn: "Product Tracking",
     icon: "timeline",
     color: "#8B5A2B",
-    route: "/product-tracking",
+    route: "/custody-reports",
     descriptionAr: "تتبع المنتج ووقت التسليم والاستلام والمسؤولية",
     descriptionEn: "Track product handovers, timing and accountability",
     section: "manufacturing",
@@ -224,8 +224,8 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     labelEn: "Manufacturing Stages",
     icon: "precision-manufacturing",
     color: "#8b5cf6",
-    route: "/manufacturing",
-    descriptionAr: "المكائن - الروسو - القلب - الكاوية - الفحص - التغليف - التخزين",
+    route: "/custody-workbench",
+    descriptionAr: "عهد الموظفين — وقت العمل — توزيع الجودة — الفحص — المخازن",
     descriptionEn: "Machines - Rosso - Turning - Ironing - Inspection - Packing - Storage",
     section: "manufacturing",
     departments: ["production", "warehouse"],
@@ -249,7 +249,7 @@ const DASHBOARD_ITEMS: DashboardItem[] = [
     icon: "inventory",
     color: "#166534",
     route: "/finished-warehouse-inventory",
-    descriptionAr: "أرصدة المنتجات بالدرزن وحركة النشاط والحد الأدنى",
+    descriptionAr: "أرصدة بالزوج الصحيح، وعرض بالدرزن والأزواج، مع حركة المخزون",
     descriptionEn: "Finished product stock in dozens, activity and minimum levels",
     section: "warehouse",
     departments: ["warehouse", "sales", "production"],
@@ -699,7 +699,7 @@ export default function HomeScreen() {
     }
     // أداء المندوب صلاحية مستقلة؛ لا تُحجب بسبب قسم المدير أو ترتيب أيقونات إدارة التسويق.
     if (item.id === "representative_performance") return hasRepresentativePermission;
-    if (item.id === "my_custody") return ["admin", "manager", "supervisor"].includes(String(user?.role)) || ["production", "warehouse", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage"].includes(normalizedDepartment);
+    if (item.id === "my_custody") return ["admin", "manager", "supervisor"].includes(String(user?.role)) || ["production", "warehouse", "rosso", "qalb", "kawiya", "inspection", "packing", "antislip", "storage", "followup", "customer_service"].includes(rawDepartment);
     if (item.id === "overdue_custody_report") return ["admin", "manager", "supervisor"].includes(String(user?.role));
     // الأيقونات الإدارية الأربع تظهر داخل واجهة إدارة التسويق والمبيعات ولا تتكرر في اللوحة الرئيسية.
     if (salesManagerOfficialItems.has(item.id)) return false;

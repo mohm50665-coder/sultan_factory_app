@@ -1,0 +1,22 @@
+import React,{useEffect,useState} from "react";
+import {ActivityIndicator,FlatList,StyleSheet,Text,TextInput,TouchableOpacity,View} from "react-native";
+import {useRouter} from "expo-router";
+import {ScreenContainer} from "@/components/screen-container";
+import {BackButton} from "@/components/back-button";
+import {useAuth} from "@/lib/auth-context";
+import {trpcCall} from "@/lib/services/api.service";
+import {CUSTODY_STAGE_LABELS,type CustodyStage} from "@shared/custody-contract";
+import {formatPairs} from "@shared/custody-reporting";
+export default function LegacyCustodyReview(){
+ const router=useRouter();const {user}=useAuth();const [rows,setRows]=useState<any[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [search,setSearch]=useState("");
+ const load=async()=>{setLoading(true);setError("");try{const result=await trpcCall("custodyV2.legacyCandidates",undefined,"query");if(!Array.isArray(result))throw new Error("استجابة المراجعة غير صالحة");setRows(result);}catch(error){setError(error instanceof Error?error.message:"تعذر تحميل العهد السابقة");}finally{setLoading(false);}};
+ useEffect(()=>{if(user?.role==="admin")void load();else setLoading(false);},[user?.id]);
+ if(user?.role!=="admin")return <ScreenContainer><Text style={s.error}>مراجعة الأرصدة الافتتاحية محصورة على الأدمن.</Text></ScreenContainer>;
+ const visible=rows.filter(row=>`${row.workerName} ${row.productName} ${row.productSize} ${row.productColor} ${CUSTODY_STAGE_LABELS[row.stage as CustodyStage]}`.toLowerCase().includes(search.trim().toLowerCase()));
+ return <ScreenContainer style={s.screen}><View style={s.header}><BackButton/><Text style={s.title}>مراجعة العهد السابقة — رصيد افتتاحي</Text><TouchableOpacity onPress={()=>void load()} style={s.headerButton}><Text style={s.white}>تحديث</Text></TouchableOpacity></View>
+ <FlatList data={visible} keyExtractor={row=>String(row.sourceId)} contentContainerStyle={s.content} ListHeaderComponent={<><Text style={s.notice}>لا تُرحّل أي عهدة تلقائيًا. راجع الموظف والمرحلة والكمية وأكمل تعريف الصنف وسبب الترحيل؛ يستورد الرصيد مرة واحدة، ولا يحتسب إنتاجًا جديدًا. السجلات ذات الحركات اللاحقة أو العينات أو التخزين النهائي غير مؤهلة هنا.</Text><TextInput style={s.input} value={search} onChangeText={setSearch} placeholder="بحث بالموظف أو الصنف أو المرحلة"/>{error?<Text style={s.error}>{error}</Text>:null}{loading?<ActivityIndicator color="#075985"/>:<Text style={s.small}>{visible.length} عهدة مؤهلة للمراجعة</Text>}</>}
+ renderItem={({item})=><View style={s.row}><View style={s.info}><Text style={s.name}>{item.productName} · {item.productSize} · {item.productColor}</Text><Text style={s.small}>{CUSTODY_STAGE_LABELS[item.stage as CustodyStage]} · {item.workerName} · سجل #{item.sourceId}</Text><Text style={s.amount}>{formatPairs(item.quantityPairs)}</Text></View><TouchableOpacity onPress={()=>router.push({pathname:"/custody-batch-entry",params:{legacySourceId:String(item.sourceId)}} as never)} style={s.button}><Text style={s.white}>مراجعة وترحيل</Text></TouchableOpacity></View>}
+ ListEmptyComponent={!loading&&!error?<Text style={s.notice}>لا توجد عهد سابقة مؤهلة ضمن البحث. لم يتم حذف السجلات غير المؤهلة أو تغييرها.</Text>:null}/>
+ </ScreenContainer>;
+}
+const s=StyleSheet.create({screen:{flex:1,backgroundColor:"#f5f7fa"},header:{backgroundColor:"#075985",padding:10,gap:8,flexDirection:"row",alignItems:"center"},title:{flex:1,fontSize:16,fontWeight:"800",color:"#fff",textAlign:"right"},headerButton:{padding:9},white:{fontSize:12,color:"#fff",fontWeight:"800"},content:{maxWidth:1200,width:"100%",alignSelf:"center",padding:12,gap:8,paddingBottom:32},notice:{fontSize:12,textAlign:"right",lineHeight:20,color:"#92400e",backgroundColor:"#fffbeb",padding:10,borderRadius:8},input:{borderWidth:1,borderColor:"#cbd5e1",padding:10,borderRadius:8,fontSize:14,textAlign:"right"},error:{fontSize:12,color:"#b91c1c",padding:12,textAlign:"right"},small:{fontSize:11,textAlign:"right",color:"#64748b",lineHeight:18},row:{backgroundColor:"#fff",padding:10,borderRadius:9,borderWidth:1,borderColor:"#cbd5e1",gap:9,flexDirection:"row-reverse",alignItems:"center",flexWrap:"wrap"},info:{flex:1,minWidth:170},name:{fontSize:13,fontWeight:"800",textAlign:"right",color:"#0f172a"},amount:{fontSize:14,fontWeight:"800",color:"#075985",textAlign:"right"},button:{backgroundColor:"#075985",padding:12,borderRadius:8,minHeight:44}});

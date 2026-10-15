@@ -16,6 +16,8 @@ export const DEPARTMENT_OPTIONS: DepartmentOption[] = [
   { id: "packing", labelAr: "مرحلة التغليف", labelEn: "Packing Stage", icon: "inventory-2" },
   { id: "antislip", labelAr: "مرحلة مانع الانزلاق", labelEn: "Anti-slip Stage", icon: "layers" },
   { id: "storage", labelAr: "مرحلة التخزين", labelEn: "Storage Stage", icon: "warehouse" },
+  { id: "followup", labelAr: "إدارة المتابعة", labelEn: "Follow-up Management", icon: "fact-check" },
+  { id: "customer_service", labelAr: "خدمة العملاء", labelEn: "Customer Service", icon: "support-agent" },
   { id: "administrative", labelAr: "قسم الإجراءات الإدارية والمصروفات", labelEn: "Administrative & Expenses", icon: "admin-panel-settings" },
   { id: "sales", labelAr: "إدارة التسويق والمبيعات", labelEn: "Marketing & Sales Management", icon: "point-of-sale" },
   { id: "maintenance", labelAr: "قسم الصيانة", labelEn: "Maintenance Department", icon: "build" },

@@ -1,3 +1,4 @@
+import { CustodySummaryPanel } from "@/components/custody-summary-panel";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -692,6 +693,8 @@ export default function BoardMonthlyReport() {
             </Text>
           </View>
         )}
+
+        <CustodySummaryPanel startDate={range.start} endDate={range.end}/>
 
         {/* Report Preview */}
         {!isLoading && reportData && (

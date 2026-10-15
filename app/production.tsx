@@ -1,3 +1,4 @@
+import { Redirect as CustodyRedirect, useLocalSearchParams as useCustodyRouteParams } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/language-context";
 import { BackButton } from "@/components/back-button";
@@ -148,7 +149,7 @@ const getFullProductName = (product: ProductItem): string => {
   return parts.join(" - ") || "";
 };
 
-export default function ProductionScreen() {
+function LegacyProductionScreen() {
   const { language } = useLanguage();
   const isAr = language === "ar";
   // ألوان ثابتة لحقول الإدخال حتى لا يتحول النص إلى أبيض على خلفية بيضاء عند التركيز.
@@ -1607,4 +1608,10 @@ export default function ProductionScreen() {
       )}
     </ScreenContainer>
   );
+}
+
+// Explicit legacy route preserves existing data while all new entries follow the approved V2 policy.
+export default function ProductionScreen() {
+ const params=useCustodyRouteParams<{legacy?:string}>();
+ return params.legacy === "1" ? <LegacyProductionScreen/> : <CustodyRedirect href="/custody-batch-entry" />;
 }

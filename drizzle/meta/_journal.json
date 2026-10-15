@@ -281,6 +281,13 @@
       "when": 1792005893091,
       "tag": "0039_cooing_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1792080020830,
+      "tag": "0040_loud_baron_zemo",
+      "breakpoints": true
     }
   ]
 }
