@@ -323,6 +323,7 @@ const transitionSchema = z.object({
   attachments: z.array(attachmentSchema).optional().default([]),
   invoiceNumber: z.string().optional(),
   correctiveAction: z.object({ action: z.string().min(3), evidence: z.array(attachmentSchema).default([]) }).optional(),
+  warehouseShortages: z.array(z.object({ productName: z.string().min(1), barcode: z.string().optional().default(""), requestedDozen: z.number().nonnegative(), issuedDozen: z.number().nonnegative(), shortageDozen: z.number().nonnegative(), notes: z.string().optional().default("") })).optional().default([]),
 });
 
 export const representativeRouter = router({
@@ -690,7 +691,8 @@ export const representativeRouter = router({
           });
         case "warehouse_partial":
           if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب ملاحظة تفصيلية عن عدم التوفر أو التنفيذ الجزئي" });
-          nextStatus = "WAREHOUSE_PARTIAL"; patch.rejectionReason = input.notes;
+          if (!input.warehouseShortages.length || input.warehouseShortages.some((item) => item.shortageDozen <= 0 || item.issuedDozen < 0 || item.shortageDozen + item.issuedDozen > item.requestedDozen + 0.0001)) throw new TRPCError({ code: "BAD_REQUEST", message: "حدد الصنف الناقص والكميات المطلوبة والمنفذة والناقصة بشكل صحيح" });
+          nextStatus = "WAREHOUSE_PARTIAL"; patch.rejectionReason = input.notes; patch.correctiveAction = { type: "warehouse_shortage", shortages: input.warehouseShortages };
           break;
         case "warehouse_not_executed":
           if (!isWarehouseManager(ctx.user) || !["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_NOT_EXECUTED"].includes(detail.status) || !input.notes.trim()) throw new TRPCError({ code: "BAD_REQUEST", message: "اكتب سبب عدم تنفيذ الطلب" });

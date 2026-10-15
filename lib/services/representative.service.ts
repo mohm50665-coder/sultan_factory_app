@@ -76,7 +76,7 @@ export const representativeService = {
     sign: (data: { id: number; declarationType: "customer_order" | "representative_order" | "representative_receipt" | "representative_sample_receipt"; declarationText: string; declarerName: string; declarerRole: string; signatureData: string }) => trpcCall("representative.transactions.sign", data),
     submit: (id: number) => trpcCall("representative.transactions.submit", { id }),
     submitOrderDirect: (id: number) => trpcCall("representative.transactions.submitOrderDirect", { id }),
-    transition: (data: { id: number; action: string; notes?: string; attachments?: RepresentativeAttachmentInput[]; invoiceNumber?: string; correctiveAction?: { action: string; evidence: RepresentativeAttachmentInput[] } }) => trpcCall("representative.transactions.transition", data),
+    transition: (data: { id: number; action: string; notes?: string; attachments?: RepresentativeAttachmentInput[]; invoiceNumber?: string; correctiveAction?: { action: string; evidence: RepresentativeAttachmentInput[] }; warehouseShortages?: Array<{ productName: string; barcode?: string; requestedDozen: number; issuedDozen: number; shortageDozen: number; notes?: string }> }) => trpcCall("representative.transactions.transition", data),
     softDelete: (id: number, reason: string) => trpcCall("representative.transactions.softDelete", { id, reason }),
   },
   collections: {

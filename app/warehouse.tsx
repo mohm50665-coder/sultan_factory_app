@@ -104,6 +104,14 @@ export default function WarehouseScreen() {
       route: "/warehouse-representative-orders",
       description: isAr ? "عرض كل طلبات المندوبين والعملاء وتنفيذها أو تسجيل النواقص" : "View and execute all representative/customer orders or record shortages",
     },
+    {
+      id: "overdue_customer_orders",
+      label: isAr ? "تقرير الطلبات المتأخرة" : "Overdue Customer Orders Report",
+      icon: "warning",
+      color: "#991b1b",
+      route: "/warehouse-overdue-orders",
+      description: isAr ? "طلبات تجاوزت مهلة 48 ساعة مع المسؤول والسبب" : "Orders beyond 48 hours with owner and reason",
+    },
   ];
 
   return (
