@@ -1,3 +1,4 @@
+import { DateField as CalendarDateField } from "@/components/date-field";
 import { CustodySummaryPanel } from "@/components/custody-summary-panel";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -129,11 +130,7 @@ function periodRange(period: ReportPeriod, month: number, year: number, customSt
 }
 
 function DateField({ value, onChange, label, colors }: { value: string; onChange: (value: string) => void; label: string; colors: any }) {
-  const inputStyle = { height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, textAlign: "right" as const, fontSize: 14, color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background };
-  if (Platform.OS === "web") {
-    return React.createElement("input", { type: "date", value, onChange: (event: any) => onChange(event.currentTarget.value), "aria-label": label, style: inputStyle });
-  }
-  return <TextInput value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" accessibilityLabel={label} style={inputStyle} />;
+  return <CalendarDateField value={value} onChange={onChange} accessibilityLabel={label} isAr style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }} />;
 }
 
 const rateLabel = (value: number | null, digits = 1) => value == null ? "غير متاح" : `${value.toFixed(digits)}%`;

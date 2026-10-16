@@ -1,3 +1,4 @@
+import { normalizeReportDateInput } from "./report-date-input";
 import { accountBelongsToStage, CUSTODY_STAGES } from "./custody-policy";
 import {
   CUSTODY_QUALITY_LABELS,
@@ -276,8 +277,12 @@ function dayAfter(day: string): string {
 
 /** Half-open [start, end) in Riyadh. endDate is included completely. */
 export function riyadhRange(startDate: string, endDate: string): ReportRange {
-  if (!isoDay.test(startDate) || !isoDay.test(endDate))
-    throw new Error("التاريخ يجب أن يكون بصيغة YYYY-MM-DD");
+  const normalizedStart = normalizeReportDateInput(startDate);
+  const normalizedEnd = normalizeReportDateInput(endDate);
+  if (!normalizedStart || !normalizedEnd)
+    throw new Error("اختر تاريخ بداية ونهاية صحيحين من التقويم");
+  startDate = normalizedStart;
+  endDate = normalizedEnd;
   if (endDate < startDate)
     throw new Error("تاريخ النهاية يجب ألا يسبق تاريخ البداية");
   // Saudi Arabia is UTC+03 without DST; explicit offsets avoid the device timezone entirely.
