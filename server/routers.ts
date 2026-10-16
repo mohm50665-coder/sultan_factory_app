@@ -1,3 +1,4 @@
+import { custodyBatches as custodyReportBatches } from "../drizzle/custody-schema";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "./_core/trpc";
@@ -1231,7 +1232,21 @@ export const appRouter = router({
     getAll: publicProcedure.query(async () => {
       const db = await getDb();
       if (!db) return [];
-      return db.select().from(productionTable).orderBy(desc(productionTable.createdAt));
+      const rows = await db.select().from(productionTable).orderBy(desc(productionTable.createdAt));
+      const batches = await db.select({ productionId: custodyReportBatches.productionId, payload: custodyReportBatches.payload }).from(custodyReportBatches);
+      const byProduction = new Map<number, any>();
+      for (const row of batches) {
+        const payload = typeof row.payload === "string" ? JSON.parse(row.payload) : row.payload as any;
+        if (row.productionId && !payload?.openingBalance) byProduction.set(row.productionId, payload);
+      }
+      return rows.map(row => {
+        const batch = byProduction.get(row.id);
+        if (!batch?.product) return row;
+        const issued = Number(batch.product.yarnWeightGrams);
+        return { ...row, yarnIssuedGrams: Number.isFinite(issued) && issued >= 0 ? issued : undefined,
+          yarnBreakdownGrams: (batch.product.yarns || []).map((y: any) => ({ name: y.name, grams: issued * Number(y.percentage) / 100 })),
+          reportPurpose: batch.purpose };
+      });
     }),
 
     create: protectedProcedure

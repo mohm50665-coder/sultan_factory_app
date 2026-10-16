@@ -1,3 +1,4 @@
+import { inReportPeriod, reportRows, riyadhDate } from "@shared/operational-report";
 import React, { useState, useEffect } from "react";
 import { BackButton } from "@/components/back-button";
 import {
@@ -29,7 +30,7 @@ export default function ProductionExportScreen() {
   const isAr = language === "ar";
   const [date, setDate] = useState(() => {
     const today = new Date();
-    return today.toISOString().split("T")[0];
+    return riyadhDate(today);
   });
   const [records, setRecords] = useState<ProductionRecord[]>([]);
   const [stoppedMachines, setStoppedMachines] = useState<StoppedMachineRecord[]>([]);
@@ -43,14 +44,15 @@ export default function ProductionExportScreen() {
   const loadData = async () => {
     try {
       const [allRecords, allStoppedMachines] = await Promise.all([
-        productionService.getAll().catch(() => []),
-        maintenanceService.getStopped().catch(() => []),
+        productionService.getAll(),
+        maintenanceService.getStopped(),
       ]);
-      const filtered = allRecords.filter((r: any) => (r.date || r.entryDate) === date);
+      const filtered = reportRows(allRecords).filter((r: any) => inReportPeriod(r, "production", date, date));
       setRecords(filtered as ProductionRecord[]);
       setStoppedMachines((Array.isArray(allStoppedMachines) ? allStoppedMachines : []).filter((r: any) => String(r.stopDate || "").slice(0, 10) === date) as StoppedMachineRecord[]);
     } catch (error) {
       console.error("Failed to load production data:", error);
+      Alert.alert("تعذر تحميل التقرير", error instanceof Error ? error.message : "تعذر قراءة المصدر؛ لم يتم عرض صفر كبيانات");
     }
   };
 
@@ -64,7 +66,7 @@ export default function ProductionExportScreen() {
     try {
       const html = productionExportService.generateHTML(records, date, stoppedMachines);
       if (Platform.OS === "web") {
-        const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1100,height=800");
+        const printWindow = window.open("", "_blank", "width=1100,height=800");
         if (!printWindow) throw new Error("PRINT_WINDOW_BLOCKED");
         printWindow.document.open();
         printWindow.document.write(html);

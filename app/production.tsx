@@ -1,3 +1,4 @@
+import { businessDate, productionMetrics } from "@shared/operational-report";
 import { Redirect as CustodyRedirect, useLocalSearchParams as useCustodyRouteParams } from "expo-router";
 import React, { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/language-context";
@@ -34,6 +35,7 @@ const MACHINES = [
 
 // ملاحظة 6: اسم المنتج = اسم الصنف + المقاس + اللون
 interface ProductItem {
+  yarnIssuedGrams?: number;
   itemName: string;       // اسم الصنف
   itemSize: string;       // المقاس
     itemColor: string;       // اللون
@@ -299,7 +301,7 @@ function LegacyProductionScreen() {
       // تجميع حسب التاريخ ثم المكينة ثم الورديات
       const grouped: { [date: string]: { [machine: string]: { [shift: number]: ProductItem[] } } } = {};
       for (const row of rows) {
-        const d = row.date || "";
+        const d = businessDate(row, "production") || "غير مؤرخ";
         if (!grouped[d]) grouped[d] = {};
         const machine = row.machineNumber || "unknown";
         if (!grouped[d][machine]) grouped[d][machine] = {};
@@ -719,7 +721,7 @@ function LegacyProductionScreen() {
     (parseFloat(p[field]) || 0) * getProductPairs(p);
 
   const getProductTotalYarn = (p: ProductItem): number =>
-    ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"].reduce((sum, field) => sum + getProductYarnTotal(p, field as YarnWeightField), 0);
+    productionMetrics([p]).yarnGrams;
 
   // حساب المجاميع لسجل واحد
   const getEntryTotals = (entry: ProductionEntry) => {
@@ -757,9 +759,12 @@ function LegacyProductionScreen() {
     totalMinutes = totalMinutes % 60;
 
     const totalPairsEquivalent = totalDozen * 12 + totalPairs;
-    const totalYarnWeight = totalYarnRubber + totalYarnSpandex + totalYarnNylon + totalYarnCotton + totalYarnBamboo + totalYarnSpan;
+    const allProducts = Object.values(entry.machines).flatMap(machine => machine.shifts.flatMap(shift => shift.products));
+    const measured = productionMetrics(allProducts);
+    totalDozen = Math.floor(measured.totalPairs / 12); totalPairs = measured.totalPairs % 12;
+    const totalYarnWeight = measured.yarnGrams;
     const totalWasteAll = totalWasteThread + totalWasteSocks;
-    const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "0";
+    const wastePercentage = totalYarnWeight > 0 ? ((totalWasteAll / totalYarnWeight) * 100).toFixed(2) : "غير محسوبة";
 
     // ملاحظة 1: تحويل النخب الثاني
     const totalSecondPairsAll = totalSecondPairs + (totalSecondDozen * 12);

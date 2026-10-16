@@ -37,14 +37,26 @@ export default function WarehouseScreen() {
 
   const loadPendingOrdersCount = useCallback(async () => {
     try {
-      const rows: any = await representativeService.transactions.list({ transactionType: "order" });
-      setPendingOrdersCount((rows || []).filter((row: any) => ["PENDING_WAREHOUSE_ISSUE", "WAREHOUSE_PARTIAL", "WAREHOUSE_NOT_EXECUTED"].includes(row.status)).length);
+      const rows: any = await representativeService.transactions.list({
+        transactionType: "order",
+      });
+      setPendingOrdersCount(
+        (rows || []).filter((row: any) =>
+          [
+            "PENDING_WAREHOUSE_ISSUE",
+            "WAREHOUSE_PARTIAL",
+            "WAREHOUSE_NOT_EXECUTED",
+          ].includes(row.status),
+        ).length,
+      );
     } catch {
       setPendingOrdersCount(0);
     }
   }, []);
 
-  useEffect(() => { void loadPendingOrdersCount(); }, [loadPendingOrdersCount]);
+  useEffect(() => {
+    void loadPendingOrdersCount();
+  }, [loadPendingOrdersCount]);
 
   const WAREHOUSE_SECTIONS: WarehouseSection[] = [
     {
@@ -53,23 +65,33 @@ export default function WarehouseScreen() {
       icon: "precision-manufacturing",
       color: "#8b5cf6",
       route: "/manufacturing",
-      description: isAr ? "عرض مراحل التسليم (قراءة فقط)" : "View delivery stages (Read only)",
+      description: isAr
+        ? "عرض مراحل التسليم (قراءة فقط)"
+        : "View delivery stages (Read only)",
     },
     {
       id: "finished_in",
-      label: isAr ? "مستودع الإنتاج التام" : "Finished Goods Warehouse",
+      label: isAr
+        ? "التخزين والمستودعات — إنتاج تام"
+        : "Finished Goods Storage",
       icon: "inventory",
       color: "#16a34a",
-      route: "/warehouse-finished",
-      description: isAr ? "إدخال الإنتاج التام والنخب الثاني" : "Input finished goods and second grade",
+      route: "/finished-warehouse-inventory",
+      description: isAr
+        ? "الرصيد المعتمد للإنتاج التام؛ لا يتاح إلا بعد اعتماد إدخال التخزين"
+        : "Approved finished-goods stock after storage approval",
     },
     {
       id: "representative_orders",
-      label: isAr ? "طلبات المناديب / طلبات العملاء" : "Representative / Customer Orders",
+      label: isAr
+        ? "طلبات المناديب / طلبات العملاء"
+        : "Representative / Customer Orders",
       icon: "assignment",
       color: "#f59e0b",
       route: "/warehouse-representative-orders",
-      description: isAr ? "استلام الطلبات المحولة من المندوبين وإخراجها وتنفيذها" : "Receive, issue and execute representative sales orders",
+      description: isAr
+        ? "استلام الطلبات المحولة من المندوبين وإخراجها وتنفيذها"
+        : "Receive, issue and execute representative sales orders",
       badge: pendingOrdersCount,
     },
     {
@@ -78,7 +100,9 @@ export default function WarehouseScreen() {
       icon: "inventory-2",
       color: "#3b82f6",
       route: "/warehouse-raw",
-      description: isAr ? "إدخال المواد الخام والخيوط وقطع الغيار" : "Input raw materials, threads, and spare parts",
+      description: isAr
+        ? "إدخال المواد الخام والخيوط وقطع الغيار"
+        : "Input raw materials, threads, and spare parts",
     },
     {
       id: "out",
@@ -86,7 +110,9 @@ export default function WarehouseScreen() {
       icon: "output",
       color: "#ef4444",
       route: "/warehouse-out",
-      description: isAr ? "إخراج من مستودع الإنتاج التام أو المواد الخام" : "Output from finished goods or raw materials warehouse",
+      description: isAr
+        ? "إخراج من مستودع الإنتاج التام أو المواد الخام"
+        : "Output from finished goods or raw materials warehouse",
     },
     {
       id: "production_requests",
@@ -94,15 +120,21 @@ export default function WarehouseScreen() {
       icon: "assignment",
       color: "#8b5cf6",
       route: "/production-requests",
-      description: isAr ? "طلبات إنتاج من المستودعات - مربوطة بالإنتاج" : "Production requests from warehouse - linked to production",
+      description: isAr
+        ? "طلبات إنتاج من المستودعات - مربوطة بالإنتاج"
+        : "Production requests from warehouse - linked to production",
     },
     {
       id: "customer_orders",
-      label: isAr ? "طلبات العملاء المحولة للمستودع" : "Customer Orders Sent to Warehouse",
+      label: isAr
+        ? "طلبات العملاء المحولة للمستودع"
+        : "Customer Orders Sent to Warehouse",
       icon: "shopping-bag",
       color: "#0a7ea4",
       route: "/warehouse-representative-orders",
-      description: isAr ? "عرض كل طلبات المندوبين والعملاء وتنفيذها أو تسجيل النواقص" : "View and execute all representative/customer orders or record shortages",
+      description: isAr
+        ? "عرض كل طلبات المندوبين والعملاء وتنفيذها أو تسجيل النواقص"
+        : "View and execute all representative/customer orders or record shortages",
     },
     {
       id: "overdue_customer_orders",
@@ -110,7 +142,9 @@ export default function WarehouseScreen() {
       icon: "warning",
       color: "#991b1b",
       route: "/warehouse-overdue-orders",
-      description: isAr ? "طلبات تجاوزت مهلة 48 ساعة مع المسؤول والسبب" : "Orders beyond 48 hours with owner and reason",
+      description: isAr
+        ? "طلبات تجاوزت مهلة 48 ساعة مع المسؤول والسبب"
+        : "Orders beyond 48 hours with owner and reason",
     },
   ];
 
@@ -120,8 +154,14 @@ export default function WarehouseScreen() {
       <View style={[styles.header, { backgroundColor: "#f59e0b" }]}>
         <BackButton />
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isAr ? "المستودعات" : "Warehouses"}</Text>
-          <Text style={styles.headerSubtitle}>{isAr ? "إدارة المخزون والمواد" : "Inventory and Materials Management"}</Text>
+          <Text style={styles.headerTitle}>
+            {isAr ? "المستودعات" : "Warehouses"}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {isAr
+              ? "إدارة المخزون والمواد"
+              : "Inventory and Materials Management"}
+          </Text>
         </View>
         <AdminBadgeIcon />
       </View>
@@ -139,15 +179,34 @@ export default function WarehouseScreen() {
             style={styles.sectionCard}
           >
             <View style={styles.sectionRow}>
-              <MaterialIcons name="chevron-left" size={24} color={colors.muted} />
+              <MaterialIcons
+                name="chevron-left"
+                size={24}
+                color={colors.muted}
+              />
               <View style={styles.sectionInfo}>
                 <Text style={styles.sectionLabel}>{section.label}</Text>
-                <Text style={styles.sectionDescription}>{section.description}</Text>
+                <Text style={styles.sectionDescription}>
+                  {section.description}
+                </Text>
               </View>
-              <View style={[styles.sectionIcon, { backgroundColor: `${section.color}15` }]}>
-                <MaterialIcons name={section.icon as any} size={28} color={section.color} />
+              <View
+                style={[
+                  styles.sectionIcon,
+                  { backgroundColor: `${section.color}15` },
+                ]}
+              >
+                <MaterialIcons
+                  name={section.icon as any}
+                  size={28}
+                  color={section.color}
+                />
               </View>
-              {section.badge !== undefined && section.badge > 0 && <View style={styles.countBadge}><Text style={styles.countBadgeText}>{section.badge}</Text></View>}
+              {section.badge !== undefined && section.badge > 0 && (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{section.badge}</Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         ))}

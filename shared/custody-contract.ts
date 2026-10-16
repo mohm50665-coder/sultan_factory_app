@@ -1,23 +1,268 @@
 // Fixed V2 boundary: integer pairs, UTC ISO timestamps, account IDs, immutable batch snapshots.
-export type CustodyStage = 'production'|'rosso'|'qalb'|'antislip'|'kawiya'|'inspection'|'packing'|'storage'|'followup'|'customer_service';
-export type CustodyQuality = 'first'|'second'|'suspected'|'damaged';
-export type CustodyStatus = 'received'|'working'|'paused'|'completed'|'sent'|'closed'|'stored'|'destroyed'|'disputed';
-export interface CustodyProduct { code:string; name:string; size:string; color:string; antiSlip:boolean; yarns:{name:string;percentage:number}[]; yarnWeightGrams:number; pairWeightGrams:number; }
-export interface CustodyBatchInput { operationKey:string; product:CustodyProduct; productionDate:string; machineNumber:string; shift:string; manufacturingOrder?:string; purpose:'sale'|'sample'; firstPairs:number; secondPairs:number; responsibleUserId:number; sampleRequestId?:number; wasteThreadGrams?:number; wasteSocksGrams?:number; }
-export interface CustodyAccount { id:number; name:string; department:string; role:string; }
-export interface CustodyLot { id:string; batchId:string; parentCustodyId?:string; ownerId:number; ownerName:string; stage:CustodyStage; quality:CustodyQuality; pairs:number; status:CustodyStatus; receivedAt:string; startedAt?:string; completedAt?:string; sentAt?:string; progressPairs:number; sourceStage?:CustodyStage; sourceUserId?:number; sourceName?:string; legacyTiming?:boolean; }
-export interface CustodyTransfer { id:string; batchId:string; sourceCustodyId:string; destinationCustodyId?:string; fromUserId:number; fromName:string; toUserId:number; toName:string; fromStage:CustodyStage; toStage:CustodyStage; quality:CustodyQuality; pairs:number; sentAt:string; receivedAt?:string; status:'pending'|'confirmed'|'disputed'|'rejected'; reason?:string; actualPairs?:number; defectType?:string; defectCause?:string; attachments?:unknown[]; }
-export interface CustodySession { id:string; custodyId:string; userId:number; startedAt:string; endedAt?:string; kind:'work'|'pause'; reason?:string; }
-export interface CustodyProgress { id:string; custodyId:string; userId:number; pairs:number; recordedAt:string; }
-export interface CustodyEvent { id:string; batchId:string; custodyId?:string; actorId:number; actorName:string; stage?:CustodyStage; action:string; at:string; pairs?:number; reason?:string; before?:unknown; after?:unknown; }
-export interface CustodyDisposal { id:string; custodyId:string; pairs:number; status:'received'|'approved'|'executed'; reason:string; method?:string; approvedBy?:number; approvedAt?:string; executedBy?:number; executedAt?:string; attachments?:unknown[]; }
-export interface CustodyBatch { id:string; trackingNumber:string; productionId?:number; version:number; product:CustodyProduct; purpose:'sale'|'sample'; productionDate:string; machineNumber:string; shift:string; manufacturingOrder?:string; firstPairs:number; secondPairs:number; totalPairs:number; createdBy:number; createdByName:string; responsibleUserId:number; createdAt:string; sampleRequestId?:number; sampleStatus?:string; sampleDelivery?:{receiver:string;method:string;proof:string;at:string}; custodies:CustodyLot[]; transfers:CustodyTransfer[]; sessions:CustodySession[]; progress:CustodyProgress[]; disposals:CustodyDisposal[]; events:CustodyEvent[]; corrections?:unknown[]; wasteThreadGrams?:number; wasteSocksGrams?:number; openingBalance?:boolean; legacySource?:{id:number;productionId?:number|null;quantityPairs:number}; }
-export interface CustodyAllocation { toStage:CustodyStage; toUserId:number; quality:CustodyQuality; pairs:number; }
-export interface CustodyActionInput { operationKey:string; batchId:string; custodyId?:string; transferId?:string; action:'receive'|'dispute'|'reject'|'resolve'|'start'|'pause'|'resume'|'progress'|'complete'|'send'|'store'|'approve_disposal'|'execute_disposal'|'deliver_sample'|'correct'|'rework'; actualPairs?:number; pairs?:number; reason?:string; allocations?:CustodyAllocation[]; barcode?:string; packagePairs?:number; method?:string; receiver?:string; proof?:string; defectType?:string; defectCause?:string; attachments?:unknown[]; correction?:Partial<CustodyProduct>; }
-export interface CustodySettings { enabled:boolean; scheduleCronTaskUid?:string|null; stageLimits:Partial<Record<CustodyStage,{workHours:number;confirmationHours:number}>>; shifts:{name:string;start:string;end:string;days:number[]}[]; holidays:string[]; }
-export const CUSTODY_STAGE_LABELS:Record<CustodyStage,string>={production:'الإنتاج',rosso:'الروسو',qalb:'القلب',antislip:'مانع الانزلاق',kawiya:'الكاوية',inspection:'الفحص',packing:'التغليف',storage:'المخازن',followup:'مدير المتابعة',customer_service:'خدمة العملاء'};
-export const CUSTODY_STATUS_LABELS:Record<CustodyStatus,string>={received:'مستلم',working:'قيد العمل',paused:'متوقف مؤقتًا',completed:'مكتمل بانتظار التسليم',sent:'مرسل بانتظار التأكيد',closed:'تم تأكيد التسليم',stored:'مدخل نهائيًا للمخزون',destroyed:'إتلاف منفذ',disputed:'اختلاف قيد المراجعة'};
-export const CUSTODY_QUALITY_LABELS:Record<CustodyQuality,string>={first:'نخب أول',second:'نخب ثانٍ',suspected:'مشتبه بتلفه',damaged:'تالف معتمد'};
+export type CustodyStage =
+  | "production"
+  | "rosso"
+  | "qalb"
+  | "antislip"
+  | "kawiya"
+  | "inspection"
+  | "packing"
+  | "storage"
+  | "followup"
+  | "customer_service";
+export type CustodyQuality = "first" | "second" | "suspected" | "damaged";
+export type CustodyStatus =
+  | "received"
+  | "working"
+  | "paused"
+  | "completed"
+  | "sent"
+  | "closed"
+  | "stored"
+  | "destroyed"
+  | "disputed";
+export interface CustodyProduct {
+  code: string;
+  name: string;
+  size: string;
+  color: string;
+  antiSlip: boolean;
+  yarns: { name: string; percentage: number }[];
+  yarnWeightGrams: number;
+  pairWeightGrams: number;
+}
+export interface CustodyBatchInput {
+  operationKey: string;
+  product: CustodyProduct;
+  productionDate: string;
+  machineNumber: string;
+  shift: string;
+  manufacturingOrder?: string;
+  purpose: "sale" | "sample";
+  firstPairs: number;
+  secondPairs: number;
+  responsibleUserId: number;
+  sampleRequestId?: number;
+  wasteThreadGrams?: number;
+  wasteSocksGrams?: number;
+  needlesUsed?: number;
+  wasteNeedles?: number;
+}
+export interface CustodyAccount {
+  id: number;
+  name: string;
+  department: string;
+  role: string;
+}
+export interface CustodyLot {
+  id: string;
+  batchId: string;
+  parentCustodyId?: string;
+  ownerId: number;
+  ownerName: string;
+  stage: CustodyStage;
+  quality: CustodyQuality;
+  pairs: number;
+  status: CustodyStatus;
+  receivedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  sentAt?: string;
+  progressPairs: number;
+  sourceStage?: CustodyStage;
+  sourceUserId?: number;
+  sourceName?: string;
+  legacyTiming?: boolean;
+}
+export interface CustodyTransfer {
+  id: string;
+  batchId: string;
+  sourceCustodyId: string;
+  destinationCustodyId?: string;
+  fromUserId: number;
+  fromName: string;
+  toUserId: number;
+  toName: string;
+  fromStage: CustodyStage;
+  toStage: CustodyStage;
+  quality: CustodyQuality;
+  pairs: number;
+  sentAt: string;
+  receivedAt?: string;
+  status: "pending" | "confirmed" | "disputed" | "rejected";
+  reason?: string;
+  actualPairs?: number;
+  defectType?: string;
+  defectCause?: string;
+  attachments?: unknown[];
+}
+export interface CustodySession {
+  id: string;
+  custodyId: string;
+  userId: number;
+  startedAt: string;
+  endedAt?: string;
+  kind: "work" | "pause";
+  reason?: string;
+}
+export interface CustodyProgress {
+  id: string;
+  custodyId: string;
+  userId: number;
+  pairs: number;
+  recordedAt: string;
+}
+export interface CustodyEvent {
+  id: string;
+  batchId: string;
+  custodyId?: string;
+  actorId: number;
+  actorName: string;
+  stage?: CustodyStage;
+  action: string;
+  at: string;
+  pairs?: number;
+  reason?: string;
+  before?: unknown;
+  after?: unknown;
+}
+export interface CustodyDisposal {
+  id: string;
+  custodyId: string;
+  pairs: number;
+  status: "received" | "approved" | "executed";
+  reason: string;
+  method?: string;
+  approvedBy?: number;
+  approvedAt?: string;
+  executedBy?: number;
+  executedAt?: string;
+  attachments?: unknown[];
+}
+export interface CustodyBatch {
+  id: string;
+  trackingNumber: string;
+  productionId?: number;
+  version: number;
+  product: CustodyProduct;
+  purpose: "sale" | "sample";
+  productionDate: string;
+  machineNumber: string;
+  shift: string;
+  manufacturingOrder?: string;
+  firstPairs: number;
+  secondPairs: number;
+  totalPairs: number;
+  createdBy: number;
+  createdByName: string;
+  responsibleUserId: number;
+  createdAt: string;
+  sampleRequestId?: number;
+  sampleStatus?: string;
+  sampleDelivery?: {
+    receiver: string;
+    method: string;
+    proof: string;
+    at: string;
+  };
+  custodies: CustodyLot[];
+  transfers: CustodyTransfer[];
+  sessions: CustodySession[];
+  progress: CustodyProgress[];
+  disposals: CustodyDisposal[];
+  events: CustodyEvent[];
+  corrections?: unknown[];
+  wasteThreadGrams?: number;
+  wasteSocksGrams?: number;
+  needlesUsed?: number;
+  wasteNeedles?: number;
+  openingBalance?: boolean;
+  legacySource?: {
+    id: number;
+    productionId?: number | null;
+    quantityPairs: number;
+  };
+}
+export interface CustodyAllocation {
+  toStage: CustodyStage;
+  toUserId: number;
+  quality: CustodyQuality;
+  pairs: number;
+}
+export interface CustodyActionInput {
+  operationKey: string;
+  batchId: string;
+  custodyId?: string;
+  transferId?: string;
+  action:
+    | "receive"
+    | "dispute"
+    | "reject"
+    | "resolve"
+    | "start"
+    | "pause"
+    | "resume"
+    | "progress"
+    | "complete"
+    | "send"
+    | "store"
+    | "approve_disposal"
+    | "execute_disposal"
+    | "deliver_sample"
+    | "correct"
+    | "rework";
+  actualPairs?: number;
+  pairs?: number;
+  reason?: string;
+  allocations?: CustodyAllocation[];
+  barcode?: string;
+  packagePairs?: number;
+  method?: string;
+  receiver?: string;
+  proof?: string;
+  defectType?: string;
+  defectCause?: string;
+  attachments?: unknown[];
+  correction?: Partial<CustodyProduct>;
+}
+export interface CustodySettings {
+  enabled: boolean;
+  scheduleCronTaskUid?: string | null;
+  stageLimits: Partial<
+    Record<CustodyStage, { workHours: number; confirmationHours: number }>
+  >;
+  shifts: { name: string; start: string; end: string; days: number[] }[];
+  holidays: string[];
+}
+export const CUSTODY_STAGE_LABELS: Record<CustodyStage, string> = {
+  production: "الإنتاج",
+  rosso: "الروسو",
+  qalb: "القلب",
+  antislip: "مانع الانزلاق",
+  kawiya: "الكاوية",
+  inspection: "الفحص",
+  packing: "التغليف",
+  storage: "التخزين والمستودعات — إنتاج تام",
+  followup: "مدير المتابعة",
+  customer_service: "خدمة العملاء",
+};
+export const CUSTODY_STATUS_LABELS: Record<CustodyStatus, string> = {
+  received: "مستلم",
+  working: "قيد العمل",
+  paused: "متوقف مؤقتًا",
+  completed: "مكتمل بانتظار التسليم",
+  sent: "مرسل بانتظار التأكيد",
+  closed: "تم تأكيد التسليم",
+  stored: "مدخل نهائيًا للمخزون",
+  destroyed: "إتلاف منفذ",
+  disputed: "اختلاف قيد المراجعة",
+};
+export const CUSTODY_QUALITY_LABELS: Record<CustodyQuality, string> = {
+  first: "نخب أول",
+  second: "نخب ثانٍ",
+  suspected: "مشتبه بتلفه",
+  damaged: "تالف معتمد",
+};
 // tRPC custodyV2: accounts query(undefined)->CustodyAccount[]; list query({stage?,batchId?})->CustodyBatch[] (scoped visibility);
 // createBatch mutation(CustodyBatchInput)->{success:true,batchId,trackingNumber}; act mutation(CustodyActionInput)->{success:true,batchId};
 // settings query(undefined)->CustodySettings; saveSettings mutation(CustodySettings)->{success:true};

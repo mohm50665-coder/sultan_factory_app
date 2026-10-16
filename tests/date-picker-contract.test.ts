@@ -46,9 +46,13 @@ describe("Global date picker contract", () => {
 
   it("includes operational dates used by sales, collections, orders, and warehouse movements", () => {
     const source = read("app/daily-summary.tsx");
-    for (const field of ["row.orderDate", "row.collectionDate", "row.deliveryDate", "row.submittedAt", "row.closedAt", "row.lastMovementAt", "row.movementAt"]) {
-      expect(source, field).toContain(field);
+    const policy = read("shared/operational-report.ts");
+    expect(source).toContain("inReportPeriod");
+    for (const field of ["orderDate", "collectionDate", "invoiceDate", "movementDate", "movementAt", "lastMovementAt"]) {
+      expect(policy, field).toContain(field);
     }
+    expect(policy).not.toContain('"updatedAt"');
+    expect(policy).not.toContain('"closedAt"');
   });
 
   it("shows all comprehensive report records by default and only filters after date entry", () => {

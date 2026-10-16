@@ -41,6 +41,10 @@ export async function trpcCall(endpoint: string, body?: any, method: "query" | "
     throw new Error(errMsg);
   }
 
+  if (!response.ok) throw new Error(`تعذر تحميل المصدر من الخادم (${response.status})`);
+  if (method === "query" && (!data.result?.data || !Object.prototype.hasOwnProperty.call(data.result.data, "json"))) {
+    throw new Error("استجابة مصدر البيانات غير مكتملة؛ لم تُعرض كصفر أو قائمة فارغة. أعد المحاولة.");
+  }
   // superjson wraps response in {result: {data: {json: ...}}}
   return data.result?.data?.json;
 }

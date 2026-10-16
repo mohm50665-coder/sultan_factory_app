@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { DateField } from "@/components/date-field";
+import { CustodySummaryPanel } from "@/components/custody-summary-panel";
+import { representativeService } from "@/lib/services/representative.service";
+import { commercialReport, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportRows, riyadhDate, warehousePeriod, type ReportKind } from "@shared/operational-report";
+import React, { useState, useEffect, useRef } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -14,7 +18,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarChart, PieChart, ProgressBar, StatCard } from "@/components/charts";
-import { productionService, salesService, collectionService, expensesService, manufacturingService, taskService, administrativeService } from "@/lib/services/api.service";
+import { productionService, salesService, collectionService, expensesService, manufacturingService, taskService, administrativeService, finishedWarehouseService } from "@/lib/services/api.service";
 import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
 
 type ReportSection = "production" | "manufacturing" | "warehouse" | "sales" | "expenses" | "maintenance" | "tasks" | "administrative";
@@ -30,7 +34,7 @@ interface SectionConfig {
 const SECTIONS: SectionConfig[] = [
   { key: "production", titleAr: "الإنتاج", titleEn: "Production", icon: "factory", color: "#3b82f6" },
   { key: "manufacturing", titleAr: "مراحل التسليم", titleEn: "Manufacturing", icon: "precision-manufacturing", color: "#8b5cf6" },
-  { key: "warehouse", titleAr: "المستودعات", titleEn: "Warehouse", icon: "warehouse", color: "#f59e0b" },
+  { key: "warehouse", titleAr: "التخزين والمستودعات — إنتاج تام", titleEn: "Warehouse", icon: "warehouse", color: "#f59e0b" },
   { key: "sales", titleAr: "إدارة التسويق والمبيعات", titleEn: "Marketing & Sales Management", icon: "business-center", color: "#ec4899" },
   { key: "expenses", titleAr: "المصروفات", titleEn: "Expenses", icon: "payments", color: "#6366f1" },
   { key: "maintenance", titleAr: "الصيانة", titleEn: "Maintenance", icon: "build", color: "#ef4444" },
@@ -47,13 +51,20 @@ export default function SectionReportsScreen() {
   const [activeSection, setActiveSection] = useState<ReportSection>("production");
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
+  const today = riyadhDate();
+  const [startDate, setStartDate] = useState(`${today.slice(0,7)}-01`);
+  const [endDate, setEndDate] = useState(today);
+  const [error, setError] = useState("");
+  const loadVersion = useRef(0);
+  const periodRows = (value:any, kind:ReportKind = "general") => reportRows(value).filter(row=>inReportPeriod(row,kind,startDate,endDate));
 
   useEffect(() => {
     loadReportData(activeSection);
-  }, [activeSection]);
+  }, [activeSection, startDate, endDate]);
 
   const loadReportData = async (section: ReportSection) => {
-    setIsLoading(true);
+    const version = ++loadVersion.current;
+    setIsLoading(true); setError("");
     try {
       let data: any = {};
       switch (section) {
@@ -82,21 +93,22 @@ export default function SectionReportsScreen() {
           data = await loadAdministrativeReport();
           break;
       }
-      setReportData(data);
+      if (version === loadVersion.current) setReportData(data);
     } catch (error) {
-      setReportData(null);
+      if (version === loadVersion.current) { setReportData(null); setError(error instanceof Error ? error.message : "تعذر تحميل هذا المصدر؛ ليس صفر نشاط"); }
     } finally {
-      setIsLoading(false);
+      if (version === loadVersion.current) setIsLoading(false);
     }
   };
 
   // Load Production Report
   const loadProductionReport = async () => {
-    const entries = await productionService.getAll() || [];
-    const totalProduction = entries.reduce((s: number, e: any) => s + (parseFloat(e.productionDozen) || 0), 0);
+    const entries = periodRows(await productionService.getAll(), "production");
+    const measured = productionMetrics(entries);
+    const totalProduction = pairLabel(measured.totalPairs);
     const totalWasteThread = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteThreadGrams) || 0), 0);
     const totalWasteSocks = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteSocksGrams) || 0), 0);
-    const totalSecondGrade = entries.reduce((s: number, e: any) => s + (parseFloat(e.secondGradeDozen) || 0), 0);
+    const totalSecondGrade = measured.secondPairs;
     const totalNeedles = entries.reduce((s: number, e: any) => s + (parseFloat(e.wasteNeedles) || 0), 0);
     const machineCount = new Set(entries.map((e: any) => e.machineNumber)).size;
     const totalShifts = entries.length;
@@ -105,25 +117,26 @@ export default function SectionReportsScreen() {
     const machineData: Record<string, number> = {};
     entries.forEach((e: any) => {
       const key = e.machineNumber || "?";
-      machineData[key] = (machineData[key] || 0) + (parseFloat(e.productionDozen) || 0);
+      machineData[key] = (machineData[key] || 0) + (exactPairs(e, "production") / 12);
     });
 
     // بيانات حسب المنتج
     const productData: Record<string, number> = {};
     entries.forEach((e: any) => {
-      const product = e.productName || (isAr ? "بدون اسم" : "Unnamed");
-      productData[product] = (productData[product] || 0) + (parseFloat(e.productionDozen) || 0);
+      const product = [e.productName || (isAr ? "بدون اسم" : "Unnamed"), e.productSize, e.productColor].filter(Boolean).join(" — ");
+      productData[product] = (productData[product] || 0) + (exactPairs(e, "production") / 12);
     });
 
     // بيانات حسب الوردية
     const shiftData: Record<string, number> = {};
     entries.forEach((e: any) => {
       const shift = `${isAr ? "وردية" : "Shift"} ${e.shiftNumber || 1}`;
-      shiftData[shift] = (shiftData[shift] || 0) + (parseFloat(e.productionDozen) || 0);
+      shiftData[shift] = (shiftData[shift] || 0) + (exactPairs(e, "production") / 12);
     });
 
     return {
       totalEntries: entries.length,
+      firstPairs: measured.firstPairs, yarnGrams: measured.yarnGrams, wastePercent: measured.wastePercent, needlesUsed: measured.needlesUsed,
       totalProduction,
       totalWasteThread,
       totalWasteSocks,
@@ -138,65 +151,27 @@ export default function SectionReportsScreen() {
   };
 
   // Load Manufacturing Report
-  const loadManufacturingReport = async () => {
-    const entries = await manufacturingService.getAll() || [];
-    const stages = ["machines", "rosso", "heart", "ironing", "inspection", "packaging", "anti_slip", "storage"];
-    const stageData: Record<string, any[]> = {};
-    let totalEntries = entries.length;
-
-    stages.forEach((stage) => {
-      stageData[stage] = entries.filter((e: any) => e.stage === stage);
-    });
-
-    const stageStats = stages.map((stage) => {
-      const stageEntries = stageData[stage] || [];
-      const totalQty = stageEntries.reduce((s: number, e: any) => s + (parseFloat(e.quantity) || parseFloat(e.dozenQty) || 0), 0);
-      return { stage, count: stageEntries.length, totalQty };
-    });
-
-    return { totalEntries, stageStats, stageData };
-  };
+  const loadManufacturingReport = async () => ({ source: "custodyV2" });
 
   // Load Warehouse Report
   const loadWarehouseReport = async () => {
-    const inEntries = await warehouseEntriesService.getBySection("raw") || [];
-    const outEntries = await warehouseEntriesService.getBySection("out") || [];
-
-    const totalIn = inEntries.reduce((s: number, e: any) => s + (parseFloat(e.data?.quantity) || 0), 0);
-    const totalOut = outEntries.reduce((s: number, e: any) => s + (parseFloat(e.data?.quantity) || 0), 0);
-    const balance = totalIn - totalOut;
-
-    return {
-      inCount: inEntries.length,
-      outCount: outEntries.length,
-      totalIn,
-      totalOut,
-      balance,
-    };
+    const [stock, movements] = await Promise.all([finishedWarehouseService.list(), finishedWarehouseService.movements()]);
+    const ledger = warehousePeriod({stock:reportRows(stock),movements:reportRows(movements),startDate,endDate});
+    return { inCount:ledger.movements.filter(r=>r.movementType === "receipt").length,
+      outCount:ledger.movements.filter(r=>r.movementType === "issue").length,
+      totalIn:ledger.receiptPairs,totalOut:ledger.issuePairs,balance:ledger.closingPairs,currentPairs:ledger.currentPairs,openingPairs:ledger.openingPairs };
   };
 
   // Load Sales Report
   const loadSalesReport = async () => {
-    const sales = await salesService.getAll() || [];
-    const collections = await collectionService.getAll() || [];
-
-    const totalSalesAmount = sales.reduce((s: number, e: any) => s + (parseFloat(e.amount) || parseFloat(e.totalAmount) || 0), 0);
-    const totalCollected = collections.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
-    const totalSalesQty = sales.reduce((s: number, e: any) => s + (parseFloat(e.quantity) || 0), 0);
-
-    return {
-      salesCount: sales.length,
-      collectionsCount: collections.length,
-      totalSalesAmount,
-      totalCollected,
-      remaining: totalSalesAmount - totalCollected,
-      totalSalesQty,
-    };
+    const [sales,legacySales,collections,legacyCollections,transactions] = await Promise.all([representativeService.sales.list(),salesService.getAll(),representativeService.collections.list(),collectionService.getAll(),representativeService.transactions.list()]);
+    const report = commercialReport({sales:reportRows(sales),legacySales:reportRows(legacySales),collections:reportRows(collections),legacyCollections:reportRows(legacyCollections),transactions:reportRows(transactions),startDate,endDate});
+    return { salesCount:report.salesRows.length,collectionsCount:report.collectionRows.length,totalSalesAmount:report.salesAmount,totalCollected:report.collectionAmount,orderCount:report.orderRows.length,visitCount:report.visitRows.length };
   };
 
   // Load Expenses Report
   const loadExpensesReport = async () => {
-    const entries = await expensesService.getAll() || [];
+    const entries = periodRows(await expensesService.getAll());
     const totalExpenses = entries.reduce((s: number, e: any) => s + (parseFloat(e.amount) || 0), 0);
 
     const categoryData: Record<string, number> = {};
@@ -214,9 +189,9 @@ export default function SectionReportsScreen() {
 
   // Load Maintenance Report
   const loadMaintenanceReport = async () => {
-    const periodic = await maintenanceEntriesService.getBySection("periodic") || [];
-    const emergency = await maintenanceEntriesService.getBySection("emergency") || [];
-    const stopped = await maintenanceEntriesService.getBySection("stopped-devices") || [];
+    const periodic = periodRows(await maintenanceEntriesService.getBySection("periodic"));
+    const emergency = periodRows(await maintenanceEntriesService.getBySection("emergency"));
+    const stopped = periodRows(await maintenanceEntriesService.getBySection("stopped-devices"));
 
     return {
       periodicCount: periodic.length,
@@ -228,7 +203,7 @@ export default function SectionReportsScreen() {
 
   // Load Tasks Report
   const loadTasksReport = async () => {
-    const entries = await taskService.getAll() || [];
+    const entries = periodRows(await taskService.getAll());
 
     const completed = entries.filter((e: any) => e.status === "completed" || e.completed).length;
     const pending = entries.filter((e: any) => e.status === "pending" || (!e.completed && !e.overdue)).length;
@@ -244,7 +219,7 @@ export default function SectionReportsScreen() {
 
   // Load Administrative Report
   const loadAdministrativeReport = async () => {
-    const entries = await administrativeService.getAll() || [];
+    const entries = periodRows(await administrativeService.getAll());
 
     const approved = entries.filter((e: any) => e.status === "approved").length;
     const pendingApproval = entries.filter((e: any) => e.status === "pending").length;
@@ -260,7 +235,7 @@ export default function SectionReportsScreen() {
 
   const renderProductionReport = () => {
     if (!reportData) return null;
-    const { totalProduction, totalWasteThread, totalWasteSocks, totalSecondGrade, totalNeedles, machineCount, machineData, totalEntries, totalShifts, productData, shiftData } = reportData;
+    const { firstPairs, yarnGrams, wastePercent, needlesUsed, totalProduction, totalWasteThread, totalWasteSocks, totalSecondGrade, totalNeedles, machineCount, machineData, totalEntries, totalShifts, productData, shiftData } = reportData;
 
     const barData = Object.entries(machineData || {}).slice(0, 10).map(([label, value]) => ({ label, value: value as number }));
     const productBarData = Object.entries(productData || {}).slice(0, 8).map(([label, value]) => ({ label, value: value as number }));
@@ -268,13 +243,13 @@ export default function SectionReportsScreen() {
     const pieData = [
       { label: isAr ? "خيوط" : "Thread", value: totalWasteThread || 0, color: "#3b82f6" },
       { label: isAr ? "جوارب" : "Socks", value: totalWasteSocks || 0, color: "#ef4444" },
-      { label: isAr ? "إبر" : "Needles", value: totalNeedles || 0, color: "#f59e0b" },
+
     ];
 
     return (
       <View>
         <View style={styles.statsRow}>
-          <StatCard title={isAr ? "إجمالي الإنتاج" : "Total Production"} value={`${totalProduction}`} subtitle={isAr ? "درزن" : "dozen"} color="#3b82f6" />
+          <StatCard title={isAr ? "إجمالي الإنتاج" : "Total Production"} value={`${totalProduction}`} subtitle={isAr ? "درزن + زوج" : "dozen + pairs"} color="#3b82f6" />
           <StatCard title={isAr ? "المكائن النشطة" : "Active Machines"} value={`${machineCount}`} color="#10b981" />
         </View>
         <View style={styles.statsRow}>
@@ -289,6 +264,7 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "عدد الإدخالات" : "Entries"} value={`${totalEntries}`} color="#6366f1" />
           <StatCard title={isAr ? "هدر الإبر" : "Needle Waste"} value={`${totalNeedles}`} subtitle={isAr ? "حبة" : "pcs"} color="#dc2626" />
         </View>
+        <View style={styles.statsRow}><StatCard title="النخب الأول" value={pairLabel(firstPairs)} color="#15803d"/><StatCard title="الخيوط المستخدمة" value={`${Number(yarnGrams).toFixed(2)} جم`} color="#075985"/></View><View style={styles.statsRow}><StatCard title="نسبة الهدر الإجمالي" value={wastePercent == null ? "غير محسوبة" : `${wastePercent.toFixed(2)}%`} color="#b91c1c"/><StatCard title="الإبر المستخدمة" value={`${needlesUsed} حبة`} color="#075985"/></View>
         {barData.length > 0 && <BarChart data={barData} title={isAr ? "الإنتاج حسب المكينة" : "Production by Machine"} />}
         {productBarData.length > 0 && <BarChart data={productBarData} title={isAr ? "الإنتاج حسب المنتج" : "Production by Product"} barColor="#14b8a6" />}
         {shiftBarData.length > 0 && <BarChart data={shiftBarData} title={isAr ? "الإنتاج حسب الوردية" : "Production by Shift"} barColor="#8b5cf6" />}
@@ -297,68 +273,28 @@ export default function SectionReportsScreen() {
     );
   };
 
-  const renderManufacturingReport = () => {
-    if (!reportData) return null;
-    const { totalEntries, stageStats } = reportData;
-
-    const stageNames: Record<string, { ar: string; en: string }> = {
-      machines: { ar: "المكائن", en: "Machines" },
-      rosso: { ar: "الروسو", en: "Rosso" },
-      heart: { ar: "القلب", en: "Turning" },
-      ironing: { ar: "الكاوية", en: "Ironing" },
-      inspection: { ar: "الفحص", en: "Inspection" },
-      packaging: { ar: "التغليف", en: "Packaging" },
-      anti_slip: { ar: "مانع الانزلاق", en: "Anti-Slip" },
-      storage: { ar: "التخزين", en: "Storage" },
-    };
-
-    const barData = (stageStats || []).map((s: any) => ({
-      label: isAr ? stageNames[s.stage]?.ar || s.stage : stageNames[s.stage]?.en || s.stage,
-      value: s.count,
-    }));
-
-    return (
-      <View>
-        <View style={styles.statsRow}>
-          <StatCard title={isAr ? "إجمالي الإدخالات" : "Total Entries"} value={`${totalEntries}`} color="#8b5cf6" />
-          <StatCard title={isAr ? "عدد المراحل" : "Stages"} value="8" color="#14b8a6" />
-        </View>
-        {barData.length > 0 && <BarChart data={barData} title={isAr ? "الإدخالات حسب المرحلة" : "Entries by Stage"} barColor="#8b5cf6" height={180} />}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>{isAr ? "تفاصيل المراحل" : "Stage Details"}</Text>
-          {(stageStats || []).map((s: any, i: number) => (
-            <ProgressBar
-              key={i}
-              label={isAr ? stageNames[s.stage]?.ar || s.stage : stageNames[s.stage]?.en || s.stage}
-              value={s.count}
-              max={Math.max(...(stageStats || []).map((x: any) => x.count), 1)}
-              color={["#8b5cf6", "#3b82f6", "#14b8a6", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#06b6d4"][i % 8]}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
+  const renderManufacturingReport = () => <CustodySummaryPanel startDate={startDate} endDate={endDate}/>;
 
   const renderWarehouseReport = () => {
     if (!reportData) return null;
-    const { inCount, outCount, totalIn, totalOut, balance } = reportData;
+    const { inCount, outCount, totalIn, totalOut, balance, currentPairs, openingPairs } = reportData;
 
     const pieData = [
-      { label: isAr ? "داخل" : "In", value: totalIn || 1, color: "#10b981" },
-      { label: isAr ? "خارج" : "Out", value: totalOut || 1, color: "#ef4444" },
+      { label: isAr ? "داخل" : "In", value: totalIn || 0, color: "#10b981" },
+      { label: isAr ? "خارج" : "Out", value: totalOut || 0, color: "#ef4444" },
     ];
 
     return (
       <View>
         <View style={styles.statsRow}>
-          <StatCard title={isAr ? "إجمالي الداخل" : "Total In"} value={`${totalIn}`} color="#10b981" />
-          <StatCard title={isAr ? "إجمالي الخارج" : "Total Out"} value={`${totalOut}`} color="#ef4444" />
+          <StatCard title={isAr ? "إجمالي الداخل" : "Total In"} value={pairLabel(totalIn)} color="#10b981" />
+          <StatCard title={isAr ? "إجمالي الخارج" : "Total Out"} value={pairLabel(totalOut)} color="#ef4444" />
         </View>
         <View style={styles.statsRow}>
-          <StatCard title={isAr ? "الرصيد" : "Balance"} value={`${balance}`} color={balance >= 0 ? "#3b82f6" : "#ef4444"} />
+          <StatCard title={isAr ? "الرصيد" : "Balance"} value={balance == null ? "غير مؤكد" : pairLabel(balance)} color={balance >= 0 ? "#3b82f6" : "#ef4444"} />
           <StatCard title={isAr ? "عمليات الإدخال" : "Operations"} value={`${inCount + outCount}`} color="#6366f1" />
         </View>
+        <View style={styles.statsRow}><StatCard title="رصيد بداية الفترة" value={openingPairs == null ? "غير مؤكد" : pairLabel(openingPairs)} color="#075985"/><StatCard title="الرصيد الحالي — مستقل عن حركة الفترة" value={pairLabel(currentPairs)} color="#075985"/></View>
         {(totalIn > 0 || totalOut > 0) && <PieChart data={pieData} title={isAr ? "حركة المستودع" : "Warehouse Movement"} />}
       </View>
     );
@@ -366,12 +302,7 @@ export default function SectionReportsScreen() {
 
   const renderSalesReport = () => {
     if (!reportData) return null;
-    const { salesCount, collectionsCount, totalSalesAmount, totalCollected, remaining, totalSalesQty } = reportData;
-
-    const pieData = [
-      { label: isAr ? "محصّل" : "Collected", value: totalCollected || 1, color: "#10b981" },
-      { label: isAr ? "متبقي" : "Remaining", value: remaining > 0 ? remaining : 1, color: "#f59e0b" },
-    ];
+    const { salesCount, collectionsCount, totalSalesAmount, totalCollected, orderCount, visitCount } = reportData;
 
     return (
       <View>
@@ -380,14 +311,14 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "المحصّل" : "Collected"} value={`${totalCollected}`} subtitle={isAr ? "ريال" : "SAR"} color="#10b981" />
         </View>
         <View style={styles.statsRow}>
-          <StatCard title={isAr ? "المتبقي" : "Remaining"} value={`${remaining > 0 ? remaining : 0}`} subtitle={isAr ? "ريال" : "SAR"} color="#f59e0b" />
-          <StatCard title={isAr ? "الكمية المباعة" : "Qty Sold"} value={`${totalSalesQty}`} subtitle={isAr ? "درزن" : "dozen"} color="#3b82f6" />
+          <StatCard title="الطلبات — ليست مبيعات" value={`${orderCount}`} color="#f59e0b" />
+          <StatCard title="الزيارات — معلومات فقط" value={`${visitCount}`} color="#3b82f6" />
         </View>
         <View style={styles.statsRow}>
           <StatCard title={isAr ? "عمليات البيع" : "Sales Ops"} value={`${salesCount}`} color="#6366f1" />
           <StatCard title={isAr ? "عمليات التحصيل" : "Collections"} value={`${collectionsCount}`} color="#14b8a6" />
         </View>
-        {(totalCollected > 0 || remaining > 0) && <PieChart data={pieData} title={isAr ? "حالة التحصيل" : "Collection Status"} />}
+        <TouchableOpacity onPress={()=>router.push("/representative-reports" as never)} style={{padding:12}}><Text style={{textAlign:"right",color:colors.primary,fontWeight:"800"}}>تفاصيل الفواتير والتحصيل والطلبات والزيارات والطباعة</Text></TouchableOpacity>
       </View>
     );
   };
@@ -521,6 +452,8 @@ export default function SectionReportsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <View style={{flexDirection:"row-reverse",flexWrap:"wrap",gap:8,padding:10}}><DateField label="من تاريخ" value={startDate} onChange={setStartDate} isAr style={{flex:1,minWidth:150}}/><DateField label="إلى تاريخ" value={endDate} onChange={setEndDate} isAr style={{flex:1,minWidth:150}}/></View>
+      {error?<Text accessibilityRole="alert" style={{color:"#b91c1c",padding:10,textAlign:"right"}}>{error}</Text>:null}
       {/* Section Tabs */}
       <View style={styles.tabsContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsList}>

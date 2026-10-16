@@ -463,8 +463,8 @@ async function writeLegacyProduction(tx: Db, input: CustodyBatchInput, actor: Cu
     secondGradePairs: secondPairs % 12,
     wasteThreadGrams: Number((input as CustodyBatchInput & { wasteThreadGrams?: number }).wasteThreadGrams ?? 0),
     wasteSocksGrams: Number((input as CustodyBatchInput & { wasteSocksGrams?: number }).wasteSocksGrams ?? 0),
-    wasteNeedles: 0,
-    needlesUsed: 0,
+    wasteNeedles: Number(input.wasteNeedles ?? 0),
+    needlesUsed: Number(input.needlesUsed ?? 0),
     productionHours: 0,
     productionMinutes: 0,
     ...yarns,
@@ -540,6 +540,8 @@ export async function createCustodyBatch(db: Db, actor: CustodyActor, input: Cus
       sampleStatus: input.purpose === "sample" ? "in_production" : undefined,
       wasteThreadGrams: input.wasteThreadGrams,
       wasteSocksGrams: input.wasteSocksGrams,
+      needlesUsed: input.needlesUsed,
+      wasteNeedles: input.wasteNeedles,
       custodies, transfers: [], sessions: [], progress: [], disposals: [], events: [], corrections: [],
     };
     const state: MutationState = { batch, pendingEvents: [] };
@@ -1114,7 +1116,7 @@ export async function scanCustodyDelays(db: Db, taskUid?: string): Promise<Delay
         // Dynamic import avoids coupling this isolated module to the legacy alerts schema at boot.
         const legacy = await import("../drizzle/schema.js");
         await tx.insert(legacy.alerts).values({
-          type: "quality_issue", severity: "warning", title: item.kind === "work" ? "تأخر عمل عهدة" : "تأخر تأكيد استلام", 
+          type: "quality_issue", severity: "warning", title: item.kind === "work" ? "تأخر عمل عهدة" : "تأخر تأكيد استلام",
           message: `العهدة ${batch.trackingNumber} تجاوزت حد ${item.kind === "work" ? "العمل" : "تأكيد الاستلام"} في مرحلة ${item.stage} — المسؤول #${item.responsibleUserId}`,
           data: { custodyV2: true, key: operationKey, batchId: item.batchId, custodyId: item.custodyId, kind: item.kind, transferId: item.transferId, responsibleUserId: item.responsibleUserId, stage: item.stage, hours: item.hours } as any,
           userId: item.responsibleUserId,

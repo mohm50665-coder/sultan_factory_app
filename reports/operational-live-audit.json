@@ -1,0 +1,186 @@
+{
+  "readOnly": true,
+  "generatedAt": "2026-10-16T00:35:22.433Z",
+  "sources": {
+    "production": {
+      "count": 117,
+      "first": "2026-10-01",
+      "last": "2026-10-15",
+      "missing": 0
+    },
+    "invoices": {
+      "count": 4,
+      "first": "2026-10-01",
+      "last": "2026-10-15",
+      "missing": 0
+    },
+    "collections": {
+      "count": 9,
+      "first": "2026-09-07",
+      "last": "2026-10-12",
+      "missing": 0
+    },
+    "transactions": {
+      "count": 55,
+      "first": "2026-01-10",
+      "last": "2026-10-13",
+      "missing": 0
+    },
+    "movements": {
+      "count": 287,
+      "first": "2026-10-01",
+      "last": "2026-10-13",
+      "missing": 0
+    },
+    "legacyInvoices": {
+      "count": 1,
+      "first": "2026-09-06",
+      "last": "2026-09-06",
+      "missing": 0
+    },
+    "legacyCollections": {
+      "count": 1,
+      "first": "2026-09-07",
+      "last": "2026-09-07",
+      "missing": 0
+    }
+  },
+  "periods": [
+    {
+      "startDate": "2026-10-05",
+      "endDate": "2026-10-05",
+      "production": {
+        "totalPairs": 264,
+        "firstPairs": 259,
+        "secondPairs": 5,
+        "yarnGrams": 8592,
+        "wasteThreadGrams": 0,
+        "wasteSocksGrams": 1178,
+        "needlesUsed": 0,
+        "wasteNeedles": 0,
+        "invalidQuantityCount": 0,
+        "wastePercent": 13.710428305400372,
+        "threadWastePercent": 0
+      },
+      "salesAmount": 632.5,
+      "salesCount": 1,
+      "collectionAmount": 200,
+      "collectionCount": 1,
+      "orders": 0,
+      "visits": 16,
+      "warehouse": {
+        "movements": 0,
+        "receiptPairs": 0,
+        "issuePairs": 0,
+        "adjustmentPairs": 0,
+        "netPairs": 0,
+        "openingPairs": 239952,
+        "closingPairs": 239952,
+        "currentPairs": 242316,
+        "invalidQuantityCount": 0
+      }
+    },
+    {
+      "startDate": "2026-10-14",
+      "endDate": "2026-10-14",
+      "production": {
+        "totalPairs": 120,
+        "firstPairs": 120,
+        "secondPairs": 0,
+        "yarnGrams": 3960,
+        "wasteThreadGrams": 0,
+        "wasteSocksGrams": 215,
+        "needlesUsed": 0,
+        "wasteNeedles": 11,
+        "invalidQuantityCount": 0,
+        "wastePercent": 5.42929292929293,
+        "threadWastePercent": 0
+      },
+      "salesAmount": 0,
+      "salesCount": 0,
+      "collectionAmount": 0,
+      "collectionCount": 0,
+      "orders": 0,
+      "visits": 0,
+      "warehouse": {
+        "movements": 0,
+        "receiptPairs": 0,
+        "issuePairs": 0,
+        "adjustmentPairs": 0,
+        "netPairs": 0,
+        "openingPairs": 242316,
+        "closingPairs": 242316,
+        "currentPairs": 242316,
+        "invalidQuantityCount": 0
+      }
+    },
+    {
+      "startDate": "2026-10-15",
+      "endDate": "2026-10-15",
+      "production": {
+        "totalPairs": 144,
+        "firstPairs": 144,
+        "secondPairs": 0,
+        "yarnGrams": 5616,
+        "wasteThreadGrams": 0,
+        "wasteSocksGrams": 250,
+        "needlesUsed": 0,
+        "wasteNeedles": 3,
+        "invalidQuantityCount": 0,
+        "wastePercent": 4.451566951566951,
+        "threadWastePercent": 0
+      },
+      "salesAmount": 16788.5,
+      "salesCount": 2,
+      "collectionAmount": 0,
+      "collectionCount": 0,
+      "orders": 0,
+      "visits": 0,
+      "warehouse": {
+        "movements": 0,
+        "receiptPairs": 0,
+        "issuePairs": 0,
+        "adjustmentPairs": 0,
+        "netPairs": 0,
+        "openingPairs": 242316,
+        "closingPairs": 242316,
+        "currentPairs": 242316,
+        "invalidQuantityCount": 0
+      }
+    },
+    {
+      "startDate": "2026-10-01",
+      "endDate": "2026-10-31",
+      "production": {
+        "totalPairs": 6349,
+        "firstPairs": 6321,
+        "secondPairs": 28,
+        "yarnGrams": 278446,
+        "wasteThreadGrams": 1350,
+        "wasteSocksGrams": 12165,
+        "needlesUsed": 0,
+        "wasteNeedles": 183,
+        "invalidQuantityCount": 0,
+        "wastePercent": 4.85372388182987,
+        "threadWastePercent": 0.48483368408955413
+      },
+      "salesAmount": 28978.5,
+      "salesCount": 4,
+      "collectionAmount": 3900,
+      "collectionCount": 8,
+      "orders": 5,
+      "visits": 49,
+      "warehouse": {
+        "movements": 287,
+        "receiptPairs": 242316,
+        "issuePairs": 0,
+        "adjustmentPairs": 0,
+        "netPairs": 242316,
+        "openingPairs": 0,
+        "closingPairs": 242316,
+        "currentPairs": 242316,
+        "invalidQuantityCount": 0
+      }
+    }
+  ]
+}

@@ -18,13 +18,14 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("difference-positive");
     expect(summary).toContain("difference-negative");
     expect(summary).toContain("rawDeliveredQuantityPairs");
-    expect(summary).toContain("Math.min(receivedQuantityPairs, rawDeliveredQuantityPairs)");
+    expect(summary).not.toContain("Math.min(receivedQuantityPairs, rawDeliveredQuantityPairs)");
+    expect(summary).toContain("CustodySummaryPanel");
   });
 
   it("separates manufacturing stages in the comprehensive report", () => {
     expect(summary).toContain("stageSummary");
     expect(summary).toContain("مراحل التصنيع — كل مرحلة مستقلة");
-    expect(summary).toContain("المسلّم المحتسب");
+    expect(summary).toContain("المسلّم = ما خرج منها بصفتها المرسلة (previousStage)");
     expect(summary).toContain("productionOnlyWorkMinutes");
     expect(summary).toContain("stageDurationSummary");
     expect(summary).toContain("const productionWorkMinutes = productionOnlyWorkMinutes + stageWorkMinutes");
@@ -38,8 +39,8 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("السالب باللون الأحمر");
     expect(summary).toContain("differenceFilter");
     expect(summary).toContain("Review remaining quantities");
-    expect(summary).toContain("alertsService.create");
-    expect(summary).toContain("handover_difference");
+    expect(summary).not.toContain("alertsService.create");
+    expect(summary).toContain("buildCustodyReport");
     expect(summary).toContain("/remaining-quantities");
     expect(remaining).toContain("إجمالي الأزواج المتبقية");
     expect(remaining).toContain("(${pairs(row)} زوج)");

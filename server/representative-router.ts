@@ -6,6 +6,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { changeStockPairs, legacyDozenToPairs } from "./pair-inventory";
+import { inReportPeriod } from "../shared/operational-report";
 import {
   auditLog,
   customers,
@@ -829,31 +830,32 @@ export const representativeRouter = router({
       if (!db) return { representatives: [], weights: [] };
       const weights = await db.select().from(representativePerformanceWeights).where(eq(representativePerformanceWeights.isActive, 1));
       const effectiveWeights = weights.length ? weights : [
-        { criterionKey: "sales_amount", criterionName: "قيمة الطلبات", weight: 35, targetValue: 100000 },
+        { criterionKey: "sales_amount", criterionName: "قيمة المبيعات", weight: 35, targetValue: 100000 },
         { criterionKey: "collection_amount", criterionName: "التحصيل", weight: 30, targetValue: 80000 },
         { criterionKey: "closed_orders", criterionName: "إغلاق الطلبات", weight: 20, targetValue: 20 },
         { criterionKey: "speed", criterionName: "سرعة الإنجاز", weight: 15, targetValue: 1440 },
       ];
-      const txConditions: any[] = [isNull(representativeTransactions.deletedAt)];
-      if (input?.startDate) txConditions.push(gte(representativeTransactions.orderDate, input.startDate));
-      if (input?.endDate) txConditions.push(lte(representativeTransactions.orderDate, input.endDate));
-      const allTransactions = await db.select().from(representativeTransactions).where(and(...txConditions));
-      const collectionConditions: any[] = [];
-      if (input?.startDate) collectionConditions.push(gte(representativeCollections.collectionDate, input.startDate));
-      if (input?.endDate) collectionConditions.push(lte(representativeCollections.collectionDate, input.endDate));
-      const allCollections = await db.select().from(representativeCollections).where(collectionConditions.length ? and(...collectionConditions) : undefined);
-      const salesConditions: any[] = [];
-      if (input?.startDate) salesConditions.push(gte(representativeSales.invoiceDate, input.startDate));
-      if (input?.endDate) salesConditions.push(lte(representativeSales.invoiceDate, input.endDate));
-      const allSales = await db.select().from(representativeSales).where(salesConditions.length ? and(...salesConditions) : undefined);
+      const [transactionRecords, collectionRecords] = await Promise.all([
+        db.select().from(representativeTransactions).where(isNull(representativeTransactions.deletedAt)),
+        db.select().from(representativeCollections),
+      ]);
+      const allSales = await db.select().from(representativeSales);
+      // Date-only/MySQL and offset timestamps need the same Riyadh business-date rules as UI reports.
+      // Do not let lexical SQL comparisons drop legacy date formats.
+      const dateInput = input?.startDate || input?.endDate;
+      const allTransactions = dateInput ? transactionRecords.filter((row) => inReportPeriod(row, "transaction", input?.startDate || input?.endDate || "", input?.endDate || input?.startDate || "")) : transactionRecords;
+      const allCollections = dateInput ? collectionRecords.filter((row) => inReportPeriod(row, "collection", input?.startDate || input?.endDate || "", input?.endDate || input?.startDate || "")) : collectionRecords;
+      const reportSales = dateInput ? allSales.filter((row) => inReportPeriod(row, "sale", input?.startDate || input?.endDate || "", input?.endDate || input?.startDate || "")) : allSales;
       const activeUsers = await db.select().from(users).where(eq(users.isActive, 1));
       const reps = activeUsers.filter((candidate) => isRepresentativeEmployee(candidate) && (!input?.representativeId || Number(candidate.id) === input.representativeId));
       const visibleReps = isAdmin(ctx.user) || isSalesManager(ctx.user) ? reps : reps.filter((candidate) => Number(candidate.id) === Number(ctx.user.id));
       const representatives = visibleReps.map((rep) => {
         const tx = allTransactions.filter((row) => Number(row.representativeId) === Number(rep.id));
         const col = allCollections.filter((row) => Number(row.representativeId) === Number(rep.id));
-        const saleRows = allSales.filter((row) => Number(row.representativeId) === Number(rep.id));
-        const salesAmount = tx.filter((row) => row.transactionType === "order").reduce((sum, row) => sum + Number(row.paymentAmount || 0), 0) + saleRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+        const saleRows = reportSales.filter((row) => Number(row.representativeId) === Number(rep.id));
+        // الطلبات والزيارات نشاط تشغيلي وليست فواتير: معيار المبيعات لا يعتمد إلا على
+        // سجلات representativeSales التي تملك رقم فاتورة وتاريخ فاتورة صريحين.
+        const salesAmount = saleRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
         const collectionAmount = col.reduce((sum, row) => sum + Number(row.collectedAmount || 0), 0);
         const closedOrders = tx.filter((row) => row.status === "CLOSED").length;
         const avgDuration = tx.length ? tx.reduce((sum, row) => sum + Math.max(0, (new Date(row.closedAt || row.updatedAt).getTime() - new Date(row.createdAt).getTime()) / 60000), 0) / tx.length : 0;

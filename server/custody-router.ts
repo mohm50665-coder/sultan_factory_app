@@ -44,6 +44,8 @@ const batchInputSchema = z.object({
   secondPairs: integerPairs,
   wasteThreadGrams: z.number().nonnegative().finite().optional(),
   wasteSocksGrams: z.number().nonnegative().finite().optional(),
+  needlesUsed: integerPairs.optional(),
+  wasteNeedles: integerPairs.optional(),
   responsibleUserId: z.number().int().positive(),
   sampleRequestId: z.number().int().positive().optional(),
 });

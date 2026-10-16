@@ -1,5 +1,5 @@
 import { CustodySummaryPanel } from "@/components/custody-summary-panel";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -15,12 +15,12 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, salesService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
+import { productionService, salesService, collectionService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TextInput } from "react-native";
+import { commercialReport, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportRows, transactionStatusLabel, visitText, warehousePeriod } from "@shared/operational-report";
 
 interface MonthOption {
   label: string;
@@ -38,13 +38,13 @@ interface ReportData {
     yarnWeight: number;
     wasteNeedles: number;
     secondGrade: number;
-    wastePercentage: number;
+    firstGrade: number;
+    wastePercentage: number | null;
+    threadWastePercentage: number | null;
   };
   sales: {
     totalEntries: number;
     totalAmount: number;
-    cashAmount: number;
-    creditAmount: number;
   };
   expenses: {
     totalAmount: number;
@@ -64,14 +64,25 @@ interface ReportData {
   };
   collection: {
     totalAmount: number;
+    totalEntries: number;
     collectionRate: number;
   };
   warehouse: {
     movementCount: number;
-    receiptDozen: number;
-    issueDozen: number;
-    stockItems: number;
-    stockDozen: number;
+    receiptPairs: number;
+    issuePairs: number;
+    adjustmentPairs: number;
+    currentPairs: number;
+    openingPairs: number | null;
+    closingPairs: number | null;
+    invalidQuantityCount: number;
+  };
+  commercial: {
+    salesRows: any[];
+    orderRows: any[];
+    visitRows: any[];
+    otherTransactionRows: any[];
+    collectionRows: any[];
   };
   manufacturingRequests: {
     total: number;
@@ -86,16 +97,6 @@ interface ReportData {
 }
 
 type ReportPeriod = "daily" | "twoDays" | "weekly" | "monthly" | "custom";
-
-function dateOnly(value: unknown): string {
-  if (!value) return "";
-  const raw = String(value);
-  const match = raw.match(/(\d{4}-\d{2}-\d{2})/);
-  if (match?.[1]) return match[1];
-  const legacy = raw.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (legacy) return `${legacy[3]}-${legacy[2].padStart(2, "0")}-${legacy[1].padStart(2, "0")}`;
-  return "";
-}
 
 function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
   if (period === "custom" && customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd)) {
@@ -135,15 +136,9 @@ function DateField({ value, onChange, label, colors }: { value: string; onChange
   return <TextInput value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" accessibilityLabel={label} style={inputStyle} />;
 }
 
-function rowDate(row: any): string {
-  return dateOnly(row?.date || row?.orderDate || row?.invoiceDate || row?.receiptDate || row?.collectionDate || row?.expenseDate || row?.reportDate || row?.targetDate || row?.dueDate || row?.productionDate || row?.movementDate || row?.submittedAt || row?.createdAt || row?.updatedAt || row?.lastMovementAt || row?.movementAt);
-}
-
-function inRange(row: any, start: string, end: string): boolean {
-  const value = rowDate(row);
-  // السجل غير المؤرخ لا يُنسب إلى فترة؛ يظهر فقط في التقارير العامة/المراجعة.
-  return Boolean(value) && value >= start && value <= end;
-}
+const rateLabel = (value: number | null, digits = 1) => value == null ? "غير متاح" : `${value.toFixed(digits)}%`;
+const amount = (value: number) => value.toLocaleString("ar-SA", { maximumFractionDigits: 2 });
+const itemQuantity = (item: any) => pairLabel(exactPairs(item, "item"));
 
 export default function BoardMonthlyReport() {
   const router = useRouter();
@@ -162,7 +157,9 @@ export default function BoardMonthlyReport() {
   const [customEnd, setCustomEnd] = useState(currentMonthEnd);
   const range = periodRange(period, selectedMonth, selectedYear, customStart, customEnd);
   const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const latestReportRequest = useRef(0);
 
   const monthNamesAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   const monthNamesEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -211,175 +208,69 @@ export default function BoardMonthlyReport() {
   }, [selectedMonth, selectedYear, period, customStart, customEnd]);
 
   const loadReportData = async () => {
+    const requestId = ++latestReportRequest.current;
     setIsLoading(true);
+    setReportError(null);
     try {
-      // Load production data
-      // كل مصدر اختياري يعزل خطأه؛ لا يجوز أن يؤدي تعذر تقرير فرعي إلى إخفاء بقية التقرير.
-      const productionRaw = await productionService.getAll().catch(() => []);
-      const prodEntries = (Array.isArray(productionRaw) ? productionRaw : (productionRaw as any)?.items || (productionRaw as any)?.rows || [])
-        .filter((row: any) => inRange(row, range.start, range.end));
-      let totalDozen = 0, totalPairs = 0, totalYarnWeight = 0, wasteThread = 0, wasteSocks = 0, wasteNeedles = 0, secondGrade = 0;
-      let prodCount = 0;
-      prodEntries.forEach((item: any) => {
-        totalDozen += parseInt(item.productionDozen || "0");
-        totalPairs += parseInt(item.productionPairs || "0");
-        const productionPairs = (parseFloat(item.productionDozen || "0") * 12) + parseFloat(item.productionPairs || "0");
-        const yarnWeightPerPair = ["yarnRubber", "yarnSpandex", "yarnNylon", "yarnCotton", "yarnBamboo", "yarnSpan"]
-          .reduce((sum, field) => sum + (parseFloat(item[field] || "0") || 0), 0);
-        totalYarnWeight += yarnWeightPerPair * productionPairs;
-        wasteThread += parseInt(item.wasteThreadGrams || "0");
-        wasteSocks += parseInt(item.wasteSocksGrams || "0");
-        wasteNeedles += parseInt(item.wasteNeedles || "0");
-        secondGrade += parseInt(item.secondGradePairs || "0");
-        prodCount++;
-      });
-      const totalWaste = wasteThread + wasteSocks;
-      // نفس معادلة شاشة الإنتاج: الهدر بالجرام ÷ وزن الخيوط المستخدم بالجرام.
-      // لا يجوز قسمة الجرام على عدد الأزواج؛ ذلك كان سبب ظهور 71% بدلاً من 1.87%.
-      const wastePercentage = totalYarnWeight > 0 ? (totalWaste / totalYarnWeight) * 100 : 0;
-
-      // Load operational sales from both legacy sales records and representative transactions.
-      // The representative workflow is the current source for orders/visits and must not be omitted.
-      const [legacySalesRaw, representativeTransactionsRaw, representativeCollectionsRaw] = await Promise.all([
-        salesService.getAll().catch(() => []),
-        representativeService.transactions.list({}).catch(() => []),
-        representativeService.collections.list({}).catch(() => []),
+      const filters = { startDate: range.start, endDate: range.end };
+      const results = await Promise.allSettled([
+        productionService.getAll(), salesService.getAll(), collectionService.getAll(),
+        representativeService.sales.list(), representativeService.collections.list(), representativeService.transactions.list(),
+        expensesService.getAll(), taskService.getAll(), maintenanceEntriesService.getBySection("periodic"), maintenanceEntriesService.getBySection("emergency"), maintenanceEntriesService.getBySection("stopped"),
+        finishedWarehouseService.movements(), finishedWarehouseService.list(),
       ]);
-      const legacySales = Array.isArray(legacySalesRaw) ? legacySalesRaw : (legacySalesRaw as any)?.items || (legacySalesRaw as any)?.rows || [];
-      const representativeTransactions = Array.isArray(representativeTransactionsRaw) ? representativeTransactionsRaw : (representativeTransactionsRaw as any)?.items || (representativeTransactionsRaw as any)?.rows || [];
-      const representativeCollections = Array.isArray(representativeCollectionsRaw) ? representativeCollectionsRaw : (representativeCollectionsRaw as any)?.items || (representativeCollectionsRaw as any)?.rows || [];
-      const salesEntries = [...legacySales, ...representativeTransactions.filter((row: any) => row.transactionType === "order")]
-        .filter((row: any) => inRange(row, range.start, range.end));
-      let salesTotal = 0, cashAmount = 0, creditAmount = 0;
-      salesEntries.forEach((item: any) => {
-        const amount = parseFloat(item.amount ?? item.totalAmount ?? item.paymentAmount ?? "0");
-        salesTotal += amount;
-        if (item.paymentMethod === "cash" || item.paymentMethod === "نقدي" || item.collectionMethod === "cash") {
-          cashAmount += amount;
-        } else {
-          creditAmount += amount;
-        }
+      const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failed) throw failed.reason;
+      const values = results.map((result) => (result as PromiseFulfilledResult<unknown>).value);
+      const [productionRaw, legacySalesRaw, legacyCollectionsRaw, salesRaw, collectionsRaw, transactionsRaw, expensesRaw, tasksRaw, periodicRaw, emergencyRaw, stoppedRaw, movementsRaw, stockRaw] = values;
+      const productionRows = reportRows(productionRaw).filter((row) => inReportPeriod(row, "production", range.start, range.end));
+      const production = productionMetrics(productionRows);
+      const commercial = commercialReport({
+        sales: reportRows(salesRaw), legacySales: reportRows(legacySalesRaw),
+        collections: reportRows(collectionsRaw), legacyCollections: reportRows(legacyCollectionsRaw),
+        transactions: reportRows(transactionsRaw), startDate: range.start, endDate: range.end,
       });
-
-      // Load expenses data
-      const expEntries = (await expensesService.getAll().catch(() => []))
-        .filter((row: any) => inRange(row, range.start, range.end));
-      let expTotal = 0;
+      const warehouse = warehousePeriod({ movements: reportRows(movementsRaw), stock: reportRows(stockRaw), startDate: range.start, endDate: range.end });
+      const expenseRows = reportRows(expensesRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end));
+      const taskRows = reportRows(tasksRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end));
       const expCategories: Record<string, number> = {};
-      expEntries.forEach((item: any) => {
-        const amount = parseFloat(item.amount || "0");
-        expTotal += amount;
-        const cat = item.category || item.description || (isAr ? "أخرى" : "Other");
-        expCategories[cat] = (expCategories[cat] || 0) + amount;
-      });
-
-      // Load maintenance data
-      const [periodic, emergency, stopped] = await Promise.all([
-        maintenanceEntriesService.getBySection("periodic").catch(() => []),
-        maintenanceEntriesService.getBySection("emergency").catch(() => []),
-        maintenanceEntriesService.getBySection("stopped").catch(() => []),
-      ]);
-
-      // Load tasks data
-      const tasksEntries = (await taskService.getAll().catch(() => []))
-        .filter((row: any) => inRange(row, range.start, range.end));
-      const tasksCompleted = tasksEntries.filter((t: any) => t.result === "completed").length;
-      const tasksPending = tasksEntries.filter((t: any) => !t.result || t.result === "pending").length;
-      const tasksOverdue = tasksEntries.filter((t: any) => t.result === "overdue" || t.status === "overdue").length;
-      const completionRate = tasksEntries.length > 0 ? (tasksCompleted / tasksEntries.length) * 100 : 0;
-
-      // Load collection data
-      const collectionStr = await AsyncStorage.getItem("sultan_collection_data");
-      let collectionTotal = 0;
-      if (collectionStr) {
-        const collectionEntries = JSON.parse(collectionStr);
-        collectionEntries.filter((item: any) => inRange(item, range.start, range.end)).forEach((item: any) => {
-          collectionTotal += parseFloat(item.amount || "0");
-        });
-      }
-      (representativeCollections || []).filter((item: any) => inRange(item, range.start, range.end)).forEach((item: any) => {
-        collectionTotal += parseFloat(item.collectedAmount || item.amount || "0");
-      });
-      const collectionRate = salesTotal > 0 ? (collectionTotal / salesTotal) * 100 : 0;
-      const [warehouseMovementsRaw, warehouseStockRaw] = await Promise.all([
-        finishedWarehouseService.movements().catch(() => []),
-        finishedWarehouseService.list().catch(() => []),
-      ]);
-      const warehouseMovements = (Array.isArray(warehouseMovementsRaw) ? warehouseMovementsRaw : (warehouseMovementsRaw as any)?.items || (warehouseMovementsRaw as any)?.rows || []).filter((row: any) => inRange(row, range.start, range.end));
-      const warehouseStock = Array.isArray(warehouseStockRaw) ? warehouseStockRaw : (warehouseStockRaw as any)?.items || (warehouseStockRaw as any)?.rows || [];
+      const expenseTotal = expenseRows.reduce((sum, row: any) => {
+        const amount = Number(row.amount || 0);
+        const category = row.category || row.description || (isAr ? "أخرى" : "Other");
+        expCategories[category] = (expCategories[category] || 0) + amount;
+        return sum + amount;
+      }, 0);
+      const completed = taskRows.filter((row: any) => row.result === "completed").length;
+      const pending = taskRows.filter((row: any) => !row.result || row.result === "pending").length;
+      const overdue = taskRows.filter((row: any) => row.result === "overdue" || row.status === "overdue").length;
       const reportMonth = period === "custom" ? range.start.slice(0, 7) : `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
-      const manufacturingMonth = reportMonth;
-      const previousDate = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
-      const previousManufacturingMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, "0")}`;
-      const emptyManufacturingReport = {
-        total: 0,
-        produced: 0,
-        notProduced: 0,
-        pending: 0,
-        producedDozen: 0,
-        notProducedDozen: 0,
-        failureReasons: [] as { reason: string; count: number; quantityDozen: number }[],
-      };
-      const [manufacturingResult, previousManufacturingResult] = await Promise.all([
-        productManufacturingRequestService.monthlyReport(manufacturingMonth).catch(() => emptyManufacturingReport),
-        productManufacturingRequestService.monthlyReport(previousManufacturingMonth).catch(() => emptyManufacturingReport),
+      const prior = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
+      const priorMonth = `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, "0")}`;
+      const emptyManufacturingReport = { total: 0, produced: 0, notProduced: 0, pending: 0, producedDozen: 0, notProducedDozen: 0, failureReasons: [] as { reason: string; count: number; quantityDozen: number }[] };
+      const [manufacturingRequests, previousManufacturingRequests] = await Promise.all([
+        productManufacturingRequestService.monthlyReport(reportMonth), productManufacturingRequestService.monthlyReport(priorMonth),
       ]);
-      const manufacturingRequests = manufacturingResult || emptyManufacturingReport;
-      const previousManufacturingRequests = previousManufacturingResult || emptyManufacturingReport;
-
+      if (requestId !== latestReportRequest.current) return;
       setReportData({
-        production: {
-          totalDozen,
-          totalPairs,
-          totalEntries: prodCount,
-          wasteThread,
-          wasteSocks,
-          yarnWeight: totalYarnWeight,
-          wasteNeedles,
-          secondGrade,
-          wastePercentage,
-        },
-        sales: {
-          totalEntries: salesEntries.length,
-          totalAmount: salesTotal,
-          cashAmount,
-          creditAmount,
-        },
-        expenses: {
-          totalAmount: expTotal,
-          categories: Object.entries(expCategories).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5),
-        },
-        maintenance: {
-          periodicCount: periodic.length,
-          emergencyCount: emergency.length,
-          stoppedMachines: stopped.length,
-        },
-        tasks: {
-          total: tasksEntries.length,
-          completed: tasksCompleted,
-          pending: tasksPending,
-          overdue: tasksOverdue,
-          completionRate,
-        },
-        collection: {
-          totalAmount: collectionTotal,
-          collectionRate,
-        },
-        warehouse: {
-          movementCount: warehouseMovements.length,
-          receiptDozen: warehouseMovements.filter((row: any) => row.movementType === "receipt").reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
-          issueDozen: warehouseMovements.filter((row: any) => row.movementType === "issue").reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
-          stockItems: warehouseStock.length,
-          stockDozen: warehouseStock.reduce((sum: number, row: any) => sum + Number(row.quantityDozen || 0), 0),
-        },
-        manufacturingRequests,
-        previousManufacturingRequests,
+        production: { totalDozen: production.totalPairs / 12, totalPairs: production.totalPairs, totalEntries: productionRows.length, wasteThread: production.wasteThreadGrams, wasteSocks: production.wasteSocksGrams, yarnWeight: production.yarnGrams, wasteNeedles: production.wasteNeedles, secondGrade: production.secondPairs, firstGrade: production.firstPairs, wastePercentage: production.wastePercent, threadWastePercentage: production.threadWastePercent },
+        sales: { totalEntries: commercial.salesRows.length, totalAmount: commercial.salesAmount },
+        expenses: { totalAmount: expenseTotal, categories: Object.entries(expCategories).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5) },
+        maintenance: { periodicCount: reportRows(periodicRaw).length, emergencyCount: reportRows(emergencyRaw).length, stoppedMachines: reportRows(stoppedRaw).length },
+        tasks: { total: taskRows.length, completed, pending, overdue, completionRate: taskRows.length ? completed / taskRows.length * 100 : 0 },
+        collection: { totalAmount: commercial.collectionAmount, totalEntries: commercial.collectionRows.length, collectionRate: commercial.salesAmount ? commercial.collectionAmount / commercial.salesAmount * 100 : 0 },
+        warehouse: { movementCount: warehouse.movements.length, receiptPairs: warehouse.receiptPairs, issuePairs: warehouse.issuePairs, adjustmentPairs: warehouse.adjustmentPairs, currentPairs: warehouse.currentPairs, openingPairs: warehouse.openingPairs, closingPairs: warehouse.closingPairs, invalidQuantityCount: warehouse.invalidQuantityCount },
+        commercial: { salesRows: commercial.salesRows, orderRows: commercial.orderRows, visitRows: commercial.visitRows, otherTransactionRows: commercial.otherTransactionRows, collectionRows: commercial.collectionRows },
+        manufacturingRequests: manufacturingRequests || emptyManufacturingReport,
+        previousManufacturingRequests: previousManufacturingRequests || emptyManufacturingReport,
       });
-    } catch (error) {
-      console.error("Error loading report data:", error);
-      setReportData(null);
+    } catch (error: any) {
+      if (requestId === latestReportRequest.current) {
+        console.error("Error loading report data:", error);
+        setReportData(null);
+        setReportError(error?.message || (isAr ? "تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة." : "Could not load report data; zero substitutes are not shown."));
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === latestReportRequest.current) setIsLoading(false);
     }
   };
 
@@ -398,12 +289,12 @@ export default function BoardMonthlyReport() {
             title: isAr ? "ملخص الأداء العام" : "Overall Performance Summary",
             type: "summary",
             data: [
-              { label: isAr ? "إجمالي الإنتاج" : "Total Production", value: `${reportData.production.totalDozen} ${isAr ? "دزينة" : "dozen"}` },
-              { label: isAr ? "إجمالي المبيعات" : "Total Sales", value: `${reportData.sales.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "إجمالي المصروفات" : "Total Expenses", value: `${reportData.expenses.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "إجمالي التحصيل" : "Total Collection", value: `${reportData.collection.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}` },
+              { label: isAr ? "إجمالي الإنتاج" : "Total Production", value: pairLabel(reportData.production.totalPairs) },
+              { label: isAr ? "إجمالي المبيعات" : "Total Sales", value: `${amount(reportData.sales.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
+              { label: isAr ? "إجمالي المصروفات" : "Total Expenses", value: `${amount(reportData.expenses.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
+              { label: isAr ? "إجمالي التحصيل" : "Total Collection", value: `${amount(reportData.collection.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
               { label: isAr ? "هدر الخيوط" : "Yarn Waste", value: `${reportData.production.wasteThread.toLocaleString()} ${isAr ? "جرام" : "g"}` },
-              { label: isAr ? "نسبة الهدر" : "Waste Rate", value: `${reportData.production.wastePercentage.toFixed(1)}%` },
+              { label: isAr ? "نسبة الهدر" : "Waste Rate", value: rateLabel(reportData.production.wastePercentage) },
               { label: isAr ? "المهام المكتملة" : "Tasks Completed", value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
             ],
           },
@@ -413,9 +304,9 @@ export default function BoardMonthlyReport() {
             data: [
               {
                 title: isAr ? "نسبة الهدر" : "Waste Rate",
-                value: `${reportData.production.wastePercentage.toFixed(1)}%`,
+                value: rateLabel(reportData.production.wastePercentage),
                 target: isAr ? "أقل من 5%" : "Below 5%",
-                status: reportData.production.wastePercentage <= 5 ? "good" : reportData.production.wastePercentage <= 10 ? "warning" : "bad",
+                status: reportData.production.wastePercentage == null ? "warning" : reportData.production.wastePercentage <= 5 ? "good" : reportData.production.wastePercentage <= 10 ? "warning" : "bad",
               },
               {
                 title: isAr ? "نسبة إنجاز المهام" : "Task Completion Rate",
@@ -440,13 +331,13 @@ export default function BoardMonthlyReport() {
                 isAr ? "القيمة" : "Value",
               ],
               rows: [
-                [isAr ? "إجمالي الإنتاج (دزينة)" : "Total Production (Dozen)", `${reportData.production.totalDozen}`],
-                [isAr ? "إجمالي الإنتاج (أزواج)" : "Total Production (Pairs)", `${reportData.production.totalPairs}`],
+                [isAr ? "إجمالي الإنتاج" : "Total Production", pairLabel(reportData.production.totalPairs)],
+                [isAr ? "الفرز الأول" : "First grade", pairLabel(reportData.production.firstGrade)],
                 [isAr ? "عدد الإدخالات" : "Total Entries", `${reportData.production.totalEntries}`],
                 [isAr ? "هدر الخيوط (جرام)" : "Thread Waste (g)", `${reportData.production.wasteThread}`],
                 [isAr ? "هدر الجوارب (جرام)" : "Socks Waste (g)", `${reportData.production.wasteSocks}`],
                 [isAr ? "وزن الخيوط المستخدم (جرام)" : "Yarn Used (g)", `${reportData.production.yarnWeight.toFixed(2)}`],
-                [isAr ? "نسبة الهدر" : "Waste Rate", `${reportData.production.wastePercentage.toFixed(1)}%`],
+                [isAr ? "نسبة الهدر" : "Waste Rate", rateLabel(reportData.production.wastePercentage)],
                 [isAr ? "هدر الإبر (حبة)" : "Needle Waste (pcs)", `${reportData.production.wasteNeedles}`],
                 [isAr ? "النخب الثاني (أزواج)" : "Second Grade (Pairs)", `${reportData.production.secondGrade}`],
               ],
@@ -461,13 +352,28 @@ export default function BoardMonthlyReport() {
                 isAr ? "القيمة" : "Value",
               ],
               rows: [
-                [isAr ? "عدد عمليات البيع" : "Sales Transactions", `${reportData.sales.totalEntries}`],
-                [isAr ? "إجمالي المبيعات" : "Total Sales", `${reportData.sales.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`],
-                [isAr ? "المبيعات النقدية" : "Cash Sales", `${reportData.sales.cashAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`],
-                [isAr ? "المبيعات الآجلة" : "Credit Sales", `${reportData.sales.creditAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`],
-                [isAr ? "إجمالي التحصيل" : "Total Collection", `${reportData.collection.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`],
+                [isAr ? "عدد الفواتير" : "Invoice count", `${reportData.sales.totalEntries}`],
+                [isAr ? "إجمالي المبيعات" : "Total Sales", `${amount(reportData.sales.totalAmount)} ${isAr ? "ريال" : "SAR"}`],
+                [isAr ? "عدد التحصيلات" : "Collection count", `${reportData.collection.totalEntries}`],
+                [isAr ? "إجمالي التحصيل" : "Total Collection", `${amount(reportData.collection.totalAmount)} ${isAr ? "ريال" : "SAR"}`],
                 [isAr ? "نسبة التحصيل" : "Collection Rate", `${reportData.collection.collectionRate.toFixed(1)}%`],
               ],
+            },
+          },
+          {
+            title: isAr ? "تفاصيل فواتير المبيعات" : "Sales invoice details",
+            type: "table",
+            data: {
+              headers: [isAr ? "الفاتورة" : "Invoice", isAr ? "العميل" : "Customer", isAr ? "التاريخ" : "Date", isAr ? "المندوب/المصدر" : "Representative/source", isAr ? "المبلغ" : "Amount", isAr ? "المرفقات" : "Attachments"],
+              rows: reportData.commercial.salesRows.map((row) => [row.invoiceNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.invoiceDate || "—", row.representativeName || row.sellerName || row.reportSource || "—", `${amount(Number(row.amount || 0))} ${isAr ? "ر.س" : "SAR"}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ") || "—" : "—"]),
+            },
+          },
+          {
+            title: isAr ? "تفاصيل التحصيل" : "Collection details",
+            type: "table",
+            data: {
+              headers: [isAr ? "السند" : "Receipt", isAr ? "العميل" : "Customer", isAr ? "التاريخ" : "Date", isAr ? "المندوب/المصدر" : "Representative/source", isAr ? "المبلغ" : "Amount", isAr ? "المرفقات" : "Attachments"],
+              rows: reportData.commercial.collectionRows.map((row) => [row.receiptNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.collectionDate || row.receiptDate || "—", row.representativeName || row.collectorName || row.reportSource || "—", `${amount(Number(row.collectedAmount ?? row.amount ?? 0))} ${isAr ? "ر.س" : "SAR"}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ") || "—" : "—"]),
             },
           },
           {
@@ -545,7 +451,7 @@ export default function BoardMonthlyReport() {
 
   const generateRecommendations = (data: ReportData): string => {
     const recommendations: string[] = [];
-    if (data.production.wastePercentage > 5) {
+    if (data.production.wastePercentage != null && data.production.wastePercentage > 5) {
       recommendations.push(isAr
         ? `• نسبة الهدر (${data.production.wastePercentage.toFixed(1)}%) تتجاوز الحد المقبول (5%). يُوصى بمراجعة خطوط الإنتاج وتدريب العمال.`
         : `• Waste rate (${data.production.wastePercentage.toFixed(1)}%) exceeds acceptable limit (5%). Review production lines and train workers.`
@@ -696,6 +602,14 @@ export default function BoardMonthlyReport() {
 
         <CustodySummaryPanel startDate={range.start} endDate={range.end}/>
 
+        {!isLoading && reportError && (
+          <View style={[styles.emptyState, { marginHorizontal: 8, borderWidth: 1, borderColor: "#FCA5A5", borderRadius: 10, backgroundColor: "#FEF2F2" }]}>
+            <MaterialIcons name="error-outline" size={38} color="#DC2626" />
+            <Text style={[styles.emptyText, { color: "#991B1B", textAlign: "center" }]}>{reportError}</Text>
+            <TouchableOpacity style={[styles.retryButton, { borderColor: colors.primary }]} onPress={loadReportData}><Text style={[styles.retryText, { color: colors.primary }]}>{isAr ? "إعادة المحاولة" : "Retry"}</Text></TouchableOpacity>
+          </View>
+        )}
+
         {/* Report Preview */}
         {!isLoading && reportData && (
           <>
@@ -703,13 +617,13 @@ export default function BoardMonthlyReport() {
             <View style={styles.summaryGrid}>
               <View style={[styles.summaryCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
                 <MaterialIcons name="precision-manufacturing" size={22} color="#2563EB" />
-                <Text style={[styles.summaryValue, { color: "#2563EB" }]}>{reportData.production.totalDozen}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? (reportData.production.totalEntries ? "دزينة إنتاج" : "لا يوجد نشاط إنتاجي") : (reportData.production.totalEntries ? "Dozen Produced" : "No production activity")}</Text>
+                <Text style={[styles.summaryValue, { color: "#2563EB" }]}>{pairLabel(reportData.production.totalPairs)}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? (reportData.production.totalEntries ? "إنتاج مسجل" : "لا يوجد نشاط إنتاجي") : (reportData.production.totalEntries ? "Recorded production" : "No production activity")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }]}>
                 <MaterialIcons name="point-of-sale" size={22} color="#16A34A" />
-                <Text style={[styles.summaryValue, { color: "#16A34A" }]}>{reportData.sales.totalAmount.toLocaleString()}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? (reportData.sales.totalEntries ? "ريال مبيعات مسجلة" : "لا يوجد نشاط مبيعات") : (reportData.sales.totalEntries ? "SAR Sales" : "No sales activity")}</Text>
+                <Text style={[styles.summaryValue, { color: "#16A34A" }]}>{amount(reportData.sales.totalAmount)}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? `${reportData.sales.totalEntries} فاتورة مبيعات` : `${reportData.sales.totalEntries} sales invoices`}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
                 <MaterialIcons name="money-off" size={22} color="#DC2626" />
@@ -718,17 +632,17 @@ export default function BoardMonthlyReport() {
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
                 <MaterialIcons name="inventory-2" size={22} color="#C2410C" />
-                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.warehouse.stockDozen.toLocaleString()}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? `درزن بالمستودع — ${reportData.warehouse.movementCount} حركة` : `Warehouse dozen — ${reportData.warehouse.movementCount} movements`}</Text>
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{pairLabel(reportData.warehouse.currentPairs)}</Text>
+                <Text style={styles.summaryLabel}>{isAr ? `إنتاج تام حاليًا — ${reportData.warehouse.movementCount} حركة` : `Current finished goods — ${reportData.warehouse.movementCount} movements`}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
                 <MaterialIcons name="scale" size={22} color="#C2410C" />
                 <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.production.wasteThread.toLocaleString()}</Text>
                 <Text style={styles.summaryLabel}>{isAr ? "هدر الخيوط — جرام" : "Yarn waste — grams"}</Text>
               </View>
-              <View style={[styles.summaryCard, { backgroundColor: reportData.production.wastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.wastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
-                <MaterialIcons name="percent" size={22} color={reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
-                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{reportData.production.wastePercentage.toFixed(1)}%</Text>
+              <View style={[styles.summaryCard, { backgroundColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
+                <MaterialIcons name="percent" size={22} color={reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
+                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{rateLabel(reportData.production.wastePercentage)}</Text>
                 <Text style={styles.summaryLabel}>{isAr ? "نسبة هدر الخيوط" : "Yarn waste rate"}</Text>
               </View>
             </View>
@@ -739,10 +653,10 @@ export default function BoardMonthlyReport() {
             </Text>
             <View style={styles.kpiGrid}>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={[styles.kpiIndicator, { backgroundColor: getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]} />
+                <View style={[styles.kpiIndicator, { backgroundColor: reportData.production.wastePercentage == null ? "#94A3B8" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]} />
                 <Text style={[styles.kpiTitle, { color: colors.muted }]}>{isAr ? "نسبة الهدر" : "Waste Rate"}</Text>
-                <Text style={[styles.kpiValue, { color: getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]}>
-                  {reportData.production.wastePercentage.toFixed(1)}%
+                <Text style={[styles.kpiValue, { color: reportData.production.wastePercentage == null ? "#64748B" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]}>
+                  {rateLabel(reportData.production.wastePercentage)}
                 </Text>
               </View>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -793,8 +707,8 @@ export default function BoardMonthlyReport() {
                 </Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "الإنتاج (دزينة)" : "Production (Dozen)"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.production.totalDozen}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "إجمالي الإنتاج" : "Total production"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.production.totalPairs)}</Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "هدر الخيوط" : "Thread Waste"}</Text>
@@ -802,7 +716,7 @@ export default function BoardMonthlyReport() {
               </View>
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "النخب الثاني" : "Second Grade"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.production.secondGrade} {isAr ? "زوج" : "pairs"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.production.secondGrade)}</Text>
               </View>
             </View>
 
@@ -816,20 +730,57 @@ export default function BoardMonthlyReport() {
               </View>
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "إجمالي المبيعات" : "Total Sales"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.sales.totalAmount.toLocaleString()} {isAr ? "ر.س" : "SAR"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{amount(reportData.sales.totalAmount)} {isAr ? "ر.س" : "SAR"}</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "نقدي" : "Cash"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.sales.cashAmount.toLocaleString()} {isAr ? "ر.س" : "SAR"}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "عدد الفواتير" : "Invoice count"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.sales.totalEntries}</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "آجل" : "Credit"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.sales.creditAmount.toLocaleString()} {isAr ? "ر.س" : "SAR"}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "عدد التحصيلات" : "Collection count"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.collection.totalEntries}</Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المحصّل" : "Collected"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.collection.totalAmount.toLocaleString()} {isAr ? "ر.س" : "SAR"}</Text>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{amount(reportData.collection.totalAmount)} {isAr ? "ر.س" : "SAR"}</Text>
               </View>
+            </View>
+
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.detailHeader}><MaterialIcons name="receipt-long" size={20} color="#16A34A" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل فواتير المبيعات" : "Sales invoice details"}</Text></View>
+              {reportData.commercial.salesRows.length === 0 ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لا توجد فواتير مبيعات في الفترة" : "No sales invoices in this period"}</Text> : reportData.commercial.salesRows.map((row: any) => <View key={`sale-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.invoiceNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.invoiceDate || "—"} · {amount(Number(row.amount || 0))} ر.س · {row.representativeName || row.sellerName || row.reportSource}</Text>
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+              </View>)}
+            </View>
+
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.detailHeader}><MaterialIcons name="payments" size={20} color="#0284C7" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل التحصيل" : "Collection details"}</Text></View>
+              {reportData.commercial.collectionRows.length === 0 ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لا توجد تحصيلات في الفترة" : "No collections in this period"}</Text> : reportData.commercial.collectionRows.map((row: any) => <View key={`collection-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.receiptNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.collectionDate || row.receiptDate || "—"} · {amount(Number(row.collectedAmount ?? row.amount ?? 0))} ر.س · {row.representativeName || row.collectorName || row.reportSource}</Text>
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+              </View>)}
+            </View>
+
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.detailHeader}><MaterialIcons name="assignment" size={20} color="#7C3AED" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل الطلبات والزيارات" : "Order and visit details"}</Text></View>
+              {[...reportData.commercial.orderRows, ...reportData.commercial.visitRows, ...reportData.commercial.otherTransactionRows].map((row: any) => <View key={`transaction-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.referenceCode || "—"} · {row.customerName || "—"} · {row.transactionType === "visit" ? "زيارة" : row.transactionType === "order" ? "طلب" : row.transactionType || "معاملة"}</Text>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.orderDate || "—"} · {transactionStatusLabel(row.status, row.transactionType)} · {row.representativeName || "—"}</Text>
+                {row.transactionType === "visit" ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{visitText(row.visitReport)}</Text> : Array.isArray(row.items) && row.items.map((item: any, index: number) => <Text key={`${row.id}-${index}`} style={[styles.detailLabel, { color: colors.muted }]}>{item.productName || "—"} · {itemQuantity(item)} · {item.size || "—"} · {item.color || "—"}</Text>)}
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+              </View>)}
+            </View>
+
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.detailHeader}><MaterialIcons name="inventory-2" size={20} color="#C2410C" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "التخزين والمستودعات — إنتاج تام" : "Storage & warehouses — finished goods"}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "رصيد البداية" : "Opening balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.warehouse.openingPairs == null ? (isAr ? "غير متاح — يحتاج مراجعة" : "Unavailable — needs review") : pairLabel(reportData.warehouse.openingPairs)}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "وارد الفترة" : "Period receipts"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.receiptPairs)}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "صادر الفترة" : "Period issues"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.issuePairs)}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "رصيد النهاية للفترة" : "Period closing balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.warehouse.closingPairs == null ? (isAr ? "غير متاح — يحتاج مراجعة" : "Unavailable — needs review") : pairLabel(reportData.warehouse.closingPairs)}</Text></View>
+              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "الرصيد الحالي" : "Current balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.currentPairs)}</Text></View>
             </View>
 
             {/* Maintenance Details */}
@@ -947,6 +898,7 @@ const styles = StyleSheet.create({
   detailHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 7, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
   detailTitle: { fontSize: 15, fontWeight: "bold" },
   detailRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
+  detailListRow: { paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: "#E5E7EB", gap: 3 },
   detailLabel: { fontSize: 13 },
   detailValue: { fontSize: 14, fontWeight: "600" },
   exportButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginHorizontal: 8, marginTop: 12, marginBottom: 8, padding: 11, borderRadius: 12, backgroundColor: "#7C3AED", gap: 10 },
