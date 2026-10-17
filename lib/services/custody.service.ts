@@ -5,6 +5,8 @@ import type {
   CustodyActionInput,
   CustodyAllocation,
   CustodyBatch,
+  CustodyBatchGroupInput,
+  CustodyBatchGroupResult,
   CustodyBatchInput,
   CustodyQuality,
   CustodySettings,
@@ -124,6 +126,10 @@ export const custodyService = {
   createBatch: async (input: CustodyBatchInput): Promise<{ success: true; batchId: string; trackingNumber: string }> => {
     const result = await trpcCall("custodyV2.createBatch", input);
     return confirmed(result, "لم يؤكد الخادم إنشاء الدفعة.") as { success: true; batchId: string; trackingNumber: string };
+  },
+  createBatchGroup: async (input: CustodyBatchGroupInput): Promise<CustodyBatchGroupResult> => {
+    const result = await trpcCall("custodyV2.createBatchGroup", input);
+    return confirmed(result, "لم يؤكد الخادم إنشاء مجموعة الدفعات.") as CustodyBatchGroupResult;
   },
   act: async (input: CustodyActionInput): Promise<{ success: true; batchId: string; replayed?: boolean; message?: string }> => {
     const result = await trpcCall("custodyV2.act", input);

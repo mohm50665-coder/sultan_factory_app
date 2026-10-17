@@ -51,6 +51,47 @@ export interface CustodyBatchInput {
   needlesUsed?: number;
   wasteNeedles?: number;
 }
+
+/**
+ * Production metadata supplied once for a related set of independently tracked
+ * custody batches. Product snapshots, quantities, purpose, sample reference,
+ * and measured waste remain per-batch facts.
+ */
+export type CustodyBatchGroupSharedInput = Pick<CustodyBatchInput,
+  | "operationKey"
+  | "productionDate"
+  | "productionEndDate"
+  | "workStartTime"
+  | "workEndTime"
+  | "machineNumber"
+  | "shift"
+  | "manufacturingOrder"
+  | "responsibleUserId"
+  | "purpose"
+>;
+
+export type CustodyBatchGroupProductInput = Omit<CustodyBatchInput,
+  keyof CustodyBatchGroupSharedInput
+>;
+
+/**
+ * A single production run can record no more than five sale products. Each
+ * member becomes its own batch/custody and receives a server-derived operation
+ * key; sample batches deliberately remain a one-product workflow.
+ */
+export interface CustodyBatchGroupInput extends CustodyBatchGroupSharedInput {
+  products: CustodyBatchGroupProductInput[];
+}
+
+export interface CustodyBatchGroupResult {
+  success: true;
+  /** First batch ID, retained for the operation-idempotency record shape. */
+  batchId: string;
+  batchIds: string[];
+  trackingNumbers: string[];
+  replayed?: boolean;
+  message?: string;
+}
 export interface CustodyAccount {
   id: number;
   name: string;

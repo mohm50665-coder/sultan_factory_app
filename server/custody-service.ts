@@ -18,6 +18,8 @@ import type {
   CustodyActionInput,
   CustodyAllocation,
   CustodyBatch,
+  CustodyBatchGroupInput,
+  CustodyBatchGroupResult,
   CustodyBatchInput,
   CustodyDisposal,
   CustodyEvent,
@@ -492,8 +494,8 @@ async function markSample(tx: Db, batch: CustodyBatch, status: string, actor?: C
   await samples.markSampleBatch(tx, batch.sampleRequestId, batch.id, status, actor ? { id: actor.id, name: actorName(actor) } : undefined);
 }
 
-export async function createCustodyBatch(db: Db, actor: CustodyActor, input: CustodyBatchInput): Promise<{ success: true; batchId: string; trackingNumber: string }> {
-  return executeIdempotent(db, actor, input.operationKey, input, async (tx) => {
+/** The authoritative single-product creation logic; callers must already own `tx`. */
+async function createCustodyBatchInTransaction(tx: Db, actor: CustodyActor, input: CustodyBatchInput): Promise<{ success: true; batchId: string; trackingNumber: string }> {
     assertProductionCreator(actor);
     await accountById(tx, actor.id);
     validateProductSnapshot(input.product);
@@ -575,6 +577,85 @@ export async function createCustodyBatch(db: Db, actor: CustodyActor, input: Cus
     })));
     if (batch.purpose === "sample") await markSample(tx, batch, "in_production");
     return { success: true, batchId: id, trackingNumber };
+}
+
+/** Ordinary one-product entry point: preserves the existing actor/key idempotency boundary. */
+export async function createCustodyBatch(db: Db, actor: CustodyActor, input: CustodyBatchInput): Promise<{ success: true; batchId: string; trackingNumber: string }> {
+  return executeIdempotent(db, actor, input.operationKey, input, (tx) => createCustodyBatchInTransaction(tx, actor, input));
+}
+
+/**
+ * Derived child keys are deterministic for a retry of the same group, opaque to
+ * product names, bounded below the operation-key maximum, and distinct by slot.
+ */
+export function deriveCustodyBatchGroupOperationKey(groupOperationKey: string, index: number): string {
+  return `group-${createHash("sha256").update(`${groupOperationKey}:batch:${index}`).digest("hex")}`;
+}
+
+function assertCustodyBatchGroupInput(input: CustodyBatchGroupInput): void {
+  assertOperationKey(input.operationKey);
+  if (!Array.isArray(input.products) || input.products.length < 1 || input.products.length > 5) {
+    fail("BAD_REQUEST", "يجب أن تحتوي مجموعة دفعات الإنتاج على منتج واحد إلى خمسة منتجات");
+  }
+  if (input.purpose === "sample" && input.products.length !== 1) {
+    fail("BAD_REQUEST", "دفعة العينة يجب أن تحتوي منتجًا واحدًا فقط ولا يمكن جمعها مع دفعات أخرى");
+  }
+  if ((input.products as Array<Record<string, unknown>>).some((product) => "purpose" in product || "operationKey" in product)) {
+    fail("BAD_REQUEST", "غرض الدفعة ومفتاح العملية يحددان على مستوى مجموعة الإنتاج فقط");
+  }
+}
+
+/**
+ * Creates independently tracked product batches for one shared production run.
+ * The group operation is the outer idempotency key and the only database
+ * transaction; child keys are persisted inside it so ordinary duplicate guards
+ * continue to cover every newly-created batch.
+ */
+export async function createCustodyBatchGroup(
+  db: Db,
+  actor: CustodyActor,
+  input: CustodyBatchGroupInput,
+): Promise<CustodyBatchGroupResult> {
+  assertCustodyBatchGroupInput(input);
+  return executeIdempotent(db, actor, input.operationKey, input, async (tx) => {
+    // Check again inside the transaction so direct service callers receive the
+    // same boundary as the Zod route and no partial group can be written.
+    assertCustodyBatchGroupInput(input);
+    const created: Array<{ success: true; batchId: string; trackingNumber: string }> = [];
+
+    for (const [index, productBatch] of input.products.entries()) {
+      const operationKey = deriveCustodyBatchGroupOperationKey(input.operationKey, index);
+      const batchInput: CustodyBatchInput = {
+        ...productBatch,
+        productionDate: input.productionDate,
+        productionEndDate: input.productionEndDate,
+        workStartTime: input.workStartTime,
+        workEndTime: input.workEndTime,
+        machineNumber: input.machineNumber,
+        shift: input.shift,
+        manufacturingOrder: input.manufacturingOrder,
+        responsibleUserId: input.responsibleUserId,
+        purpose: input.purpose,
+        operationKey,
+      };
+
+      // A derived key must never silently reuse a batch from a different group.
+      // If an impossible collision is observed, aborting the outer transaction is
+      // safer than yielding a partly-replayed group.
+      if (await findOperation(tx, actor.id, operationKey)) {
+        fail("CONFLICT", "تعارض مفتاح مشتق لمنتج في مجموعة دفعات الإنتاج؛ أعد المحاولة بمفتاح عملية جديد");
+      }
+      const result = await createCustodyBatchInTransaction(tx, actor, batchInput);
+      await saveOperation(tx, actor, operationKey, requestHash(batchInput), result.batchId, result);
+      created.push(result);
+    }
+
+    return {
+      success: true,
+      batchId: created[0].batchId,
+      batchIds: created.map((result) => result.batchId),
+      trackingNumbers: created.map((result) => result.trackingNumber),
+    };
   });
 }
 

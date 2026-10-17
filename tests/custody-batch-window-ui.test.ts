@@ -14,8 +14,8 @@ describe("custody production batch input", () => {
 
   it("builds the item code from name, size and color and makes it read-only", () => {
     expect(source).toContain('const automaticItemCode');
-    expect(source).toContain('automaticItemCode(name, size, color)');
-    expect(source).toContain('رمز الصنف (يظهر تلقائيًا)');
+    expect(source).toContain('automaticItemCode(draft.name, draft.size, draft.color)');
+    expect(source).toContain('رمز الصنف (آلي)');
     expect(source).toContain('editable={false}');
   });
 

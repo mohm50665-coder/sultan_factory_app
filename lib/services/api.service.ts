@@ -33,7 +33,11 @@ export async function trpcCall(endpoint: string, body?: any, method: "query" | "
     };
   }
 
-  const response = await fetch(url, options);
+  // The Expo web preview uses a different API subdomain/port.  Keep the
+  // authenticated cookie on cross-origin calls as well as the native/local
+  // x-session-id fallback; otherwise protected custody and representative
+  // calls incorrectly fail with "Please login (10001)" after a valid login.
+  const response = await fetch(url, { ...options, credentials: "include" });
   const data = await response.json();
 
   if (data.error) {

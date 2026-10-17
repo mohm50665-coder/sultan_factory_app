@@ -5,19 +5,19 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve(process.cwd(), "app/custody-batch-entry.tsx"), "utf8");
 
 const requiredEnglishCopy: Array<[string, string]> = [
-  ["دفعة إنتاج جديدة", "New production batch"],
+  ["إدخال إنتاج الماكينة والوردية", "Machine & shift production entry"],
   ["مراجعة رصيد افتتاحي سابق", "Review previous opening balance"],
   ["العهد", "Custody"],
-  ["اختيار صنف موجود أو إدخال تعريف جديد", "Select an existing item or enter a new definition"],
-  ["تعريف الصنف — مستقل عن الدفعة", "Item definition — independent of the batch"],
+  ["ابحث في دليل المنتجات", "Search product catalog"],
+  ["بيانات الماكينة والوردية المشتركة", "Shared machine and shift details"],
+  ["منتجات هذه الماكينة والوردية", "Items for this machine and shift"],
   ["الخيوط والأوزان", "Yarns and weights"],
-  ["بيانات دفعة الإنتاج", "Production batch details"],
-  ["الكميات — جودة منفصلة وحساب بالزوج الصحيح", "Quantities — separate quality and whole-pair calculation"],
-  ["هدر الإنتاج — قياس فعلي بالجرام", "Production waste — actual measurement in grams"],
-  ["حفظ الدفعة وإنشاء عهد الإنتاج", "Save batch and create Production custody"],
+  ["الكميات حسب الجودة", "Quantities by grade"],
+  ["هدر الخيوط (جرام)", "Yarn waste (grams)"],
+  ["حفظ كل المنتجات وإنشاء عهد الإنتاج", "Save all items and create Production custody"],
   ["اعتماد الرصيد الافتتاحي بعد المراجعة", "Approve opening balance after review"],
-  ["اكتب حرفين من اسم الصنف للبحث — المقاس اختياري", "Type two letters of an item name to search — size is optional"],
-  ["أكمل رمز الصنف واسمه والمقاس واللون والخاصية والماكينة والوردية وتاريخ ووقت العمل", "Complete the item code, name, size, color, feature, machine, shift, and work date and time."],
+  ["مثال: SP", "Example: SP"],
+  ["اختر الماكينة والوردية وأكمل تاريخ ووقت العمل.", "Select machine and shift and complete work date and time."],
   ["تعذر الحفظ", "Unable to save the batch."],
 ];
 
@@ -34,14 +34,14 @@ describe("custody batch entry i18n", () => {
     for (const [arabic, english] of requiredEnglishCopy) {
       expect(source).toContain(`l("${arabic}", "${english}")`);
     }
-    expect(source).not.toMatch(/>دفعة إنتاج جديدة</);
-    expect(source).not.toMatch(/>حفظ الدفعة وإنشاء عهد الإنتاج</);
+    expect(source).not.toMatch(/>إدخال إنتاج الماكينة والوردية</);
+    expect(source).not.toMatch(/>حفظ كل المنتجات وإنشاء عهد الإنتاج</);
   });
 
   it("uses LTR direction and left alignment in English mode while retaining Arabic user data verbatim", () => {
     expect(source).toContain("const textAlign = textAlignFor(language);");
     expect(source).toContain("const direction = writingDirection(language);");
-    expect(source).toContain("const textStyle = { textAlign, direction } as const;");
+    expect(source).toContain("const textStyle = { textAlign, writingDirection: direction } as const;");
     expect(source).toContain('const flowStyle = { flexDirection: english ? "row" : "row-reverse" } as const;');
     expect(source).toContain("{account.name}");
     expect(source).toContain("{product.name}");

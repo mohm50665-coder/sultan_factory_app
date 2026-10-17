@@ -7,6 +7,7 @@ import { createCustodyWorkbook } from "./custody-export";
 import {
   actOnCustody,
   createCustodyBatch,
+  createCustodyBatchGroup,
   getCustodySettings,
   importLegacyCustody,
   listLegacyCustodyCandidates,
@@ -51,6 +52,46 @@ const batchInputSchema = z.object({
   wasteNeedles: integerPairs.optional(),
   responsibleUserId: z.number().int().positive(),
   sampleRequestId: z.number().int().positive().optional(),
+});
+
+const batchGroupProductSchema = batchInputSchema.omit({
+  operationKey: true,
+  productionDate: true,
+  productionEndDate: true,
+  workStartTime: true,
+  workEndTime: true,
+  machineNumber: true,
+  shift: true,
+  manufacturingOrder: true,
+  responsibleUserId: true,
+  purpose: true,
+});
+
+/**
+ * One production run, one outer transaction, and independently tracked product
+ * batches. A sample may only be the sole member: samples are never combined
+ * with other samples or sale production in this route.
+ */
+export const custodyBatchGroupInputSchema = z.object({
+  operationKey: operationKeySchema,
+  productionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  productionEndDate: z.string().max(10).optional(),
+  workStartTime: z.string().max(10).optional(),
+  workEndTime: z.string().max(10).optional(),
+  machineNumber: z.string().trim().min(1).max(50),
+  shift: z.string().trim().min(1).max(100),
+  manufacturingOrder: z.string().trim().max(255).optional(),
+  responsibleUserId: z.number().int().positive(),
+  purpose: z.enum(["sale", "sample"]),
+  products: z.array(batchGroupProductSchema).min(1).max(5),
+}).superRefine((value, ctx) => {
+  if (value.purpose === "sample" && value.products.length !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["products"],
+      message: "دفعة العينة يجب أن تحتوي منتجًا واحدًا فقط ولا يمكن جمعها مع دفعات أخرى",
+    });
+  }
 });
 
 const legacyImportSchema = z.object({
@@ -121,6 +162,8 @@ export const custodyRouter = router({
     .query(async ({ ctx, input }) => listCustodyBatches(await dbOrThrow(), ctx.user!, input ?? {})),
   createBatch: protectedProcedure.input(batchInputSchema)
     .mutation(async ({ ctx, input }) => createCustodyBatch(await dbOrThrow(), ctx.user!, input)),
+  createBatchGroup: protectedProcedure.input(custodyBatchGroupInputSchema)
+    .mutation(async ({ ctx, input }) => createCustodyBatchGroup(await dbOrThrow(), ctx.user!, input)),
   legacyCandidates: protectedProcedure.query(async ({ ctx }) => listLegacyCustodyCandidates(await dbOrThrow(), ctx.user!)),
   importLegacy: protectedProcedure.input(legacyImportSchema)
     .mutation(async ({ ctx, input }) => importLegacyCustody(await dbOrThrow(), ctx.user!, input)),
