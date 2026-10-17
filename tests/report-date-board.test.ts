@@ -27,6 +27,23 @@ describe("board report date contract", () => {
     expect(productionMetrics(selected).totalPairs).toBe(72);
   });
 
+
+
+  it("excludes every record outside a selected one-day period for all business sources", () => {
+    const outsideRows = [
+      { productionDate: "2026-10-08" },
+      { invoiceDate: "2026-10-10" },
+      { collectionDate: "2026-10-10" },
+      { orderDate: "2026-10-08" },
+      { movementDate: "2026-10-10" },
+      { date: "2026-10-08" },
+    ];
+    const kinds = ["production", "sale", "collection", "transaction", "movement", "general"] as const;
+    kinds.forEach((kind, index) => {
+      expect(inReportPeriod(outsideRows[index], kind, "2026-10-09", "2026-10-09")).toBe(false);
+    });
+  });
+
   it("normalizes the selected range, filters each source by its operational date, and places the independent custody cycle after the operating summary", () => {
     expect(board).toContain('reportDate(customStart)');
     expect(board).toContain('reportDate(customEnd)');

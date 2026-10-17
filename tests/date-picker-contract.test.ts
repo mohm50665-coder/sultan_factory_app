@@ -55,11 +55,23 @@ describe("Global date picker contract", () => {
     expect(policy).not.toContain('"closedAt"');
   });
 
-  it("shows all comprehensive report records by default and only filters after date entry", () => {
-    const source = read("app/daily-summary.tsx");
-    expect(source).toContain("useState(true)");
-    expect(source).toContain("setShowAllDates(false)");
-    expect(source).toContain('onPress={() => setShowAllDates(true)}');
+  it("enforces the selected date range in comprehensive and representative reports", () => {
+    const comprehensive = read("app/daily-summary.tsx");
+    const representatives = read("app/representative-reports.tsx");
+
+    // A report must never offer or activate a bypass for records outside the selected dates.
+    for (const source of [comprehensive, representatives]) {
+      expect(source).not.toContain("setShowAllDates");
+      expect(source).not.toContain("setAllDates");
+      expect(source).not.toContain("All records");
+      expect(source).not.toContain("كامل البيانات المسجلة");
+    }
+    expect(comprehensive).toContain("rowForReportPeriod(row, kind)");
+    expect(comprehensive).toContain("startDate: reportPeriodStart");
+    expect(comprehensive).toContain("endDate: reportPeriodEnd");
+    expect(comprehensive).toContain("رصيد نهاية الفترة المختارة");
+    expect(comprehensive).not.toContain("warehouseStock.map");
+    expect(representatives).toContain("const filters = { startDate: dateRange.start, endDate: dateRange.end };");
   });
 
   it("does not render department zero cards while the report is loading", () => {

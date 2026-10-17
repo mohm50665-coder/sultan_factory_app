@@ -38,7 +38,7 @@ describe("daily operational report", () => {
     expect(screen).toContain("rowForReportPeriod(row, kind)");
     expect(screen).toContain("reportPeriodStart");
     expect(screen).toContain("reportPeriodEnd");
-    expect(screen).toContain("showAllDates");
+    expect(screen).not.toContain("showAllDates");
     expect(screen).toContain("لا يسمح createdAt/updatedAt/deliveryDate");
   });
 
@@ -71,6 +71,8 @@ describe("daily operational report", () => {
     expect(screen).toMatch(/warehousePeriod\(\{\s*movements: data\.warehouseMovements/);
     expect(screen).toContain("التخزين والمستودعات — إنتاج تام");
     expect(screen).toContain("totalWastePercentage === null");
+    expect(screen).toContain("رصيد نهاية الفترة المختارة");
+    expect(screen).not.toContain("warehouseStock.map");
   });
 
   it("uses full source data in both screen and print, including custody, without mutations on opening", () => {

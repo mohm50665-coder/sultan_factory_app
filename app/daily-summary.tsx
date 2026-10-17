@@ -348,12 +348,11 @@ export default function DailySummaryScreen() {
   const currentMonthStart = `${currentDate.slice(0, 7)}-01`;
   const [reportDate, setReportDate] = useState(currentMonthStart);
   const [reportEndDate, setReportEndDate] = useState(today());
-  // التقرير الشامل يبدأ بكل بيانات الإدارة كما كان سابقاً؛ فلتر الفترة اختياري.
-  const [showAllDates, setShowAllDates] = useState(true);
+  // كل قسم في التقرير الشامل يلتزم حصراً بتاريخ البداية والنهاية المختارين.
+  // لا يوجد وضع يعرض سجلات خارج الفترة.
   const normalizedReportDate = normalizeReportDate(reportDate);
   const normalizedReportEndDate = normalizeReportDate(reportEndDate);
   const reportRangeIsReversed =
-    !showAllDates &&
     !!normalizedReportDate &&
     !!normalizedReportEndDate &&
     normalizedReportDate > normalizedReportEndDate;
@@ -375,7 +374,6 @@ export default function DailySummaryScreen() {
         `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
       setReportDate(iso(startDate));
       setReportEndDate(end);
-      setShowAllDates(false);
     },
     [],
   );
@@ -712,7 +710,6 @@ export default function DailySummaryScreen() {
       kind,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     );
   const reportKindByDataKey: Record<
     string,
@@ -744,7 +741,7 @@ export default function DailySummaryScreen() {
           ),
         ]),
       ),
-    [data, reportPeriodStart, reportPeriodEnd, showAllDates],
+    [data, reportPeriodStart, reportPeriodEnd],
   );
   const userById = useMemo(
     () => new Map(users.map((item) => [String(item.id), item])),
@@ -1035,7 +1032,7 @@ export default function DailySummaryScreen() {
       item.records += records;
       summary.set(key, item);
     };
-    const startDate = showAllDates ? "" : reportPeriodStart;
+    const startDate = reportPeriodStart;
     allHandovers.forEach((row: any) => {
       const occurred = handoverBusinessDate(row);
       const outstanding = shortagePairs(row);
@@ -1078,7 +1075,7 @@ export default function DailySummaryScreen() {
       remaining: item.previous + item.received - item.delivered,
       difference: item.delivered - (item.previous + item.received),
     }));
-  }, [allHandovers, handovers, reportPeriodStart, showAllDates, copy]);
+  }, [allHandovers, handovers, reportPeriodStart, copy]);
   // مدة كل مرحلة = وقت بدايتها إلى وقت إنجازها. التداخل لا يلغي مدة أي مرحلة؛
   // لأن المطلوب قياس وقت العمل المستغرق داخل كل مرحلة ثم جمعه للتكلفة الزمنية الكلية.
   const stageDurationSummary = useMemo(() => {
@@ -1207,7 +1204,6 @@ export default function DailySummaryScreen() {
       representativeReport.transactions,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     ],
   );
   const representativeCollections = useMemo(
@@ -1222,7 +1218,6 @@ export default function DailySummaryScreen() {
       representativeReport.collections,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     ],
   );
   const representativeSales = useMemo(
@@ -1235,7 +1230,6 @@ export default function DailySummaryScreen() {
       representativeReport.sales,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     ],
   );
   // التخزين والمستودعات — إنتاج تام: دفتر الحركة فقط، لا تكرار لسجلات التخزين كحركة ثانية.
@@ -1246,23 +1240,17 @@ export default function DailySummaryScreen() {
         stock: data.warehouseStock || [],
         startDate: reportPeriodStart,
         endDate: reportPeriodEnd,
-        allDates: showAllDates,
       }),
     [
       data.warehouseMovements,
       data.warehouseStock,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     ],
   );
   const warehouseMovements = useMemo(
     () => sortReportRows(warehouseSummary.movements, "movement"),
     [warehouseSummary.movements],
-  );
-  const warehouseStock = useMemo(
-    () => data.warehouseStock || [],
-    [data.warehouseStock],
   );
   const commercial = useMemo(
     () =>
@@ -1275,7 +1263,6 @@ export default function DailySummaryScreen() {
         legacyTransactions: data.ordersVisits || [],
         startDate: reportPeriodStart,
         endDate: reportPeriodEnd,
-        allDates: showAllDates,
       }),
     [
       representativeSales,
@@ -1286,7 +1273,6 @@ export default function DailySummaryScreen() {
       data.ordersVisits,
       reportPeriodStart,
       reportPeriodEnd,
-      showAllDates,
     ],
   );
   const reportSalesRows = useMemo(
@@ -1331,8 +1317,8 @@ export default function DailySummaryScreen() {
           accounts: custodySource.accounts,
           settings: custodySource.settings,
           filters: {
-            startDate: showAllDates ? "1970-01-01" : reportPeriodStart,
-            endDate: showAllDates ? "2099-12-31" : reportPeriodEnd,
+            startDate: reportPeriodStart,
+            endDate: reportPeriodEnd,
           },
         }),
         error: "",
@@ -1344,7 +1330,7 @@ export default function DailySummaryScreen() {
           error instanceof Error ? error.message : "تعذر حساب تفاصيل العهد",
       };
     }
-  }, [custodySource, reportPeriodStart, reportPeriodEnd, showAllDates]);
+  }, [custodySource, reportPeriodStart, reportPeriodEnd]);
   const custodyReport = custodyCalculation.report;
 
   const marketingRows = useMemo(() => {
@@ -1467,8 +1453,10 @@ export default function DailySummaryScreen() {
       {
         key: "warehouse",
         label: isAr ? "المستودعات" : "Warehouses",
-        count: warehouseMovements.length + warehouseStock.length,
-        value: `${warehouseStock.length} ${isAr ? "صنف" : "items"}`,
+        count: warehouseMovements.length,
+        value: warehouseSummary.closingPairs === null
+          ? (isAr ? "رصيد الفترة يحتاج مراجعة" : "Period balance needs review")
+          : quantityLabel(warehouseSummary.closingPairs, isAr),
         icon: "inventory-2",
       },
       {
@@ -1532,7 +1520,7 @@ export default function DailySummaryScreen() {
       reportCollectionRows.length,
       reportCollectionAmount,
       warehouseMovements.length,
-      warehouseStock.length,
+      warehouseSummary.closingPairs,
       representativeTransactions.length,
       representativeCollections.length,
       representativeReport.summary,
@@ -1953,9 +1941,7 @@ export default function DailySummaryScreen() {
       "التقرير الشامل الكامل — مصنع السلطان",
       "Complete Comprehensive Report — Sultan Factory",
     );
-    const reportRange = showAllDates
-      ? copy("كل السجلات", "All records")
-      : reportRangeLabel;
+    const reportRange = reportRangeLabel;
     win.document.write(
       `<!doctype html><html dir="${direction}"><head><meta charset="utf-8"><title>${title}</title><style>@page{size:landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:22px;color:#17202a;direction:${direction};text-align:${textAlign}}h1,h2{text-align:${textAlign};color:#0a7ea4}h2 small{font-size:12px;color:#64748b}.cards{display:flex;gap:8px;flex-wrap:wrap}.card{border:1px solid #b8c7cc;padding:10px;min-width:130px;border-radius:6px}table{width:100%;border-collapse:collapse;margin:10px 0 22px;font-size:10px}th,td{border:1px solid #b8c7cc;padding:5px;text-align:${textAlign};vertical-align:top}th{background:#0a7ea4;color:#fff}tr:nth-child(even){background:#f2f8fa}.notice{background:#fff4e5;padding:10px;border:1px solid #f0c36d}@media print{button{display:none}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body><h1>${title}</h1><p>${copy("نطاق التقرير", "Report range")}: ${cell(reportRange)} — ${copy("تم إنشاء التقرير", "Report generated")}: ${cell(new Date().toLocaleString(english ? "en-US" : "ar-SA", { timeZone: REPORT_TIME_ZONE }))}</p>${sourceErrorPrintNotice}<div class="cards"><div class="card">${copy("الإنتاج", "Production")}: ${quantityLabel(productionPairsEquivalent, isAr)}</div><div class="card">${copy("النخب الأول", "First grade")}: ${quantityLabel(firstGradePairs, isAr)}</div><div class="card">${copy("النخب الثاني", "Second grade")}: ${quantityLabel(secondGradePairs, isAr)}</div><div class="card">${copy("الهدر", "Waste")}: ${totalWastePercentage === null ? copy("غير محسوب", "Not calculated") : `${totalWastePercentage}%`}</div><div class="card">${copy("مدة الإنجاز", "Work duration")}: ${escapeHtml(elapsedLabel(productionWorkMinutes, isAr))}</div><div class="card">${copy("التسليم", "Deliveries")}: ${delivered.length}</div><div class="card">${copy("الاستلام", "Receipts")}: ${received.length}</div></div><h2>${copy("مراحل التصنيع", "Manufacturing stages")}</h2><table><thead><tr><th>${copy("المرحلة", "Stage")}</th><th>${copy("عدد الحركات", "Movement count")}</th><th>${copy("المستلم", "Received")}</th><th>${copy("الرصيد السابق", "Previous balance")}</th><th>${copy("المتاح", "Available")}</th><th>${copy("المسلّم", "Delivered")}</th><th>${copy("المتبقي", "Remaining")}</th></tr></thead><tbody>${stageRows || `<tr><td colspan="7">${copy("لا توجد بيانات مراحل", "No stage data")}</td></tr>`}</tbody></table>${detailSection(copy("تفاصيل التسليم والاستلام", "Delivery and receipt details"), handovers, handoverColumns)}${detailSection(copy("الإنتاج والمكائن والهدر والإبر", "Production, machines, waste and needles"), filtered.production, genericColumns)}${detailSection(copy("حركة المستودعات", "Warehouse movements"), warehouseMovements, genericColumns)}${detailSection(copy("تفاصيل فواتير المبيعات", "Sales invoice details"), reportSalesRows, salesColumns)}${detailSection(copy("تفاصيل الطلبات", "Order details"), reportOrderRows, transactionColumns)}${detailSection(copy("تفاصيل الزيارات", "Visit details"), reportVisitRows, transactionColumns)}${detailSection(copy("حركات المندوب الأخرى", "Other representative activities"), reportOtherTransactionRows, transactionColumns)}${detailSection(copy("تفاصيل التحصيل", "Collection details"), reportCollectionRows, collectionColumns)}${detailSection(copy("المصروفات", "Expenses"), filtered.expenses, genericColumns)}${detailSection(copy("الصيانة", "Maintenance"), filtered.maintenance, genericColumns)}${detailSection(copy("المهام", "Tasks"), filtered.tasks, genericColumns)}${detailSection(copy("الإجراءات الإدارية والمرفقات", "Administrative actions and attachments"), filtered.administrative, genericColumns)}${detailSection(copy("الاجتماعات ومخرجاتها", "Meetings and outputs"), [...filtered.meetings, ...filtered.meetingOutputs], genericColumns)}${detailSection(copy("التقارير المالية", "Financial reports"), filtered.financialReports, genericColumns)}${detailSection(copy("دليل المنتجات", "Product catalogue"), filtered.products, genericColumns)}<h2>${copy("الاستلام والتسليم والعهد — بيانات الدورة الجديدة", "Receipt, delivery and custody — new cycle data")}</h2>${custodyPrintBody}<script>window.onload=()=>window.print()</script></body></html>`,
     );
@@ -2029,7 +2015,6 @@ export default function DailySummaryScreen() {
                 accessibilityLabel={isAr ? "من تاريخ" : "From date"}
                 onChange={(value) => {
                   setReportDate(value);
-                  setShowAllDates(false);
                 }}
                 isAr={isAr}
               />
@@ -2050,7 +2035,6 @@ export default function DailySummaryScreen() {
                 accessibilityLabel={isAr ? "إلى تاريخ" : "To date"}
                 onChange={(value) => {
                   setReportEndDate(value);
-                  setShowAllDates(false);
                 }}
                 isAr={isAr}
               />
@@ -2086,7 +2070,7 @@ export default function DailySummaryScreen() {
                 flex: 1,
                 minWidth: "22%",
                 backgroundColor:
-                  !showAllDates && reportDate === reportEndDate
+                  reportDate === reportEndDate
                     ? colors.primary
                     : colors.background,
                 borderRadius: 9,
@@ -2097,7 +2081,7 @@ export default function DailySummaryScreen() {
               <Text
                 style={{
                   color:
-                    !showAllDates && reportDate === reportEndDate
+                    reportDate === reportEndDate
                       ? "#fff"
                       : colors.foreground,
                   fontWeight: "700",
@@ -2113,7 +2097,6 @@ export default function DailySummaryScreen() {
                 flex: 1,
                 minWidth: "22%",
                 backgroundColor:
-                  !showAllDates &&
                   reportDate !== reportEndDate &&
                   reportDate ===
                     (() => {
@@ -2178,29 +2161,6 @@ export default function DailySummaryScreen() {
                 }}
               >
                 {isAr ? "شهر" : "Month"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowAllDates(true)}
-              style={{
-                flex: 1,
-                minWidth: "22%",
-                backgroundColor: showAllDates
-                  ? colors.primary
-                  : colors.background,
-                borderRadius: 9,
-                padding: 9,
-                alignItems: "center",
-              }}
-            >
-              <Text
-                style={{
-                  color: showAllDates ? "#fff" : colors.foreground,
-                  fontWeight: "700",
-                  fontSize: 11,
-                }}
-              >
-                {isAr ? "كل السجلات" : "All records"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2548,8 +2508,8 @@ export default function DailySummaryScreen() {
             }}
           >
             {isAr
-              ? `ملخص موحّد لكل ما سُجّل في الفترة: ${showAllDates ? "كل السجلات" : reportRangeLabel}. التفاصيل الكاملة أسفل الملخص.`
-              : `Unified summary for every record in the period: ${showAllDates ? "all records" : reportRangeLabel}. Full details follow.`}
+              ? `ملخص موحّد لكل ما سُجّل في الفترة: ${reportRangeLabel}. التفاصيل الكاملة أسفل الملخص.`
+              : `Unified summary for every record in the period: ${reportRangeLabel}. Full details follow.`}
           </Text>
           {loading ? (
             <View
@@ -3297,7 +3257,7 @@ export default function DailySummaryScreen() {
                   textAlign,
                 }}
               >
-                {isAr ? "رصيد المستودع الحالي" : "Current warehouse stock"}
+                {isAr ? "رصيد نهاية الفترة المختارة" : "Selected-period closing balance"}
               </Text>
               <Text
                 style={{
@@ -3320,25 +3280,9 @@ export default function DailySummaryScreen() {
                 }}
               >
                 {isAr
-                  ? `عدد الأصناف: ${warehouseStock.length} — هذا رصيد حالي مستقل عن فلتر حركة التاريخ`
-                  : `Items: ${warehouseStock.length} — current balance independent of movement date filter`}
+                  ? `المعروض هنا دفتر الحركات من ${reportPeriodStart} إلى ${reportPeriodEnd} فقط؛ لا تُعرض أصناف أو حركات من تاريخ آخر.`
+                  : `Only movements from ${reportPeriodStart} through ${reportPeriodEnd} are displayed; no records from other dates are included.`}
               </Text>
-              {warehouseStock.map((row: any) => (
-                <Text
-                  key={`stock-${row.id}`}
-                  style={{
-                    color: colors.foreground,
-                    fontSize: 10,
-                    textAlign,
-                    marginTop: 4,
-                  }}
-                >
-                  {row.productName} | {row.productSize || "—"} |{" "}
-                  {row.productColor || "—"} |{" "}
-                  {quantityLabel(exactPairs(row, "stock"), true)} |{" "}
-                  {row.barcode || "—"}
-                </Text>
-              ))}
             </View>
             <View
               style={{
@@ -3845,7 +3789,6 @@ export default function DailySummaryScreen() {
               <CustodySummaryPanel
                 startDate={reportPeriodStart}
                 endDate={reportPeriodEnd}
-                allDates={showAllDates}
               />
             </View>
           </>
