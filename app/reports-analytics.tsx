@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/back-button";
 import {
   View,
@@ -8,80 +8,135 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarChart, PieChart, ProgressBar, StatCard } from "@/components/charts";
 import { productionService } from "@/lib/services/api.service";
+import { businessDate, exactPairs, inReportPeriod, productionMetrics, reportDate, reportRows, riyadhDate } from "@shared/operational-report";
 
-type Period = "today" | "week" | "month";
+type Period = "today" | "week" | "month" | "custom";
+
+type DateRange = { startDate: string; endDate: string };
+
+function rangeForPeriod(period: Exclude<Period, "custom">): DateRange {
+  const endDate = riyadhDate();
+  if (period === "today") return { startDate: endDate, endDate };
+  if (period === "month") return { startDate: `${endDate.slice(0, 7)}-01`, endDate };
+  const start = new Date(`${endDate}T12:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - 6);
+  return { startDate: start.toISOString().slice(0, 10), endDate };
+}
+
+function hasReportRows(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (!value || typeof value !== "object") return false;
+  return ["items", "rows", "data", "results"].some((key) => Array.isArray((value as Record<string, unknown>)[key]));
+}
 
 export default function ReportsAnalyticsScreen() {
-  const router = useRouter();
   const colors = useColors();
-  const { t, language, isRtl } = useLanguage();
+  const { language, isRtl } = useLanguage();
   const isAr = language === "ar";
 
   const [period, setPeriod] = useState<Period>("week");
   const [isLoading, setIsLoading] = useState(true);
-  const [productionData, setProductionData] = useState<any[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>(() => rangeForPeriod("week"));
+  const [productionData, setProductionData] = useState<any[] | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [period]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
+    setSourceError(null);
     try {
-      const entries = await productionService.getAll() || [];
-      setProductionData(entries);
+      const source = await productionService.getAll();
+      if (!hasReportRows(source)) throw new Error(isAr ? "استجابة سجلات الإنتاج غير مكتملة" : "Production records response is incomplete");
+      setProductionData(reportRows(source));
     } catch (error) {
-      // ignore
+      setProductionData(null);
+      setSourceError(error instanceof Error ? error.message : isAr ? "تعذر تحميل سجلات الإنتاج" : "Production records could not be loaded");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAr]);
 
-  // Calculate stats from production data
-  const totalProduction = productionData.reduce((sum, e) => sum + (e.productionDozen || 0), 0);
-  const totalWaste = productionData.reduce((sum, e) => sum + (e.wasteThread || 0) + (e.wasteSocks || 0), 0);
-  const totalSecondGrade = productionData.reduce((sum, e) => sum + (e.secondGrade || 0), 0);
-  const totalNeedles = productionData.reduce((sum, e) => sum + (e.wasteNeedles || 0), 0);
-  const machineCount = new Set(productionData.map((e) => e.machineNumber)).size;
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
-  // Bar chart: production per machine
-  const machineProduction: Record<string, number> = {};
-  productionData.forEach((e) => {
-    const key = `M${e.machineNumber || "?"}`;
-    machineProduction[key] = (machineProduction[key] || 0) + (e.productionDozen || 0);
-  });
+  const requestedStartDate = reportDate(dateRange.startDate);
+  const requestedEndDate = reportDate(dateRange.endDate);
+  const dateRangeError = !requestedStartDate || !requestedEndDate;
+  const rangeIsReversed = !dateRangeError && requestedStartDate > requestedEndDate;
+  const effectiveStartDate = rangeIsReversed ? requestedEndDate : requestedStartDate;
+  const effectiveEndDate = rangeIsReversed ? requestedStartDate : requestedEndDate;
+  const sourceRows = productionData === null ? [] : productionData;
+
+  const productionRows = useMemo(() => {
+    if (dateRangeError || productionData === null) return [];
+    return productionData
+      .filter((row) => inReportPeriod(row, "production", effectiveStartDate, effectiveEndDate))
+      .sort((left, right) => {
+        const rightDate = businessDate(right, "production");
+        const leftDate = businessDate(left, "production");
+        if (rightDate !== leftDate) return rightDate.localeCompare(leftDate);
+        return String(left?.id ?? "").localeCompare(String(right?.id ?? ""));
+      });
+  }, [dateRangeError, effectiveEndDate, effectiveStartDate, productionData]);
+
+  const undatedRows = useMemo(
+    () => sourceRows.filter((row) => !businessDate(row, "production")).length,
+    [sourceRows],
+  );
+  const metrics = useMemo(() => productionMetrics(productionRows), [productionRows]);
+  const totalProduction = Number.isFinite(metrics.totalPairs) ? metrics.totalPairs / 12 : null;
+  const totalWaste = Number.isFinite(metrics.wasteThreadGrams + metrics.wasteSocksGrams)
+    ? metrics.wasteThreadGrams + metrics.wasteSocksGrams
+    : null;
+  const totalSecondGrade = Number.isFinite(metrics.secondPairs) ? metrics.secondPairs : null;
+  const totalNeedles = Number.isFinite(metrics.wasteNeedles) ? metrics.wasteNeedles : null;
+  const machineCount = new Set(productionRows.map((row) => row.machineNumber).filter((machine) => machine != null && machine !== "")).size;
+  const numberFormat = (value: number | null, maximumFractionDigits = 2) => value == null
+    ? (isAr ? "بيانات تحتاج مراجعة" : "Data needs review")
+    : value.toLocaleString(isAr ? "ar-SA" : "en-US", { maximumFractionDigits });
+
+  const machineProduction = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const row of productionRows) {
+      const pairs = exactPairs(row, "production");
+      if (!Number.isFinite(pairs)) continue;
+      const key = `M${row.machineNumber || "?"}`;
+      totals[key] = (totals[key] ?? 0) + pairs / 12;
+    }
+    return totals;
+  }, [productionRows]);
   const barData = Object.entries(machineProduction)
-    .slice(0, 8)
-    .map(([label, value]) => ({ label, value }));
+    .map(([label, value]) => ({ label, value }))
+    .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label))
+    .slice(0, 8);
+  const machineEfficiency = barData.slice(0, 5).map((item) => ({
+    ...item,
+    max: Math.max(...barData.map((entry) => entry.value), 1),
+  }));
 
-  // Pie chart: waste distribution
   const pieData = [
-    { label: isAr ? "خيوط" : "Thread", value: productionData.reduce((s, e) => s + (e.wasteThread || 0), 0), color: "#3b82f6" },
-    { label: isAr ? "جوارب" : "Socks", value: productionData.reduce((s, e) => s + (e.wasteSocks || 0), 0), color: "#ef4444" },
-    { label: isAr ? "إبر" : "Needles", value: totalNeedles, color: "#f59e0b" },
+    { label: isAr ? "خيوط" : "Thread", value: metrics.wasteThreadGrams, color: "#3b82f6" },
+    { label: isAr ? "جوارب" : "Socks", value: metrics.wasteSocksGrams, color: "#ef4444" },
+    { label: isAr ? "إبر" : "Needles", value: totalNeedles ?? 0, color: "#f59e0b" },
   ];
 
-  // Progress bars: machine efficiency (simulated)
-  const machineEfficiency = Object.entries(machineProduction)
-    .slice(0, 5)
-    .map(([machine, production]) => ({
-      label: machine,
-      value: production,
-      max: Math.max(...Object.values(machineProduction), 1),
-    }));
-
-  const PERIODS: Array<{ key: Period; labelAr: string; labelEn: string }> = [
+  const PERIODS: Array<{ key: Exclude<Period, "custom">; labelAr: string; labelEn: string }> = [
     { key: "today", labelAr: "اليوم", labelEn: "Today" },
     { key: "week", labelAr: "الأسبوع", labelEn: "Week" },
     { key: "month", labelAr: "الشهر", labelEn: "Month" },
   ];
+
+  const applyPeriod = (nextPeriod: Exclude<Period, "custom">) => {
+    setPeriod(nextPeriod);
+    setDateRange(rangeForPeriod(nextPeriod));
+  };
 
   return (
     <ScreenContainer style={{ backgroundColor: colors.background }}>
@@ -94,12 +149,12 @@ export default function ReportsAnalyticsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Period Selector */}
+      {/* Period Selector and calendar range */}
       <View style={styles.periodContainer}>
         {PERIODS.map((p) => (
           <TouchableOpacity
             key={p.key}
-            onPress={() => setPeriod(p.key)}
+            onPress={() => applyPeriod(p.key)}
             style={[styles.periodTab, period === p.key && styles.periodTabActive]}
           >
             <Text style={[styles.periodText, period === p.key && styles.periodTextActive]}>
@@ -108,22 +163,81 @@ export default function ReportsAnalyticsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      <View style={styles.dateRange}>
+        <DateField
+          label={isAr ? "تاريخ البداية" : "Start date"}
+          value={dateRange.startDate}
+          onChange={(startDate) => { setPeriod("custom"); setDateRange((current) => ({ ...current, startDate })); }}
+          isAr={isAr}
+          defaultToToday={false}
+        />
+        <DateField
+          label={isAr ? "تاريخ النهاية" : "End date"}
+          value={dateRange.endDate}
+          onChange={(endDate) => { setPeriod("custom"); setDateRange((current) => ({ ...current, endDate })); }}
+          isAr={isAr}
+          defaultToToday={false}
+        />
+      </View>
+      {dateRangeError ? (
+        <Text accessibilityRole="alert" style={styles.dateWarning}>
+          {isAr ? "أدخل تاريخي بداية ونهاية صالحين من التقويم قبل حساب التقرير." : "Choose valid start and end calendar dates before calculating the report."}
+        </Text>
+      ) : rangeIsReversed ? (
+        <Text accessibilityRole="alert" style={styles.dateWarning}>
+          {isAr
+            ? `تم عكس نطاق التاريخ بوضوح للحساب: من ${effectiveStartDate} إلى ${effectiveEndDate}.`
+            : `The reversed range is calculated clearly as ${effectiveStartDate} through ${effectiveEndDate}.`}
+        </Text>
+      ) : (
+        <Text style={styles.dateNote}>
+          {isAr ? `تُحسب النتائج من ${effectiveStartDate} إلى ${effectiveEndDate}.` : `Results are calculated from ${effectiveStartDate} through ${effectiveEndDate}.`}
+        </Text>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : sourceError ? (
+        <View accessibilityRole="alert" style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={32} color="#b91c1c" />
+          <Text style={styles.errorTitle}>{isAr ? "تعذر تحميل مصدر الإنتاج" : "Production source could not be loaded"}</Text>
+          <Text style={styles.errorText}>{isAr ? "لم تُعرض النتائج كأصفار. أعد محاولة تحميل المصدر." : "Results are not shown as zeros. Retry loading the source."}</Text>
+          <Text style={styles.errorText}>{sourceError}</Text>
+          <TouchableOpacity onPress={() => void loadData()} style={styles.retryButton} accessibilityRole="button">
+            <Text style={styles.retryButtonText}>{isAr ? "إعادة المحاولة" : "Retry"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : dateRangeError ? (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="date-range" size={32} color="#b45309" />
+          <Text style={styles.errorTitle}>{isAr ? "نطاق التاريخ غير صالح" : "Date range is invalid"}</Text>
+          <Text style={styles.errorText}>{isAr ? "لن تُعرض نتائج صفرية حتى يكتمل نطاق التاريخ." : "Zero results are not shown until the date range is complete."}</Text>
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {undatedRows > 0 ? (
+            <Text accessibilityRole="alert" style={styles.dateWarning}>
+              {isAr
+                ? `تم استبعاد ${undatedRows} سجل إنتاج بلا تاريخ تشغيلي صالح من الفترة.`
+                : `${undatedRows} production record(s) without a valid business date were excluded from the period.`}
+            </Text>
+          ) : null}
+          {metrics.invalidQuantityCount > 0 ? (
+            <Text accessibilityRole="alert" style={styles.dateWarning}>
+              {isAr ? "توجد كميات إنتاج غير صالحة تحتاج مراجعة؛ لا تُحوّل إلى أصفار." : "Some production quantities need review; they are not converted to zeros."}
+            </Text>
+          ) : null}
           {/* Stats Row */}
           <View style={styles.statsRow}>
             <StatCard
               title={isAr ? "إجمالي الإنتاج" : "Total Production"}
-              value={`${totalProduction}`}
+              value={numberFormat(totalProduction)}
               subtitle={isAr ? "درزن" : "dozen"}
               color="#3b82f6"
-              trend={totalProduction > 0 ? "up" : "neutral"}
-              trendValue={totalProduction > 0 ? (isAr ? "نشط" : "Active") : ""}
+              trend={(totalProduction ?? 0) > 0 ? "up" : "neutral"}
+              trendValue={(totalProduction ?? 0) > 0 ? (isAr ? "نشط" : "Active") : ""}
             />
             <StatCard
               title={isAr ? "المكائن" : "Machines"}
@@ -136,15 +250,15 @@ export default function ReportsAnalyticsScreen() {
           <View style={styles.statsRow}>
             <StatCard
               title={isAr ? "إجمالي الهدر" : "Total Waste"}
-              value={`${totalWaste}`}
+              value={numberFormat(totalWaste)}
               subtitle={isAr ? "جرام" : "grams"}
               color="#ef4444"
-              trend={totalWaste > 0 ? "down" : "neutral"}
-              trendValue={totalWaste > 0 ? (isAr ? "يحتاج مراجعة" : "Needs review") : ""}
+              trend={(totalWaste ?? 0) > 0 ? "down" : "neutral"}
+              trendValue={(totalWaste ?? 0) > 0 ? (isAr ? "يحتاج مراجعة" : "Needs review") : ""}
             />
             <StatCard
               title={isAr ? "النخب الثاني" : "2nd Grade"}
-              value={`${totalSecondGrade}`}
+              value={numberFormat(totalSecondGrade, 0)}
               subtitle={isAr ? "زوج" : "pairs"}
               color="#f59e0b"
             />
@@ -168,7 +282,7 @@ export default function ReportsAnalyticsScreen() {
           )}
 
           {/* Pie Chart: Waste Distribution */}
-          {totalWaste > 0 && (
+          {(totalWaste ?? 0) > 0 && (
             <PieChart
               data={pieData}
               title={isAr ? "توزيع الهدر" : "Waste Distribution"}
@@ -202,13 +316,13 @@ export default function ReportsAnalyticsScreen() {
                 {isAr ? "ملخص الأداء" : "Performance Summary"}
               </Text>
               <Text style={[styles.summaryText, { textAlign: isRtl ? "right" : "left" }]}>
-                {productionData.length > 0
+                {sourceRows.length > 0
                   ? isAr
-                    ? `تم تسجيل ${productionData.length} إدخال إنتاج من ${machineCount} مكينة بإجمالي ${totalProduction} درزن`
-                    : `${productionData.length} entries from ${machineCount} machines totaling ${totalProduction} dozen`
+                    ? `تم تسجيل ${productionRows.length} إدخال إنتاج من ${machineCount} مكينة بإجمالي ${numberFormat(totalProduction)} درزن ضمن الفترة المحددة`
+                    : `${productionRows.length} entries from ${machineCount} machines totaling ${numberFormat(totalProduction)} dozen in the selected period`
                   : isAr
-                  ? "لم يتم تسجيل بيانات إنتاج بعد. ابدأ بإدخال بيانات الإنتاج اليومية."
-                  : "No production data recorded yet. Start entering daily production data."}
+                  ? "لا توجد بيانات إنتاج ضمن الفترة المحددة."
+                  : "No production data exists in the selected period."}
               </Text>
             </View>
           </View>
@@ -260,10 +374,64 @@ const styles = StyleSheet.create({
   periodTextActive: {
     color: "white",
   },
+  dateRange: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  dateNote: {
+    color: "#475569",
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  dateWarning: {
+    color: "#9a3412",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorContainer: {
+    alignItems: "center",
+    gap: 10,
+    margin: 16,
+    padding: 20,
+    borderRadius: 12,
+    backgroundColor: "#fff7ed",
+    borderWidth: 1,
+    borderColor: "#fed7aa",
+  },
+  errorTitle: {
+    color: "#7c2d12",
+    fontSize: 16,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  errorText: {
+    color: "#7c2d12",
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#0a7ea4",
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "700",
   },
   scrollContent: {
     padding: 16,

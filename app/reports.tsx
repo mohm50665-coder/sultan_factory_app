@@ -8,7 +8,35 @@ import { useLanguage } from "@/lib/language-context";
 import { isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
 import { collectionService, expensesService, finishedWarehouseService, productionService, salesService } from "@/lib/services/api.service";
 import { representativeService } from "@/lib/services/representative.service";
-import { commercialReport, inReportPeriod, pairLabel, productionMetrics, reportRows, riyadhDate, warehousePeriod } from "@shared/operational-report";
+import { businessDate, commercialReport, inReportPeriod, pairLabel, productionMetrics, reportDate, reportRows, riyadhDate, warehousePeriod, type ReportKind } from "@shared/operational-report";
+
+const sourceKinds: Record<string, ReportKind> = {
+  production: "production",
+  legacySales: "sale",
+  sales: "sale",
+  collections: "collection",
+  legacyCollections: "collection",
+  transactions: "transaction",
+  expenses: "general",
+  movements: "movement",
+};
+
+function hasReportRows(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (!value || typeof value !== "object") return false;
+  return ["items", "rows", "data", "results"].some((key) => Array.isArray((value as Record<string, unknown>)[key]));
+}
+
+function sortRowsByBusinessDate(rows: any[], kind: ReportKind): any[] {
+  return [...rows].sort((left, right) => {
+    const leftDate = businessDate(left, kind);
+    const rightDate = businessDate(right, kind);
+    if (!leftDate && !rightDate) return String(left?.id ?? left?.referenceCode ?? "").localeCompare(String(right?.id ?? right?.referenceCode ?? ""));
+    if (!leftDate) return 1;
+    if (!rightDate) return -1;
+    return leftDate.localeCompare(rightDate) || String(left?.id ?? left?.referenceCode ?? "").localeCompare(String(right?.id ?? right?.referenceCode ?? ""));
+  });
+}
 
 export default function ReportsScreen() {
   const router = useRouter();
@@ -52,6 +80,8 @@ export default function ReportsScreen() {
     closingBalanceUnverified: localize(language, "غير مؤكد — يلزم مراجعة الدفتر", "Unverified — ledger review required"),
     incompleteSources: localize(language, "لم تكتمل المصادر التالية:", "The following sources did not finish loading:"),
     notZeroActivity: localize(language, "لا تعتبرها صفر نشاط.", "Do not treat these as zero activity."),
+    reversedPeriod: localize(language, "تم اختيار تاريخ البداية بعد تاريخ النهاية؛ سيعرض التقرير النطاق بعد ترتيبه:", "The start date is after the end date; the report uses this normalized range:"),
+    invalidPeriod: localize(language, "أدخل تاريخ بداية ونهاية صالحين من التقويم قبل عرض النتائج.", "Enter valid calendar start and end dates before viewing results."),
     openComprehensiveReport: localize(language, "فتح التقرير الشامل — التفاصيل والطباعة بنفس مصادر الحساب", "Open comprehensive report — details and printing use the same calculation sources"),
     invalidQuantity: localize(language, "كمية غير صالحة — تحتاج مراجعة", "Invalid quantity — review required"),
     currency: localize(language, "ريال", "SAR"),
@@ -81,6 +111,28 @@ export default function ReportsScreen() {
     return labels[source] || localize(language, "مصدر بيانات", "Data source");
   };
 
+  const period = useMemo(() => {
+    const requestedStart = reportDate(start);
+    const requestedEnd = reportDate(end || start);
+    const valid = Boolean(requestedStart && requestedEnd);
+    const reversed = valid && requestedStart > requestedEnd;
+    return {
+      valid,
+      reversed,
+      startDate: reversed ? requestedEnd : requestedStart,
+      endDate: reversed ? requestedStart : requestedEnd,
+    };
+  }, [start, end]);
+
+  const commitStartDate = (value: string) => {
+    const normalized = reportDate(value);
+    if (normalized) setStart(normalized);
+  };
+  const commitEndDate = (value: string) => {
+    const normalized = reportDate(value);
+    if (normalized) setEnd(normalized);
+  };
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -101,8 +153,10 @@ export default function ReportsScreen() {
       const data: Record<string, any[]> = {};
       const failures: Record<string, true> = {};
       results.forEach((result, index) => {
-        if (result.status === "fulfilled") data[keys[index]] = reportRows(result.value);
-        else failures[keys[index]] = true;
+        const key = keys[index];
+        if (result.status === "fulfilled" && hasReportRows(result.value)) {
+          data[key] = sortRowsByBusinessDate(reportRows(result.value), sourceKinds[key] || "general");
+        } else failures[key] = true;
       });
       setSources(data);
       setErrors(failures);
@@ -112,22 +166,34 @@ export default function ReportsScreen() {
   }, [refresh]);
 
   const data = useMemo(() => {
-    const commercial = commercialReport({
+    const commercialData = commercialReport({
       sales: sources.sales || [],
       legacySales: sources.legacySales || [],
       collections: sources.collections || [],
       legacyCollections: sources.legacyCollections || [],
       transactions: sources.transactions || [],
-      startDate: start,
-      endDate: end,
+      startDate: period.startDate,
+      endDate: period.endDate,
     });
+    const commercial = {
+      ...commercialData,
+      salesRows: sortRowsByBusinessDate(commercialData.salesRows, "sale"),
+      collectionRows: sortRowsByBusinessDate(commercialData.collectionRows, "collection"),
+      orderRows: sortRowsByBusinessDate(commercialData.orderRows, "transaction"),
+      visitRows: sortRowsByBusinessDate(commercialData.visitRows, "transaction"),
+      otherTransactionRows: sortRowsByBusinessDate(commercialData.otherTransactionRows, "transaction"),
+    };
+    const productionRows = (sources.production || [])
+      .filter((row) => inReportPeriod(row, "production", period.startDate, period.endDate));
+    const expenseRows = (sources.expenses || [])
+      .filter((row) => inReportPeriod(row, "general", period.startDate, period.endDate));
     return {
       commercial,
-      production: productionMetrics((sources.production || []).filter((row) => inReportPeriod(row, "production", start, end))),
-      warehouse: warehousePeriod({ stock: sources.stock || [], movements: sources.movements || [], startDate: start, endDate: end }),
-      expenses: (sources.expenses || []).filter((row) => inReportPeriod(row, "general", start, end)).reduce((sum, row) => sum + Number(row.amount || 0), 0),
+      production: productionMetrics(productionRows),
+      warehouse: warehousePeriod({ stock: sources.stock || [], movements: sources.movements || [], startDate: period.startDate, endDate: period.endDate }),
+      expenses: expenseRows.reduce((sum, row) => sum + Number(row.amount || 0), 0),
     };
-  }, [sources, start, end]);
+  }, [sources, period.startDate, period.endDate]);
 
   const { production: p, commercial: c, warehouse: w } = data;
   const numberFormat = (value: number) => value.toLocaleString(english ? "en-US" : "ar-SA");
@@ -159,18 +225,21 @@ export default function ReportsScreen() {
       </View>
       <ScrollView contentContainerStyle={s.content}>
         <View style={[s.range, { flexDirection: english ? "row" : "row-reverse" }]}>
-          <DateField label={copy.startDate} value={start} onChange={setStart} isAr={!english} style={s.date} />
-          <DateField label={copy.endDate} value={end} onChange={setEnd} isAr={!english} style={s.date} />
+          <DateField label={copy.startDate} value={start} onChange={commitStartDate} isAr={!english} style={s.date} />
+          <DateField label={copy.endDate} value={end} onChange={commitEndDate} isAr={!english} style={s.date} />
           <TouchableOpacity style={s.button} onPress={() => setRefresh((value) => value + 1)} accessibilityRole="button" accessibilityLabel={copy.refresh}>
             <Text style={[s.buttonText, { writingDirection: direction }]}>{copy.refresh}</Text>
           </TouchableOpacity>
         </View>
         <Text style={[s.note, alignedText]}>{copy.periodSummary}</Text>
+        {period.reversed ? <Text accessibilityRole="alert" style={[s.error, alignedText]}>{copy.reversedPeriod} {period.startDate} — {period.endDate}</Text> : null}
         {loading ? (
           <View style={s.loading} accessible accessibilityLabel={copy.loading}>
             <ActivityIndicator color="#075985" />
             <Text style={[s.note, alignedText]}>{copy.loading}</Text>
           </View>
+        ) : !period.valid ? (
+          <Text accessibilityRole="alert" style={[s.error, alignedText]}>{copy.invalidPeriod}</Text>
         ) : (
           <>
             <View style={[s.grid, { flexDirection: english ? "row" : "row-reverse" }]}>
@@ -190,16 +259,16 @@ export default function ReportsScreen() {
               {card(copy.currentWarehouseBalance, quantityLabel(w.currentPairs), ["stock"], "/finished-warehouse-inventory")}
               {card(copy.operatingExpenses, `${numberFormat(data.expenses)} ${copy.currency}`, ["expenses"], "/daily-summary")}
             </View>
-            {Object.keys(errors).length ? (
-              <Text accessibilityRole="alert" style={[s.error, alignedText]}>
-                {copy.incompleteSources} {Object.keys(errors).map(sourceLabel).join(" · ")}. {copy.notZeroActivity}
-              </Text>
-            ) : null}
             <TouchableOpacity style={s.button} onPress={() => router.push("/daily-summary" as never)} accessibilityRole="button" accessibilityLabel={copy.openComprehensiveReport}>
               <Text style={[s.buttonText, { writingDirection: direction }]}>{copy.openComprehensiveReport}</Text>
             </TouchableOpacity>
           </>
         )}
+        {!loading && Object.keys(errors).length ? (
+          <Text accessibilityRole="alert" style={[s.error, alignedText]}>
+            {copy.incompleteSources} {Object.keys(errors).map(sourceLabel).join(" · ")}. {copy.notZeroActivity}
+          </Text>
+        ) : null}
       </ScrollView>
     </ScreenContainer>
   );

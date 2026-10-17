@@ -35,7 +35,10 @@ describe("daily operational report", () => {
   it("uses source business dates and does not leak an old operation through an update or delivery date", () => {
     const staleOrder = { orderDate: "2026-10-04", deliveryDate: "2026-10-05", updatedAt: "2026-10-05", createdAt: "2026-10-05" };
     expect(inReportPeriod(staleOrder, "transaction", "2026-10-05", "2026-10-05")).toBe(false);
-    expect(screen).toContain("inReportPeriod(row, kind, reportDate, reportEndDate, showAllDates)");
+    expect(screen).toContain("rowForReportPeriod(row, kind)");
+    expect(screen).toContain("reportPeriodStart");
+    expect(screen).toContain("reportPeriodEnd");
+    expect(screen).toContain("showAllDates");
     expect(screen).toContain("لا يسمح createdAt/updatedAt/deliveryDate");
   });
 

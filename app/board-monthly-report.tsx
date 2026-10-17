@@ -22,8 +22,7 @@ import { productionService, salesService, collectionService, expensesService, ta
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
-import { TextInput } from "react-native";
-import { commercialReport, exactPairs, inReportPeriod, productionMetrics, reportRows, warehousePeriod } from "@shared/operational-report";
+import { businessDate, commercialReport, exactPairs, inReportPeriod, productionMetrics, reportDate, reportRows, warehousePeriod, type ReportKind } from "@shared/operational-report";
 
 interface MonthOption {
   label: string;
@@ -87,48 +86,116 @@ interface ReportData {
     otherTransactionRows: any[];
     collectionRows: any[];
   };
-  manufacturingRequests: {
-    total: number;
-    produced: number;
-    notProduced: number;
-    pending: number;
-    producedDozen: number;
-    notProducedDozen: number;
-    failureReasons: { reason: string; count: number; quantityDozen: number }[];
-  };
-  previousManufacturingRequests: ReportData["manufacturingRequests"];
+  manufacturingRequests: ManufacturingRequestsSummary;
+  previousManufacturingRequests: ManufacturingRequestsSummary;
 }
 
 type ReportPeriod = "daily" | "twoDays" | "weekly" | "monthly" | "custom";
 
-function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): { start: string; end: string; label: string } {
-  if (period === "custom" && customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd)) {
-    return { start: customStart, end: customEnd, label: `${customStart} — ${customEnd}` };
+interface ManufacturingRequestsSummary {
+  total: number;
+  produced: number;
+  notProduced: number;
+  pending: number;
+  producedDozen: number;
+  notProducedDozen: number;
+  failureReasons: { reason: string; count: number; quantityDozen: number }[];
+}
+
+interface ReportRange {
+  start: string;
+  end: string;
+  label: string;
+  isValid: boolean;
+  wasReversed: boolean;
+}
+
+const reportCalendarDay = (year: number, month: number, day: number) =>
+  reportDate(new Date(Date.UTC(year, month, day, 12)));
+
+const addReportDays = (day: string, days: number) => {
+  const normalized = reportDate(day);
+  if (!normalized) return "";
+  const date = new Date(`${normalized}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return reportDate(date);
+};
+
+function periodRange(period: ReportPeriod, month: number, year: number, customStart?: string, customEnd?: string): ReportRange {
+  if (period === "custom" && customStart && customEnd) {
+    const rawStart = reportDate(customStart);
+    const rawEnd = reportDate(customEnd);
+    if (!rawStart || !rawEnd) return { start: "", end: "", label: "", isValid: false, wasReversed: false };
+    const wasReversed = rawStart > rawEnd;
+    const start = wasReversed ? rawEnd : rawStart;
+    const end = wasReversed ? rawStart : rawEnd;
+    return { start, end, label: `${start} — ${end}`, isValid: true, wasReversed };
   }
-  const today = new Date();
-  let start: Date;
-  let end: Date;
+  if (period === "custom") return { start: "", end: "", label: "", isValid: false, wasReversed: false };
+
+  const today = reportDate(new Date());
+  if (!today) return { start: "", end: "", label: "", isValid: false, wasReversed: false };
+  let start: string;
+  let end: string;
   if (period === "monthly") {
-    start = new Date(year, month, 1);
-    end = new Date(year, month + 1, 0);
+    start = reportCalendarDay(year, month, 1);
+    end = reportCalendarDay(year, month + 1, 0);
   } else if (period === "daily") {
-    start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    end = new Date(start);
+    start = today;
+    end = today;
   } else if (period === "twoDays") {
-    end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    start = new Date(end);
-    start.setDate(end.getDate() - 1);
+    end = today;
+    start = addReportDays(end, -1);
   } else {
     // أسبوع العمل يبدأ السبت وينتهي الخميس، والجمعة خارج نطاق التشغيل.
-    const day = today.getDay();
+    const day = new Date(`${today}T12:00:00Z`).getUTCDay();
     const daysFromSaturday = (day + 1) % 7;
-    start = new Date(today);
-    start.setDate(today.getDate() - daysFromSaturday);
-    end = new Date(start);
-    end.setDate(start.getDate() + 5);
+    start = addReportDays(today, -daysFromSaturday);
+    end = addReportDays(start, 5);
   }
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return { start: iso(start), end: iso(end), label: `${iso(start)} — ${iso(end)}` };
+  return { start, end, label: `${start} — ${end}`, isValid: Boolean(start && end), wasReversed: false };
+}
+
+function previousPeriodRange(start: string, end: string): Pick<ReportRange, "start" | "end"> {
+  const normalizedStart = reportDate(start);
+  const normalizedEnd = reportDate(end);
+  if (!normalizedStart || !normalizedEnd) return { start: "", end: "" };
+  const first = new Date(`${normalizedStart}T12:00:00Z`);
+  const last = new Date(`${normalizedEnd}T12:00:00Z`);
+  const days = Math.round((last.getTime() - first.getTime()) / 86_400_000) + 1;
+  return { start: addReportDays(normalizedStart, -days), end: addReportDays(normalizedEnd, -days) };
+}
+
+function sortReportRows(rows: any[], kind: ReportKind): any[] {
+  return rows
+    .map((row, index) => ({ row, index, date: businessDate(row, kind) }))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.index - b.index)
+    .map(({ row }) => row);
+}
+
+function manufacturingRequestsSummary(rows: any[]): ManufacturingRequestsSummary {
+  const failureReasons = new Map<string, { reason: string; count: number; quantityDozen: number }>();
+  const summary: ManufacturingRequestsSummary = { total: rows.length, produced: 0, notProduced: 0, pending: 0, producedDozen: 0, notProducedDozen: 0, failureReasons: [] };
+  for (const row of rows) {
+    const status = String(row.productionStatus || "pending");
+    const quantityDozen = Number(row.quantityDozen || 0);
+    if (status === "produced") {
+      summary.produced += 1;
+      summary.producedDozen += quantityDozen;
+    } else if (status === "not_produced") {
+      summary.notProduced += 1;
+      summary.notProducedDozen += quantityDozen;
+      const reason = String(row.productionFailureReason || "غير محدد").trim() || "غير محدد";
+      const current = failureReasons.get(reason) || { reason, count: 0, quantityDozen: 0 };
+      current.count += 1;
+      current.quantityDozen += quantityDozen;
+      failureReasons.set(reason, current);
+    } else {
+      summary.pending += 1;
+    }
+  }
+  summary.failureReasons = Array.from(failureReasons.values()).sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
+  return summary;
 }
 
 function DateField({ value, onChange, label, colors, isAr }: { value: string; onChange: (value: string) => void; label: string; colors: any; isAr: boolean }) {
@@ -223,8 +290,9 @@ export default function BoardMonthlyReport() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [period, setPeriod] = useState<ReportPeriod>("monthly");
-  const currentMonthStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
-  const currentMonthEnd = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+  const reportToday = reportDate(new Date());
+  const currentMonthStart = reportToday ? `${reportToday.slice(0, 7)}-01` : "";
+  const currentMonthEnd = reportToday ? reportCalendarDay(Number(reportToday.slice(0, 4)), Number(reportToday.slice(5, 7)), 0) : "";
   const [customStart, setCustomStart] = useState(currentMonthStart);
   const [customEnd, setCustomEnd] = useState(currentMonthEnd);
   const range = periodRange(period, selectedMonth, selectedYear, customStart, customEnd);
@@ -238,29 +306,13 @@ export default function BoardMonthlyReport() {
   const monthNames = isAr ? monthNamesAr : monthNamesEn;
 
   const selectPeriod = (value: ReportPeriod) => {
-    const now = new Date();
-    const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    let start = new Date(now);
-    let end = new Date(now);
-    if (value === "monthly") {
-      start = new Date(selectedYear, selectedMonth, 1);
-      end = new Date(selectedYear, selectedMonth + 1, 0);
-    } else if (value === "daily") {
-      start = new Date(now);
-      end = new Date(now);
-    } else if (value === "twoDays") {
-      end = new Date(now);
-      start = new Date(now);
-      start.setDate(now.getDate() - 1);
-    } else if (value === "weekly") {
-      const daysFromSaturday = (now.getDay() + 1) % 7;
-      start.setDate(now.getDate() - daysFromSaturday);
-      end = new Date(start);
-      end.setDate(start.getDate() + 5);
-    }
     setPeriod(value);
-    setCustomStart(iso(start));
-    setCustomEnd(iso(end));
+    if (value === "custom") return;
+    const nextRange = periodRange(value, selectedMonth, selectedYear);
+    if (nextRange.isValid) {
+      setCustomStart(nextRange.start);
+      setCustomEnd(nextRange.end);
+    }
   };
 
   // Generate last 12 months options
@@ -281,21 +333,27 @@ export default function BoardMonthlyReport() {
 
   const loadReportData = async () => {
     const requestId = ++latestReportRequest.current;
+    if (!range.isValid) {
+      setIsLoading(false);
+      setReportData(null);
+      setReportError(copy("أدخل تاريخ بداية ونهاية صحيحين من التقويم.", "Choose valid start and end dates from the calendar."));
+      return;
+    }
     setIsLoading(true);
     setReportError(null);
     try {
-      const filters = { startDate: range.start, endDate: range.end };
       const results = await Promise.allSettled([
         productionService.getAll(), salesService.getAll(), collectionService.getAll(),
         representativeService.sales.list(), representativeService.collections.list(), representativeService.transactions.list(),
         expensesService.getAll(), taskService.getAll(), maintenanceEntriesService.getBySection("periodic"), maintenanceEntriesService.getBySection("emergency"), maintenanceEntriesService.getBySection("stopped"),
         finishedWarehouseService.movements(), finishedWarehouseService.list(),
+        productManufacturingRequestService.list(),
       ]);
       const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failed) throw failed.reason;
       const values = results.map((result) => (result as PromiseFulfilledResult<unknown>).value);
-      const [productionRaw, legacySalesRaw, legacyCollectionsRaw, salesRaw, collectionsRaw, transactionsRaw, expensesRaw, tasksRaw, periodicRaw, emergencyRaw, stoppedRaw, movementsRaw, stockRaw] = values;
-      const productionRows = reportRows(productionRaw).filter((row) => inReportPeriod(row, "production", range.start, range.end));
+      const [productionRaw, legacySalesRaw, legacyCollectionsRaw, salesRaw, collectionsRaw, transactionsRaw, expensesRaw, tasksRaw, periodicRaw, emergencyRaw, stoppedRaw, movementsRaw, stockRaw, manufacturingRequestsRaw] = values;
+      const productionRows = sortReportRows(reportRows(productionRaw).filter((row) => inReportPeriod(row, "production", range.start, range.end)), "production");
       const production = productionMetrics(productionRows);
       const commercial = commercialReport({
         sales: reportRows(salesRaw), legacySales: reportRows(legacySalesRaw),
@@ -305,6 +363,15 @@ export default function BoardMonthlyReport() {
       const warehouse = warehousePeriod({ movements: reportRows(movementsRaw), stock: reportRows(stockRaw), startDate: range.start, endDate: range.end });
       const expenseRows = reportRows(expensesRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end));
       const taskRows = reportRows(tasksRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end));
+      const maintenanceRows = {
+        periodic: reportRows(periodicRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end)),
+        emergency: reportRows(emergencyRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end)),
+        stopped: reportRows(stoppedRaw).filter((row) => inReportPeriod(row, "general", range.start, range.end)),
+      };
+      const previousRange = previousPeriodRange(range.start, range.end);
+      const manufacturingRequestRows = reportRows(manufacturingRequestsRaw);
+      const manufacturingRequests = manufacturingRequestsSummary(manufacturingRequestRows.filter((row) => inReportPeriod(row, "general", range.start, range.end)));
+      const previousManufacturingRequests = manufacturingRequestsSummary(manufacturingRequestRows.filter((row) => inReportPeriod(row, "general", previousRange.start, previousRange.end)));
       const expCategories: Record<string, number> = {};
       const expenseTotal = expenseRows.reduce((sum, row: any) => {
         const amount = Number(row.amount || 0);
@@ -315,31 +382,30 @@ export default function BoardMonthlyReport() {
       const completed = taskRows.filter((row: any) => row.result === "completed").length;
       const pending = taskRows.filter((row: any) => !row.result || row.result === "pending").length;
       const overdue = taskRows.filter((row: any) => row.result === "overdue" || row.status === "overdue").length;
-      const reportMonth = period === "custom" ? range.start.slice(0, 7) : `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
-      const prior = new Date(Number(reportMonth.slice(0, 4)), Number(reportMonth.slice(5, 7)) - 2, 1);
-      const priorMonth = `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, "0")}`;
-      const emptyManufacturingReport = { total: 0, produced: 0, notProduced: 0, pending: 0, producedDozen: 0, notProducedDozen: 0, failureReasons: [] as { reason: string; count: number; quantityDozen: number }[] };
-      const [manufacturingRequests, previousManufacturingRequests] = await Promise.all([
-        productManufacturingRequestService.monthlyReport(reportMonth), productManufacturingRequestService.monthlyReport(priorMonth),
-      ]);
       if (requestId !== latestReportRequest.current) return;
       setReportData({
         production: { totalDozen: production.totalPairs / 12, totalPairs: production.totalPairs, totalEntries: productionRows.length, wasteThread: production.wasteThreadGrams, wasteSocks: production.wasteSocksGrams, yarnWeight: production.yarnGrams, wasteNeedles: production.wasteNeedles, secondGrade: production.secondPairs, firstGrade: production.firstPairs, wastePercentage: production.wastePercent, threadWastePercentage: production.threadWastePercent },
         sales: { totalEntries: commercial.salesRows.length, totalAmount: commercial.salesAmount },
         expenses: { totalAmount: expenseTotal, categories: Object.entries(expCategories).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5) },
-        maintenance: { periodicCount: reportRows(periodicRaw).length, emergencyCount: reportRows(emergencyRaw).length, stoppedMachines: reportRows(stoppedRaw).length },
+        maintenance: { periodicCount: maintenanceRows.periodic.length, emergencyCount: maintenanceRows.emergency.length, stoppedMachines: maintenanceRows.stopped.length },
         tasks: { total: taskRows.length, completed, pending, overdue, completionRate: taskRows.length ? completed / taskRows.length * 100 : 0 },
         collection: { totalAmount: commercial.collectionAmount, totalEntries: commercial.collectionRows.length, collectionRate: commercial.salesAmount ? commercial.collectionAmount / commercial.salesAmount * 100 : 0 },
         warehouse: { movementCount: warehouse.movements.length, receiptPairs: warehouse.receiptPairs, issuePairs: warehouse.issuePairs, adjustmentPairs: warehouse.adjustmentPairs, currentPairs: warehouse.currentPairs, openingPairs: warehouse.openingPairs, closingPairs: warehouse.closingPairs, invalidQuantityCount: warehouse.invalidQuantityCount },
-        commercial: { salesRows: commercial.salesRows, orderRows: commercial.orderRows, visitRows: commercial.visitRows, otherTransactionRows: commercial.otherTransactionRows, collectionRows: commercial.collectionRows },
-        manufacturingRequests: manufacturingRequests || emptyManufacturingReport,
-        previousManufacturingRequests: previousManufacturingRequests || emptyManufacturingReport,
+        commercial: {
+          salesRows: sortReportRows(commercial.salesRows, "sale"),
+          orderRows: sortReportRows(commercial.orderRows, "transaction"),
+          visitRows: sortReportRows(commercial.visitRows, "transaction"),
+          otherTransactionRows: sortReportRows(commercial.otherTransactionRows, "transaction"),
+          collectionRows: sortReportRows(commercial.collectionRows, "collection"),
+        },
+        manufacturingRequests,
+        previousManufacturingRequests,
       });
     } catch (error: any) {
       if (requestId === latestReportRequest.current) {
         console.error("Error loading report data:", error);
         setReportData(null);
-        setReportError(isEn ? copy("تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة.", "Could not load report data; zero substitutes are not shown.") : error?.message || copy("تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة.", "Could not load report data; zero substitutes are not shown."));
+        setReportError(error?.message || copy("تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة.", "Could not load report data; zero substitutes are not shown."));
       }
     } finally {
       if (requestId === latestReportRequest.current) setIsLoading(false);
@@ -437,7 +503,7 @@ export default function BoardMonthlyReport() {
             type: "table",
             data: {
               headers: [copy("الفاتورة", "Invoice"), copy("العميل", "Customer"), copy("التاريخ", "Date"), copy("المندوب/المصدر", "Representative/source"), copy("المبلغ", "Amount"), copy("المرفقات", "Attachments")],
-              rows: reportData.commercial.salesRows.map((row) => [row.invoiceNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.invoiceDate || "—", row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.amount || 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
+              rows: reportData.commercial.salesRows.map((row) => [row.invoiceNumber || row.referenceCode || row.id || "—", row.customerName || "—", businessDate(row, "sale") || "—", row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.amount || 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
             },
           },
           {
@@ -445,7 +511,7 @@ export default function BoardMonthlyReport() {
             type: "table",
             data: {
               headers: [copy("السند", "Receipt"), copy("العميل", "Customer"), copy("التاريخ", "Date"), copy("المندوب/المصدر", "Representative/source"), copy("المبلغ", "Amount"), copy("المرفقات", "Attachments")],
-              rows: reportData.commercial.collectionRows.map((row) => [row.receiptNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.collectionDate || row.receiptDate || "—", row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
+              rows: reportData.commercial.collectionRows.map((row) => [row.receiptNumber || row.referenceCode || row.id || "—", row.customerName || "—", businessDate(row, "collection") || "—", row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
             },
           },
           {
@@ -492,8 +558,8 @@ export default function BoardMonthlyReport() {
                 [copy("تم الإنتاج", "Produced"), `${reportData.manufacturingRequests.produced} / ${reportData.manufacturingRequests.producedDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
                 [copy("لم يتم الإنتاج", "Not Produced"), `${reportData.manufacturingRequests.notProduced} / ${reportData.manufacturingRequests.notProducedDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
                 [copy("لم تسجل النتيجة", "Pending Result"), `${reportData.manufacturingRequests.pending}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
-                [copy("تغير الإنتاج عن الشهر السابق", "Production change vs prior month"), `${reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.produced ? ((reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced) / reportData.previousManufacturingRequests.produced * 100).toFixed(1) : 0}%`],
-                [copy("تغير التعثر عن الشهر السابق", "Failure change vs prior month"), `${reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.notProduced ? ((reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced) / reportData.previousManufacturingRequests.notProduced * 100).toFixed(1) : 0}%`],
+                [copy("تغير الإنتاج عن الفترة المكافئة السابقة", "Production change vs preceding equivalent period"), `${reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.produced ? ((reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced) / reportData.previousManufacturingRequests.produced * 100).toFixed(1) : 0}%`],
+                [copy("تغير التعثر عن الفترة المكافئة السابقة", "Failure change vs preceding equivalent period"), `${reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.notProduced ? ((reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced) / reportData.previousManufacturingRequests.notProduced * 100).toFixed(1) : 0}%`],
                 ...reportData.manufacturingRequests.failureReasons.map((item) => [item.reason, `${item.count} / ${item.quantityDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%`]),
               ],
             },
@@ -584,6 +650,7 @@ export default function BoardMonthlyReport() {
             ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => selectPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
           </View>
           <Text style={[styles.rangeText, directionalText, { color: colors.foreground }]}>{copy("من — إلى:", "From — To:")} {range.label}</Text>
+          {range.wasReversed && <Text accessibilityRole="alert" style={[styles.rangeNotice, directionalText, { color: "#92400E" }]}>{copy("تم عكس تاريخ البداية والنهاية تلقائيًا لعرض الفترة بترتيبها الزمني الصحيح.", "Start and end dates were reversed; the report uses their chronological order.")}</Text>}
         </View>
         <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: rowDirection }]}>
           <View style={styles.customDateField}>
@@ -655,8 +722,6 @@ export default function BoardMonthlyReport() {
             </Text>
           </View>
         )}
-
-        <CustodySummaryPanel startDate={range.start} endDate={range.end}/>
 
         {!isLoading && reportError && (
           <View style={[styles.emptyState, { marginHorizontal: 8, borderWidth: 1, borderColor: "#FCA5A5", borderRadius: 10, backgroundColor: "#FEF2F2" }]}>
@@ -749,7 +814,7 @@ export default function BoardMonthlyReport() {
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لم يتم الإنتاج", "Not produced")}</Text><Text style={[styles.detailValue, directionalText, { color: "#DC2626" }]}>{reportData.manufacturingRequests.notProduced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لم تسجل النتيجة", "Pending")}</Text><Text style={[styles.detailValue, directionalText, { color: "#B45309" }]}>{reportData.manufacturingRequests.pending} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
               {reportData.manufacturingRequests.failureReasons.slice(0, 5).map((item) => <View key={item.reason} style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{item.reason}</Text><Text style={[styles.detailValue, directionalText, { color: "#7C3AED" }]}>{item.count} ({reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%)</Text></View>)}
-              <Text style={[directionalText, { color: colors.foreground, fontWeight: "900", marginTop: 8 }]}>{copy("مقارنة بالشهر السابق", "Compared with prior month")}</Text>
+              <Text style={[directionalText, { color: colors.foreground, fontWeight: "900", marginTop: 8 }]}>{copy("مقارنة بالفترة المكافئة السابقة", "Compared with preceding equivalent period")}</Text>
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("تغير تم الإنتاج", "Produced change")}</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.produced >= reportData.previousManufacturingRequests.produced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} {copy("طلب", "requests")}</Text></View>
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("تغير لم يتم الإنتاج", "Not-produced change")}</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.notProduced <= reportData.previousManufacturingRequests.notProduced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} {copy("طلب", "requests")}</Text></View>
             </View>
@@ -806,7 +871,7 @@ export default function BoardMonthlyReport() {
               <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="receipt-long" size={20} color="#16A34A" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل فواتير المبيعات", "Sales invoice details")}</Text></View>
               {reportData.commercial.salesRows.length === 0 ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لا توجد فواتير مبيعات في الفترة", "No sales invoices in this period")}</Text> : reportData.commercial.salesRows.map((row: any) => <View key={`sale-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
                 <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.invoiceNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
-                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.invoiceDate || "—"} · {formatAmount(language, Number(row.amount || 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource)}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{businessDate(row, "sale") || "—"} · {formatAmount(language, Number(row.amount || 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource)}</Text>
                 {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
             </View>
@@ -815,16 +880,16 @@ export default function BoardMonthlyReport() {
               <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="payments" size={20} color="#0284C7" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل التحصيل", "Collection details")}</Text></View>
               {reportData.commercial.collectionRows.length === 0 ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لا توجد تحصيلات في الفترة", "No collections in this period")}</Text> : reportData.commercial.collectionRows.map((row: any) => <View key={`collection-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
                 <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.receiptNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
-                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.collectionDate || row.receiptDate || "—"} · {formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource)}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{businessDate(row, "collection") || "—"} · {formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource)}</Text>
                 {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
             </View>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="assignment" size={20} color="#7C3AED" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل الطلبات والزيارات", "Order and visit details")}</Text></View>
-              {[...reportData.commercial.orderRows, ...reportData.commercial.visitRows, ...reportData.commercial.otherTransactionRows].map((row: any) => <View key={`transaction-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+              {sortReportRows([...reportData.commercial.orderRows, ...reportData.commercial.visitRows, ...reportData.commercial.otherTransactionRows], "transaction").map((row: any) => <View key={`transaction-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
                 <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.referenceCode || "—"} · {row.customerName || "—"} · {transactionTypeLabel(language, row.transactionType)}</Text>
-                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.orderDate || "—"} · {transactionStatus(language, row.status, row.transactionType)} · {row.representativeName || "—"}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{businessDate(row, "transaction") || "—"} · {transactionStatus(language, row.status, row.transactionType)} · {row.representativeName || "—"}</Text>
                 {row.transactionType === "visit" ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{localizedVisitText(language, row.visitReport)}</Text> : Array.isArray(row.items) && row.items.map((item: any, index: number) => <Text key={`${row.id}-${index}`} style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{item.productName || "—"} · {itemQuantity(language, item)} · {item.size || "—"} · {item.color || "—"}</Text>)}
                 {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
@@ -860,6 +925,11 @@ export default function BoardMonthlyReport() {
                 <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.maintenance.stoppedMachines}</Text>
               </View>
             </View>
+
+            <Text style={[styles.sectionTitle, directionalText, { color: colors.foreground }]}>
+              {copy("دورة العهد الجديدة المستقلة — لا تعني صفراً للإنتاج العام", "Independent new custody cycle — does not mean total production is zero")}
+            </Text>
+            <CustodySummaryPanel startDate={range.start} endDate={range.end} />
 
             {/* Export Button */}
             <TouchableOpacity
@@ -925,6 +995,7 @@ const styles = StyleSheet.create({
   periodButton: { flex: 1, alignItems: "center", paddingVertical: 6, borderRadius: 7, backgroundColor: "#E5E7EB" },
   periodButtonText: { fontSize: 12, fontWeight: "800" },
   rangeText: { textAlign: "right", fontSize: 11, fontWeight: "700" },
+  rangeNotice: { fontSize: 11, fontWeight: "700", lineHeight: 17 },
   customDateRow: { flexDirection: "row-reverse", gap: 8, marginHorizontal: 8, marginBottom: 8, padding: 8, borderRadius: 9, borderWidth: 1 },
   customDateField: { flex: 1, gap: 4 },
   customDateLabel: { textAlign: "right", fontSize: 12, fontWeight: "800" },

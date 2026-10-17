@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
   StyleSheet,
@@ -15,13 +14,13 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   exportReportAsPDF,
-  generateProductionReport,
-  generateCostReport,
   generateComprehensiveReport,
 } from "@/lib/services/pdf-export.service";
 import { reportsService } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "@/lib/language-context";
+import { DateField } from "@/components/date-field";
+import { reportDate } from "@shared/operational-report";
 
 interface ReportOption {
   id: string;
@@ -117,12 +116,19 @@ export default function ExportReports() {
   };
 
   const handleGenerateReport = async (option: ReportOption) => {
+    let selectedStartDate = startDate;
+    let selectedEndDate = endDate;
     if (option.id === "comprehensive") {
-      const validDate = /^\\d{4}-\\d{2}-\\d{2}$/;
-      if (!validDate.test(startDate) || !validDate.test(endDate) || startDate > endDate) {
-        Alert.alert(isAr ? "التاريخ غير صحيح" : "Invalid date", isAr ? "أدخل تاريخاً بصيغة YYYY-MM-DD وتأكد أن تاريخ البداية لا يتجاوز تاريخ النهاية" : "Enter dates as YYYY-MM-DD and ensure the start date is not after the end date");
+      const normalizedStart = reportDate(startDate);
+      const normalizedEnd = reportDate(endDate);
+      if (!normalizedStart || !normalizedEnd || normalizedStart > normalizedEnd) {
+        Alert.alert(isAr ? "التاريخ غير صحيح" : "Invalid date", isAr ? "اختر تاريخ البداية وتاريخ النهاية من التقويم، وتأكد أن البداية لا تتجاوز النهاية." : "Choose the start and end dates from the calendar, and ensure the start is not after the end.");
         return;
       }
+      setStartDate(normalizedStart);
+      setEndDate(normalizedEnd);
+      selectedStartDate = normalizedStart;
+      selectedEndDate = normalizedEnd;
     }
     setGenerating(option.id);
     try {
@@ -131,37 +137,22 @@ export default function ExportReports() {
 
       if (option.id === "comprehensive") {
         // Generate the comprehensive report for the dates selected on this screen.
-        const result = await reportsService.generateComprehensive(startDate, endDate, userId);
+        const result = await reportsService.generateComprehensive(selectedStartDate, selectedEndDate, userId);
         const pdfData = generateComprehensiveReport(result?.data || {});
         await exportReportAsPDF(pdfData);
         Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير التقرير الشامل بنجاح" : "Comprehensive report exported successfully");
       } else if (option.id === "production") {
-        const pdfData = generateProductionReport({
-          totalDozen: 0,
-          totalPairs: 0,
-          totalEntries: 0,
-          totalWasteThread: 0,
-          totalWasteSocks: 0,
-          avgDaily: 0,
-          targetAchievement: 85,
-          wastePercentage: 3.2,
-        });
-        await exportReportAsPDF(pdfData);
-        Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير تقرير الإنتاج بنجاح" : "Production report exported successfully");
+        router.push({ pathname: "/production-totals", params: { startDate: selectedStartDate, endDate: selectedEndDate } } as never);
+        return;
       } else if (option.id === "costs") {
-        const pdfData = generateCostReport({
-          totalCost: 0,
-          materialsCost: 0,
-          laborCost: 0,
-          maintenanceCost: 0,
-          utilitiesCost: 0,
-          otherCost: 0,
-          variancePercentage: -2.5,
-          costPerUnit: 12.5,
-          targetCostPerUnit: 13,
-        });
-        await exportReportAsPDF(pdfData);
-        Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير تقرير التكاليف بنجاح" : "Costs report exported successfully");
+        router.push({ pathname: "/cost-comparison-report", params: { startDate: selectedStartDate, endDate: selectedEndDate } } as never);
+        return;
+      } else if (option.id === "sales") {
+        router.push({ pathname: "/representative-reports", params: { startDate: selectedStartDate, endDate: selectedEndDate } } as never);
+        return;
+      } else if (option.id === "maintenance") {
+        router.push({ pathname: "/section-reports", params: { startDate: selectedStartDate, endDate: selectedEndDate, section: "maintenance" } } as never);
+        return;
       } else {
         // Generic report
         await reportsService.create({
@@ -204,11 +195,11 @@ export default function ExportReports() {
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
               <Text style={[styles.dateLabel, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? "من تاريخ" : "From"}</Text>
-              <TextInput value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} keyboardType="numbers-and-punctuation" />
+              <DateField value={startDate} onChange={setStartDate} isAr={isAr} accessibilityLabel={isAr ? "تاريخ بداية التقرير الشامل" : "Comprehensive report start date"} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} />
             </View>
             <View style={styles.dateField}>
               <Text style={[styles.dateLabel, { color: colors.muted, textAlign: isAr ? "right" : "left" }]}>{isAr ? "إلى تاريخ" : "To"}</Text>
-              <TextInput value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} keyboardType="numbers-and-punctuation" />
+              <DateField value={endDate} onChange={setEndDate} isAr={isAr} accessibilityLabel={isAr ? "تاريخ نهاية التقرير الشامل" : "Comprehensive report end date"} style={[styles.dateInput, { color: colors.foreground, borderColor: colors.border }]} />
             </View>
           </View>
           <TouchableOpacity onPress={() => { setStartDate(getRiyadhDate()); setEndDate(getRiyadhDate()); }} style={[styles.todayButton, { borderColor: colors.primary }]}>
@@ -267,7 +258,7 @@ export default function ExportReports() {
 
 function getRiyadhDate(offsetDays = 0) {
   const now = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return reportDate(now);
 }
 
 const styles = StyleSheet.create({

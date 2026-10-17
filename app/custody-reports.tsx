@@ -829,10 +829,28 @@ export default function CustodyReportsScreen() {
     void load();
   }, [load]);
 
+  // DateField commits complete calendar dates, while reportDate also protects deep links
+  // and any platform-specific input from reaching the report as a raw timestamp/string.
+  const normalizedStartDate = reportDate(startDate);
+  const normalizedEndDate = reportDate(endDate);
+  const dateRangeError =
+    !normalizedStartDate || !normalizedEndDate
+      ? localize(
+          language,
+          "اختر تاريخ بداية ونهاية صحيحين من التقويم قبل احتساب التقرير.",
+          "Choose valid start and end dates from the calendar before calculating the report.",
+        )
+      : normalizedEndDate < normalizedStartDate
+        ? localize(
+            language,
+            "تاريخ النهاية يجب ألا يسبق تاريخ البداية. عدّل الفترة ثم أعد المحاولة.",
+            "The end date cannot be earlier than the start date. Correct the period and try again.",
+          )
+        : "";
   const filters = useMemo<CustodyReportFilters>(
     () => ({
-      startDate,
-      endDate,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
       period,
       department: department || undefined,
       accountId,
@@ -842,8 +860,8 @@ export default function CustodyReportsScreen() {
       status: status || undefined,
     }),
     [
-      startDate,
-      endDate,
+      normalizedStartDate,
+      normalizedEndDate,
       period,
       department,
       accountId,
@@ -857,6 +875,8 @@ export default function CustodyReportsScreen() {
     report: CustodyReport | null;
     calculationError: string;
   }>(() => {
+    if (dateRangeError)
+      return { report: null, calculationError: dateRangeError };
     try {
       return {
         report: buildCustodyReport({ batches, accounts, settings, filters }),
@@ -871,7 +891,7 @@ export default function CustodyReportsScreen() {
             : localize(language, "تعذر احتساب التقرير.", "Unable to calculate the report."),
       };
     }
-  }, [batches, accounts, settings, filters, language]);
+  }, [batches, accounts, settings, filters, language, dateRangeError]);
   const report = reportResult.report;
 
   const applyPeriod = (next: ReportPeriod) => {
@@ -1107,8 +1127,10 @@ export default function CustodyReportsScreen() {
             <DateField
               value={startDate}
               onChange={(value) => {
+                const normalized = reportDate(value);
+                if (!normalized) return;
                 setPeriod("custom");
-                setStartDate(value);
+                setStartDate(normalized);
               }}
               label={localize(language, "من", "From")}
               isAr={!isEnglish(language)}
@@ -1116,8 +1138,10 @@ export default function CustodyReportsScreen() {
             <DateField
               value={endDate}
               onChange={(value) => {
+                const normalized = reportDate(value);
+                if (!normalized) return;
                 setPeriod("custom");
-                setEndDate(value);
+                setEndDate(normalized);
               }}
               label={localize(language, "إلى (شامل اليوم)", "To (inclusive)")}
               isAr={!isEnglish(language)}
@@ -1205,7 +1229,7 @@ export default function CustodyReportsScreen() {
             </Text>
           </View>
         ) : null}
-        {report && !loading ? (
+        {report && !loading && !error && !reportResult.calculationError ? (
           <>
             <View style={[styles.actionRow, { flexDirection: rowDirection(language) }]}>
               <TouchableOpacity

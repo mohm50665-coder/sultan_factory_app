@@ -1,4 +1,4 @@
-import { businessDate, exactPairs, pairLabel, productionMetrics, riyadhDate } from "@shared/operational-report";
+import { businessDate, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportDate, reportRows, riyadhDate } from "@shared/operational-report";
 import { BackButton } from "@/components/back-button";
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -79,75 +79,92 @@ export default function ProductionTotalsScreen() {
   const { language } = useLanguage();
   const { user } = useAuth();
   const isAr = language === "ar";
-  const [reportPeriod, setReportPeriod] = useState<"all" | "day" | "week" | "month">("all");
-  const [reportDate, setReportDate] = useState(() => riyadhDate());
+  const [startDate, setStartDate] = useState(() => riyadhDate());
+  const [endDate, setEndDate] = useState(() => riyadhDate());
+  const [loading, setLoading] = useState(true);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [undatedRecords, setUndatedRecords] = useState(0);
+  const normalizedStart = reportDate(startDate);
+  const normalizedEnd = reportDate(endDate);
+  const hasValidRange = Boolean(normalizedStart && normalizedEnd);
+  const rangeReversed = hasValidRange && normalizedStart > normalizedEnd;
+  const visibleEntries = hasValidRange
+    ? entries.filter((entry) => inReportPeriod(entry, "production", startDate, endDate))
+    : [];
 
-  const visibleEntries = entries.filter((entry) => {
-    if (reportPeriod === "all") return true;
-    const entryDate = new Date(`${entry.date}T00:00:00`);
-    const selected = new Date(`${reportDate}T00:00:00`);
-    if (Number.isNaN(entryDate.getTime()) || Number.isNaN(selected.getTime())) return false;
-    if (reportPeriod === "day") return entry.date === reportDate;
-    if (reportPeriod === "month") return entryDate.getFullYear() === selected.getFullYear() && entryDate.getMonth() === selected.getMonth();
-    const start = new Date(selected);
-    const day = start.getDay();
-    start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return entryDate >= start && entryDate <= end;
-  });
+  const setNormalizedStartDate = (value: string) => {
+    const normalized = reportDate(value);
+    if (normalized) setStartDate(normalized);
+  };
+  const setNormalizedEndDate = (value: string) => {
+    const normalized = reportDate(value);
+    if (normalized) setEndDate(normalized);
+  };
 
   useEffect(() => {
     loadEntries();
   }, []);
 
   const loadEntries = async () => {
+    setLoading(true);
+    setSourceError(null);
     try {
-      const data = await productionService.getAll();
-      if (data && data.length > 0) {
-        const grouped: { [date: string]: { [key: string]: MachineData } } = {};
-        data.forEach((item: any) => {
-          const date = businessDate(item, "production") || "غير مؤرخ";
-          if (!grouped[date]) grouped[date] = {};
-          const machine = item.machineNumber || "unknown";
-          const shift = item.shiftNumber || "1";
-          const key = `${machine}_S${shift}_${item.id}_${item.productName || ""}_${item.productSize || ""}_${item.productColor || ""}`;
-          grouped[date][key] = {
-            productionDozen: String(item.productionDozen || "0"),
-            productionPairs: String(item.productionPairs || "0"),
-            wasteThreadGrams: String(item.wasteThreadGrams || "0"),
-            wasteSocksGrams: String(item.wasteSocksGrams || "0"),
-            secondGradeDozen: String(item.secondGradeDozen || "0"),
-            secondGradePairs: String(item.secondGradePairs || "0"),
-            wasteNeedles: String(item.wasteNeedles || "0"),
-            needlesUsed: String(item.needlesUsed || "0"),
-            yarnIssuedGrams: item.yarnIssuedGrams,
-            productSize: item.productSize,
-            productColor: item.productColor,
-            productionHours: String(item.productionHours || "0"),
-            productionMinutes: String(item.productionMinutes || "0"),
-            yarnRubber: String(item.yarnRubber || "0"),
-            yarnSpandex: String(item.yarnSpandex || "0"),
-            yarnNylon: String(item.yarnNylon || "0"),
-            yarnCotton: String(item.yarnCotton || "0"),
-            yarnBamboo: String(item.yarnBamboo || "0"),
-            yarnSpan: String(item.yarnSpan || "0"),
-            yarnWeightPerPair: String(item.yarnWeightPerPair || "0"),
-            productName: item.productName || "",
-            shiftNumber: String(item.shiftNumber || "1"),
-            shiftStart: item.shiftStart || "",
-            shiftEnd: item.shiftEnd || "",
-          };
-        });
-        const entriesArray = Object.entries(grouped).map(([date, machines]) => ({
-          id: date,
-          date,
-          machines,
-        }));
-        setEntries(entriesArray);
-      }
+      const response = await productionService.getAll();
+      const data = reportRows(response);
+      const hasRecognizedRows = Array.isArray(response) || ["items", "rows", "data", "results"].some((key) => Array.isArray(response?.[key]));
+      if (!hasRecognizedRows) throw new Error(isAr ? "استجابة مصدر الإنتاج غير صالحة؛ لم تعرض كأصفار." : "Production source response is invalid and was not displayed as zeros.");
+
+      const grouped: { [date: string]: { [key: string]: MachineData } } = {};
+      let missingDateCount = 0;
+      data.forEach((item: any) => {
+        const date = businessDate(item, "production");
+        if (!date) {
+          missingDateCount += 1;
+          return;
+        }
+        if (!grouped[date]) grouped[date] = {};
+        const machine = item.machineNumber || "unknown";
+        const shift = item.shiftNumber || "1";
+        const key = `${machine}_S${shift}_${item.id}_${item.productName || ""}_${item.productSize || ""}_${item.productColor || ""}`;
+        grouped[date][key] = {
+          productionDozen: String(item.productionDozen || "0"),
+          productionPairs: String(item.productionPairs || "0"),
+          wasteThreadGrams: String(item.wasteThreadGrams || "0"),
+          wasteSocksGrams: String(item.wasteSocksGrams || "0"),
+          secondGradeDozen: String(item.secondGradeDozen || "0"),
+          secondGradePairs: String(item.secondGradePairs || "0"),
+          wasteNeedles: String(item.wasteNeedles || "0"),
+          needlesUsed: String(item.needlesUsed || "0"),
+          yarnIssuedGrams: item.yarnIssuedGrams,
+          productSize: item.productSize,
+          productColor: item.productColor,
+          productionHours: String(item.productionHours || "0"),
+          productionMinutes: String(item.productionMinutes || "0"),
+          yarnRubber: String(item.yarnRubber || "0"),
+          yarnSpandex: String(item.yarnSpandex || "0"),
+          yarnNylon: String(item.yarnNylon || "0"),
+          yarnCotton: String(item.yarnCotton || "0"),
+          yarnBamboo: String(item.yarnBamboo || "0"),
+          yarnSpan: String(item.yarnSpan || "0"),
+          yarnWeightPerPair: String(item.yarnWeightPerPair || "0"),
+          productName: item.productName || "",
+          shiftNumber: String(item.shiftNumber || "1"),
+          shiftStart: item.shiftStart || "",
+          shiftEnd: item.shiftEnd || "",
+        };
+      });
+      const entriesArray = Object.entries(grouped)
+        .map(([date, machines]) => ({ id: date, date, machines }))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      setEntries(entriesArray);
+      setUndatedRecords(missingDateCount);
     } catch (e) {
       console.error("Error loading entries:", e);
+      setEntries([]);
+      setUndatedRecords(0);
+      setSourceError(e instanceof Error ? e.message : (isAr ? "تعذر تحميل مصدر الإنتاج." : "Could not load the production source."));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -270,20 +287,34 @@ export default function ProductionTotalsScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
           <Text style={{ color: colors.foreground, fontWeight: "800", textAlign: "right", marginBottom: 8 }}>{isAr ? "فترة تقرير إنتاج المكائن" : "Machine production report period"}</Text>
-          <DateField value={reportDate} onChange={setReportDate} label={isAr ? "التاريخ المرجعي" : "Reference date"} isAr={isAr} style={{ marginBottom: 8 }} />
-          <View style={{ flexDirection: isAr ? "row-reverse" : "row", gap: 6 }}>
-            {([["all", isAr ? "كل السجلات" : "All"], ["day", isAr ? "يومي" : "Daily"], ["week", isAr ? "أسبوعي" : "Weekly"], ["month", isAr ? "شهري" : "Monthly"]] as [typeof reportPeriod, string][]).map(([key, label]) => <TouchableOpacity key={key} onPress={() => setReportPeriod(key)} style={{ flex: 1, backgroundColor: reportPeriod === key ? "#0d9488" : colors.background, borderWidth: 1, borderColor: reportPeriod === key ? "#0d9488" : colors.border, borderRadius: 8, paddingVertical: 8, alignItems: "center" }}><Text style={{ color: reportPeriod === key ? "#fff" : colors.foreground, fontSize: 11, fontWeight: "700" }}>{label}</Text></TouchableOpacity>)}
+          <View style={{ flexDirection: isAr ? "row-reverse" : "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 150 }}><DateField value={startDate} onChange={setNormalizedStartDate} label={isAr ? "من تاريخ" : "Start date"} isAr={isAr} /></View>
+            <View style={{ flex: 1, minWidth: 150 }}><DateField value={endDate} onChange={setNormalizedEndDate} label={isAr ? "إلى تاريخ" : "End date"} isAr={isAr} /></View>
           </View>
+          {rangeReversed ? <Text accessibilityRole="alert" style={{ color: "#b45309", fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? "تاريخ البداية بعد تاريخ النهاية؛ يعرض التقرير النطاق نفسه بعد ترتيبه زمنيًا." : "Start date is after end date; the same range is shown in chronological order."}</Text> : null}
+          {!hasValidRange ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? "أدخل تاريخ بداية ونهاية صالحين من التقويم." : "Choose valid start and end dates from the calendar."}</Text> : null}
+          {!loading && !sourceError && undatedRecords > 0 ? <Text accessibilityRole="alert" style={{ color: "#b45309", fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? `${undatedRecords} سجل إنتاج بلا تاريخ صالح لم يدخل في التقرير.` : `${undatedRecords} production record(s) without a valid date were excluded from the report.`}</Text> : null}
           <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>{isAr ? `عدد سجلات الفترة: ${visibleEntries.length}` : `Records in period: ${visibleEntries.length}`}</Text>
         </View>
-        {visibleEntries.length === 0 ? (
+        {sourceError ? (
+          <View accessibilityRole="alert" style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
+            <MaterialIcons name="error-outline" size={48} color={colors.error} />
+            <Text style={{ color: colors.error, fontSize: 18, marginTop: 16, fontWeight: "bold" }}>{isAr ? "تعذر تحميل مصدر الإنتاج" : "Production source unavailable"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, marginTop: 8, textAlign: "center", paddingHorizontal: 24 }}>{sourceError}</Text>
+            <TouchableOpacity onPress={loadEntries} style={{ backgroundColor: "#0d9488", borderRadius: 8, paddingVertical: 10, paddingHorizontal: 18, marginTop: 16 }}><Text style={{ color: "#fff", fontWeight: "800" }}>{isAr ? "إعادة المحاولة" : "Try again"}</Text></TouchableOpacity>
+          </View>
+        ) : loading ? (
+          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
+            <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "جارٍ تحميل بيانات الإنتاج..." : "Loading production data..."}</Text>
+          </View>
+        ) : visibleEntries.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
             <View style={{ backgroundColor: "#0d948815", borderRadius: 40, padding: 20 }}>
               <MaterialIcons name="summarize" size={48} color="#0d9488" />
             </View>
-            <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "لا توجد بيانات" : "No Data"}</Text>
+            <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "لا توجد بيانات في الفترة" : "No data in this period"}</Text>
             <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
-              {isAr ? "لم يتم تسجيل أي بيانات إنتاج بعد." : "No production data has been recorded yet."}
+              {isAr ? "لا توجد سجلات إنتاج مؤرخة ضمن النطاق المحدد." : "No dated production records fall within the selected range."}
             </Text>
           </View>
         ) : (

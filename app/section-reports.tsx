@@ -1,7 +1,7 @@
 import { DateField } from "@/components/date-field";
 import { CustodySummaryPanel } from "@/components/custody-summary-panel";
 import { representativeService } from "@/lib/services/representative.service";
-import { commercialReport, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportRows, riyadhDate, warehousePeriod, type ReportKind } from "@shared/operational-report";
+import { businessDate, commercialReport, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportDate, reportRows, riyadhDate, warehousePeriod, type ReportKind } from "@shared/operational-report";
 import React, { useState, useEffect, useRef } from "react";
 import { BackButton } from "@/components/back-button";
 import {
@@ -18,8 +18,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BarChart, PieChart, ProgressBar, StatCard } from "@/components/charts";
-import { productionService, salesService, collectionService, expensesService, manufacturingService, taskService, administrativeService, finishedWarehouseService } from "@/lib/services/api.service";
-import { maintenanceEntriesService, warehouseEntriesService } from "@/lib/services/data.service";
+import { productionService, salesService, collectionService, expensesService, taskService, administrativeService, finishedWarehouseService, trpcCall } from "@/lib/services/api.service";
 
 type ReportSection = "production" | "manufacturing" | "warehouse" | "sales" | "expenses" | "maintenance" | "tasks" | "administrative";
 
@@ -56,11 +55,47 @@ export default function SectionReportsScreen() {
   const [endDate, setEndDate] = useState(today);
   const [error, setError] = useState("");
   const loadVersion = useRef(0);
-  const periodRows = (value:any, kind:ReportKind = "general") => reportRows(value).filter(row=>inReportPeriod(row,kind,startDate,endDate));
+  const normalizedStartDate = reportDate(startDate);
+  const normalizedEndDate = reportDate(endDate);
+  const periodIsValid = Boolean(normalizedStartDate && normalizedEndDate);
+  const periodIsReversed = periodIsValid && normalizedStartDate > normalizedEndDate;
+  const reportStartDate = periodIsReversed ? normalizedEndDate : normalizedStartDate;
+  const reportEndDate = periodIsReversed ? normalizedStartDate : normalizedEndDate;
+  const dateNotice = !periodIsValid
+    ? (isAr ? "تاريخ التقرير غير صالح؛ اختر التاريخ من التقويم." : "The report date is invalid; choose a calendar date.")
+    : periodIsReversed
+      ? (isAr ? "تم ترتيب تاريخي الفترة تلقائيًا: البداية أصبحت التاريخ الأسبق والنهاية الأحدث." : "The period dates were reordered: the earlier date is used as the start.")
+      : "";
+  const sortReportRows = (rows: any[], kind: ReportKind) => [...rows].sort((left, right) => {
+    const byDate = businessDate(left, kind).localeCompare(businessDate(right, kind));
+    if (byDate) return byDate;
+    return String(left?.id ?? left?.referenceCode ?? "").localeCompare(String(right?.id ?? right?.referenceCode ?? ""));
+  });
+  const periodRows = (value:any, kind:ReportKind = "general") => sortReportRows(
+    reportRows(value).filter(row => inReportPeriod(row, kind, reportStartDate, reportEndDate)),
+    kind,
+  );
+  const updateReportDate = (boundary: "start" | "end", value: string) => {
+    const normalized = reportDate(value);
+    if (!normalized) {
+      setError(isAr ? "تاريخ التقرير غير صالح؛ اختر التاريخ من التقويم." : "The report date is invalid; choose a calendar date.");
+      return;
+    }
+    setError("");
+    if (boundary === "start") setStartDate(normalized);
+    else setEndDate(normalized);
+  };
 
   useEffect(() => {
+    if (!periodIsValid) {
+      loadVersion.current += 1;
+      setIsLoading(false);
+      setReportData(null);
+      setError(isAr ? "تاريخ التقرير غير صالح؛ اختر التاريخ من التقويم." : "The report date is invalid; choose a calendar date.");
+      return;
+    }
     loadReportData(activeSection);
-  }, [activeSection, startDate, endDate]);
+  }, [activeSection, reportStartDate, reportEndDate, periodIsValid]);
 
   const loadReportData = async (section: ReportSection) => {
     const version = ++loadVersion.current;
@@ -156,7 +191,7 @@ export default function SectionReportsScreen() {
   // Load Warehouse Report
   const loadWarehouseReport = async () => {
     const [stock, movements] = await Promise.all([finishedWarehouseService.list(), finishedWarehouseService.movements()]);
-    const ledger = warehousePeriod({stock:reportRows(stock),movements:reportRows(movements),startDate,endDate});
+    const ledger = warehousePeriod({stock:reportRows(stock),movements:sortReportRows(reportRows(movements), "movement"),startDate:reportStartDate,endDate:reportEndDate});
     return { inCount:ledger.movements.filter(r=>r.movementType === "receipt").length,
       outCount:ledger.movements.filter(r=>r.movementType === "issue").length,
       totalIn:ledger.receiptPairs,totalOut:ledger.issuePairs,balance:ledger.closingPairs,currentPairs:ledger.currentPairs,openingPairs:ledger.openingPairs };
@@ -165,7 +200,7 @@ export default function SectionReportsScreen() {
   // Load Sales Report
   const loadSalesReport = async () => {
     const [sales,legacySales,collections,legacyCollections,transactions] = await Promise.all([representativeService.sales.list(),salesService.getAll(),representativeService.collections.list(),collectionService.getAll(),representativeService.transactions.list()]);
-    const report = commercialReport({sales:reportRows(sales),legacySales:reportRows(legacySales),collections:reportRows(collections),legacyCollections:reportRows(legacyCollections),transactions:reportRows(transactions),startDate,endDate});
+    const report = commercialReport({sales:sortReportRows(reportRows(sales), "sale"),legacySales:sortReportRows(reportRows(legacySales), "sale"),collections:sortReportRows(reportRows(collections), "collection"),legacyCollections:sortReportRows(reportRows(legacyCollections), "collection"),transactions:sortReportRows(reportRows(transactions), "transaction"),startDate:reportStartDate,endDate:reportEndDate});
     return { salesCount:report.salesRows.length,collectionsCount:report.collectionRows.length,totalSalesAmount:report.salesAmount,totalCollected:report.collectionAmount,orderCount:report.orderRows.length,visitCount:report.visitRows.length };
   };
 
@@ -189,9 +224,22 @@ export default function SectionReportsScreen() {
 
   // Load Maintenance Report
   const loadMaintenanceReport = async () => {
-    const periodic = periodRows(await maintenanceEntriesService.getBySection("periodic"));
-    const emergency = periodRows(await maintenanceEntriesService.getBySection("emergency"));
-    const stopped = periodRows(await maintenanceEntriesService.getBySection("stopped-devices"));
+    const loadMaintenanceRows = async (section: string) => {
+      const result = await trpcCall("maintenanceEntries.getBySection", { section }, "query");
+      if (!Array.isArray(result)) throw new Error(isAr ? "استجابة مصدر الصيانة غير مكتملة؛ لم تُعرض كصفر." : "The maintenance source response is incomplete and was not shown as zero.");
+      return result.map((row: any) => ({
+        ...row,
+        data: typeof row.data === "string" ? JSON.parse(row.data) : row.data,
+      }));
+    };
+    const [periodicRows, emergencyRows, stoppedRows] = await Promise.all([
+      loadMaintenanceRows("periodic"),
+      loadMaintenanceRows("emergency"),
+      loadMaintenanceRows("stopped-devices"),
+    ]);
+    const periodic = periodRows(periodicRows);
+    const emergency = periodRows(emergencyRows);
+    const stopped = periodRows(stoppedRows);
 
     return {
       periodicCount: periodic.length,
@@ -349,9 +397,9 @@ export default function SectionReportsScreen() {
     const { periodicCount, emergencyCount, stoppedCount, totalEntries } = reportData;
 
     const pieData = [
-      { label: isAr ? "دورية" : "Periodic", value: periodicCount || 1, color: "#10b981" },
-      { label: isAr ? "طوارئ" : "Emergency", value: emergencyCount || 1, color: "#ef4444" },
-      { label: isAr ? "متوقفة" : "Stopped", value: stoppedCount || 1, color: "#f59e0b" },
+      { label: isAr ? "دورية" : "Periodic", value: periodicCount, color: "#10b981" },
+      { label: isAr ? "طوارئ" : "Emergency", value: emergencyCount, color: "#ef4444" },
+      { label: isAr ? "متوقفة" : "Stopped", value: stoppedCount, color: "#f59e0b" },
     ];
 
     return (
@@ -364,7 +412,7 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "طوارئ" : "Emergency"} value={`${emergencyCount}`} color="#ef4444" />
           <StatCard title={isAr ? "أجهزة متوقفة" : "Stopped"} value={`${stoppedCount}`} color="#f59e0b" />
         </View>
-        <PieChart data={pieData} title={isAr ? "توزيع الصيانة" : "Maintenance Distribution"} />
+        {totalEntries > 0 && <PieChart data={pieData} title={isAr ? "توزيع الصيانة" : "Maintenance Distribution"} />}
       </View>
     );
   };
@@ -374,9 +422,9 @@ export default function SectionReportsScreen() {
     const { totalTasks, completed, pending, overdue } = reportData;
 
     const pieData = [
-      { label: isAr ? "مكتملة" : "Completed", value: completed || 1, color: "#10b981" },
-      { label: isAr ? "معلقة" : "Pending", value: pending || 1, color: "#f59e0b" },
-      { label: isAr ? "متأخرة" : "Overdue", value: overdue || 1, color: "#ef4444" },
+      { label: isAr ? "مكتملة" : "Completed", value: completed, color: "#10b981" },
+      { label: isAr ? "معلقة" : "Pending", value: pending, color: "#f59e0b" },
+      { label: isAr ? "متأخرة" : "Overdue", value: overdue, color: "#ef4444" },
     ];
 
     return (
@@ -405,9 +453,9 @@ export default function SectionReportsScreen() {
     const { totalRequests, approved, pendingApproval, rejected } = reportData;
 
     const pieData = [
-      { label: isAr ? "موافق عليها" : "Approved", value: approved || 1, color: "#10b981" },
-      { label: isAr ? "قيد المراجعة" : "Pending", value: pendingApproval || 1, color: "#f59e0b" },
-      { label: isAr ? "مرفوضة" : "Rejected", value: rejected || 1, color: "#ef4444" },
+      { label: isAr ? "موافق عليها" : "Approved", value: approved, color: "#10b981" },
+      { label: isAr ? "قيد المراجعة" : "Pending", value: pendingApproval, color: "#f59e0b" },
+      { label: isAr ? "مرفوضة" : "Rejected", value: rejected, color: "#ef4444" },
     ];
 
     return (
@@ -452,7 +500,8 @@ export default function SectionReportsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={{flexDirection:"row-reverse",flexWrap:"wrap",gap:8,padding:10}}><DateField label="من تاريخ" value={startDate} onChange={setStartDate} isAr style={{flex:1,minWidth:150}}/><DateField label="إلى تاريخ" value={endDate} onChange={setEndDate} isAr style={{flex:1,minWidth:150}}/></View>
+      <View style={{flexDirection:"row-reverse",flexWrap:"wrap",gap:8,padding:10}}><DateField label="من تاريخ" value={startDate} onChange={(value) => updateReportDate("start", value)} isAr style={{flex:1,minWidth:150}}/><DateField label="إلى تاريخ" value={endDate} onChange={(value) => updateReportDate("end", value)} isAr style={{flex:1,minWidth:150}}/></View>
+      {dateNotice && periodIsValid ? <Text accessibilityRole="alert" style={{color:"#92400e",paddingHorizontal:10,textAlign:"right"}}>{dateNotice}</Text> : null}
       {error?<Text accessibilityRole="alert" style={{color:"#b91c1c",padding:10,textAlign:"right"}}>{error}</Text>:null}
       {/* Section Tabs */}
       <View style={styles.tabsContainer}>

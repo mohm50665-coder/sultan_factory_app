@@ -33,14 +33,18 @@ import {
   type CustodyReport,
 } from "@shared/custody-reporting";
 import {
+  businessDate,
   commercialReport,
   exactPairs,
   inReportPeriod,
   pairLabel,
   productionMetrics,
+  reportDate as normalizeReportDate,
+  riyadhDate,
   transactionStatusLabel,
   visitText,
   warehousePeriod,
+  type ReportKind,
 } from "@shared/operational-report";
 import {
   adminService,
@@ -67,18 +71,7 @@ import {
 } from "@/lib/services/api.service";
 
 const REPORT_TIME_ZONE = "Asia/Riyadh";
-const localDateKey = (value: Date = new Date()) => {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: REPORT_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const part = (type: string) =>
-    parts.find((item) => item.type === type)?.value || "00";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-};
-const today = () => localDateKey();
+const today = () => riyadhDate();
 const numberValue = (value: unknown) => Number(value || 0) || 0;
 // بعض مسارات التقارير تعيد مصفوفة مباشرة، وبعضها يعيد {items}/{rows}/{data}.
 // يجب توحيدها قبل الفلترة حتى لا يتحول مصدر صحيح إلى صفر صامتاً.
@@ -147,22 +140,34 @@ const rowWastePercent = (row: any) => {
       ).toFixed(2)
     : null;
 };
-const dateOnly = (value: unknown) => {
-  if (!value) return "";
-  const text = String(value);
-  // MySQL DATETIME values arrive as `YYYY-MM-DD HH:mm:ss`; keep the
-  // database date instead of relying on browser parsing/time-zone rules.
-  const sqlDate = text.match(/^(\d{4}-\d{2}-\d{2})(?:[ T]|$)/);
-  if (sqlDate) return sqlDate[1];
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  const legacy = text.trim().match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (legacy)
-    return `${legacy[3]}-${legacy[2].padStart(2, "0")}-${legacy[1].padStart(2, "0")}`;
-  const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime())
-    ? text.slice(0, 10)
-    : localDateKey(parsed);
+/** Tracking has its own business day; expose it as the general-report date. */
+const rowForReportPeriod = (row: any, kind: ReportKind) => {
+  if (kind !== "general") return row;
+  const trackingBusinessDate = normalizeReportDate(
+    row?.trackingDate ?? row?.handoverDate,
+  );
+  return trackingBusinessDate ? { ...row, date: trackingBusinessDate } : row;
 };
+const handoverBusinessDate = (row: any) =>
+  normalizeReportDate(row?.trackingDate ?? row?.handoverDate) ||
+  businessDate(row, "general");
+const rowBusinessDate = (row: any, kind: ReportKind) =>
+  businessDate(rowForReportPeriod(row, kind), kind);
+/** Newest business-date first; undated records remain visible after dated rows. */
+const sortReportRows = (rows: any[], kind: ReportKind) =>
+  [...rows].sort((left, right) => {
+    const leftDate = rowBusinessDate(left, kind);
+    const rightDate = rowBusinessDate(right, kind);
+    if (leftDate !== rightDate) {
+      if (!leftDate) return 1;
+      if (!rightDate) return -1;
+      return rightDate.localeCompare(leftDate);
+    }
+    return String(right?.id ?? right?.referenceCode ?? "").localeCompare(
+      String(left?.id ?? left?.referenceCode ?? ""),
+      "en",
+    );
+  });
 const displayTime = (value: unknown, isAr = true) => {
   if (!value) return isAr ? "غير مسجل" : "Not recorded";
   const text = String(value);
@@ -257,7 +262,7 @@ const handoverIdentity = (row: any) => {
     productIdentity,
     row.previousStage || "",
     row.currentStage || row.receiverStage || "",
-    dateOnly(row.trackingDate || row.handoverDate || row.createdAt),
+    handoverBusinessDate(row),
     numberValue(row.quantityDozen),
     numberValue(row.quantityPairs ?? row.quantityPair),
     machineIdentity,
@@ -305,13 +310,16 @@ const canonicalizeHandovers = (rows: any[]) => {
       numberValue(row.shortagePairs),
     );
   });
-  return Array.from(grouped.values()).map((row) => ({
-    ...row,
-    deliveredBy: row._deliveredBy,
-    receivedBy: row._receivedBy,
-    deliveredAt: row._deliveredAt,
-    receivedAt: row._receivedAt,
-  }));
+  return sortReportRows(
+    Array.from(grouped.values()).map((row) => ({
+      ...row,
+      deliveredBy: row._deliveredBy,
+      receivedBy: row._receivedBy,
+      deliveredAt: row._deliveredAt,
+      receivedAt: row._receivedAt,
+    })),
+    "general",
+  );
 };
 
 export default function DailySummaryScreen() {
@@ -342,6 +350,19 @@ export default function DailySummaryScreen() {
   const [reportEndDate, setReportEndDate] = useState(today());
   // التقرير الشامل يبدأ بكل بيانات الإدارة كما كان سابقاً؛ فلتر الفترة اختياري.
   const [showAllDates, setShowAllDates] = useState(true);
+  const normalizedReportDate = normalizeReportDate(reportDate);
+  const normalizedReportEndDate = normalizeReportDate(reportEndDate);
+  const reportRangeIsReversed =
+    !showAllDates &&
+    !!normalizedReportDate &&
+    !!normalizedReportEndDate &&
+    normalizedReportDate > normalizedReportEndDate;
+  const reportPeriodStart = reportRangeIsReversed
+    ? normalizedReportEndDate
+    : normalizedReportDate;
+  const reportPeriodEnd = reportRangeIsReversed
+    ? normalizedReportDate
+    : normalizedReportEndDate;
   const applyDatePreset = useCallback(
     (preset: "day" | "twoDays" | "week" | "month") => {
       const end = today();
@@ -576,6 +597,10 @@ export default function DailySummaryScreen() {
           ? "تعذر تحميل المصدر"
           : "Source could not be loaded";
     });
+    if (representativeResults[0]?.status === "rejected")
+      failures.representativeSummary = isAr
+        ? "تعذر تحميل ملخص أداء المندوبين"
+        : "Representative performance summary could not be loaded";
     if (representativeResults[1]?.status === "rejected")
       failures.representativeTransactions = isAr
         ? "تعذر تحميل طلبات وزيارات المندوبين"
@@ -668,9 +693,9 @@ export default function DailySummaryScreen() {
   }, []);
 
   const reportRangeLabel =
-    reportDate === reportEndDate
-      ? reportDate
-      : `${reportDate} — ${reportEndDate}`;
+    normalizedReportDate === normalizedReportEndDate
+      ? normalizedReportDate
+      : `${reportPeriodStart} — ${reportPeriodEnd}`;
   // لكل مصدر تاريخ عمل واحد؛ لا يسمح createdAt/updatedAt/deliveryDate بتسريب السجلات للفترة.
   const rowMatchesDate = (
     row: any,
@@ -681,7 +706,14 @@ export default function DailySummaryScreen() {
       | "transaction"
       | "movement"
       | "general" = "general",
-  ) => inReportPeriod(row, kind, reportDate, reportEndDate, showAllDates);
+  ) =>
+    inReportPeriod(
+      rowForReportPeriod(row, kind),
+      kind,
+      reportPeriodStart,
+      reportPeriodEnd,
+      showAllDates,
+    );
   const reportKindByDataKey: Record<
     string,
     | "production"
@@ -704,12 +736,15 @@ export default function DailySummaryScreen() {
       Object.fromEntries(
         Object.entries(data).map(([key, rows]) => [
           key,
-          rows.filter((row) =>
-            rowMatchesDate(row, reportKindByDataKey[key] || "general"),
+          sortReportRows(
+            rows.filter((row) =>
+              rowMatchesDate(row, reportKindByDataKey[key] || "general"),
+            ),
+            reportKindByDataKey[key] || "general",
           ),
         ]),
       ),
-    [data, reportDate, reportEndDate, showAllDates],
+    [data, reportPeriodStart, reportPeriodEnd, showAllDates],
   );
   const userById = useMemo(
     () => new Map(users.map((item) => [String(item.id), item])),
@@ -882,7 +917,7 @@ export default function DailySummaryScreen() {
   const productionOnlyWorkMinutes = (() => {
     const segments = new Map<string, { date: string; minutes: number }>();
     filtered.production.forEach((row: any) => {
-      const date = dateOnly(row.date || row.createdAt) || "unknown";
+      const date = rowBusinessDate(row, "production") || "unknown";
       const machine = String(row.machineNumber || row.machineId || "unknown");
       const shift = String(
         row.shiftNumber || row.shiftStart || row.shiftEnd || "unknown",
@@ -1000,16 +1035,9 @@ export default function DailySummaryScreen() {
       item.records += records;
       summary.set(key, item);
     };
-    const startDate =
-      reportDate && reportEndDate
-        ? reportDate <= reportEndDate
-          ? reportDate
-          : reportEndDate
-        : reportDate;
+    const startDate = showAllDates ? "" : reportPeriodStart;
     allHandovers.forEach((row: any) => {
-      const occurred = dateOnly(
-        row.trackingDate || row.handoverDate || row.createdAt,
-      );
+      const occurred = handoverBusinessDate(row);
       const outstanding = shortagePairs(row);
       if (
         startDate &&
@@ -1050,7 +1078,7 @@ export default function DailySummaryScreen() {
       remaining: item.previous + item.received - item.delivered,
       difference: item.delivered - (item.previous + item.received),
     }));
-  }, [allHandovers, handovers, reportDate, reportEndDate, copy]);
+  }, [allHandovers, handovers, reportPeriodStart, showAllDates, copy]);
   // مدة كل مرحلة = وقت بدايتها إلى وقت إنجازها. التداخل لا يلغي مدة أي مرحلة؛
   // لأن المطلوب قياس وقت العمل المستغرق داخل كل مرحلة ثم جمعه للتكلفة الزمنية الكلية.
   const stageDurationSummary = useMemo(() => {
@@ -1169,27 +1197,46 @@ export default function DailySummaryScreen() {
 
   const representativeTransactions = useMemo(
     () =>
-      representativeReport.transactions.filter((row) =>
-        rowMatchesDate(row, "transaction"),
+      sortReportRows(
+        representativeReport.transactions.filter((row) =>
+          rowMatchesDate(row, "transaction"),
+        ),
+        "transaction",
       ),
     [
       representativeReport.transactions,
-      reportDate,
-      reportEndDate,
+      reportPeriodStart,
+      reportPeriodEnd,
       showAllDates,
     ],
   );
   const representativeCollections = useMemo(
     () =>
-      representativeReport.collections.filter((row) =>
-        rowMatchesDate(row, "collection"),
+      sortReportRows(
+        representativeReport.collections.filter((row) =>
+          rowMatchesDate(row, "collection"),
+        ),
+        "collection",
       ),
-    [representativeReport.collections, reportDate, reportEndDate, showAllDates],
+    [
+      representativeReport.collections,
+      reportPeriodStart,
+      reportPeriodEnd,
+      showAllDates,
+    ],
   );
   const representativeSales = useMemo(
     () =>
-      representativeReport.sales.filter((row) => rowMatchesDate(row, "sale")),
-    [representativeReport.sales, reportDate, reportEndDate, showAllDates],
+      sortReportRows(
+        representativeReport.sales.filter((row) => rowMatchesDate(row, "sale")),
+        "sale",
+      ),
+    [
+      representativeReport.sales,
+      reportPeriodStart,
+      reportPeriodEnd,
+      showAllDates,
+    ],
   );
   // التخزين والمستودعات — إنتاج تام: دفتر الحركة فقط، لا تكرار لسجلات التخزين كحركة ثانية.
   const warehouseSummary = useMemo(
@@ -1197,19 +1244,22 @@ export default function DailySummaryScreen() {
       warehousePeriod({
         movements: data.warehouseMovements || [],
         stock: data.warehouseStock || [],
-        startDate: reportDate,
-        endDate: reportEndDate,
+        startDate: reportPeriodStart,
+        endDate: reportPeriodEnd,
         allDates: showAllDates,
       }),
     [
       data.warehouseMovements,
       data.warehouseStock,
-      reportDate,
-      reportEndDate,
+      reportPeriodStart,
+      reportPeriodEnd,
       showAllDates,
     ],
   );
-  const warehouseMovements = warehouseSummary.movements;
+  const warehouseMovements = useMemo(
+    () => sortReportRows(warehouseSummary.movements, "movement"),
+    [warehouseSummary.movements],
+  );
   const warehouseStock = useMemo(
     () => data.warehouseStock || [],
     [data.warehouseStock],
@@ -1223,8 +1273,8 @@ export default function DailySummaryScreen() {
         legacyCollections: data.collection || [],
         transactions: representativeTransactions,
         legacyTransactions: data.ordersVisits || [],
-        startDate: reportDate,
-        endDate: reportEndDate,
+        startDate: reportPeriodStart,
+        endDate: reportPeriodEnd,
         allDates: showAllDates,
       }),
     [
@@ -1234,18 +1284,33 @@ export default function DailySummaryScreen() {
       data.collection,
       representativeTransactions,
       data.ordersVisits,
-      reportDate,
-      reportEndDate,
+      reportPeriodStart,
+      reportPeriodEnd,
       showAllDates,
     ],
   );
-  const reportSalesRows = commercial.salesRows;
+  const reportSalesRows = useMemo(
+    () => sortReportRows(commercial.salesRows, "sale"),
+    [commercial.salesRows],
+  );
   const reportSalesAmount = commercial.salesAmount;
-  const reportCollectionRows = commercial.collectionRows;
+  const reportCollectionRows = useMemo(
+    () => sortReportRows(commercial.collectionRows, "collection"),
+    [commercial.collectionRows],
+  );
   const reportCollectionAmount = commercial.collectionAmount;
-  const reportOrderRows = commercial.orderRows;
-  const reportVisitRows = commercial.visitRows;
-  const reportOtherTransactionRows = commercial.otherTransactionRows;
+  const reportOrderRows = useMemo(
+    () => sortReportRows(commercial.orderRows, "transaction"),
+    [commercial.orderRows],
+  );
+  const reportVisitRows = useMemo(
+    () => sortReportRows(commercial.visitRows, "transaction"),
+    [commercial.visitRows],
+  );
+  const reportOtherTransactionRows = useMemo(
+    () => sortReportRows(commercial.otherTransactionRows, "transaction"),
+    [commercial.otherTransactionRows],
+  );
   const commercialSourceErrors = [
     sourceErrors.representativeSales,
     sourceErrors.sales,
@@ -1266,16 +1331,8 @@ export default function DailySummaryScreen() {
           accounts: custodySource.accounts,
           settings: custodySource.settings,
           filters: {
-            startDate: showAllDates
-              ? "1970-01-01"
-              : reportDate <= reportEndDate
-                ? reportDate
-                : reportEndDate,
-            endDate: showAllDates
-              ? "2099-12-31"
-              : reportDate <= reportEndDate
-                ? reportEndDate
-                : reportDate,
+            startDate: showAllDates ? "1970-01-01" : reportPeriodStart,
+            endDate: showAllDates ? "2099-12-31" : reportPeriodEnd,
           },
         }),
         error: "",
@@ -1287,7 +1344,7 @@ export default function DailySummaryScreen() {
           error instanceof Error ? error.message : "تعذر حساب تفاصيل العهد",
       };
     }
-  }, [custodySource, reportDate, reportEndDate, showAllDates]);
+  }, [custodySource, reportPeriodStart, reportPeriodEnd, showAllDates]);
   const custodyReport = custodyCalculation.report;
 
   const marketingRows = useMemo(() => {
@@ -1999,6 +2056,22 @@ export default function DailySummaryScreen() {
               />
             </View>
           </View>
+          {reportRangeIsReversed ? (
+            <Text
+              accessibilityRole="alert"
+              style={{
+                color: "#9a3412",
+                fontSize: 11,
+                fontWeight: "700",
+                textAlign,
+                marginTop: 8,
+              }}
+            >
+              {isAr
+                ? `تم عكس نطاق التاريخ تلقائياً للعرض: من ${reportPeriodStart} إلى ${reportPeriodEnd}.`
+                : `The reversed date range is displayed as ${reportPeriodStart} through ${reportPeriodEnd}.`}
+            </Text>
+          ) : null}
           <View
             style={{
               flexDirection: rowDirection,
@@ -2444,20 +2517,6 @@ export default function DailySummaryScreen() {
             ))}
           </View>
         )}
-        {custodyCalculation.error ? (
-          <Text
-            accessibilityRole="alert"
-            style={{ color: "#b91c1c", textAlign, padding: 8 }}
-          >
-            تعذر حساب قسم العهد: {custodyCalculation.error}. بقية التقرير متاحة؛
-            يمكنك تغيير التاريخ والمحاولة مجددًا.
-          </Text>
-        ) : null}
-        <CustodySummaryPanel
-          startDate={reportDate <= reportEndDate ? reportDate : reportEndDate}
-          endDate={reportDate <= reportEndDate ? reportEndDate : reportDate}
-          allDates={showAllDates}
-        />
         <View
           style={{
             backgroundColor: colors.surface,
@@ -3747,6 +3806,47 @@ export default function DailySummaryScreen() {
                     : "No movements in the report range"}
                 </Text>
               )}
+            </View>
+            <View style={{ marginTop: 18 }}>
+              <Text
+                style={{
+                  color: colors.foreground,
+                  fontSize: 16,
+                  fontWeight: "900",
+                  textAlign,
+                }}
+              >
+                {isAr
+                  ? "العهد — دورة جديدة مستقلة"
+                  : "Custody — independent new cycle"}
+              </Text>
+              <Text
+                style={{
+                  color: colors.muted,
+                  fontSize: 11,
+                  textAlign,
+                  marginTop: 4,
+                }}
+              >
+                {isAr
+                  ? "صفر حركات هذه الدورة لا يعني أن الإنتاج العام صفر؛ الإنتاج التشغيلي المعروض أعلاه محفوظ من مصدره ولا يُضاف هنا مرة ثانية."
+                  : "Zero movements in this new cycle do not mean overall production is zero; the operational production above remains sourced independently and is not counted here again."}
+              </Text>
+              {custodyCalculation.error ? (
+                <Text
+                  accessibilityRole="alert"
+                  style={{ color: "#b91c1c", textAlign, paddingVertical: 8 }}
+                >
+                  {isAr
+                    ? `تعذر حساب قسم العهد: ${custodyCalculation.error}. بقية التقرير متاحة؛ يمكنك تغيير التاريخ والمحاولة مجددًا.`
+                    : `The custody section could not be calculated: ${custodyCalculation.error}. The remaining report is available; change the date and try again.`}
+                </Text>
+              ) : null}
+              <CustodySummaryPanel
+                startDate={reportPeriodStart}
+                endDate={reportPeriodEnd}
+                allDates={showAllDates}
+              />
             </View>
           </>
         )}
