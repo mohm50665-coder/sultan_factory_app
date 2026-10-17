@@ -288,6 +288,20 @@
       "when": 1792080020830,
       "tag": "0040_loud_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1792247598318,
+      "tag": "0041_bumpy_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "5",
+      "when": 1792247828361,
+      "tag": "0042_careless_reaper",
+      "breakpoints": true
     }
   ]
 }

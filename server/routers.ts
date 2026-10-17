@@ -4831,6 +4831,7 @@ export const appRouter = router({
         sourceId: finishedWarehouseMovementsTable.sourceId,
         notes: finishedWarehouseMovementsTable.notes,
         userId: finishedWarehouseMovementsTable.userId,
+        movementAt: finishedWarehouseMovementsTable.movementAt,
         createdAt: finishedWarehouseMovementsTable.createdAt,
         productName: finishedWarehouseStockTable.productName,
         productSize: finishedWarehouseStockTable.productSize,
@@ -4839,7 +4840,7 @@ export const appRouter = router({
         barcode: finishedWarehouseStockTable.barcode,
       }).from(finishedWarehouseMovementsTable)
         .leftJoin(finishedWarehouseStockTable, eq(finishedWarehouseMovementsTable.stockId, finishedWarehouseStockTable.id))
-        .orderBy(desc(finishedWarehouseMovementsTable.createdAt));
+        .orderBy(desc(finishedWarehouseMovementsTable.movementAt));
     }),
     receiveFromStorage: protectedProcedure.input(z.object({ barcode: z.string().min(2, "باركود المنتج إلزامي"), productName: z.string().min(1), productSize: z.string().default(""), productColor: z.string().default(""), quantityDozen: z.number().positive(), qualityGrade: z.string().default("first"), sourceId: z.number().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin" && !["production", "warehouse", "storage"].includes(String(ctx.user.department || "").toLowerCase())) throw new TRPCError({ code: "FORBIDDEN", message: "إضافة مخزون الإنتاج التام من الإنتاج أو التخزين أو الأدمن فقط" });

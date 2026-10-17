@@ -18,7 +18,7 @@ import { useLanguage } from "@/lib/language-context";
 import { isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
 import type { Language } from "@/lib/i18n";
 import { MaterialIcons } from "@expo/vector-icons";
-import { productionService, salesService, collectionService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
+import { productionService, manufacturingService, salesService, collectionService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
@@ -86,6 +86,8 @@ interface ReportData {
     otherTransactionRows: any[];
     collectionRows: any[];
   };
+  /** Historic manufacturing-stage ledger; shown separately from the V2 custody cycle. */
+  legacyStageRows: any[];
   manufacturingRequests: ManufacturingRequestsSummary;
   previousManufacturingRequests: ManufacturingRequestsSummary;
 }
@@ -343,7 +345,7 @@ export default function BoardMonthlyReport() {
     setReportError(null);
     try {
       const results = await Promise.allSettled([
-        productionService.getAll(), salesService.getAll(), collectionService.getAll(),
+        productionService.getAll(), manufacturingService.getAll(), salesService.getAll(), collectionService.getAll(),
         representativeService.sales.list(), representativeService.collections.list(), representativeService.transactions.list(),
         expensesService.getAll(), taskService.getAll(), maintenanceEntriesService.getBySection("periodic"), maintenanceEntriesService.getBySection("emergency"), maintenanceEntriesService.getBySection("stopped"),
         finishedWarehouseService.movements(), finishedWarehouseService.list(),
@@ -352,7 +354,7 @@ export default function BoardMonthlyReport() {
       const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
       if (failed) throw failed.reason;
       const values = results.map((result) => (result as PromiseFulfilledResult<unknown>).value);
-      const [productionRaw, legacySalesRaw, legacyCollectionsRaw, salesRaw, collectionsRaw, transactionsRaw, expensesRaw, tasksRaw, periodicRaw, emergencyRaw, stoppedRaw, movementsRaw, stockRaw, manufacturingRequestsRaw] = values;
+      const [productionRaw, manufacturingRaw, legacySalesRaw, legacyCollectionsRaw, salesRaw, collectionsRaw, transactionsRaw, expensesRaw, tasksRaw, periodicRaw, emergencyRaw, stoppedRaw, movementsRaw, stockRaw, manufacturingRequestsRaw] = values;
       const productionRows = sortReportRows(reportRows(productionRaw).filter((row) => inReportPeriod(row, "production", range.start, range.end)), "production");
       const production = productionMetrics(productionRows);
       const commercial = commercialReport({
@@ -398,6 +400,9 @@ export default function BoardMonthlyReport() {
           otherTransactionRows: sortReportRows(commercial.otherTransactionRows, "transaction"),
           collectionRows: sortReportRows(commercial.collectionRows, "collection"),
         },
+        // Use the business `date` stored with each historical stage row. Filtering happens again
+        // in the read-only legacy bridge so no later receipt/save timestamp leaks into this period.
+        legacyStageRows: reportRows(manufacturingRaw),
         manufacturingRequests,
         previousManufacturingRequests,
       });
@@ -929,7 +934,11 @@ export default function BoardMonthlyReport() {
             <Text style={[styles.sectionTitle, directionalText, { color: colors.foreground }]}>
               {copy("دورة العهد الجديدة المستقلة — لا تعني صفراً للإنتاج العام", "Independent new custody cycle — does not mean total production is zero")}
             </Text>
-            <CustodySummaryPanel startDate={range.start} endDate={range.end} />
+            <CustodySummaryPanel
+              startDate={range.start}
+              endDate={range.end}
+              legacyStageRows={reportData.legacyStageRows}
+            />
 
             {/* Export Button */}
             <TouchableOpacity

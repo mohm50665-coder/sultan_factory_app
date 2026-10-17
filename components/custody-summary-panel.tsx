@@ -22,16 +22,20 @@ import {
   formatPairs,
   type CustodyReport,
 } from "@shared/custody-reporting";
+import { legacyCustodySummary } from "@shared/legacy-custody-report";
 
 /** Independent source state: a failing custody source is never represented as an artificial zero. */
 export function CustodySummaryPanel({
   startDate,
   endDate,
   allDates = false,
+  legacyStageRows = [],
 }: {
   startDate: string;
   endDate: string;
   allDates?: boolean;
+  /** Historical manufacturing-stage ledger. Read only; it is never merged into V2 events. */
+  legacyStageRows?: any[];
 }) {
   const router = useRouter();
   const { language } = useLanguage();
@@ -79,6 +83,15 @@ export function CustodySummaryPanel({
   const summary = useMemo(
     () => (report ? custodyReportSummary(report) : null),
     [report],
+  );
+  const legacy = useMemo(
+    () =>
+      legacyCustodySummary(
+        legacyStageRows,
+        allDates ? "1970-01-01" : startDate,
+        allDates ? "2099-12-31" : endDate,
+      ),
+    [legacyStageRows, startDate, endDate, allDates],
   );
   const displayPairs = (pairs: number) => {
     if (!english) return formatPairs(pairs);
@@ -132,6 +145,85 @@ export function CustodySummaryPanel({
           "Production for these batches is retained in the production data above and is not added a second time. The figures below are custody movements between departments, not new production.",
         )}
       </Text>
+      {legacy.records > 0 ? (
+        <View style={styles.legacyCard}>
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {localize(
+              language,
+              "الاستلام والتسليم — السجل التشغيلي التاريخي للفترة",
+              "Receipt and handover — historical operating ledger for this period",
+            )}
+          </Text>
+          <Text style={[styles.note, textStyle]}>
+            {localize(
+              language,
+              "تُقرأ هذه الحركات من سجل مراحل التصنيع بتاريخه التشغيلي المدخل، لا من وقت الحفظ أو الاستلام اللاحق. وهي حركة بين المراحل وليست إنتاجًا جديدًا.",
+              "These movements are read from the manufacturing-stage ledger by its entered operating date, not by the later save or receipt time. They are inter-stage movements, not new production.",
+            )}
+          </Text>
+          <View style={[styles.grid, { flexDirection: rowDirection }]}>
+            {[
+              [localize(language, "سجلات الحركة", "Movement records"), legacy.records],
+              [localize(language, "تسليم موثق", "Documented outbound"), legacy.outboundPairs],
+              [localize(language, "استلام مؤكد", "Confirmed receipt"), legacy.inboundPairs],
+              [localize(language, "مرسل بانتظار الاستلام", "Sent awaiting receipt"), legacy.pendingPairs],
+            ].map(([label, value]) => (
+              <View key={String(label)} style={styles.metric}>
+                <Text style={[styles.value, textStyle]}>
+                  {typeof value === "number" && String(label) !== localize(language, "سجلات الحركة", "Movement records")
+                    ? displayPairs(value)
+                    : Number(value).toLocaleString(english ? "en-US" : "ar-SA")}
+                </Text>
+                <Text style={[styles.note, textStyle]}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {localize(language, "مجاميع المراحل التاريخية", "Historical stage totals")}
+          </Text>
+          <View style={styles.stageTable}>
+            <View style={[styles.stageHeading, { flexDirection: rowDirection }]}>
+              <Text style={[styles.stageName, textStyle]}>{localize(language, "المرحلة", "Stage")}</Text>
+              <Text style={[styles.stageCell, textStyle]}>{localize(language, "المسلّم", "Outbound")}</Text>
+              <Text style={[styles.stageCell, textStyle]}>{localize(language, "المستلم", "Inbound")}</Text>
+              <Text style={[styles.stageCell, textStyle]}>{localize(language, "معلّق", "Pending")}</Text>
+              <Text style={[styles.stageCell, textStyle]}>{localize(language, "السجلات", "Records")}</Text>
+            </View>
+            {legacy.stageTotals.map((stage) => (
+              <View key={`legacy-stage-${stage.stage}`} style={[styles.stageRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.stageName, textStyle]}>{stage.stage}</Text>
+                <Text style={[styles.stageCell, textStyle]}>{displayPairs(stage.outboundPairs)}</Text>
+                <Text style={[styles.stageCell, textStyle]}>{displayPairs(stage.inboundPairs)}</Text>
+                <Text style={[styles.stageCell, textStyle]}>{displayPairs(stage.pendingPairs)}</Text>
+                <Text style={[styles.stageCell, textStyle]}>{stage.records.toLocaleString(english ? "en-US" : "ar-SA")}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {localize(language, "تفاصيل أطراف التسليم والاستلام", "Delivery and receipt parties")}
+          </Text>
+          {legacy.transfers.map((transfer) => (
+            <View key={`legacy-transfer-${transfer.id}`} style={styles.legacyTransfer}>
+              <Text style={[styles.employeeName, textStyle]}>
+                {transfer.productName || localize(language, "صنف غير مسجل", "Unrecorded item")}
+                {transfer.productSize ? ` · ${transfer.productSize}` : ""}
+                {transfer.productColor ? ` · ${transfer.productColor}` : ""}
+              </Text>
+              <Text style={[styles.note, textStyle]}>
+                {localize(language, "المسار", "Route")}: {transfer.sourceStage} → {transfer.destinationStage} · {localize(language, "الكمية", "Quantity")}: {displayPairs(transfer.pairs)} · {localize(language, "تاريخ الحدث الفعلي", "Actual event date")}: {transfer.businessDate}
+              </Text>
+              <Text style={[styles.note, textStyle]}>
+                {localize(language, "المسلّم", "Delivered by")}: {transfer.deliveredBy || "—"} · {localize(language, "المستلم", "Received by")}: {transfer.receivedBy || transfer.expectedReceiver || localize(language, "بانتظار التحديد", "Awaiting assignment")}
+              </Text>
+            </View>
+          ))}
+          {legacy.invalidQuantityCount > 0 ? (
+            <Text style={[styles.warning, textStyle]}>
+              {localize(language, `${legacy.invalidQuantityCount} سجلًا تاريخيًا يحمل كمية غير صالحة ولم يدخل في المجاميع.`, `${legacy.invalidQuantityCount} historical record(s) have invalid quantities and were excluded from totals.`)}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
       {loading ? (
         <ActivityIndicator
           color="#075985"
@@ -331,8 +423,8 @@ export function CustodySummaryPanel({
             <Text style={[styles.note, textStyle]}>
               {localize(
                 language,
-                "لا توجد حركات في الدورة الجديدة ضمن الفترة؛ السجلات التاريخية تبقى في أقسامها ولا يتم نقلها أو تصفيرها تلقائيًا.",
-                "There are no movements in the new cycle for this period. Historical records remain in their sections and are not moved or reset automatically.",
+                "لا توجد حركات في الدورة الجديدة ضمن الفترة. السجل التاريخي، إن وجد أعلاه، ظاهر منفصلاً ولا يُنقل أو يُصفّر تلقائيًا.",
+                "There are no movements in the new cycle for this period. Any historical ledger above remains separate and is never moved or reset automatically.",
               )}
             </Text>
           ) : null}
@@ -418,6 +510,20 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: "#f0f9ff",
     borderRadius: 7,
+  },
+  legacyCard: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#7dd3fc",
+    borderRadius: 8,
+    padding: 8,
+    gap: 7,
+  },
+  legacyTransfer: {
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#dbeafe",
+    gap: 2,
   },
   value: {
     fontSize: 14,

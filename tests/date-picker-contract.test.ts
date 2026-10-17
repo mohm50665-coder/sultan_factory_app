@@ -48,9 +48,10 @@ describe("Global date picker contract", () => {
     const source = read("app/daily-summary.tsx");
     const policy = read("shared/operational-report.ts");
     expect(source).toContain("inReportPeriod");
-    for (const field of ["orderDate", "collectionDate", "invoiceDate", "movementDate", "movementAt", "lastMovementAt"]) {
+    for (const field of ["orderDate", "visitDate", "collectionDate", "receiptDate", "invoiceDate", "movementDate", "movementAt", "deliveredAt", "receivedAt"]) {
       expect(policy, field).toContain(field);
     }
+    expect(policy).not.toContain('"createdAt"');
     expect(policy).not.toContain('"updatedAt"');
     expect(policy).not.toContain('"closedAt"');
   });

@@ -53,9 +53,9 @@ describe("board operational report", () => {
     const period = warehousePeriod({
       stock: [{ id: 1, totalPairs: 120 }],
       movements: [
-        { id: 1, movementType: "receipt", totalPairs: 36, createdAt: "2026-10-05T08:00:00+03:00" },
-        { id: 2, movementType: "issue", totalPairs: 12, createdAt: "2026-10-05T10:00:00+03:00" },
-        { id: 3, movementType: "receipt", totalPairs: 24, createdAt: "2026-10-06T08:00:00+03:00" },
+        { id: 1, movementType: "receipt", totalPairs: 36, movementAt: "2026-10-05T08:00:00+03:00" },
+        { id: 2, movementType: "issue", totalPairs: 12, movementAt: "2026-10-05T10:00:00+03:00" },
+        { id: 3, movementType: "receipt", totalPairs: 24, movementAt: "2026-10-06T08:00:00+03:00" },
       ],
       startDate: "2026-10-05",
       endDate: "2026-10-05",

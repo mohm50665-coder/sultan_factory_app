@@ -1,0 +1,1 @@
+ALTER TABLE `finishedWarehouseMovements` MODIFY COLUMN `movementAt` timestamp;

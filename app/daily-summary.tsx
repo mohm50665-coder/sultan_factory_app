@@ -527,7 +527,6 @@ export default function DailySummaryScreen() {
                     : row.sourceType
                   : undefined,
               _isWarehouseSnapshot: partIndex === 4,
-              createdAt: row.createdAt || row.lastMovementAt,
             }));
           },
         );
@@ -551,7 +550,6 @@ export default function DailySummaryScreen() {
                     ? copy("مرحلة التخزين", "Storage stage")
                     : row.sourceType,
                 _isWarehouseSnapshot: false,
-                createdAt: row.createdAt || row.lastMovementAt,
               }))
             : [];
         const stockPart = parts[4];
@@ -725,6 +723,9 @@ export default function DailySummaryScreen() {
     collection: "collection",
     ordersVisits: "transaction",
     tracking: "general",
+    // `date` on a historical stage row belongs to the original production batch.
+    // A delivery/receipt report must use movementAt/receivedAt, never that batch date.
+    manufacturing: "movement",
     warehouseMovements: "movement",
     warehouseStock: "general",
   };
@@ -1087,7 +1088,7 @@ export default function DailySummaryScreen() {
       const stage = String(
         row.stageName || copy("مرحلة غير محددة", "Unspecified stage"),
       );
-      const startValue = row.stageStartedAt || row.receivedAt || row.createdAt;
+      const startValue = row.stageStartedAt || row.receivedAt;
       const endValue = row.stageCompletedAt || row.movementAt;
       const start = startValue ? new Date(String(startValue)).getTime() : NaN;
       const end = endValue ? new Date(String(endValue)).getTime() : NaN;
@@ -1768,7 +1769,6 @@ export default function DailySummaryScreen() {
               row.receivedAt ||
               row.maintenanceDate ||
               row.stopDate ||
-              row.createdAt ||
               row.date ||
               row.invoiceDate ||
               row.receiptDate,
@@ -3789,6 +3789,7 @@ export default function DailySummaryScreen() {
               <CustodySummaryPanel
                 startDate={reportPeriodStart}
                 endDate={reportPeriodEnd}
+                legacyStageRows={data.manufacturing}
               />
             </View>
           </>

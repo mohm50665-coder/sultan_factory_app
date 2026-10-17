@@ -1730,7 +1730,9 @@ export function buildCustodyReport(input: {
     (batch) =>
       batch.purpose === "sale" &&
       (batch as LegacyAwareBatch).openingBalance !== true &&
-      isInReportRange(batch.productionDate || batch.createdAt, range),
+      // تاريخ الإنتاج الفعلي فقط. تاريخ إنشاء الدفعة تدقيقي ولا يحوّل إنتاج يوم آخر
+      // إلى الفترة التي أُدخلت فيها البيانات.
+      isInReportRange(batch.productionDate, range),
   );
   const quality = {
     firstPairs: 0,

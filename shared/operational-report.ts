@@ -29,15 +29,19 @@ export function reportDate(value: unknown): string {
   return legacy ? validDay(`${legacy[3]}-${legacy[2].padStart(2,"0")}-${legacy[1].padStart(2,"0")}`) : "";
 }
 const dateFields: Record<ReportKind, string[]> = {
+  // Every entry is an operational/business-event field. `createdAt` and `updatedAt` are audit
+  // timestamps only, and are deliberately excluded from every report-period calculation.
   production: ["productionDate", "date"], sale: ["invoiceDate", "saleDate", "date"],
-  collection: ["collectionDate", "date"], transaction: ["orderDate", "visitDate", "date"],
-  movement: ["movementDate", "movementAt", "lastMovementAt", "createdAt"],
-  general: ["date", "reportDate", "entryDate", "requestDate", "maintenanceDate", "stopDate", "targetDate", "orderDate"],
+  collection: ["collectionDate", "receiptDate", "date"], transaction: ["orderDate", "visitDate", "date"],
+  movement: ["movementDate", "movementAt", "deliveredAt", "receivedAt"],
+  general: ["date", "reportDate", "entryDate", "requestDate", "submissionDate", "expenseDate", "maintenanceDate", "stopDate", "orderDate", "visitDate", "invoiceDate", "collectionDate", "createdDate", "completedDate", "actionDate"],
 };
 export function businessDate(row: any, kind: ReportKind): string {
   const source = { ...(row?.data && typeof row.data === "object" ? row.data : {}), ...row };
   for (const key of dateFields[kind]) if (source?.[key] != null && source[key] !== "") return reportDate(source[key]);
-  return reportDate(source?.createdAt); // Never updatedAt or delivery due date.
+  // An entry without a business event date must never be included merely because it was saved
+  // today. The caller can show it as "needs review", but it cannot inflate a daily report.
+  return "";
 }
 export function inReportPeriod(row: any, kind: ReportKind, start: string, end: string, allDates = false): boolean {
   if (allDates) return true;

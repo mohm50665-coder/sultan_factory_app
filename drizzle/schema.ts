@@ -1225,6 +1225,9 @@ export const finishedWarehouseMovements = mysqlTable("finishedWarehouseMovements
   sourceId: int("sourceId"),
   notes: text("notes"),
   userId: int("userId").notNull(),
+  // تاريخ الحركة التشغيلي؛ قد يكون فارغًا للحركات التاريخية التي لم يوثق لها تاريخ حدث.
+  // createdAt يبقى للتدقيق التقني فقط ولا يحدد فترة التقرير.
+  movementAt: timestamp("movementAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type FinishedWarehouseMovement = typeof finishedWarehouseMovements.$inferSelect;

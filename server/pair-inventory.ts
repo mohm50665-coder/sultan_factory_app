@@ -24,7 +24,7 @@ export async function changeStockPairs(tx:any,stockId:number,delta:number,userId
  if(after<0)throw new TRPCError({code:'BAD_REQUEST',message:`الرصيد غير كافٍ: المتاح ${before} زوجًا والمطلوب ${-delta} زوجًا`});
  integerPairs(after,'الرصيد الناتج');
  await tx.update(finishedWarehouseStock).set({totalPairs:after,quantityDozen:after/12,lastMovementAt:new Date()}).where(eq(finishedWarehouseStock.id,stockId));
- await tx.insert(finishedWarehouseMovements).values({stockId,movementType:delta>0?'receipt':'issue',quantityDozen:Math.abs(delta)/12,totalPairs:Math.abs(delta),sourceType:source.type,sourceId:source.id,sourceKey:source.key,notes:`${source.notes||''}${stock.totalPairs==null?` | تحويل افتتاحي موثق من ${stock.quantityDozen} درزن إلى ${before} زوجًا، دون تغيير الكمية`:''}`,userId});
+ await tx.insert(finishedWarehouseMovements).values({stockId,movementType:delta>0?'receipt':'issue',quantityDozen:Math.abs(delta)/12,totalPairs:Math.abs(delta),sourceType:source.type,sourceId:source.id,sourceKey:source.key,notes:`${source.notes||''}${stock.totalPairs==null?` | تحويل افتتاحي موثق من ${stock.quantityDozen} درزن إلى ${before} زوجًا، دون تغيير الكمية`:''}`,userId,movementAt:new Date()});
  const minimumPairs=Number(stock.minimumDozen??50)*12;
  if(after<minimumPairs && (before>=minimumPairs || (before===0 && delta>0))){
   const active=await tx.select().from(users).where(eq(users.isActive,1));

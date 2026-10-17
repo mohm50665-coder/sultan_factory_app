@@ -1,0 +1,1 @@
+ALTER TABLE `finishedWarehouseMovements` ADD `movementAt` timestamp DEFAULT (now()) NOT NULL;
