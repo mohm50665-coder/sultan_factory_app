@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Alert,
+  Platform,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { DateField } from "@/components/date-field";
@@ -15,6 +17,8 @@ import { BackButton } from "@/components/back-button";
 import { productionCostsLocalService, productionService, savedProductCostsService } from "@/lib/services/api.service";
 import { businessDate, exactPairs, inReportPeriod, reportDate } from "@shared/operational-report";
 import { LineChart } from "react-native-chart-kit";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as Print from "expo-print";
 
 interface MonthlyComparison {
   month: string;
@@ -38,6 +42,16 @@ function finiteValue(value: unknown): number | null {
   if (value == null || value === "" || typeof value === "boolean") return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
 }
 
 function aggregateRows(
@@ -137,6 +151,7 @@ export default function CostComparisonReportScreen() {
   const colors = useColors();
   const { language, isRtl } = useLanguage();
   const isAr = language === "ar";
+  const latestLoad = useRef(0);
   const [comparisons, setComparisons] = useState<MonthlyComparison[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
@@ -152,10 +167,13 @@ export default function CostComparisonReportScreen() {
   const periodEnd = reversedPeriod ? normalizedStart : normalizedEnd;
 
   const loadComparisons = async () => {
+    const loadId = ++latestLoad.current;
     if (!periodStart || !periodEnd) {
-      setComparisons([]);
-      setDataMessages([isAr ? "تاريخا الفترة غير صالحين؛ اختر التاريخين من التقويم." : "The report dates are invalid; choose both dates from the calendar."]);
-      setIsLoading(false);
+      if (loadId === latestLoad.current) {
+        setComparisons([]);
+        setDataMessages([isAr ? "تاريخا الفترة غير صالحين؛ اختر التاريخين من التقويم." : "The report dates are invalid; choose both dates from the calendar."]);
+        setIsLoading(false);
+      }
       return;
     }
 
@@ -180,13 +198,16 @@ export default function CostComparisonReportScreen() {
       {
         label: isAr ? "مصدر التكاليف الفعلية" : "Actual-cost source",
         result: actualRows,
-        kind: "general" as const,
+        // Cost rows represent production work. Limit their period date strictly to
+        // productionDate/date; never use generic, audit, or record-save timestamps.
+        kind: "production" as const,
         valueFor: (row: any) => finiteValue(row.amount),
       },
       {
         label: isAr ? "مصدر التكلفة التقديرية" : "Estimated-cost source",
         result: expectedRows,
-        kind: "general" as const,
+        // The saved estimate's explicit date is its documented production-cost date.
+        kind: "production" as const,
         valueFor: (row: any) => finiteValue(row.totalCost),
       },
       {
@@ -212,6 +233,7 @@ export default function CostComparisonReportScreen() {
       return aggregation;
     });
 
+    if (loadId !== latestLoad.current) return;
     setComparisons(buildComparisons(aggregations[1], aggregations[0], aggregations[2]));
     setDataMessages(messages);
     setIsLoading(false);
@@ -259,6 +281,56 @@ export default function CostComparisonReportScreen() {
     : value.toLocaleString(numberLocale, { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
   const formatPercent = (value: number | null) => value == null ? unavailable : `${formatNumber(value, 1)}%`;
   const screenWidth = Dimensions.get("window").width;
+
+  const handlePrint = async () => {
+    if (!periodStart || !periodEnd) {
+      Alert.alert(
+        isAr ? "تاريخ التقرير غير صالح" : "Invalid report dates",
+        isAr ? "اختر تاريخي بداية ونهاية صالحين من التقويم قبل الطباعة." : "Choose valid start and end dates from the calendar before printing.",
+      );
+      return;
+    }
+
+    const summaryRows = [
+      [isAr ? "إجمالي التكلفة التقديرية" : "Total estimated cost", formatNumber(totalExpected, 2)],
+      [isAr ? "إجمالي التكلفة الفعلية" : "Total actual cost", formatNumber(totalActual, 2)],
+      [isAr ? "التباين (التقديرية − الفعلية)" : "Variance (estimated − actual)", formatNumber(totalVariance, 2)],
+      [isAr ? "إنتاج مسجل (زوج)" : "Recorded production (pairs)", formatNumber(totalProduction)],
+      [isAr ? "التكلفة الفعلية للزوج" : "Actual cost per pair", formatNumber(totalCostPerUnit, 2)],
+    ];
+    const detailRows = comparisons.map((comparison) => `<tr>
+      <td>${escapeHtml(comparison.month)}</td>
+      <td>${escapeHtml(formatNumber(comparison.expectedCost, 2))}</td>
+      <td>${escapeHtml(formatNumber(comparison.actualCost, 2))}</td>
+      <td>${escapeHtml(formatNumber(comparison.variance, 2))}</td>
+      <td>${escapeHtml(formatPercent(comparison.variancePercent))}</td>
+      <td>${escapeHtml(formatNumber(comparison.productionPairs))}</td>
+      <td>${escapeHtml(formatNumber(comparison.costPerUnit, 2))}</td>
+    </tr>`).join("");
+    const notes = dataMessages.length
+      ? `<section class="notes"><strong>${escapeHtml(isAr ? "ملاحظات سلامة بيانات التقرير" : "Report data integrity notes")}</strong><ul>${dataMessages.map((message) => `<li>${escapeHtml(message)}</li>`).join("")}</ul></section>`
+      : "";
+    const html = `<!doctype html><html dir="${isRtl ? "rtl" : "ltr"}" lang="${isAr ? "ar" : "en"}"><head><meta charset="utf-8"><title>${escapeHtml(isAr ? "تقرير مقارنة التكاليف" : "Cost Comparison Report")}</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Tahoma,Arial,sans-serif;color:#172033;margin:0;font-size:12px}h1{font-size:20px;margin:0 0 6px}h2{font-size:15px;margin:20px 0 8px;color:#075985}p{margin:0 0 12px;color:#475569}.summary{width:100%;border-collapse:separate;border-spacing:7px}.summary td{border:1px solid #cbd5e1;border-radius:6px;padding:9px;width:50%}.summary strong{display:block;margin-top:4px;color:#0f172a}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cbd5e1;padding:7px;text-align:${isRtl ? "right" : "left"};vertical-align:top}th{background:#e0f2fe}.notes{background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:10px;line-height:1.6}.notes ul{margin:5px 0 0;padding-inline-start:20px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><h1>${escapeHtml(isAr ? "تقرير مقارنة التكاليف" : "Cost Comparison Report")}</h1><p>${escapeHtml(isAr ? "الفترة المعتمدة" : "Applied period")}: ${escapeHtml(periodStart)} ${escapeHtml(isAr ? "إلى" : "to")} ${escapeHtml(periodEnd)}${reversedPeriod ? escapeHtml(isAr ? " (أُعيد ترتيب حدود التاريخ المدخلة)" : " (entered date bounds were reordered)") : ""}</p><h2>${escapeHtml(isAr ? "ملخص الفترة" : "Period summary")}</h2><table class="summary"><tbody><tr>${summaryRows.slice(0, 2).map(([label, value]) => `<td>${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></td>`).join("")}</tr><tr>${summaryRows.slice(2, 4).map(([label, value]) => `<td>${escapeHtml(label)}<strong>${escapeHtml(value)}</strong></td>`).join("")}</tr><tr><td>${escapeHtml(summaryRows[4][0])}<strong>${escapeHtml(summaryRows[4][1])}</strong></td><td></td></tr></tbody></table>${notes}<h2>${escapeHtml(isAr ? "التفاصيل الشهرية" : "Monthly details")}</h2><table><thead><tr><th>${escapeHtml(isAr ? "الشهر" : "Month")}</th><th>${escapeHtml(isAr ? "التقديرية" : "Estimated")}</th><th>${escapeHtml(isAr ? "الفعلية" : "Actual")}</th><th>${escapeHtml(isAr ? "التباين" : "Variance")}</th><th>${escapeHtml(isAr ? "نسبة التباين" : "Variance %")}</th><th>${escapeHtml(isAr ? "الإنتاج (زوج)" : "Production (pairs)")}</th><th>${escapeHtml(isAr ? "الفعلية للزوج" : "Actual per pair")}</th></tr></thead><tbody>${detailRows || `<tr><td colspan="7">${escapeHtml(isAr ? "لا توجد سجلات قابلة للتقرير ضمن الفترة المحددة." : "There are no reportable records in the selected period.")}</td></tr>`}</tbody></table></body></html>`;
+
+    try {
+      if (Platform.OS === "web" && typeof window !== "undefined" && typeof document !== "undefined") {
+        const printWindow = window.open("", "_blank", "width=1200,height=850");
+        if (!printWindow) throw new Error("PRINT_WINDOW_BLOCKED");
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        window.setTimeout(() => printWindow.print(), 250);
+      } else {
+        await Print.printAsync({ html, orientation: Print.Orientation.landscape });
+      }
+    } catch {
+      Alert.alert(
+        isAr ? "تعذر فتح الطباعة" : "Unable to print",
+        isAr ? "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى." : "Unable to open printing. Allow pop-ups and try again.",
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -317,10 +389,20 @@ export default function CostComparisonReportScreen() {
           ) : null}
           <Text style={{ color: colors.muted, fontSize: 11, marginTop: 10, textAlign: isRtl ? "right" : "left" }}>
             {isAr
-              ? "تُجمع التكلفة التقديرية من تقديرات تكلفة المنتج المحفوظة، والفعلية من سجل تكاليف الإنتاج، والإنتاج من سجل الإنتاج. غياب السجل يعرض كغير متاح وليس صفراً."
-              : "Estimated cost comes from saved product-cost estimates, actual cost from production-cost records, and volume from production records. A missing record is shown as unavailable, not zero."}
+              ? "تُجمع التكلفة التقديرية من تقديرات تكلفة المنتج المحفوظة، والفعلية من سجل تكاليف الإنتاج، والإنتاج من سجل الإنتاج. لا يدخل أي سجل إلا بتاريخ الإنتاج الموثق فيه؛ السجل بلا تاريخ لا يُنسب لتاريخ إنشائه. غياب السجل يعرض كغير متاح وليس صفراً."
+              : "Estimated cost comes from saved product-cost estimates, actual cost from production-cost records, and volume from production records. A row is included only by its documented production date, never its creation date. A missing record is shown as unavailable, not zero."}
           </Text>
         </View>
+
+        <TouchableOpacity
+          onPress={() => void handlePrint()}
+          accessibilityRole="button"
+          accessibilityLabel={isAr ? "طباعة تقرير مقارنة التكاليف للفترة المحددة" : "Print cost comparison report for the selected period"}
+          style={{ flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16 }}
+        >
+          <MaterialIcons name="print" size={20} color="#fff" />
+          <Text style={{ color: "#fff", fontWeight: "bold" }}>{isAr ? "طباعة / حفظ PDF" : "Print / Save PDF"}</Text>
+        </TouchableOpacity>
 
         {dataMessages.length > 0 ? (
           <View style={{ backgroundColor: "#fef3c7", borderColor: "#f59e0b", borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 }}>

@@ -1,6 +1,6 @@
 import { businessDate, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportDate, reportRows, riyadhDate } from "@shared/operational-report";
 import { BackButton } from "@/components/back-button";
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { DateField } from "@/components/date-field";
 import { useColors } from "@/hooks/use-colors";
@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/language-context";
 import { maintenanceService, productionService } from "@/lib/services/api.service";
 import { useAuth } from "@/lib/auth-context";
+import * as Print from "expo-print";
 
 
 
@@ -246,6 +247,7 @@ export default function ProductionTotalsScreen() {
 
   const periodRows = visibleEntries.flatMap(entry => Object.values(entry.machines));
   const measured = productionMetrics(periodRows);
+  const periodRecordCount = periodRows.length;
   grandDozen = Math.floor(measured.totalPairs / 12);
   grandPairs = measured.totalPairs % 12;
   grandYarnWeight = measured.yarnGrams;
@@ -270,15 +272,61 @@ export default function ProductionTotalsScreen() {
     values: YARN_FIELDS.map(([field, ar, en]) => ({ label: isAr ? ar : en, perPair: parseFloat(m[field]) || 0, total: (parseFloat(m[field]) || 0) * ((parseFloat(m.productionDozen) || 0) * 12 + (parseFloat(m.productionPairs) || 0)) })),
   })));
 
+  const handlePrint = async () => {
+    if (!hasValidRange) {
+      Alert.alert(isAr ? "فترة غير صالحة" : "Invalid period", isAr ? "اختر تاريخ بداية ونهاية صالحين قبل الطباعة." : "Choose valid start and end dates before printing.");
+      return;
+    }
+    if (loading || sourceError) {
+      Alert.alert(isAr ? "التقرير غير جاهز" : "Report unavailable", isAr ? "انتظر تحميل مصدر الإنتاج أو أعد المحاولة قبل الطباعة." : "Wait for the production source to load or retry before printing.");
+      return;
+    }
+    if (periodRecordCount === 0) {
+      Alert.alert(isAr ? "لا توجد بيانات للطباعة" : "No data to print", isAr ? "لا توجد سجلات إنتاج مؤرخة ضمن الفترة المحددة." : "No dated production records fall within the selected range.");
+      return;
+    }
+
+    const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
+    const appliedStart = rangeReversed ? normalizedEnd : normalizedStart;
+    const appliedEnd = rangeReversed ? normalizedStart : normalizedEnd;
+    const details = visibleEntries.flatMap((entry) => Object.entries(entry.machines).map(([machine, machineData]) => {
+      const productionPairs = (parseFloat(machineData.productionDozen) || 0) * 12 + (parseFloat(machineData.productionPairs) || 0);
+      const secondPairs = (parseFloat(machineData.secondGradeDozen) || 0) * 12 + (parseFloat(machineData.secondGradePairs) || 0);
+      return `<tr><td>${escapeHtml(entry.date)}</td><td>${escapeHtml(machine)}</td><td>${escapeHtml(machineData.productName || (isAr ? "بدون اسم" : "Unnamed"))}</td><td>${productionPairs}</td><td>${secondPairs}</td></tr>`;
+    })).join("");
+    const html = `<!doctype html><html lang="${isAr ? "ar" : "en"}" dir="${isAr ? "rtl" : "ltr"}"><head><meta charset="utf-8"/><title>${isAr ? "مجاميع الإنتاج" : "Production totals"}</title><style>body{font-family:Arial,sans-serif;color:#172033;padding:24px}h1,h2,p{text-align:${isAr ? "right" : "left"}}h1{color:#0d9488;margin-bottom:4px}.muted{color:#64748b}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}.metric{border:1px solid #cbd5e1;border-radius:8px;padding:10px}.metric b{display:block;color:#0f766e;font-size:18px;margin-top:4px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:${isAr ? "right" : "left"}}th{background:#ccfbf1}@media print{body{padding:0}}</style></head><body><h1>${isAr ? "مجاميع إنتاج المكائن" : "Machine Production Totals"}</h1><p class="muted">${isAr ? "فترة تاريخ حدث الإنتاج:" : "Production event-date period:"} ${escapeHtml(appliedStart)} — ${escapeHtml(appliedEnd)}</p><p class="muted">${isAr ? "عدد سجلات الإنتاج المؤرخة:" : "Dated production records:"} ${periodRecordCount}</p><div class="metrics"><div class="metric">${isAr ? "إجمالي الإنتاج" : "Total production"}<b>${grandPairsEquivalent} ${isAr ? "زوج" : "pairs"}</b></div><div class="metric">${isAr ? "النخب الثاني" : "Second grade"}<b>${totalSecondPairsAll} ${isAr ? "زوج" : "pairs"}</b></div><div class="metric">${isAr ? "إجمالي الهدر" : "Total waste"}<b>${grandWasteAll.toFixed(0)} ${isAr ? "جم" : "g"}</b></div><div class="metric">${isAr ? "الخيوط المستخدمة" : "Used yarn"}<b>${grandYarnWeight.toFixed(0)} ${isAr ? "جم" : "g"}</b></div><div class="metric">${isAr ? "نسبة الهدر" : "Waste rate"}<b>${grandWastePercent == null ? (isAr ? "غير محسوبة" : "Not calculated") : `${grandWastePercent.toFixed(2)}%`}</b></div><div class="metric">${isAr ? "الإبر" : "Needles"}<b>${grandNeedles} ${isAr ? "تالفة" : "damaged"} / ${measured.needlesUsed} ${isAr ? "مستخدمة" : "used"}</b></div></div><h2>${isAr ? "تفاصيل الإنتاج المرشحة" : "Filtered production details"}</h2><table><thead><tr><th>${isAr ? "تاريخ الإنتاج" : "Production date"}</th><th>${isAr ? "الماكينة" : "Machine"}</th><th>${isAr ? "المنتج" : "Product"}</th><th>${isAr ? "الإنتاج (زوج)" : "Production (pairs)"}</th><th>${isAr ? "نخب ثانٍ (زوج)" : "Second grade (pairs)"}</th></tr></thead><tbody>${details}</tbody></table></body></html>`;
+
+    try {
+      if (Platform.OS === "web") {
+        const printWindow = window.open("", "_blank", "width=1100,height=800");
+        if (!printWindow) throw new Error("PRINT_WINDOW_BLOCKED");
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        window.setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      } else {
+        await Print.printAsync({ html, orientation: Print.Orientation.landscape });
+      }
+    } catch (error) {
+      Alert.alert(isAr ? "خطأ في الطباعة" : "Print error", isAr ? "تعذر فتح الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى." : "Unable to open printing. Allow pop-ups and try again.");
+    }
+  };
+
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
       {/* الهيدر */}
       <View style={{ backgroundColor: "#0d9488", paddingVertical: 16, paddingHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity onPress={handlePrint} accessibilityRole="button" accessibilityLabel={isAr ? "طباعة مجاميع الإنتاج للفترة المحددة" : "Print production totals for selected period"} style={{ width: 40, minHeight: 40, alignItems: "center", justifyContent: "center" }}>
+            <MaterialIcons name="print" size={23} color="#fff" />
+          </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={{ color: '#ffffff', fontWeight: 'bold', fontSize: 20 }}>{isAr ? "إجمالي بيانات المكائن" : "Total Machines Data"}</Text>
-            <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{visibleEntries.length} {isAr ? "سجل" : "Record"}</Text>
+            <Text style={{ fontSize: 14, marginTop: 4, color: 'rgba(255,255,255,0.8)' }}>{periodRecordCount} {isAr ? "سجل إنتاج" : "production record(s)"}</Text>
           </View>
           <BackButton />
         </View>
@@ -291,10 +339,10 @@ export default function ProductionTotalsScreen() {
             <View style={{ flex: 1, minWidth: 150 }}><DateField value={startDate} onChange={setNormalizedStartDate} label={isAr ? "من تاريخ" : "Start date"} isAr={isAr} /></View>
             <View style={{ flex: 1, minWidth: 150 }}><DateField value={endDate} onChange={setNormalizedEndDate} label={isAr ? "إلى تاريخ" : "End date"} isAr={isAr} /></View>
           </View>
-          {rangeReversed ? <Text accessibilityRole="alert" style={{ color: "#b45309", fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? "تاريخ البداية بعد تاريخ النهاية؛ يعرض التقرير النطاق نفسه بعد ترتيبه زمنيًا." : "Start date is after end date; the same range is shown in chronological order."}</Text> : null}
+          {rangeReversed ? <Text accessibilityRole="alert" style={{ color: "#b45309", fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? "تاريخ البداية بعد تاريخ النهاية؛ يرتّب التقرير حدود الفترة للترشيح فقط." : "Start date is after end date; the report orders the period bounds for filtering only."}</Text> : null}
           {!hasValidRange ? <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? "أدخل تاريخ بداية ونهاية صالحين من التقويم." : "Choose valid start and end dates from the calendar."}</Text> : null}
           {!loading && !sourceError && undatedRecords > 0 ? <Text accessibilityRole="alert" style={{ color: "#b45309", fontSize: 11, textAlign: "right", marginTop: 7 }}>{isAr ? `${undatedRecords} سجل إنتاج بلا تاريخ صالح لم يدخل في التقرير.` : `${undatedRecords} production record(s) without a valid date were excluded from the report.`}</Text> : null}
-          <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>{isAr ? `عدد سجلات الفترة: ${visibleEntries.length}` : `Records in period: ${visibleEntries.length}`}</Text>
+          <Text style={{ color: colors.muted, fontSize: 10, textAlign: "right", marginTop: 7 }}>{isAr ? `عدد سجلات الإنتاج في الفترة: ${periodRecordCount}` : `Production records in period: ${periodRecordCount}`}</Text>
         </View>
         {sourceError ? (
           <View accessibilityRole="alert" style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
@@ -306,6 +354,16 @@ export default function ProductionTotalsScreen() {
         ) : loading ? (
           <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 80 }}>
             <Text style={{ color: colors.muted, fontSize: 14 }}>{isAr ? "جارٍ تحميل بيانات الإنتاج..." : "Loading production data..."}</Text>
+          </View>
+        ) : !hasValidRange ? (
+          <View accessibilityRole="alert" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>
+            <View style={{ backgroundColor: "#ef444415", borderRadius: 40, padding: 20 }}>
+              <MaterialIcons name="date-range" size={48} color={colors.error} />
+            </View>
+            <Text style={{ color: colors.foreground, fontSize: 18, marginTop: 20, fontWeight: 'bold' }}>{isAr ? "اختر فترة صالحة" : "Choose a valid period"}</Text>
+            <Text style={{ color: colors.muted, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
+              {isAr ? "لن يعرض التقرير أصفارًا بدل بيانات الفترة؛ اختر تاريخ بداية ونهاية من التقويم." : "The report does not show zeros in place of period data; choose start and end dates from the calendar."}
+            </Text>
           </View>
         ) : visibleEntries.length === 0 ? (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 }}>

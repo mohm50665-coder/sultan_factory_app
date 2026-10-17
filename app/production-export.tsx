@@ -23,6 +23,11 @@ import { useLanguage } from "@/lib/language-context";
 import { maintenanceService, productionService } from "@/lib/services/api.service";
 import * as Print from "expo-print";
 
+const hasReportRows = (value: unknown) =>
+  Array.isArray(value) || ["items", "rows", "data", "results"].some((key) =>
+    Array.isArray((value as Record<string, unknown> | null)?.[key])
+  );
+
 export default function ProductionExportScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -34,31 +39,74 @@ export default function ProductionExportScreen() {
   });
   const [records, setRecords] = useState<ProductionRecord[]>([]);
   const [stoppedMachines, setStoppedMachines] = useState<StoppedMachineRecord[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [format, setFormat] = useState<"csv" | "html">("html");
 
-  useEffect(() => {
-    loadData();
-  }, [date]);
-
-  const loadData = async () => {
-    try {
-      const [allRecords, allStoppedMachines] = await Promise.all([
-        productionService.getAll(),
-        maintenanceService.getStopped(),
-      ]);
-      const filtered = reportRows(allRecords).filter((r: any) => inReportPeriod(r, "production", date, date));
-      setRecords(filtered as ProductionRecord[]);
-      setStoppedMachines((Array.isArray(allStoppedMachines) ? allStoppedMachines : []).filter((r: any) => String(r.stopDate || "").slice(0, 10) === date) as StoppedMachineRecord[]);
-    } catch (error) {
-      console.error("Failed to load production data:", error);
-      Alert.alert("تعذر تحميل التقرير", error instanceof Error ? error.message : "تعذر قراءة المصدر؛ لم يتم عرض صفر كبيانات");
-    }
+  const handleDateChange = (nextDate: string) => {
+    if (nextDate === date) return;
+    // Do not leave the last period's totals available while the next period is loading.
+    setIsDataLoading(true);
+    setLoadError(null);
+    setRecords([]);
+    setStoppedMachines([]);
+    setDate(nextDate);
   };
 
+  useEffect(() => {
+    let active = true;
+
+    const loadData = async () => {
+      setIsDataLoading(true);
+      setLoadError(null);
+      try {
+        const [allRecords, allStoppedMachines] = await Promise.all([
+          productionService.getAll(),
+          maintenanceService.getStopped(),
+        ]);
+        if (!active) return;
+        if (!hasReportRows(allRecords) || !hasReportRows(allStoppedMachines)) {
+          throw new Error("استجابة مصدر التقرير غير مكتملة؛ تعذر التحقق من سجلات الفترة");
+        }
+
+        // The selected day is a closed report period. Records without productionDate/date
+        // are excluded by inReportPeriod and are never attributed to their audit timestamps.
+        const filteredRecords = reportRows(allRecords).filter((record: any) =>
+          inReportPeriod(record, "production", date, date)
+        );
+        // A stop belongs to this report only when its documented stop event happened today.
+        // Pass only stopDate so another field (including an audit timestamp) cannot affect it.
+        const filteredStoppedMachines = reportRows(allStoppedMachines).filter((record: any) =>
+          inReportPeriod({ stopDate: record?.stopDate }, "general", date, date)
+        );
+
+        setRecords(filteredRecords as ProductionRecord[]);
+        setStoppedMachines(filteredStoppedMachines as StoppedMachineRecord[]);
+      } catch (error) {
+        if (!active) return;
+        console.error("Failed to load production data:", error);
+        const message = error instanceof Error ? error.message : "تعذر قراءة المصدر";
+        setRecords([]);
+        setStoppedMachines([]);
+        setLoadError(message);
+        Alert.alert("تعذر تحميل التقرير", `${message}؛ لم يتم عرض صفر كبيانات`);
+      } finally {
+        if (active) setIsDataLoading(false);
+      }
+    };
+
+    void loadData();
+    return () => { active = false; };
+  }, [date]);
+
+  const hasProductionData = records.length > 0;
+  const hasPrintableData = hasProductionData || stoppedMachines.length > 0;
+  const canExport = hasProductionData || (format === "html" && stoppedMachines.length > 0);
+
   const handlePrint = async () => {
-    if (records.length === 0) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date");
+    if (!hasPrintableData) {
+      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات إنتاج أو توقفات مكائن موثقة لهذا التاريخ" : "No documented production or machine-stop events for this date");
       return;
     }
 
@@ -85,7 +133,9 @@ export default function ProductionExportScreen() {
         action: "print",
         module: "production",
         description: isAr ? `طباعة تقرير إنتاج المكائن ليوم ${date}` : `Print machine production report for ${date}`,
-        details: isAr ? `عدد السجلات: ${records.length}` : `Number of records: ${records.length}`,
+        details: isAr
+          ? `سجلات الإنتاج: ${records.length}، توقفات المكائن: ${stoppedMachines.length}`
+          : `Production records: ${records.length}, machine stops: ${stoppedMachines.length}`,
       });
     } catch (error) {
       Alert.alert(isAr ? "خطأ في الطباعة" : "Print error", isAr ? "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى." : "Unable to open printing. Allow pop-ups and try again.");
@@ -95,8 +145,13 @@ export default function ProductionExportScreen() {
   };
 
   const handleExport = async () => {
-    if (records.length === 0) {
-      Alert.alert(isAr ? "تنبيه" : "Alert", isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date");
+    if (!canExport) {
+      Alert.alert(
+        isAr ? "تنبيه" : "Alert",
+        isAr
+          ? (stoppedMachines.length > 0 ? "تصدير CSV يتطلب سجلات إنتاج؛ اختر HTML لتصدير توقفات المكائن الموثقة" : "لا توجد بيانات إنتاج موثقة لهذا التاريخ")
+          : (stoppedMachines.length > 0 ? "CSV export requires production records; choose HTML to export documented machine stops" : "No documented production data for this date")
+      );
       return;
     }
 
@@ -118,7 +173,9 @@ export default function ProductionExportScreen() {
         action: "export",
         module: "production",
         description: isAr ? `تصدير تقرير الإنتاج ليوم ${date} بتنسيق ${format.toUpperCase()}` : `Export production report for ${date} in ${format.toUpperCase()} format`,
-        details: isAr ? `عدد السجلات: ${records.length}` : `Number of records: ${records.length}`,
+        details: isAr
+          ? `سجلات الإنتاج: ${records.length}، توقفات المكائن: ${format === "html" ? stoppedMachines.length : 0}`
+          : `Production records: ${records.length}, machine stops: ${format === "html" ? stoppedMachines.length : 0}`,
       });
 
       Alert.alert(isAr ? "نجاح" : "Success", isAr ? `تم تصدير التقرير بنجاح بتنسيق ${format.toUpperCase()}` : `Report exported successfully in ${format.toUpperCase()} format`);
@@ -133,9 +190,9 @@ export default function ProductionExportScreen() {
     (acc, r) => ({
       productionDozen: acc.productionDozen + (r.productionDozen || 0),
       productionPairs: acc.productionPairs + (r.productionPairs || 0),
-      wasteThread: acc.wasteThread + (r.wasteThread || 0),
-      wasteSocks: acc.wasteSocks + (r.wasteSocks || 0),
-      secondGrade: acc.secondGrade + (r.secondGrade || 0),
+      wasteThread: acc.wasteThread + (r.wasteThreadGrams ?? r.wasteThread ?? 0),
+      wasteSocks: acc.wasteSocks + (r.wasteSocksGrams ?? r.wasteSocks ?? 0),
+      secondGrade: acc.secondGrade + (r.secondGradePairs ?? r.secondGrade ?? 0),
       wasteNeedles: acc.wasteNeedles + (r.wasteNeedles || 0),
     }),
     { productionDozen: 0, productionPairs: 0, wasteThread: 0, wasteSocks: 0, secondGrade: 0, wasteNeedles: 0 }
@@ -147,7 +204,12 @@ export default function ProductionExportScreen() {
       <View style={styles.header}>
         <BackButton />
         <Text style={styles.headerTitle}>{isAr ? "تقرير إنتاج المكائن" : "Machine Production Report"}</Text>
-        <TouchableOpacity onPress={handlePrint} disabled={isLoading || records.length === 0} style={styles.headerPrintButton} accessibilityLabel={isAr ? "طباعة التقرير" : "Print report"}>
+        <TouchableOpacity
+          onPress={handlePrint}
+          disabled={isLoading || isDataLoading || !!loadError || !hasPrintableData}
+          style={[styles.headerPrintButton, (isLoading || isDataLoading || !!loadError || !hasPrintableData) && styles.headerPrintButtonDisabled]}
+          accessibilityLabel={isAr ? "طباعة التقرير" : "Print report"}
+        >
           <MaterialIcons name="print" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -156,7 +218,7 @@ export default function ProductionExportScreen() {
         {/* Date Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{isAr ? "اختر التاريخ" : "Select Date"}</Text>
-          <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.dateInput} />
+          <DateField value={date} onChange={handleDateChange} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.dateInput} />
         </View>
 
         {/* Format Selection */}
@@ -185,10 +247,24 @@ export default function ProductionExportScreen() {
         {/* Preview Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{isAr ? "ملخص البيانات" : "Data Summary"}</Text>
-          {records.length === 0 ? (
+          {isDataLoading ? (
+            <View style={styles.noData}>
+              <ActivityIndicator color="#0a7ea4" />
+              <Text style={styles.noDataText}>{isAr ? "جارٍ تحميل بيانات الإنتاج للفترة المختارة..." : "Loading production data for the selected period..."}</Text>
+            </View>
+          ) : loadError ? (
+            <View style={styles.loadError}>
+              <MaterialIcons name="error-outline" size={32} color="#b91c1c" />
+              <Text style={styles.loadErrorText}>{isAr ? "تعذر تحميل المصدر؛ لا تمثل هذه الحالة عدم وجود بيانات." : "The source could not be loaded; this does not mean there is no data."}</Text>
+            </View>
+          ) : !hasProductionData ? (
             <View style={styles.noData}>
               <MaterialIcons name="info-outline" size={32} color="#d1d5db" />
-              <Text style={styles.noDataText}>{isAr ? "لا توجد بيانات إنتاج لهذا التاريخ" : "No production data for this date"}</Text>
+              <Text style={styles.noDataText}>
+                {stoppedMachines.length > 0
+                  ? (isAr ? `لا يوجد إنتاج موثق لهذا التاريخ؛ توجد ${stoppedMachines.length} توقفات مكائن موثقة يمكن طباعتها أو تصديرها بصيغة HTML.` : `No documented production exists for this date; ${stoppedMachines.length} documented machine stops can be printed or exported as HTML.`)
+                  : (isAr ? "لا توجد بيانات إنتاج موثقة لهذا التاريخ" : "No documented production data for this date")}
+              </Text>
             </View>
           ) : (
             <View style={styles.statsGrid}>
@@ -223,8 +299,8 @@ export default function ProductionExportScreen() {
         {/* Print Button */}
         <TouchableOpacity
           onPress={handlePrint}
-          disabled={isLoading || records.length === 0}
-          style={[styles.printBtn, (isLoading || records.length === 0) && styles.exportBtnDisabled]}
+          disabled={isLoading || isDataLoading || !!loadError || !hasPrintableData}
+          style={[styles.printBtn, (isLoading || isDataLoading || !!loadError || !hasPrintableData) && styles.exportBtnDisabled]}
         >
           <MaterialIcons name="print" size={22} color="white" />
           <Text style={styles.exportBtnText}>{isAr ? "طباعة التقرير" : "Print Report"}</Text>
@@ -233,8 +309,8 @@ export default function ProductionExportScreen() {
         {/* Export Button */}
         <TouchableOpacity
           onPress={handleExport}
-          disabled={isLoading || records.length === 0}
-          style={[styles.exportBtn, (isLoading || records.length === 0) && styles.exportBtnDisabled]}
+          disabled={isLoading || isDataLoading || !!loadError || !canExport}
+          style={[styles.exportBtn, (isLoading || isDataLoading || !!loadError || !canExport) && styles.exportBtnDisabled]}
         >
           {isLoading ? (
             <ActivityIndicator color="white" />
@@ -277,6 +353,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#ffffff26",
+  },
+  headerPrintButtonDisabled: {
+    opacity: 0.45,
   },
   content: {
     flex: 1,
@@ -346,6 +425,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#9ca3af",
     marginTop: 8,
+    paddingHorizontal: 16,
+    textAlign: "center",
+  },
+  loadError: {
+    alignItems: "center",
+    paddingVertical: 30,
+    backgroundColor: "#fef2f2",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  loadErrorText: {
+    fontSize: 13,
+    color: "#991b1b",
+    marginTop: 8,
+    paddingHorizontal: 16,
+    textAlign: "center",
   },
   statsGrid: {
     flexDirection: "row",

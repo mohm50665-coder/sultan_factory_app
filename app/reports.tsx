@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as Print from "expo-print";
 import { useRouter } from "expo-router";
 import { BackButton } from "@/components/back-button";
 import { DateField } from "@/components/date-field";
@@ -57,7 +59,7 @@ export default function ReportsScreen() {
     startDate: localize(language, "من تاريخ", "Start date"),
     endDate: localize(language, "إلى تاريخ", "End date"),
     refresh: localize(language, "تحديث البيانات", "Refresh data"),
-    periodSummary: localize(language, "جميع المؤشرات لحركة الفترة المختارة، والمخزون الحالي معروض بوصفه رصيدًا لا حركة إنتاج جديدة.", "All indicators reflect activity in the selected period. Current inventory is shown as a balance, not as new production activity."),
+    periodSummary: localize(language, "جميع المؤشرات لحركة الفترة المختارة. أرصدة المستودع تعاد من دفتر الحركات حتى نهاية الفترة، ولا يُعرض رصيد حالي خارجها.", "All indicators reflect activity in the selected period. Warehouse balances are reconstructed from the movement ledger through the period end; no current balance outside the period is shown."),
     loading: localize(language, "جارٍ تحميل بيانات التقرير...", "Loading report data..."),
     sourceFailed: localize(language, "تعذر تحميل المصدر", "Source could not be loaded"),
     openDetails: localize(language, "فتح التفاصيل", "Open details"),
@@ -74,15 +76,21 @@ export default function ReportsScreen() {
     finishedGoodsReceipts: localize(language, "التخزين والمستودعات — وارد إنتاج تام", "Storage & warehouses — finished-goods receipts"),
     finishedGoodsIssues: localize(language, "صادر الإنتاج التام", "Finished-goods issues"),
     closingBalance: localize(language, "رصيد نهاية الفترة", "Closing balance"),
-    currentWarehouseBalance: localize(language, "رصيد المستودع الحالي", "Current warehouse balance"),
+    openingBalance: localize(language, "رصيد افتتاح الفترة", "Opening balance"),
     operatingExpenses: localize(language, "المصروفات التشغيلية", "Operating expenses"),
     noRecordedWeight: localize(language, "لا تحسب — وزن غير مسجل", "Not calculated — no weight recorded"),
     closingBalanceUnverified: localize(language, "غير مؤكد — يلزم مراجعة الدفتر", "Unverified — ledger review required"),
     incompleteSources: localize(language, "لم تكتمل المصادر التالية:", "The following sources did not finish loading:"),
     notZeroActivity: localize(language, "لا تعتبرها صفر نشاط.", "Do not treat these as zero activity."),
+    missingOperationalDate: localize(language, "توجد سجلات بلا تاريخ حدث تشغيلي موثق؛ استُبعدت من الفترة:", "The following sources contain records without a documented operational-event date; those records were excluded from the period:"),
+    sourceNeedsDateReview: localize(language, "بيانات الفترة غير مكتملة — راجع تاريخ الحدث التشغيلي", "Period data incomplete — review operational-event dates"),
     reversedPeriod: localize(language, "تم اختيار تاريخ البداية بعد تاريخ النهاية؛ سيعرض التقرير النطاق بعد ترتيبه:", "The start date is after the end date; the report uses this normalized range:"),
     invalidPeriod: localize(language, "أدخل تاريخ بداية ونهاية صالحين من التقويم قبل عرض النتائج.", "Enter valid calendar start and end dates before viewing results."),
     openComprehensiveReport: localize(language, "فتح التقرير الشامل — التفاصيل والطباعة بنفس مصادر الحساب", "Open comprehensive report — details and printing use the same calculation sources"),
+    print: localize(language, "طباعة التقرير", "Print report"),
+    printUnavailable: localize(language, "تعذر طباعة التقرير", "Unable to print report"),
+    printWait: localize(language, "انتظر حتى تكتمل جميع مصادر التقرير وتوثق تواريخ الأحداث التشغيلية ثم أعد المحاولة.", "Wait for all report sources to finish and for operational-event dates to be documented, then try again."),
+    printInvalidPeriod: localize(language, "اختر تاريخ بداية ونهاية صالحين من التقويم قبل الطباعة.", "Choose valid start and end dates from the calendar before printing."),
     invalidQuantity: localize(language, "كمية غير صالحة — تحتاج مراجعة", "Invalid quantity — review required"),
     currency: localize(language, "ريال", "SAR"),
     invoice: localize(language, "فاتورة", "invoice"),
@@ -196,6 +204,14 @@ export default function ReportsScreen() {
   }, [sources, period.startDate, period.endDate]);
 
   const { production: p, commercial: c, warehouse: w } = data;
+  // السجل بلا تاريخ حدث تشغيلي لا يدخل الحساب. نبقي تنبيهًا ظاهرًا حتى لا يفسر
+  // الصفر الناتج من استبعاده على أنه غياب مؤكد للنشاط.
+  const undatedSourceKeys = useMemo(() => Object.entries(sources)
+    .filter(([source, rows]) => {
+      const kind = sourceKinds[source];
+      return Boolean(kind && rows.some((row) => !businessDate(row, kind)));
+    })
+    .map(([source]) => source), [sources]);
   const numberFormat = (value: number) => value.toLocaleString(english ? "en-US" : "ar-SA");
   const decimalFormat = (value: number) => value.toLocaleString(english ? "en-US" : "ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const quantityLabel = (pairs: number) => {
@@ -208,13 +224,60 @@ export default function ReportsScreen() {
   const alignedText = { textAlign, writingDirection: direction };
   const card = (label: string, value: string, keys: string[], path: string) => {
     const failed = keys.some((key) => errors[key]);
+    const hasUndatedRows = keys.some((key) => undatedSourceKeys.includes(key));
     return (
       <TouchableOpacity key={label} style={s.card} onPress={() => router.push(path as never)}>
         <Text style={[s.label, alignedText]}>{label}</Text>
         <Text style={[s.value, alignedText, failed && s.error]}>{failed ? copy.sourceFailed : value}</Text>
-        <Text style={[s.note, alignedText]}>{copy.openDetails}</Text>
+        <Text style={[s.note, alignedText, hasUndatedRows && s.warning]}>{hasUndatedRows ? copy.sourceNeedsDateReview : copy.openDetails}</Text>
       </TouchableOpacity>
     );
+  };
+
+  const printReport = async () => {
+    if (!period.valid) {
+      Alert.alert(copy.printUnavailable, copy.printInvalidPeriod);
+      return;
+    }
+    if (loading || Object.keys(errors).length) {
+      Alert.alert(copy.printUnavailable, copy.printWait);
+      return;
+    }
+    const rows = [
+      [copy.totalProduction, quantityLabel(p.totalPairs)],
+      [copy.firstGrade, quantityLabel(p.firstPairs)],
+      [copy.secondGrade, quantityLabel(p.secondPairs)],
+      [copy.salesInvoices, `${numberFormat(c.salesAmount)} ${copy.currency} · ${numberFormat(c.salesRows.length)} ${copy.invoice}`],
+      [copy.collections, `${numberFormat(c.collectionAmount)} ${copy.currency} · ${numberFormat(c.collectionRows.length)} ${copy.receipt}`],
+      [copy.ordersAndVisits, `${numberFormat(c.orderRows.length)} ${copy.order} · ${numberFormat(c.visitRows.length)} ${copy.visit}`],
+      [copy.yarnUsed, `${decimalFormat(p.yarnGrams)} ${copy.gram}`],
+      [copy.yarnAndSockWaste, `${numberFormat(p.wasteThreadGrams)} ${copy.gram} ${copy.yarn} · ${numberFormat(p.wasteSocksGrams)} ${copy.gram} ${copy.socks}`],
+      [copy.totalWasteRate, p.wastePercent == null ? copy.noRecordedWeight : `${decimalFormat(p.wastePercent)}%`],
+      [copy.needlesUsedAndDamaged, `${numberFormat(p.needlesUsed)} ${copy.used} · ${numberFormat(p.wasteNeedles)} ${copy.damaged}`],
+      [copy.finishedGoodsReceipts, quantityLabel(w.receiptPairs)],
+      [copy.finishedGoodsIssues, quantityLabel(w.issuePairs)],
+      [copy.openingBalance, w.openingPairs == null ? copy.closingBalanceUnverified : quantityLabel(w.openingPairs)],
+      [copy.closingBalance, w.closingPairs == null ? copy.closingBalanceUnverified : quantityLabel(w.closingPairs)],
+      [copy.operatingExpenses, `${numberFormat(data.expenses)} ${copy.currency}`],
+    ];
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character] || character));
+    const undatedNotice = undatedSourceKeys.length
+      ? `<p class="warning">${escapeHtml(copy.missingOperationalDate)} ${escapeHtml(undatedSourceKeys.map(sourceLabel).join(" · "))}.</p>`
+      : "";
+    const tableRows = rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join("");
+    const html = `<html dir="${english ? "ltr" : "rtl"}"><head><meta charset="utf-8"><title>${escapeHtml(copy.title)}</title><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#0f172a;padding:12px;direction:${english ? "ltr" : "rtl"}}h1{color:#075985;font-size:20px}p{color:#475569}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:${english ? "left" : "right"};vertical-align:top}th{width:54%;background:#e0f2fe;color:#0f172a}.warning{color:#92400e;background:#fffbeb;border:1px solid #fcd34d;padding:9px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><h1>${escapeHtml(copy.title)}</h1><p>${escapeHtml(copy.startDate)}: ${escapeHtml(period.startDate)} — ${escapeHtml(copy.endDate)}: ${escapeHtml(period.endDate)}</p>${undatedNotice}<table><tbody>${tableRows}</tbody></table><script>window.onload=function(){window.focus();setTimeout(function(){window.print()},250)}</script></body></html>`;
+    if (Platform.OS === "web" && typeof window !== "undefined" && typeof document !== "undefined") {
+      const printWindow = window.open("", "_blank", "width=1000,height=800");
+      if (!printWindow) {
+        Alert.alert(copy.printUnavailable, copy.printWait);
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      return;
+    }
+    await Print.printAsync({ html });
   };
 
   return (
@@ -256,7 +319,6 @@ export default function ReportsScreen() {
               {card(copy.finishedGoodsReceipts, quantityLabel(w.receiptPairs), ["movements"], "/finished-warehouse-inventory")}
               {card(copy.finishedGoodsIssues, quantityLabel(w.issuePairs), ["movements"], "/finished-warehouse-inventory")}
               {card(copy.closingBalance, w.closingPairs == null ? copy.closingBalanceUnverified : quantityLabel(w.closingPairs), ["stock", "movements"], "/finished-warehouse-inventory")}
-              {card(copy.currentWarehouseBalance, quantityLabel(w.currentPairs), ["stock"], "/finished-warehouse-inventory")}
               {card(copy.operatingExpenses, `${numberFormat(data.expenses)} ${copy.currency}`, ["expenses"], "/daily-summary")}
             </View>
             <TouchableOpacity style={s.button} onPress={() => router.push("/daily-summary" as never)} accessibilityRole="button" accessibilityLabel={copy.openComprehensiveReport}>
@@ -285,6 +347,7 @@ const s = StyleSheet.create({
   label: { fontWeight: "700", fontSize: 12, color: "#334155" },
   value: { fontWeight: "800", fontSize: 17, color: "#075985" },
   note: { fontSize: 11, lineHeight: 17, color: "#64748b" },
+  warning: { color: "#92400e" },
   error: { color: "#b91c1c", fontSize: 12 },
   button: { padding: 10, borderRadius: 7, backgroundColor: "#075985", alignItems: "center", minHeight: 44 },
   buttonText: { fontWeight: "700", fontSize: 12, color: "#fff", textAlign: "center" },

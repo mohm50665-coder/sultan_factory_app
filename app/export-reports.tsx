@@ -14,13 +14,32 @@ import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   exportReportAsPDF,
-  generateComprehensiveReport,
+  type PDFReportData,
+  type PDFSection,
 } from "@/lib/services/pdf-export.service";
 import { reportsService } from "@/lib/services/server-data.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLanguage } from "@/lib/language-context";
 import { DateField } from "@/components/date-field";
-import { reportDate } from "@shared/operational-report";
+import {
+  businessDate,
+  exactPairs,
+  inReportPeriod,
+  pairLabel,
+  reportDate,
+  reportRows,
+  type ReportKind,
+} from "@shared/operational-report";
+import {
+  collectionService,
+  expensesService,
+  finishedWarehouseService,
+  manufacturingService,
+  productionCostsLocalService,
+  productionService,
+  salesService,
+  taskService,
+} from "@/lib/services/api.service";
 
 interface ReportOption {
   id: string;
@@ -86,6 +105,270 @@ const REPORT_OPTIONS: ReportOption[] = [
   },
 ];
 
+type ReportSource = {
+  key: string;
+  titleAr: string;
+  titleEn: string;
+  eventLabelAr: string;
+  eventLabelEn: string;
+  kind: ReportKind;
+  load: () => Promise<unknown>;
+  eventRow: (row: any) => any;
+};
+
+type SourcePeriodResult = {
+  source: ReportSource;
+  rows: any[];
+  loadedRows: number;
+  undatedRows: number;
+  outsidePeriodRows: number;
+  error?: string;
+};
+
+const reportSources: ReportSource[] = [
+  {
+    key: "production",
+    titleAr: "الإنتاج",
+    titleEn: "Production",
+    eventLabelAr: "تاريخ الإنتاج",
+    eventLabelEn: "Production date",
+    kind: "production",
+    load: () => productionService.getAll(),
+    eventRow: (row) => row,
+  },
+  {
+    key: "manufacturing",
+    titleAr: "استلام وتسليم مراحل التصنيع",
+    titleEn: "Manufacturing receipts and deliveries",
+    eventLabelAr: "وقت الحركة أو التسليم/الاستلام",
+    eventLabelEn: "Movement, delivery, or receipt time",
+    kind: "movement",
+    load: () => manufacturingService.getAll(),
+    // The record's original batch date is not a handover event. The shared movement
+    // contract accepts only movementAt/movementDate/deliveredAt/receivedAt here.
+    eventRow: (row) => row,
+  },
+  {
+    key: "warehouse",
+    titleAr: "حركات مستودع الإنتاج التام",
+    titleEn: "Finished-goods warehouse movements",
+    eventLabelAr: "وقت الحركة أو التسليم/الاستلام",
+    eventLabelEn: "Movement, delivery, or receipt time",
+    kind: "movement",
+    load: () => finishedWarehouseService.movements(),
+    eventRow: (row) => row,
+  },
+  {
+    key: "sales",
+    titleAr: "المبيعات",
+    titleEn: "Sales",
+    eventLabelAr: "تاريخ الفاتورة أو البيع",
+    eventLabelEn: "Invoice or sale date",
+    kind: "sale",
+    load: () => salesService.getAll(),
+    eventRow: (row) => row,
+  },
+  {
+    key: "collections",
+    titleAr: "التحصيل",
+    titleEn: "Collections",
+    eventLabelAr: "تاريخ التحصيل أو الإيصال",
+    eventLabelEn: "Collection or receipt date",
+    kind: "collection",
+    load: () => collectionService.getAll(),
+    eventRow: (row) => row,
+  },
+  {
+    key: "expenses",
+    titleAr: "المصروفات",
+    titleEn: "Expenses",
+    eventLabelAr: "تاريخ المصروف",
+    eventLabelEn: "Expense date",
+    kind: "general",
+    load: () => expensesService.getAll(),
+    // Restrict the general helper to the documented expense event date; it must not
+    // choose another field for this source.
+    eventRow: (row) => ({ date: row?.expenseDate }),
+  },
+  {
+    key: "costs",
+    titleAr: "تكاليف الإنتاج",
+    titleEn: "Production costs",
+    eventLabelAr: "تاريخ تكلفة الإنتاج",
+    eventLabelEn: "Production-cost date",
+    kind: "production",
+    load: () => productionCostsLocalService.list(),
+    eventRow: (row) => ({ date: costRecordDate(row) }),
+  },
+  {
+    key: "completedTasks",
+    titleAr: "المهام المكتملة",
+    titleEn: "Completed tasks",
+    eventLabelAr: "تاريخ الإكمال الموثق",
+    eventLabelEn: "Documented completion date",
+    kind: "general",
+    load: () => taskService.getAll(),
+    // A task is counted only when it is completed and carries an actual completion
+    // event date. Assignment/start dates do not prove that its work was completed.
+    eventRow: (row) => ({
+      date: row?.result === "completed" ? row?.completedDate ?? row?.completedAt : "",
+    }),
+  },
+];
+
+function costRecordDate(row: any): unknown {
+  const rawDetails = row?.notes ?? row?.details;
+  if (rawDetails && typeof rawDetails === "object") return rawDetails.date ?? row?.date;
+  if (typeof rawDetails === "string") {
+    try {
+      const details = JSON.parse(rawDetails);
+      return details?.date ?? row?.date;
+    } catch {
+      return row?.date;
+    }
+  }
+  return row?.date;
+}
+
+function responseRows(value: unknown, source: string): any[] {
+  const recognizedObject = value && typeof value === "object" && ["items", "rows", "data", "results"].some((key) => Array.isArray((value as any)[key]));
+  if (Array.isArray(value) || recognizedObject) return reportRows(value);
+  throw new Error(`لم يُرجع مصدر ${source} سجلات صالحة؛ لم يُستبدل بفترة أو أصفار افتراضية.`);
+}
+
+function filterSourceForPeriod(source: ReportSource, allRows: any[], startDate: string, endDate: string): SourcePeriodResult {
+  let undatedRows = 0;
+  let outsidePeriodRows = 0;
+  const rows = allRows.filter((row) => {
+    const event = source.eventRow(row);
+    if (!businessDate(event, source.kind)) {
+      undatedRows += 1;
+      return false;
+    }
+    if (!inReportPeriod(event, source.kind, startDate, endDate)) {
+      outsidePeriodRows += 1;
+      return false;
+    }
+    return true;
+  });
+  return { source, rows, loadedRows: allRows.length, undatedRows, outsidePeriodRows };
+}
+
+function documentedTotal(rows: any[], valueFor: (row: any) => unknown) {
+  let valueRows = 0;
+  let invalidValueRows = 0;
+  let total = 0;
+  for (const row of rows) {
+    const value = Number(valueFor(row));
+    if (!Number.isFinite(value)) {
+      invalidValueRows += 1;
+      continue;
+    }
+    valueRows += 1;
+    total += value;
+  }
+  return { total: valueRows ? total : null, valueRows, invalidValueRows };
+}
+
+function sourceByKey(results: SourcePeriodResult[], key: string) {
+  return results.find((result) => result.source.key === key);
+}
+
+function reportPeriodLabel(startDate: unknown, endDate: unknown, isAr: boolean) {
+  const start = reportDate(startDate);
+  const end = reportDate(endDate);
+  if (!start || !end) return isAr ? "فترة الحدث غير موثقة" : "Operational period not recorded";
+  return start === end ? start : `${start} — ${end}`;
+}
+
+function buildOperationalComprehensiveReport(results: SourcePeriodResult[], startDate: string, endDate: string, isAr: boolean): PDFReportData {
+  const production = sourceByKey(results, "production");
+  const manufacturing = sourceByKey(results, "manufacturing");
+  const warehouse = sourceByKey(results, "warehouse");
+  const sales = sourceByKey(results, "sales");
+  const collections = sourceByKey(results, "collections");
+  const expenses = sourceByKey(results, "expenses");
+  const costs = sourceByKey(results, "costs");
+  const completedTasks = sourceByKey(results, "completedTasks");
+
+  const productionPairs = documentedTotal(production?.rows || [], (row) => exactPairs(row, "production"));
+  const salesAmount = documentedTotal(sales?.rows || [], (row) => row?.amount);
+  const collectionAmount = documentedTotal(collections?.rows || [], (row) => row?.collectedAmount ?? row?.amount);
+  const expenseAmount = documentedTotal(expenses?.rows || [], (row) => row?.amount);
+  const costsAmount = documentedTotal(costs?.rows || [], (row) => row?.amount ?? row?.totalCost);
+
+  const summary = [
+    production && { label: isAr ? "سجلات الإنتاج" : "Production records", value: production.rows.length },
+    productionPairs.total !== null && { label: isAr ? "إنتاج موثق" : "Documented production", value: pairLabel(productionPairs.total) },
+    sales && { label: isAr ? "فواتير/مبيعات ضمن الفترة" : "Invoices/sales in period", value: sales.rows.length },
+    salesAmount.total !== null && { label: isAr ? "مبيعات موثقة" : "Documented sales", value: `${salesAmount.total.toLocaleString(isAr ? "ar-SA" : "en-US")} ${isAr ? "ريال" : "SAR"}` },
+    collections && { label: isAr ? "تحصيلات ضمن الفترة" : "Collections in period", value: collections.rows.length },
+    collectionAmount.total !== null && { label: isAr ? "تحصيل موثق" : "Documented collections", value: `${collectionAmount.total.toLocaleString(isAr ? "ar-SA" : "en-US")} ${isAr ? "ريال" : "SAR"}` },
+    manufacturing && { label: isAr ? "حركات مراحل التصنيع" : "Manufacturing movements", value: manufacturing.rows.length },
+    warehouse && { label: isAr ? "حركات المستودع" : "Warehouse movements", value: warehouse.rows.length },
+    expenses && { label: isAr ? "مصروفات موثقة" : "Documented expenses", value: expenseAmount.total === null ? (isAr ? "قيمة غير موثقة" : "Value not documented") : `${expenseAmount.total.toLocaleString(isAr ? "ar-SA" : "en-US")} ${isAr ? "ريال" : "SAR"}` },
+    costs && { label: isAr ? "تكاليف إنتاج موثقة" : "Documented production costs", value: costsAmount.total === null ? (isAr ? "قيمة غير موثقة" : "Value not documented") : `${costsAmount.total.toLocaleString(isAr ? "ar-SA" : "en-US")} ${isAr ? "ريال" : "SAR"}` },
+    completedTasks && { label: isAr ? "مهام مكتملة بتاريخ موثق" : "Completed tasks with documented date", value: completedTasks.rows.length },
+  ].filter(Boolean) as { label: string; value: string | number }[];
+
+  const diagnostics = results.flatMap((result) => {
+    const label = isAr ? result.source.titleAr : result.source.titleEn;
+    if (result.error) return [isAr ? `${label}: تعذر تحميل المصدر (${result.error}) ولم يُعرض كصفر.` : `${label}: source unavailable (${result.error}); it was not shown as zero.`];
+    const notices: string[] = [];
+    if (result.undatedRows) notices.push(isAr ? `${label}: استُبعدت ${result.undatedRows} سجلات بلا ${result.source.eventLabelAr}.` : `${label}: ${result.undatedRows} record(s) without ${result.source.eventLabelEn} were excluded.`);
+    if (result.outsidePeriodRows) notices.push(isAr ? `${label}: استُبعدت ${result.outsidePeriodRows} سجلات بتاريخ حدث خارج الفترة.` : `${label}: ${result.outsidePeriodRows} record(s) have an event date outside the period.`);
+    return notices;
+  });
+  const invalidValues = [
+    [isAr ? "الإنتاج" : "Production", productionPairs.invalidValueRows],
+    [isAr ? "المبيعات" : "Sales", salesAmount.invalidValueRows],
+    [isAr ? "التحصيل" : "Collections", collectionAmount.invalidValueRows],
+    [isAr ? "المصروفات" : "Expenses", expenseAmount.invalidValueRows],
+    [isAr ? "التكاليف" : "Costs", costsAmount.invalidValueRows],
+  ].filter(([, count]) => Number(count) > 0).map(([label, count]) => isAr ? `${label}: استُبعدت ${count} قيم غير صالحة من الإجمالي.` : `${label}: ${count} invalid value(s) were excluded from the total.`);
+
+  const sections: PDFSection[] = [
+    {
+      title: isAr ? "قاعدة الفترة" : "Period rule",
+      type: "text",
+      data: isAr
+        ? `الفترة المعتمدة: ${startDate} إلى ${endDate}. لا يُدرج أي سجل إلا بتاريخ حدث تشغيلي موثق داخل الفترة؛ لا تُستخدم تواريخ حفظ أو تحديث السجل.`
+        : `Approved period: ${startDate} to ${endDate}. A record is included only when its documented operational event date falls inside this period; record-save and update timestamps are not used.`,
+    },
+    {
+      title: isAr ? "الملخص الموثق" : "Documented summary",
+      type: "summary",
+      data: summary,
+    },
+    {
+      title: isAr ? "تتبع مصادر الفترة" : "Period source trace",
+      type: "table",
+      data: {
+        headers: isAr ? ["المصدر", "تاريخ الحدث المعتمد", "السجلات المحملة", "ضمن الفترة", "بلا تاريخ حدث"] : ["Source", "Accepted event date", "Loaded", "In period", "No event date"],
+        rows: results.map((result) => [
+          isAr ? result.source.titleAr : result.source.titleEn,
+          isAr ? result.source.eventLabelAr : result.source.eventLabelEn,
+          result.error ? "—" : String(result.loadedRows),
+          result.error ? (isAr ? "المصدر غير متاح" : "Source unavailable") : String(result.rows.length),
+          result.error ? "—" : String(result.undatedRows),
+        ]),
+      },
+    },
+    {
+      title: isAr ? "ملاحظات سلامة البيانات" : "Data-integrity notes",
+      type: "text",
+      data: [...diagnostics, ...invalidValues].join("<br/>") || (isAr ? "كل المصادر المحملة تحمل تواريخ أحداث موثقة، ولم تُستبدل أي بيانات مفقودة بأصفار." : "Every loaded source has documented event dates, and no missing data was replaced with zeroes."),
+    },
+  ];
+
+  return {
+    title: isAr ? "التقرير الشامل" : "Comprehensive Report",
+    subtitle: isAr ? `ملخص تشغيلي موثق من ${startDate} إلى ${endDate}` : `Documented operational summary from ${startDate} to ${endDate}`,
+    date: startDate === endDate ? startDate : `${startDate} إلى ${endDate}`,
+    sections,
+  };
+}
+
 export default function ExportReports() {
   const { language } = useLanguage();
   const isAr = language === "ar";
@@ -136,9 +419,55 @@ export default function ExportReports() {
       const thirtyDaysAgo = getRiyadhDate(-30);
 
       if (option.id === "comprehensive") {
-        // Generate the comprehensive report for the dates selected on this screen.
-        const result = await reportsService.generateComprehensive(selectedStartDate, selectedEndDate, userId);
-        const pdfData = generateComprehensiveReport(result?.data || {});
+        // Build the export from the same documented operational-event dates shown
+        // in reports. A missing source is described in the export, never replaced
+        // by an old aggregate or by a zero value.
+        const loadedSources = await Promise.allSettled(
+          reportSources.map((source) => source.load()),
+        );
+        const periodSources: SourcePeriodResult[] = loadedSources.map(
+          (result, index) => {
+            const source = reportSources[index]!;
+            if (result.status === "rejected")
+              return {
+                source,
+                rows: [],
+                loadedRows: 0,
+                undatedRows: 0,
+                outsidePeriodRows: 0,
+                error:
+                  result.reason instanceof Error
+                    ? result.reason.message
+                    : String(result.reason || "Unknown source error"),
+              };
+            try {
+              return filterSourceForPeriod(
+                source,
+                responseRows(result.value, isAr ? source.titleAr : source.titleEn),
+                selectedStartDate,
+                selectedEndDate,
+              );
+            } catch (sourceError) {
+              return {
+                source,
+                rows: [],
+                loadedRows: 0,
+                undatedRows: 0,
+                outsidePeriodRows: 0,
+                error:
+                  sourceError instanceof Error
+                    ? sourceError.message
+                    : String(sourceError || "Unknown source error"),
+              };
+            }
+          },
+        );
+        const pdfData = buildOperationalComprehensiveReport(
+          periodSources,
+          selectedStartDate,
+          selectedEndDate,
+          isAr,
+        );
         await exportReportAsPDF(pdfData);
         Alert.alert(isAr ? "تم" : "Done", isAr ? "تم تصدير التقرير الشامل بنجاح" : "Comprehensive report exported successfully");
       } else if (option.id === "production") {

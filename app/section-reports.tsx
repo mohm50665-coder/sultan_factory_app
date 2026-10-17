@@ -11,8 +11,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Print from "expo-print";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
@@ -41,18 +44,72 @@ const SECTIONS: SectionConfig[] = [
   { key: "administrative", titleAr: "الإجراءات الإدارية", titleEn: "Administrative", icon: "assignment", color: "#06b6d4" },
 ];
 
+const PRINT_LABELS: Record<string, { ar: string; en: string }> = {
+  totalEntries: { ar: "عدد الإدخالات", en: "Entries" },
+  firstPairs: { ar: "النخب الأول", en: "First grade" },
+  yarnGrams: { ar: "الخيوط المستخدمة (جم)", en: "Yarn used (g)" },
+  wastePercent: { ar: "نسبة الهدر", en: "Waste percentage" },
+  needlesUsed: { ar: "الإبر المستخدمة", en: "Needles used" },
+  totalProduction: { ar: "إجمالي الإنتاج", en: "Total production" },
+  totalWasteThread: { ar: "هدر الخيوط", en: "Thread waste" },
+  totalWasteSocks: { ar: "هدر الجوارب", en: "Sock waste" },
+  totalSecondGrade: { ar: "النخب الثاني", en: "Second grade" },
+  totalNeedles: { ar: "هدر الإبر", en: "Needle waste" },
+  machineCount: { ar: "المكائن النشطة", en: "Active machines" },
+  totalShifts: { ar: "إجمالي الورديات", en: "Total shifts" },
+  inCount: { ar: "عمليات الإدخال", en: "Receipt operations" },
+  outCount: { ar: "عمليات الإخراج", en: "Issue operations" },
+  totalIn: { ar: "إجمالي الداخل", en: "Total received" },
+  totalOut: { ar: "إجمالي الخارج", en: "Total issued" },
+  balance: { ar: "رصيد نهاية الفترة", en: "Period closing balance" },
+  openingPairs: { ar: "رصيد بداية الفترة", en: "Period opening balance" },
+  salesCount: { ar: "عمليات البيع", en: "Sales operations" },
+  collectionsCount: { ar: "عمليات التحصيل", en: "Collection operations" },
+  totalSalesAmount: { ar: "إجمالي المبيعات", en: "Total sales" },
+  totalCollected: { ar: "المحصّل", en: "Collected" },
+  orderCount: { ar: "الطلبات", en: "Orders" },
+  visitCount: { ar: "الزيارات", en: "Visits" },
+  otherTransactionCount: { ar: "معاملات أخرى", en: "Other transactions" },
+  totalExpenses: { ar: "إجمالي المصروفات", en: "Total expenses" },
+  periodicCount: { ar: "صيانة دورية", en: "Periodic maintenance" },
+  emergencyCount: { ar: "صيانة طارئة", en: "Emergency maintenance" },
+  stoppedCount: { ar: "أجهزة متوقفة", en: "Stopped equipment" },
+  totalTasks: { ar: "إجمالي المهام", en: "Total tasks" },
+  completed: { ar: "مكتملة", en: "Completed" },
+  pending: { ar: "معلقة", en: "Pending" },
+  overdue: { ar: "متأخرة", en: "Overdue" },
+  totalRequests: { ar: "إجمالي الطلبات", en: "Total requests" },
+  approved: { ar: "موافق عليها", en: "Approved" },
+  pendingApproval: { ar: "قيد المراجعة", en: "Pending approval" },
+  rejected: { ar: "مرفوضة", en: "Rejected" },
+  machineData: { ar: "الإنتاج حسب المكينة", en: "Production by machine" },
+  productData: { ar: "الإنتاج حسب المنتج", en: "Production by product" },
+  shiftData: { ar: "الإنتاج حسب الوردية", en: "Production by shift" },
+  categoryData: { ar: "المصروفات حسب البند", en: "Expenses by category" },
+};
+
+function escapeReportHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character] || character));
+}
+
 export default function SectionReportsScreen() {
   const router = useRouter();
+  const { startDate: requestedStartDate, endDate: requestedEndDate, section: requestedSection } = useLocalSearchParams<{ startDate?: string; endDate?: string; section?: string }>();
   const colors = useColors();
   const { language, isRtl } = useLanguage();
   const isAr = language === "ar";
 
-  const [activeSection, setActiveSection] = useState<ReportSection>("production");
+  const requestedSectionKey = typeof requestedSection === "string" && SECTIONS.some((section) => section.key === requestedSection)
+    ? requestedSection as ReportSection
+    : "production";
+  const requestedStart = reportDate(requestedStartDate);
+  const requestedEnd = reportDate(requestedEndDate);
+  const [activeSection, setActiveSection] = useState<ReportSection>(requestedSectionKey);
   const [isLoading, setIsLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const today = riyadhDate();
-  const [startDate, setStartDate] = useState(`${today.slice(0,7)}-01`);
-  const [endDate, setEndDate] = useState(today);
+  const [startDate, setStartDate] = useState(requestedStart || `${today.slice(0,7)}-01`);
+  const [endDate, setEndDate] = useState(requestedEnd || today);
   const [error, setError] = useState("");
   const loadVersion = useRef(0);
   const normalizedStartDate = reportDate(startDate);
@@ -170,6 +227,7 @@ export default function SectionReportsScreen() {
     });
 
     return {
+      hasPeriodData: entries.length > 0,
       totalEntries: entries.length,
       firstPairs: measured.firstPairs, yarnGrams: measured.yarnGrams, wastePercent: measured.wastePercent, needlesUsed: measured.needlesUsed,
       totalProduction,
@@ -192,16 +250,18 @@ export default function SectionReportsScreen() {
   const loadWarehouseReport = async () => {
     const [stock, movements] = await Promise.all([finishedWarehouseService.list(), finishedWarehouseService.movements()]);
     const ledger = warehousePeriod({stock:reportRows(stock),movements:sortReportRows(reportRows(movements), "movement"),startDate:reportStartDate,endDate:reportEndDate});
-    return { inCount:ledger.movements.filter(r=>r.movementType === "receipt").length,
+    return { hasPeriodData: ledger.movements.length > 0,
+      inCount:ledger.movements.filter(r=>r.movementType === "receipt").length,
       outCount:ledger.movements.filter(r=>r.movementType === "issue").length,
-      totalIn:ledger.receiptPairs,totalOut:ledger.issuePairs,balance:ledger.closingPairs,currentPairs:ledger.currentPairs,openingPairs:ledger.openingPairs };
+      totalIn:ledger.receiptPairs,totalOut:ledger.issuePairs,balance:ledger.closingPairs,openingPairs:ledger.openingPairs };
   };
 
   // Load Sales Report
   const loadSalesReport = async () => {
     const [sales,legacySales,collections,legacyCollections,transactions] = await Promise.all([representativeService.sales.list(),salesService.getAll(),representativeService.collections.list(),collectionService.getAll(),representativeService.transactions.list()]);
     const report = commercialReport({sales:sortReportRows(reportRows(sales), "sale"),legacySales:sortReportRows(reportRows(legacySales), "sale"),collections:sortReportRows(reportRows(collections), "collection"),legacyCollections:sortReportRows(reportRows(legacyCollections), "collection"),transactions:sortReportRows(reportRows(transactions), "transaction"),startDate:reportStartDate,endDate:reportEndDate});
-    return { salesCount:report.salesRows.length,collectionsCount:report.collectionRows.length,totalSalesAmount:report.salesAmount,totalCollected:report.collectionAmount,orderCount:report.orderRows.length,visitCount:report.visitRows.length };
+    return { hasPeriodData: report.salesRows.length + report.collectionRows.length + report.orderRows.length + report.visitRows.length + report.otherTransactionRows.length > 0,
+      salesCount:report.salesRows.length,collectionsCount:report.collectionRows.length,totalSalesAmount:report.salesAmount,totalCollected:report.collectionAmount,orderCount:report.orderRows.length,visitCount:report.visitRows.length,otherTransactionCount:report.otherTransactionRows.length };
   };
 
   // Load Expenses Report
@@ -216,6 +276,7 @@ export default function SectionReportsScreen() {
     });
 
     return {
+      hasPeriodData: entries.length > 0,
       totalEntries: entries.length,
       totalExpenses,
       categoryData,
@@ -242,6 +303,7 @@ export default function SectionReportsScreen() {
     const stopped = periodRows(stoppedRows);
 
     return {
+      hasPeriodData: periodic.length + emergency.length + stopped.length > 0,
       periodicCount: periodic.length,
       emergencyCount: emergency.length,
       stoppedCount: stopped.length,
@@ -258,6 +320,7 @@ export default function SectionReportsScreen() {
     const overdue = entries.filter((e: any) => e.status === "overdue" || e.overdue).length;
 
     return {
+      hasPeriodData: entries.length > 0,
       totalTasks: entries.length,
       completed,
       pending,
@@ -274,11 +337,47 @@ export default function SectionReportsScreen() {
     const rejected = entries.filter((e: any) => e.status === "rejected").length;
 
     return {
+      hasPeriodData: entries.length > 0,
       totalRequests: entries.length,
       approved,
       pendingApproval,
       rejected,
     };
+  };
+
+  const printActiveReport = async () => {
+    if (activeSection === "manufacturing") {
+      router.push({ pathname: "/custody-reports", params: { startDate: reportStartDate, endDate: reportEndDate } } as never);
+      return;
+    }
+    if (isLoading || error || !reportData || !reportData.hasPeriodData) {
+      Alert.alert(
+        isAr ? "تعذر طباعة التقرير" : "Unable to print report",
+        isAr ? "انتظر تحميل بيانات الفترة بنجاح وتأكد من وجود أحداث تشغيلية موثقة داخل النطاق." : "Wait for the period data to load successfully and ensure it contains documented operational events.",
+      );
+      return;
+    }
+    const title = isAr ? `تقرير ${activeSectionConfig?.titleAr || "القسم"}` : `${activeSectionConfig?.titleEn || "Section"} Report`;
+    const rows = Object.entries(reportData)
+      .filter(([key, value]) => key !== "hasPeriodData" && PRINT_LABELS[key] && (typeof value !== "object" || value === null))
+      .map(([key, value]) => {
+        const label = PRINT_LABELS[key][isAr ? "ar" : "en"];
+        const displayValue = key === "wastePercent" && typeof value === "number" ? `${value.toFixed(2)}%` : String(value ?? (isAr ? "غير مؤكد" : "Unverified"));
+        return `<tr><th>${escapeReportHtml(label)}</th><td>${escapeReportHtml(displayValue)}</td></tr>`;
+      }).join("");
+    const html = `<!doctype html><html lang="${isAr ? "ar" : "en"}" dir="${isAr ? "rtl" : "ltr"}"><head><meta charset="utf-8"><title>${escapeReportHtml(title)}</title><style>@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#172033;padding:16px;direction:${isAr ? "rtl" : "ltr"}}h1{color:#075985;margin:0 0 6px}p{color:#475569}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:${isAr ? "right" : "left"}}th{background:#e0f2fe;width:48%}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><h1>${escapeReportHtml(title)}</h1><p>${escapeReportHtml(isAr ? "الفترة المعتمدة حسب تاريخ الحدث التشغيلي" : "Period based on the operational event date")}: ${escapeReportHtml(reportStartDate)} ${isAr ? "إلى" : "to"} ${escapeReportHtml(reportEndDate)}</p><table><tbody>${rows}</tbody></table><script>window.onload=()=>{window.focus();window.print()}</script></body></html>`;
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const printWindow = window.open("", "_blank", "width=900,height=700");
+      if (!printWindow) {
+        Alert.alert(isAr ? "تعذر فتح الطباعة" : "Unable to open print", isAr ? "اسمح بالنوافذ المنبثقة ثم أعد المحاولة." : "Allow pop-ups and try again.");
+        return;
+      }
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      return;
+    }
+    await Print.printAsync({ html });
   };
 
   const renderProductionReport = () => {
@@ -321,11 +420,11 @@ export default function SectionReportsScreen() {
     );
   };
 
-  const renderManufacturingReport = () => <CustodySummaryPanel startDate={startDate} endDate={endDate}/>;
+  const renderManufacturingReport = () => <CustodySummaryPanel startDate={reportStartDate} endDate={reportEndDate}/>;
 
   const renderWarehouseReport = () => {
     if (!reportData) return null;
-    const { inCount, outCount, totalIn, totalOut, balance, currentPairs, openingPairs } = reportData;
+    const { inCount, outCount, totalIn, totalOut, balance, openingPairs } = reportData;
 
     const pieData = [
       { label: isAr ? "داخل" : "In", value: totalIn || 0, color: "#10b981" },
@@ -342,7 +441,7 @@ export default function SectionReportsScreen() {
           <StatCard title={isAr ? "الرصيد" : "Balance"} value={balance == null ? "غير مؤكد" : pairLabel(balance)} color={balance >= 0 ? "#3b82f6" : "#ef4444"} />
           <StatCard title={isAr ? "عمليات الإدخال" : "Operations"} value={`${inCount + outCount}`} color="#6366f1" />
         </View>
-        <View style={styles.statsRow}><StatCard title="رصيد بداية الفترة" value={openingPairs == null ? "غير مؤكد" : pairLabel(openingPairs)} color="#075985"/><StatCard title="الرصيد الحالي — مستقل عن حركة الفترة" value={pairLabel(currentPairs)} color="#075985"/></View>
+        <View style={styles.statsRow}><StatCard title="رصيد بداية الفترة" value={openingPairs == null ? "غير مؤكد" : pairLabel(openingPairs)} color="#075985"/></View>
         {(totalIn > 0 || totalOut > 0) && <PieChart data={pieData} title={isAr ? "حركة المستودع" : "Warehouse Movement"} />}
       </View>
     );
@@ -350,7 +449,7 @@ export default function SectionReportsScreen() {
 
   const renderSalesReport = () => {
     if (!reportData) return null;
-    const { salesCount, collectionsCount, totalSalesAmount, totalCollected, orderCount, visitCount } = reportData;
+    const { salesCount, collectionsCount, totalSalesAmount, totalCollected, orderCount, visitCount, otherTransactionCount } = reportData;
 
     return (
       <View>
@@ -362,11 +461,12 @@ export default function SectionReportsScreen() {
           <StatCard title="الطلبات — ليست مبيعات" value={`${orderCount}`} color="#f59e0b" />
           <StatCard title="الزيارات — معلومات فقط" value={`${visitCount}`} color="#3b82f6" />
         </View>
+        {otherTransactionCount > 0 && <View style={styles.statsRow}><StatCard title={isAr ? "معاملات تشغيلية أخرى" : "Other operational transactions"} value={`${otherTransactionCount}`} color="#64748b" /></View>}
         <View style={styles.statsRow}>
           <StatCard title={isAr ? "عمليات البيع" : "Sales Ops"} value={`${salesCount}`} color="#6366f1" />
           <StatCard title={isAr ? "عمليات التحصيل" : "Collections"} value={`${collectionsCount}`} color="#14b8a6" />
         </View>
-        <TouchableOpacity onPress={()=>router.push("/representative-reports" as never)} style={{padding:12}}><Text style={{textAlign:"right",color:colors.primary,fontWeight:"800"}}>تفاصيل الفواتير والتحصيل والطلبات والزيارات والطباعة</Text></TouchableOpacity>
+        <TouchableOpacity onPress={()=>router.push({ pathname: "/representative-reports", params: { startDate: reportStartDate, endDate: reportEndDate } } as never)} style={{padding:12}}><Text style={{textAlign:"right",color:colors.primary,fontWeight:"800"}}>تفاصيل الفواتير والتحصيل والطلبات والزيارات والطباعة</Text></TouchableOpacity>
       </View>
     );
   };
@@ -529,15 +629,18 @@ export default function SectionReportsScreen() {
       </View>
 
       {/* Section Title */}
-      <View style={styles.sectionHeader}>
+      <View style={[styles.sectionHeader]}>
         <View style={[styles.sectionIcon, { backgroundColor: `${activeSectionConfig?.color}15` }]}>
           <MaterialIcons name={activeSectionConfig?.icon as any} size={20} color={activeSectionConfig?.color} />
         </View>
         <Text style={[styles.sectionTitle, { textAlign: isRtl ? "right" : "left" }]}>
           {isAr
             ? `تقرير ${activeSectionConfig?.titleAr}`
-            : `${activeSectionConfig?.titleEn} Report`}
+          : `${activeSectionConfig?.titleEn} Report`}
         </Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isAr ? "طباعة التقرير للفترة المحددة" : "Print selected-period report"} onPress={() => void printActiveReport()} style={styles.printButton}>
+          <MaterialIcons name="print" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Report Content */}
@@ -551,14 +654,14 @@ export default function SectionReportsScreen() {
           {renderActiveReport()}
 
           {/* Empty State */}
-          {reportData && Object.values(reportData).every((v) => v === 0 || v === null || (Array.isArray(v) && v.length === 0) || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0)) && (
+          {activeSection !== "manufacturing" && reportData?.hasPeriodData === false && (
             <View style={styles.emptyState}>
               <MaterialIcons name="analytics" size={56} color="#d1d5db" />
               <Text style={styles.emptyText}>
-                {isAr ? "لا توجد بيانات بعد" : "No data available yet"}
+                {isAr ? "لا توجد أحداث تشغيلية موثقة في الفترة المحددة" : "No documented operational events in the selected period"}
               </Text>
               <Text style={styles.emptySubtext}>
-                {isAr ? "ابدأ بإدخال البيانات في هذا القسم لعرض التقرير" : "Start entering data in this section to view the report"}
+                {isAr ? "لا تُعرض السجلات التي لا تحمل تاريخ حدث تشغيلي ضمن الفترة." : "Records without an operational event date are excluded from the period."}
               </Text>
             </View>
           )}
@@ -631,6 +734,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1f2937",
     flex: 1,
+  },
+  printButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e0f2fe",
   },
   loadingContainer: {
     flex: 1,

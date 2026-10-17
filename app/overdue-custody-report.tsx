@@ -158,6 +158,13 @@ export default function OverdueCustodyReportScreen() {
       .sort(sortCustodyRows);
   }, [normalizedEndDate, normalizedStartDate, periodError, rows]);
 
+  // A missing receipt event must never be silently treated as a zero-result period or
+  // substituted with an audit timestamp. It remains excluded from the bounded report.
+  const undocumentedReceiptCount = useMemo(
+    () => rows.filter((row) => !custodyReceivedDate(row)).length,
+    [rows],
+  );
+
   const groups = useMemo<CustodyGroup[]>(() => {
     const grouped = new Map<string, CustodyGroup>();
     reportRows.forEach((row) => {
@@ -214,10 +221,17 @@ export default function OverdueCustodyReportScreen() {
           <View style={styles.metric}><Text style={styles.metricValue}>{totalPairs}</Text><Text style={styles.metricLabel}>{isAr ? "إجمالي الأزواج" : "Total pairs"}</Text></View>
         </View> : null}
 
+        {canRenderReport && undocumentedReceiptCount > 0 ? <View style={styles.dateWarning}>
+          <MaterialIcons name="info-outline" size={20} color="#9a3412" />
+          <Text style={styles.dateWarningText}>{isAr
+            ? `استُبعدت ${undocumentedReceiptCount} عهدة من الفترة لعدم توثيق تاريخ الاستلام التشغيلي؛ لم يُستخدم تاريخ الإنشاء أو التحديث بديلًا.`
+            : `${undocumentedReceiptCount} custody record(s) were excluded because the operational receipt date is undocumented; no creation or update date was used instead.`}</Text>
+        </View> : null}
+
         {loading ? <ActivityIndicator color={colors.primary} size="large" />
           : sourceError ? <View style={styles.sourceError}><MaterialIcons name="error-outline" size={44} color="#b91c1c" /><Text style={styles.sourceErrorTitle}>{isAr ? "فشل تحميل المصدر" : "Source failed to load"}</Text><Text style={styles.sourceErrorText}>{errorMessage}</Text><TouchableOpacity onPress={() => void load()} style={styles.retryButton}><Text style={styles.retryText}>{isAr ? "إعادة المحاولة" : "Retry"}</Text></TouchableOpacity></View>
             : periodError ? null
-              : groups.length === 0 ? <View style={styles.empty}><MaterialIcons name="check-circle" size={44} color="#16a34a" /><Text style={styles.emptyTitle}>{isAr ? "لا توجد عهد متأخرة ضمن الفترة" : "No overdue custody in this period"}</Text></View>
+              : groups.length === 0 ? <View style={styles.empty}><MaterialIcons name={undocumentedReceiptCount > 0 ? "info-outline" : "check-circle"} size={44} color={undocumentedReceiptCount > 0 ? "#9a3412" : "#16a34a"} /><Text style={styles.emptyTitle}>{undocumentedReceiptCount > 0 ? (isAr ? "لا توجد عهد متأخرة ذات تاريخ استلام موثق ضمن الفترة" : "No overdue custody with a documented receipt date in this period") : (isAr ? "لا توجد عهد متأخرة ضمن الفترة" : "No overdue custody in this period")}</Text></View>
                 : groups.map((group) => <View key={`${group.worker}-${group.stage}`} style={styles.group}><View style={styles.groupHeader}><Text style={styles.count}>{group.count} {isAr ? "عهدة" : "items"}</Text><View><Text style={styles.worker}>{group.worker}</Text><Text style={styles.stage}>{stageNames[group.stage] || group.stage} · {group.pairs} {isAr ? "زوج" : "pairs"}</Text></View></View>{group.rows.map((row) => <View key={String(row.id)} style={styles.row}><View style={styles.overdue}><Text style={styles.overdueText}>{Math.max(0, overdueHours(row))} {isAr ? "ساعة" : "hours"}</Text></View><View style={styles.rowText}><Text style={styles.product}>{row.productName || "—"}</Text><Text style={styles.meta}>{Number(row.quantityDozen || 0)} {isAr ? "درزن" : "dozen"} + {Number(row.quantityPair || 0)} {isAr ? "زوج" : "pairs"} · {custodyReceivedDate(row) || "—"}</Text></View></View>)}</View>)}
       </ScrollView>
     </ScreenContainer>
@@ -237,6 +251,8 @@ const styles = StyleSheet.create({
   periodHint: { color: "#7c2d12", fontSize: 10, lineHeight: 15, textAlign: "right" },
   periodError: { flexDirection: "row-reverse", alignItems: "center", gap: 8, backgroundColor: "#fef2f2", borderWidth: 1, borderColor: "#fecaca", borderRadius: 9, padding: 10 },
   periodErrorText: { flex: 1, color: "#991b1b", fontSize: 12, fontWeight: "800", textAlign: "right" },
+  dateWarning: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 8, backgroundColor: "#fff7ed", borderWidth: 1, borderColor: "#fdba74", borderRadius: 9, padding: 10 },
+  dateWarningText: { flex: 1, color: "#9a3412", fontSize: 11, fontWeight: "700", lineHeight: 16, textAlign: "right" },
   exportRow: { flexDirection: "row", gap: 8 },
   exportButton: { flex: 1, borderRadius: 8, paddingVertical: 10, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 },
   exportText: { color: "#fff", fontWeight: "900", fontSize: 12 },

@@ -140,19 +140,44 @@ const rowWastePercent = (row: any) => {
       ).toFixed(2)
     : null;
 };
-/** Tracking has its own business day; expose it as the general-report date. */
-const rowForReportPeriod = (row: any, kind: ReportKind) => {
-  if (kind !== "general") return row;
-  const trackingBusinessDate = normalizeReportDate(
-    row?.trackingDate ?? row?.handoverDate,
-  );
-  return trackingBusinessDate ? { ...row, date: trackingBusinessDate } : row;
-};
-const handoverBusinessDate = (row: any) =>
-  normalizeReportDate(row?.trackingDate ?? row?.handoverDate) ||
-  businessDate(row, "general");
+/** Keep the shared report contract as the sole date parser; no tracking/audit date is promoted. */
+const rowForReportPeriod = (row: any, _kind: ReportKind) => row;
+/** A handover event is dated only by the recorded delivery or receipt instant. */
+const handoverBusinessDate = (row: any) => normalizeReportDate(row?._eventAt);
 const rowBusinessDate = (row: any, kind: ReportKind) =>
   businessDate(rowForReportPeriod(row, kind), kind);
+/** Retain only the documented operational date fields for the domain being filtered. */
+const operationalRowForPeriod = (row: any, kind: ReportKind) => {
+  const source = {
+    ...(row?.data && typeof row.data === "object" ? row.data : {}),
+    ...row,
+  };
+  if (kind === "production")
+    return { productionDate: source.productionDate, date: source.date };
+  if (kind === "sale")
+    return { invoiceDate: source.invoiceDate, saleDate: source.saleDate };
+  if (kind === "collection")
+    return { collectionDate: source.collectionDate, receiptDate: source.receiptDate };
+  if (kind === "transaction")
+    return { orderDate: source.orderDate, visitDate: source.visitDate };
+  if (kind === "movement")
+    return { movementAt: source.movementAt, movementDate: source.movementDate };
+  return rowForReportPeriod(row, kind);
+};
+const sortHandoverEvents = (rows: any[]) =>
+  [...rows].sort((left, right) => {
+    const leftDate = handoverBusinessDate(left);
+    const rightDate = handoverBusinessDate(right);
+    if (leftDate !== rightDate) {
+      if (!leftDate) return 1;
+      if (!rightDate) return -1;
+      return rightDate.localeCompare(leftDate);
+    }
+    return String(right?.id ?? right?.referenceCode ?? "").localeCompare(
+      String(left?.id ?? left?.referenceCode ?? ""),
+      "en",
+    );
+  });
 /** Newest business-date first; undated records remain visible after dated rows. */
 const sortReportRows = (rows: any[], kind: ReportKind) =>
   [...rows].sort((left, right) => {
@@ -262,6 +287,7 @@ const handoverIdentity = (row: any) => {
     productIdentity,
     row.previousStage || "",
     row.currentStage || row.receiverStage || "",
+    row._handoverEvent || "",
     handoverBusinessDate(row),
     numberValue(row.quantityDozen),
     numberValue(row.quantityPairs ?? row.quantityPair),
@@ -310,7 +336,7 @@ const canonicalizeHandovers = (rows: any[]) => {
       numberValue(row.shortagePairs),
     );
   });
-  return sortReportRows(
+  return sortHandoverEvents(
     Array.from(grouped.values()).map((row) => ({
       ...row,
       deliveredBy: row._deliveredBy,
@@ -318,7 +344,6 @@ const canonicalizeHandovers = (rows: any[]) => {
       deliveredAt: row._deliveredAt,
       receivedAt: row._receivedAt,
     })),
-    "general",
   );
 };
 
@@ -704,7 +729,7 @@ export default function DailySummaryScreen() {
       | "general" = "general",
   ) =>
     inReportPeriod(
-      rowForReportPeriod(row, kind),
+      operationalRowForPeriod(row, kind),
       kind,
       reportPeriodStart,
       reportPeriodEnd,
@@ -722,7 +747,8 @@ export default function DailySummaryScreen() {
     sales: "sale",
     collection: "collection",
     ordersVisits: "transaction",
-    tracking: "general",
+    // Tracking is expanded below into delivery and receipt events; it never uses a batch date.
+    tracking: "movement",
     // `date` on a historical stage row belongs to the original production batch.
     // A delivery/receipt report must use movementAt/receivedAt, never that batch date.
     manufacturing: "movement",
