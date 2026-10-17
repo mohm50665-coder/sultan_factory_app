@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
 import { productsService, trpcCall } from "@/lib/services/api.service";
+import { productionMetrics } from "@shared/operational-report";
 import type { CustodyAccount, CustodyBatchInput, CustodyProduct } from "@/shared/custody-contract";
 
 const MAX_PRODUCTS_PER_MACHINE_SHIFT = 5;
@@ -310,9 +311,10 @@ export default function CustodyBatchEntry() {
     const firstPairs = quantities[0] * 12 + quantities[1];
     const secondPairs = quantities[2] * 12 + quantities[3];
     if (!Number.isSafeInteger(firstPairs + secondPairs) || firstPairs + secondPairs < 1) throw new Error(l(`أدخل زوجًا واحدًا على الأقل للمنتج ${index + 1}.`, `Enter at least one pair for item ${index + 1}.`));
-    const grams = Number(numberInput(draft.yarnWeight)) * (draft.weightUnit === "kg" ? 1000 : 1);
+    const hasIssuedYarnWeight = draft.yarnWeight.trim().length > 0;
+    const grams = hasIssuedYarnWeight ? Number(numberInput(draft.yarnWeight)) * (draft.weightUnit === "kg" ? 1000 : 1) : 0;
     const perPair = Number(numberInput(draft.pairWeight));
-    if (!Number.isFinite(grams) || grams <= 0 || !Number.isFinite(perPair) || perPair <= 0) throw new Error(l(`أدخل وزن الخيوط المصروفة ووزن الزوج للمنتج ${index + 1}.`, `Enter issued yarn weight and pair weight for item ${index + 1}.`));
+    if ((hasIssuedYarnWeight && (!Number.isFinite(grams) || grams <= 0)) || !Number.isFinite(perPair) || perPair <= 0) throw new Error(l(`أدخل وزن زوج صحيح للمنتج ${index + 1}. وزن الخيوط المصروفة اختياري، لكنه يلزم لحساب نسبة الهدر.`, `Enter a valid pair weight for item ${index + 1}. Issued yarn weight is optional, but required to calculate the waste rate.`));
     const yarns = draft.yarns.map(yarn => ({ name: yarn.name.trim(), percentage: Number(numberInput(yarn.percentage)) }));
     if (!yarns.length || yarns.some(yarn => !yarn.name || !Number.isFinite(yarn.percentage) || yarn.percentage <= 0) || Math.abs(yarns.reduce((total, yarn) => total + yarn.percentage, 0) - 100) > 0.001) {
       throw new Error(l(`أكمل أسماء الخيوط للمنتج ${index + 1} واجعل مجموع النسب 100%.`, `Complete yarn names for item ${index + 1} and make the percentages total 100%.`));
@@ -385,6 +387,17 @@ export default function CustodyBatchEntry() {
     const code = automaticItemCode(draft.name, draft.size, draft.color);
     const totalPairs = [draft.firstD, draft.firstP, draft.secondD, draft.secondP].every(value => Number.isFinite(cleanInt(value)))
       ? (cleanInt(draft.firstD) + cleanInt(draft.secondD)) * 12 + cleanInt(draft.firstP) + cleanInt(draft.secondP) : "—";
+    const issuedYarnGrams = draft.yarnWeight.trim()
+      ? Number(numberInput(draft.yarnWeight)) * (draft.weightUnit === "kg" ? 1000 : 1)
+      : null;
+    const wastePreview = productionMetrics([{
+      productionDozen: 0,
+      productionPairs: 0,
+      yarnIssuedGrams: issuedYarnGrams,
+      wasteThreadGrams: draft.wasteThread.trim() ? Number(numberInput(draft.wasteThread)) : 0,
+      wasteSocksGrams: draft.wasteSocks.trim() ? Number(numberInput(draft.wasteSocks)) : 0,
+    }]);
+    const wasteRate = wastePreview.wastePercent;
     const readOnly = !!sampleId || !!legacyId;
     return <View key={draft.key} style={[s.productCard, activeDraftIndex === draftIndex && s.productCardActive]}>
       <View style={[s.productHeader, flowStyle]}>
@@ -411,7 +424,7 @@ export default function CustodyBatchEntry() {
       </View>)}
       {!readOnly ? <TouchableOpacity style={[s.secondary, { alignSelf: english ? "flex-start" : "flex-end" }]} onPress={() => addYarn(draftIndex)}><Text style={[s.link, textStyle]}>{l("إضافة نوع خيط", "Add yarn type")}</Text></TouchableOpacity> : null}
       <View style={[s.grid, flowStyle]}>
-        <RowField label={l("وزن الخيوط المصروفة للدفعة", "Issued yarn weight for item")} numeric value={draft.yarnWeight} onChange={value => replaceDraft(draftIndex, { yarnWeight: value })} editable={!readOnly} language={language} />
+        <RowField label={l("وزن الخيوط المصروفة للدفعة (اختياري)", "Issued yarn weight for item (optional)")} required={false} numeric value={draft.yarnWeight} onChange={value => replaceDraft(draftIndex, { yarnWeight: value })} editable={!readOnly} placeholder={l("أدخله لحساب نسبة الهدر", "Enter to calculate waste rate")} language={language} />
         <RowField label={l("وزن الزوج (جرام)", "Pair weight (grams)")} numeric value={draft.pairWeight} onChange={value => replaceDraft(draftIndex, { pairWeight: value })} editable={!readOnly} language={language} />
       </View>
       <View style={[s.inline, flowStyle]}><Text style={[s.label, textStyle]}>{l("وحدة وزن الخيوط", "Yarn weight unit")}</Text>
@@ -430,6 +443,13 @@ export default function CustodyBatchEntry() {
         <RowField label={l("هدر الجوارب (جرام)", "Sock waste (grams)")} required={false} numeric value={draft.wasteSocks} onChange={value => replaceDraft(draftIndex, { wasteSocks: value })} language={language} />
         <RowField label={l("الإبر المستخدمة (حبة)", "Needles used (pieces)")} required={false} numeric value={draft.needlesUsed} onChange={value => replaceDraft(draftIndex, { needlesUsed: value })} language={language} />
         <RowField label={l("الإبر التالفة (حبة)", "Damaged needles (pieces)")} required={false} numeric value={draft.wasteNeedles} onChange={value => replaceDraft(draftIndex, { wasteNeedles: value })} language={language} />
+      </View>
+      <View style={s.wasteRateBox} accessibilityLabel={l("نسبة الهدر التلقائية", "Automatic waste rate")}>
+        <Text style={[s.wasteRateLabel, textStyle]}>{l("نسبة الهدر الإجمالية (تلقائية)", "Total waste rate (automatic)")}</Text>
+        <Text style={[s.wasteRateValue, textStyle]}>{wasteRate === null ? l("غير محسوبة", "Not calculated") : `${wasteRate.toFixed(2)}%`}</Text>
+        <Text style={[s.small, textStyle]}>{issuedYarnGrams && issuedYarnGrams > 0
+          ? l("المعادلة: (هدر الخيوط + هدر الجوارب) ÷ وزن الخيوط المصروفة × 100", "Formula: (yarn waste + sock waste) ÷ issued yarn weight × 100")
+          : l("وزن الخيوط المصروفة غير مدخل؛ يمكن الحفظ، لكن لا تُحسب النسبة دون وزن.", "Issued yarn weight is not entered; saving is allowed, but the rate cannot be calculated without a weight.")}</Text>
       </View>
     </View>;
   };
@@ -494,4 +514,5 @@ const s = StyleSheet.create({
   primary: { backgroundColor: "#087c9d", padding: 13, borderRadius: 8, alignItems: "center", minHeight: 46, marginTop: 2 }, primaryText: { color: "#fff", fontSize: 14, fontWeight: "800" }, secondary: { borderWidth: 1, borderColor: "#a5cbda", padding: 8, borderRadius: 7, marginBottom: 9 }, link: { color: "#087c9d", fontWeight: "800", fontSize: 12, marginTop: 5 }, remove: { alignSelf: "center", padding: 10 }, total: { fontSize: 16, fontWeight: "800", color: "#087c9d", marginBottom: 6 }, suggestion: { padding: 10, borderBottomWidth: 1, borderBottomColor: "#e2e8f0", backgroundColor: "#f8fbfd" }, emptySearch: { color: "#9a3412", backgroundColor: "#fff7ed", padding: 8, borderRadius: 6, marginTop: 7, fontSize: 12 }, disabled: { opacity: 0.5 },
   productSectionHeader: { backgroundColor: "#eaf5fb", borderRadius: 9, padding: 10, marginBottom: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }, addProduct: { minHeight: 38, paddingHorizontal: 11, justifyContent: "center", borderRadius: 7, backgroundColor: "#087c9d" }, addProductText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   productCard: { backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: "#cddce5", padding: 12, marginBottom: 10 }, productCardActive: { borderColor: "#087c9d", borderWidth: 2 }, productHeader: { alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 9 }, productTitleWrap: { flexGrow: 1, flexShrink: 1 }, productTitle: { color: "#16465e", fontSize: 14, fontWeight: "900" }, productActions: { alignItems: "center", gap: 5, flexWrap: "wrap" }, targetButton: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: "#7ab7cc", backgroundColor: "#fff" }, targetButtonActive: { backgroundColor: "#e0f2fe", borderColor: "#087c9d" }, targetButtonText: { color: "#075985", fontSize: 11, fontWeight: "800" }, targetButtonTextActive: { color: "#075985" }, deleteProduct: { paddingHorizontal: 9, paddingVertical: 7, borderRadius: 6, backgroundColor: "#fff1f2" }, deleteProductText: { color: "#b91c1c", fontSize: 11, fontWeight: "800" }, minorTitle: { color: "#31566b", fontWeight: "800", fontSize: 12, marginTop: 6, marginBottom: 6 }, yarnRow: { flexWrap: "wrap", gap: 9, alignItems: "flex-start" },
+  wasteRateBox: { marginTop: 9, padding: 10, borderRadius: 8, backgroundColor: "#eff8ff", borderWidth: 1, borderColor: "#bae6fd" }, wasteRateLabel: { color: "#075985", fontWeight: "800", fontSize: 12 }, wasteRateValue: { color: "#0369a1", fontWeight: "900", fontSize: 20, marginVertical: 3 },
 });
