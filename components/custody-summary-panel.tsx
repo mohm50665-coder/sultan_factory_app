@@ -8,6 +8,14 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { custodyService } from "@/lib/services/custody.service";
+import { useLanguage } from "@/lib/language-context";
+import {
+  custodyStageEnglish,
+  isEnglish,
+  localize,
+  textAlignFor,
+  writingDirection,
+} from "@/lib/i18n/runtime";
 import {
   buildCustodyReport,
   custodyReportSummary,
@@ -26,6 +34,12 @@ export function CustodySummaryPanel({
   allDates?: boolean;
 }) {
   const router = useRouter();
+  const { language } = useLanguage();
+  const english = isEnglish(language);
+  const direction = writingDirection(language);
+  const textAlign = textAlignFor(language);
+  const textStyle = { textAlign, writingDirection: direction };
+  const rowDirection = english ? "row" : "row-reverse";
   const [report, setReport] = useState<CustodyReport | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -66,127 +80,260 @@ export function CustodySummaryPanel({
     () => (report ? custodyReportSummary(report) : null),
     [report],
   );
+  const displayPairs = (pairs: number) => {
+    if (!english) return formatPairs(pairs);
+    if (!Number.isFinite(pairs)) return "Invalid quantity — review required";
+    const dozen = pairs >= 0 ? Math.floor(pairs / 12) : Math.ceil(pairs / 12);
+    const remaining = Math.abs(pairs - dozen * 12);
+    const unit = (value: number, singular: string, plural: string) =>
+      Math.abs(value) === 1 ? singular : plural;
+    return `${pairs.toLocaleString("en-US")} ${unit(pairs, "pair", "pairs")} (${dozen.toLocaleString("en-US")} ${unit(dozen, "dozen", "dozens")} and ${remaining.toLocaleString("en-US")} ${unit(remaining, "pair", "pairs")})`;
+  };
   return (
-    <View style={styles.card}>
-      <View style={styles.top}>
-        <Text style={styles.title}>
-          الاستلام والتسليم — الدورة المترابطة الجديدة
+    <View style={[styles.card, { direction }]}>
+      <View style={[styles.top, { flexDirection: rowDirection }]}>
+        <Text style={[styles.title, textStyle]}>
+          {localize(
+            language,
+            "الاستلام والتسليم — الدورة المترابطة الجديدة",
+            "Receipt and handover — new connected cycle",
+          )}
         </Text>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push({
-            pathname: "/custody-reports",
-            params: {
-              startDate: allDates ? "1970-01-01" : startDate,
-              endDate: allDates ? "2099-12-31" : endDate,
-            },
-          } as never)}
+          accessibilityLabel={localize(
+            language,
+            "التفاصيل والطباعة وExcel",
+            "Details, print and Excel",
+          )}
+          onPress={() =>
+            router.push({
+              pathname: "/custody-reports",
+              params: {
+                startDate: allDates ? "1970-01-01" : startDate,
+                endDate: allDates ? "2099-12-31" : endDate,
+              },
+            } as never)
+          }
         >
-          <Text style={styles.buttonText}>التفاصيل والطباعة وExcel</Text>
+          <Text style={[styles.buttonText, textStyle]}>
+            {localize(
+              language,
+              "التفاصيل والطباعة وExcel",
+              "Details, print and Excel",
+            )}
+          </Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.note}>
-        إنتاج هذه الدفعات محفوظ في بيانات الإنتاج أعلاه؛ لا يضاف مرة ثانية.
-        الأرقام التالية حركة عهد بين الأقسام، وليست إنتاجًا جديدًا.
+      <Text style={[styles.note, textStyle]}>
+        {localize(
+          language,
+          "إنتاج هذه الدفعات محفوظ في بيانات الإنتاج أعلاه؛ لا يضاف مرة ثانية. الأرقام التالية حركة عهد بين الأقسام، وليست إنتاجًا جديدًا.",
+          "Production for these batches is retained in the production data above and is not added a second time. The figures below are custody movements between departments, not new production.",
+        )}
       </Text>
       {loading ? (
-        <ActivityIndicator color="#075985" />
+        <ActivityIndicator
+          color="#075985"
+          accessibilityLabel={localize(
+            language,
+            "جارٍ تحميل ملخص العهد",
+            "Loading custody summary",
+          )}
+        />
       ) : error ? (
-        <Text accessibilityRole="alert" style={styles.error}>
-          لم يكتمل تحميل هذا المصدر: {error}
+        <Text accessibilityRole="alert" style={[styles.error, textStyle]}>
+          {localize(
+            language,
+            "لم يكتمل تحميل هذا المصدر: ",
+            "This source could not be loaded: ",
+          )}
+          {english
+            ? localize(
+                language,
+                "تعذر تحميل العهد",
+                "Unable to load custody data",
+              )
+            : error}
         </Text>
       ) : summary && report ? (
         <>
-          <View style={styles.grid}>
+          <View style={[styles.grid, { flexDirection: rowDirection }]}>
             {[
-              ["استلام مؤكد", summary.receivedPairs],
-              ["إنجاز فعلي بالقراءات", summary.completedPairs],
-              ["تسليم مؤكد", summary.confirmedOutboundPairs],
-              ["مرسل معلق", summary.pendingOutboundPairs],
-              ["مسؤولية مفتوحة عند نهاية الفترة", summary.openCustodyPairs],
-              ["وارد مخزني معتمد", summary.warehouseFinalStockPairs],
-              ["إتلاف منفذ", summary.executedDestroyedPairs],
+              [
+                localize(language, "استلام مؤكد", "Confirmed receipt"),
+                summary.receivedPairs,
+              ],
+              [
+                localize(
+                  language,
+                  "إنجاز فعلي بالقراءات",
+                  "Completed from readings",
+                ),
+                summary.completedPairs,
+              ],
+              [
+                localize(language, "تسليم مؤكد", "Confirmed outbound"),
+                summary.confirmedOutboundPairs,
+              ],
+              [
+                localize(language, "مرسل معلق", "Pending outbound"),
+                summary.pendingOutboundPairs,
+              ],
+              [
+                localize(
+                  language,
+                  "مسؤولية مفتوحة عند نهاية الفترة",
+                  "Open responsibility at period end",
+                ),
+                summary.openCustodyPairs,
+              ],
+              [
+                localize(
+                  language,
+                  "وارد مخزني معتمد",
+                  "Approved warehouse inbound",
+                ),
+                summary.warehouseFinalStockPairs,
+              ],
+              [
+                localize(language, "إتلاف منفذ", "Executed destruction"),
+                summary.executedDestroyedPairs,
+              ],
             ].map(([label, value]) => (
               <View key={String(label)} style={styles.metric}>
-                <Text style={styles.value}>{formatPairs(Number(value))}</Text>
-                <Text style={styles.note}>{label}</Text>
+                <Text style={[styles.value, textStyle]}>
+                  {displayPairs(Number(value))}
+                </Text>
+                <Text style={[styles.note, textStyle]}>{label}</Text>
               </View>
             ))}
           </View>
-          <Text style={styles.sectionTitle}>
-            إجماليات المراحل — نفس أرقام التقرير الشامل
+          <Text style={[styles.sectionTitle, textStyle]}>
+            {localize(
+              language,
+              "إجماليات المراحل — نفس أرقام التقرير الشامل",
+              "Stage totals — same figures as the full report",
+            )}
           </Text>
-          <Text style={styles.note}>
-            رصيد البداية + الوارد المؤكد − الصادر المؤكد − الإغلاق الموثق =
-            المتبقي. المرسل المعلق ظاهر منفصلاً ولا يُخصم قبل تأكيد الاستلام.
+          <Text style={[styles.note, textStyle]}>
+            {localize(
+              language,
+              "رصيد البداية + الوارد المؤكد − الصادر المؤكد − الإغلاق الموثق = المتبقي. المرسل المعلق ظاهر منفصلاً ولا يُخصم قبل تأكيد الاستلام.",
+              "Opening balance + confirmed inbound − confirmed outbound − documented closure = remaining. Pending outbound is shown separately and is not deducted before receipt is confirmed.",
+            )}
           </Text>
           <View style={styles.stageTable}>
-            <View style={styles.stageHeading}>
-              <Text style={styles.stageName}>المرحلة</Text>
-              <Text style={styles.stageCell}>بداية</Text>
-              <Text style={styles.stageCell}>وارد</Text>
-              <Text style={styles.stageCell}>صادر</Text>
-              <Text style={styles.stageCell}>معلق</Text>
-              <Text style={styles.stageCell}>إغلاق</Text>
-              <Text style={styles.stageCell}>متبقٍ</Text>
+            <View
+              style={[styles.stageHeading, { flexDirection: rowDirection }]}
+            >
+              <Text style={[styles.stageName, textStyle]}>
+                {localize(language, "المرحلة", "Stage")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "بداية", "Opening")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "وارد", "Inbound")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "صادر", "Outbound")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "معلق", "Pending")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "إغلاق", "Closure")}
+              </Text>
+              <Text style={[styles.stageCell, textStyle]}>
+                {localize(language, "متبقٍ", "Remaining")}
+              </Text>
             </View>
             {summary.stageTotals.map((stage) => (
-              <View key={stage.stage} style={styles.stageRow}>
-                <Text style={styles.stageName}>
-                  {stage.stageLabel}
+              <View
+                key={stage.stage}
+                style={[styles.stageRow, { flexDirection: rowDirection }]}
+              >
+                <Text style={[styles.stageName, textStyle]}>
+                  {english
+                    ? custodyStageEnglish[stage.stage] || stage.stage
+                    : stage.stageLabel}
                   {stage.invalidQuantityCount
-                    ? ` · كمية غير صالحة (${stage.invalidQuantityCount})`
+                    ? localize(
+                        language,
+                        ` · كمية غير صالحة (${stage.invalidQuantityCount})`,
+                        ` · Invalid quantity (${stage.invalidQuantityCount})`,
+                      )
                     : ""}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.openingPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.openingPairs)}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.confirmedInboundPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.confirmedInboundPairs)}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.confirmedOutboundPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.confirmedOutboundPairs)}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.pendingOutboundPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.pendingOutboundPairs)}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.releasedPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.releasedPairs)}
                 </Text>
-                <Text style={styles.stageCell}>
-                  {formatPairs(stage.remainingPairs)}
+                <Text style={[styles.stageCell, textStyle]}>
+                  {displayPairs(stage.remainingPairs)}
                 </Text>
               </View>
             ))}
           </View>
           {report.departments.map((group) => (
             <View key={group.department}>
-              <Text style={styles.department}>{group.department}</Text>
+              <Text style={[styles.department, textStyle]}>
+                {english
+                  ? (() => {
+                      const systemStage = summary.stageTotals.find(
+                        (stage) => stage.stageLabel === group.department,
+                      );
+                      return systemStage
+                        ? custodyStageEnglish[systemStage.stage] ||
+                            systemStage.stage
+                        : group.department;
+                    })()
+                  : group.department}
+              </Text>
               {group.employees.map((employee) => (
                 <View key={employee.employeeId} style={styles.employee}>
-                  <Text style={styles.employeeName}>
+                  <Text style={[styles.employeeName, textStyle]}>
                     {employee.employeeName}
                   </Text>
-                  <Text style={styles.note}>
-                    مستلم {formatPairs(employee.totals.receivedPairs)} · منجز{" "}
-                    {formatPairs(employee.totals.completedPairs)} · صادر مؤكد{" "}
-                    {formatPairs(employee.totals.confirmedOutboundPairs)} · معلق{" "}
-                    {formatPairs(employee.totals.pendingOutboundPairs)}
+                  <Text style={[styles.note, textStyle]}>
+                    {localize(
+                      language,
+                      `مستلم ${displayPairs(employee.totals.receivedPairs)} · منجز ${displayPairs(employee.totals.completedPairs)} · صادر مؤكد ${displayPairs(employee.totals.confirmedOutboundPairs)} · معلق ${displayPairs(employee.totals.pendingOutboundPairs)}`,
+                      `Received ${displayPairs(employee.totals.receivedPairs)} · Completed ${displayPairs(employee.totals.completedPairs)} · Confirmed outbound ${displayPairs(employee.totals.confirmedOutboundPairs)} · Pending ${displayPairs(employee.totals.pendingOutboundPairs)}`,
+                    )}
                   </Text>
                 </View>
               ))}
             </View>
           ))}
           {summary.employeesWithIncompleteTiming > 0 ? (
-            <Text style={styles.warning}>
-              {summary.employeesWithIncompleteTiming} موظفين لديهم بيانات وقت
-              غير مكتملة؛ لا تعرض إنتاجية تقديرية لهم.
+            <Text style={[styles.warning, textStyle]}>
+              {localize(
+                language,
+                `${summary.employeesWithIncompleteTiming} موظفين لديهم بيانات وقت غير مكتملة؛ لا تعرض إنتاجية تقديرية لهم.`,
+                `${summary.employeesWithIncompleteTiming} employees have incomplete time data; no estimated productivity is shown for them.`,
+              )}
             </Text>
           ) : null}
           {!report.events.length ? (
-            <Text style={styles.note}>
-              لا توجد حركات في الدورة الجديدة ضمن الفترة؛ السجلات التاريخية تبقى
-              في أقسامها ولا يتم نقلها أو تصفيرها تلقائيًا.
+            <Text style={[styles.note, textStyle]}>
+              {localize(
+                language,
+                "لا توجد حركات في الدورة الجديدة ضمن الفترة؛ السجلات التاريخية تبقى في أقسامها ولا يتم نقلها أو تصفيرها تلقائيًا.",
+                "There are no movements in the new cycle for this period. Historical records remain in their sections and are not moved or reset automatically.",
+              )}
             </Text>
           ) : null}
         </>

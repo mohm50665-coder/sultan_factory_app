@@ -15,13 +15,15 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useLanguage } from "@/lib/language-context";
+import { isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
+import type { Language } from "@/lib/i18n";
 import { MaterialIcons } from "@expo/vector-icons";
 import { productionService, salesService, collectionService, expensesService, taskService, productManufacturingRequestService, finishedWarehouseService } from "@/lib/services/api.service";
 import { maintenanceEntriesService } from "@/lib/services/data.service";
 import { representativeService } from "@/lib/services/representative.service";
 import { exportReportAsPDF, type PDFReportData } from "@/lib/services/pdf-export.service";
 import { TextInput } from "react-native";
-import { commercialReport, exactPairs, inReportPeriod, pairLabel, productionMetrics, reportRows, transactionStatusLabel, visitText, warehousePeriod } from "@shared/operational-report";
+import { commercialReport, exactPairs, inReportPeriod, productionMetrics, reportRows, warehousePeriod } from "@shared/operational-report";
 
 interface MonthOption {
   label: string;
@@ -129,19 +131,92 @@ function periodRange(period: ReportPeriod, month: number, year: number, customSt
   return { start: iso(start), end: iso(end), label: `${iso(start)} — ${iso(end)}` };
 }
 
-function DateField({ value, onChange, label, colors }: { value: string; onChange: (value: string) => void; label: string; colors: any }) {
-  return <CalendarDateField value={value} onChange={onChange} accessibilityLabel={label} isAr style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }} />;
+function DateField({ value, onChange, label, colors, isAr }: { value: string; onChange: (value: string) => void; label: string; colors: any; isAr: boolean }) {
+  return <CalendarDateField value={value} onChange={onChange} accessibilityLabel={label} isAr={isAr} style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background }} />;
 }
 
-const rateLabel = (value: number | null, digits = 1) => value == null ? "غير متاح" : `${value.toFixed(digits)}%`;
-const amount = (value: number) => value.toLocaleString("ar-SA", { maximumFractionDigits: 2 });
-const itemQuantity = (item: any) => pairLabel(exactPairs(item, "item"));
+const formatNumber = (language: Language, value: number, options: Intl.NumberFormatOptions = {}) =>
+  value.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA", options);
+
+const formatAmount = (language: Language, value: number) =>
+  formatNumber(language, value, { maximumFractionDigits: 2 });
+
+const formatRate = (language: Language, value: number | null, digits = 1) =>
+  value == null ? localize(language, "غير متاح", "Unavailable") : `${value.toFixed(digits)}%`;
+
+const formatPairs = (language: Language, pairs: number) => {
+  if (!Number.isSafeInteger(pairs)) return localize(language, "كمية غير صالحة — تحتاج مراجعة", "Invalid quantity — needs review");
+  const sign = pairs < 0 ? "−" : "";
+  const value = Math.abs(pairs);
+  const dozens = formatNumber(language, Math.floor(value / 12));
+  const remainder = formatNumber(language, value % 12);
+  return localize(language, `${sign}${dozens} درزن + ${remainder} زوج`, `${sign}${dozens} dozen + ${remainder} pairs`);
+};
+
+const itemQuantity = (language: Language, item: any) => formatPairs(language, exactPairs(item, "item"));
+
+const transactionTypeLabel = (language: Language, type: unknown) => {
+  const normalized = String(type || "").toLowerCase();
+  if (["visit", "زيارة"].includes(normalized)) return localize(language, "زيارة", "Visit");
+  if (["order", "طلب"].includes(normalized)) return localize(language, "طلب", "Order");
+  return localize(language, "معاملة", "Transaction");
+};
+
+const transactionStatus = (language: Language, status: unknown, type?: unknown) => {
+  if (["visit", "زيارة"].includes(String(type || "").toLowerCase())) return localize(language, "زيارة مسجلة — معلومات فقط", "Visit recorded — information only");
+  const labels: Record<string, [string, string]> = {
+    DRAFT: ["مسودة", "Draft"], RECORDED: ["مسجل", "Recorded"], PENDING_SALES_APPROVAL: ["بانتظار اعتماد مدير التسويق", "Awaiting sales manager approval"],
+    REJECTED_SALES: ["مرفوض من التسويق", "Rejected by sales"], PENDING_WAREHOUSE_ISSUE: ["معتمد — بانتظار المستودعات", "Approved — awaiting warehouse"],
+    WAREHOUSE_EXECUTED: ["تم التنفيذ", "Executed"], WAREHOUSE_PARTIAL: ["تم التنفيذ الجزئي", "Partially executed"], WAREHOUSE_NOT_EXECUTED: ["لم يتم التنفيذ", "Not executed"],
+    WAREHOUSE_NOT_AVAILABLE: ["غير متاح", "Unavailable"], PENDING_REPRESENTATIVE_REPLY: ["بانتظار رد المندوب", "Awaiting representative response"],
+    REPRESENTATIVE_REPLIED: ["رد المندوب — بانتظار التنفيذ", "Representative replied — awaiting execution"], REPRESENTATIVE_CLOSED: ["أغلقه المندوب", "Closed by representative"],
+    CLOSED: ["مغلق", "Closed"], CLOSED_REJECTED: ["مغلق — مرفوض", "Closed — rejected"],
+  };
+  const label = labels[String(status || "")];
+  return label ? localize(language, label[0], label[1]) : String(status || localize(language, "لم تسجل الحالة", "No status recorded"));
+};
+
+const localizedVisitText = (language: Language, value: unknown): string => {
+  if (value == null || value === "") return "—";
+  let data: any = value;
+  if (typeof value === "string") {
+    try { data = JSON.parse(value); } catch { return value; }
+  }
+  if (data && typeof data === "object") {
+    const actionLabels: Record<string, [string, string]> = {
+      follow_up: ["متابعة", "Follow-up"], product_presentation: ["عرض منتج", "Product presentation"], product_offer: ["عرض منتج", "Product presentation"], presentation: ["عرض منتج", "Product presentation"],
+    };
+    const action = actionLabels[data.action] ? localize(language, actionLabels[data.action][0], actionLabels[data.action][1]) : data.action || "";
+    const notes = data.notes ?? data.report ?? data.observations;
+    return [action, notes].filter(Boolean).join(" — ") || "—";
+  }
+  return String(value);
+};
+
+const localizedReportSource = (language: Language, source: unknown) => {
+  const labels: Record<string, [string, string]> = {
+    "مبيعات أداء المندوب": ["مبيعات أداء المندوب", "Representative performance sales"],
+    "سجل المبيعات السابق": ["سجل المبيعات السابق", "Legacy sales register"],
+    "تحصيل أداء المندوب": ["تحصيل أداء المندوب", "Representative performance collections"],
+    "سجل التحصيل السابق": ["سجل التحصيل السابق", "Legacy collection register"],
+    "طلبات وزيارات أداء المندوب": ["طلبات وزيارات أداء المندوب", "Representative performance orders and visits"],
+    "الطلبات والزيارات السابقة": ["الطلبات والزيارات السابقة", "Legacy orders and visits"],
+  };
+  const label = labels[String(source || "")];
+  return label ? localize(language, label[0], label[1]) : String(source || "—");
+};
 
 export default function BoardMonthlyReport() {
   const router = useRouter();
   const colors = useColors();
   const { language } = useLanguage();
-  const isAr = language === "ar";
+  const isEn = isEnglish(language);
+  const isAr = !isEn;
+  const direction = writingDirection(language);
+  const textAlign = textAlignFor(language);
+  const rowDirection = isEn ? "row" as const : "row-reverse" as const;
+  const copy = (arabic: string, english: string) => localize(language, arabic, english);
+  const directionalText = { textAlign, writingDirection: direction };
 
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -233,7 +308,7 @@ export default function BoardMonthlyReport() {
       const expCategories: Record<string, number> = {};
       const expenseTotal = expenseRows.reduce((sum, row: any) => {
         const amount = Number(row.amount || 0);
-        const category = row.category || row.description || (isAr ? "أخرى" : "Other");
+        const category = row.category || row.description || (copy("أخرى", "Other"));
         expCategories[category] = (expCategories[category] || 0) + amount;
         return sum + amount;
       }, 0);
@@ -264,7 +339,7 @@ export default function BoardMonthlyReport() {
       if (requestId === latestReportRequest.current) {
         console.error("Error loading report data:", error);
         setReportData(null);
-        setReportError(error?.message || (isAr ? "تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة." : "Could not load report data; zero substitutes are not shown."));
+        setReportError(isEn ? copy("تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة.", "Could not load report data; zero substitutes are not shown.") : error?.message || copy("تعذر تحميل بيانات التقرير. لا يمكن عرض أصفار بديلة.", "Could not load report data; zero substitutes are not shown."));
       }
     } finally {
       if (requestId === latestReportRequest.current) setIsLoading(false);
@@ -275,44 +350,44 @@ export default function BoardMonthlyReport() {
     if (!reportData) return;
     setIsExporting(true);
     try {
-      const monthLabel = `${period === "monthly" ? `${monthNames[selectedMonth]} ${selectedYear}` : period === "weekly" ? (isAr ? "الأسبوع الحالي" : "Current week") : (isAr ? "اليوم" : "Today")} (${range.label})`;
+      const monthLabel = `${period === "monthly" ? `${monthNames[selectedMonth]} ${selectedYear}` : period === "weekly" ? (copy("الأسبوع الحالي", "Current week")) : (copy("اليوم", "Today"))} (${range.label})`;
       const pdfData: PDFReportData = {
-        title: isAr ? "التقرير الشهري لمجلس الإدارة" : "Monthly Board Report",
+        title: copy("التقرير الشهري لمجلس الإدارة", "Monthly Board Report"),
         subtitle: monthLabel,
-        date: new Date().toLocaleDateString(isAr ? "ar-SA" : "en-US"),
-        footer: isAr ? "مصنع السلطان - تقرير سري وخاص بمجلس الإدارة" : "Sultan Factory - Confidential Board Report",
+        date: new Date().toLocaleDateString(copy("ar-SA", "en-US")),
+        footer: copy("مصنع السلطان - تقرير سري وخاص بمجلس الإدارة", "Sultan Factory - Confidential Board Report"),
         sections: [
           {
-            title: isAr ? "ملخص الأداء العام" : "Overall Performance Summary",
+            title: copy("ملخص الأداء العام", "Overall Performance Summary"),
             type: "summary",
             data: [
-              { label: isAr ? "إجمالي الإنتاج" : "Total Production", value: pairLabel(reportData.production.totalPairs) },
-              { label: isAr ? "إجمالي المبيعات" : "Total Sales", value: `${amount(reportData.sales.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "إجمالي المصروفات" : "Total Expenses", value: `${amount(reportData.expenses.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "إجمالي التحصيل" : "Total Collection", value: `${amount(reportData.collection.totalAmount)} ${isAr ? "ريال" : "SAR"}` },
-              { label: isAr ? "هدر الخيوط" : "Yarn Waste", value: `${reportData.production.wasteThread.toLocaleString()} ${isAr ? "جرام" : "g"}` },
-              { label: isAr ? "نسبة الهدر" : "Waste Rate", value: rateLabel(reportData.production.wastePercentage) },
-              { label: isAr ? "المهام المكتملة" : "Tasks Completed", value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
+              { label: copy("إجمالي الإنتاج", "Total Production"), value: formatPairs(language, reportData.production.totalPairs) },
+              { label: copy("إجمالي المبيعات", "Total Sales"), value: `${formatAmount(language, reportData.sales.totalAmount)} ${copy("ريال", "SAR")}` },
+              { label: copy("إجمالي المصروفات", "Total Expenses"), value: `${formatAmount(language, reportData.expenses.totalAmount)} ${copy("ريال", "SAR")}` },
+              { label: copy("إجمالي التحصيل", "Total Collection"), value: `${formatAmount(language, reportData.collection.totalAmount)} ${copy("ريال", "SAR")}` },
+              { label: copy("هدر الخيوط", "Yarn Waste"), value: `${formatNumber(language, reportData.production.wasteThread)} ${copy("جرام", "g")}` },
+              { label: copy("نسبة الهدر", "Waste Rate"), value: formatRate(language, reportData.production.wastePercentage) },
+              { label: copy("المهام المكتملة", "Tasks Completed"), value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
             ],
           },
           {
-            title: isAr ? "مؤشرات الأداء الرئيسية" : "Key Performance Indicators",
+            title: copy("مؤشرات الأداء الرئيسية", "Key Performance Indicators"),
             type: "kpi",
             data: [
               {
-                title: isAr ? "نسبة الهدر" : "Waste Rate",
-                value: rateLabel(reportData.production.wastePercentage),
-                target: isAr ? "أقل من 5%" : "Below 5%",
+                title: copy("نسبة الهدر", "Waste Rate"),
+                value: formatRate(language, reportData.production.wastePercentage),
+                target: copy("أقل من 5%", "Below 5%"),
                 status: reportData.production.wastePercentage == null ? "warning" : reportData.production.wastePercentage <= 5 ? "good" : reportData.production.wastePercentage <= 10 ? "warning" : "bad",
               },
               {
-                title: isAr ? "نسبة إنجاز المهام" : "Task Completion Rate",
+                title: copy("نسبة إنجاز المهام", "Task Completion Rate"),
                 value: `${reportData.tasks.completionRate.toFixed(0)}%`,
                 target: "100%",
                 status: reportData.tasks.completionRate >= 80 ? "good" : reportData.tasks.completionRate >= 60 ? "warning" : "bad",
               },
               {
-                title: isAr ? "نسبة التحصيل" : "Collection Rate",
+                title: copy("نسبة التحصيل", "Collection Rate"),
                 value: `${reportData.collection.collectionRate.toFixed(0)}%`,
                 target: "100%",
                 status: reportData.collection.collectionRate >= 80 ? "good" : reportData.collection.collectionRate >= 60 ? "warning" : "bad",
@@ -320,111 +395,111 @@ export default function BoardMonthlyReport() {
             ],
           },
           {
-            title: isAr ? "تفاصيل الإنتاج" : "Production Details",
+            title: copy("تفاصيل الإنتاج", "Production Details"),
             type: "table",
             data: {
               headers: [
-                isAr ? "البند" : "Item",
-                isAr ? "القيمة" : "Value",
+                copy("البند", "Item"),
+                copy("القيمة", "Value"),
               ],
               rows: [
-                [isAr ? "إجمالي الإنتاج" : "Total Production", pairLabel(reportData.production.totalPairs)],
-                [isAr ? "الفرز الأول" : "First grade", pairLabel(reportData.production.firstGrade)],
-                [isAr ? "عدد الإدخالات" : "Total Entries", `${reportData.production.totalEntries}`],
-                [isAr ? "هدر الخيوط (جرام)" : "Thread Waste (g)", `${reportData.production.wasteThread}`],
-                [isAr ? "هدر الجوارب (جرام)" : "Socks Waste (g)", `${reportData.production.wasteSocks}`],
-                [isAr ? "وزن الخيوط المستخدم (جرام)" : "Yarn Used (g)", `${reportData.production.yarnWeight.toFixed(2)}`],
-                [isAr ? "نسبة الهدر" : "Waste Rate", rateLabel(reportData.production.wastePercentage)],
-                [isAr ? "هدر الإبر (حبة)" : "Needle Waste (pcs)", `${reportData.production.wasteNeedles}`],
-                [isAr ? "النخب الثاني (أزواج)" : "Second Grade (Pairs)", `${reportData.production.secondGrade}`],
+                [copy("إجمالي الإنتاج", "Total Production"), formatPairs(language, reportData.production.totalPairs)],
+                [copy("الفرز الأول", "First grade"), formatPairs(language, reportData.production.firstGrade)],
+                [copy("عدد الإدخالات", "Total Entries"), `${reportData.production.totalEntries}`],
+                [copy("هدر الخيوط (جرام)", "Thread Waste (g)"), `${reportData.production.wasteThread}`],
+                [copy("هدر الجوارب (جرام)", "Socks Waste (g)"), `${reportData.production.wasteSocks}`],
+                [copy("وزن الخيوط المستخدم (جرام)", "Yarn Used (g)"), `${reportData.production.yarnWeight.toFixed(2)}`],
+                [copy("نسبة الهدر", "Waste Rate"), formatRate(language, reportData.production.wastePercentage)],
+                [copy("هدر الإبر (حبة)", "Needle Waste (pcs)"), `${reportData.production.wasteNeedles}`],
+                [copy("النخب الثاني (أزواج)", "Second Grade (Pairs)"), `${reportData.production.secondGrade}`],
               ],
             },
           },
           {
-            title: isAr ? "تفاصيل المبيعات" : "Sales Details",
+            title: copy("تفاصيل المبيعات", "Sales Details"),
             type: "table",
             data: {
               headers: [
-                isAr ? "البند" : "Item",
-                isAr ? "القيمة" : "Value",
+                copy("البند", "Item"),
+                copy("القيمة", "Value"),
               ],
               rows: [
-                [isAr ? "عدد الفواتير" : "Invoice count", `${reportData.sales.totalEntries}`],
-                [isAr ? "إجمالي المبيعات" : "Total Sales", `${amount(reportData.sales.totalAmount)} ${isAr ? "ريال" : "SAR"}`],
-                [isAr ? "عدد التحصيلات" : "Collection count", `${reportData.collection.totalEntries}`],
-                [isAr ? "إجمالي التحصيل" : "Total Collection", `${amount(reportData.collection.totalAmount)} ${isAr ? "ريال" : "SAR"}`],
-                [isAr ? "نسبة التحصيل" : "Collection Rate", `${reportData.collection.collectionRate.toFixed(1)}%`],
+                [copy("عدد الفواتير", "Invoice count"), `${reportData.sales.totalEntries}`],
+                [copy("إجمالي المبيعات", "Total Sales"), `${formatAmount(language, reportData.sales.totalAmount)} ${copy("ريال", "SAR")}`],
+                [copy("عدد التحصيلات", "Collection count"), `${reportData.collection.totalEntries}`],
+                [copy("إجمالي التحصيل", "Total Collection"), `${formatAmount(language, reportData.collection.totalAmount)} ${copy("ريال", "SAR")}`],
+                [copy("نسبة التحصيل", "Collection Rate"), `${reportData.collection.collectionRate.toFixed(1)}%`],
               ],
             },
           },
           {
-            title: isAr ? "تفاصيل فواتير المبيعات" : "Sales invoice details",
+            title: copy("تفاصيل فواتير المبيعات", "Sales invoice details"),
             type: "table",
             data: {
-              headers: [isAr ? "الفاتورة" : "Invoice", isAr ? "العميل" : "Customer", isAr ? "التاريخ" : "Date", isAr ? "المندوب/المصدر" : "Representative/source", isAr ? "المبلغ" : "Amount", isAr ? "المرفقات" : "Attachments"],
-              rows: reportData.commercial.salesRows.map((row) => [row.invoiceNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.invoiceDate || "—", row.representativeName || row.sellerName || row.reportSource || "—", `${amount(Number(row.amount || 0))} ${isAr ? "ر.س" : "SAR"}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ") || "—" : "—"]),
+              headers: [copy("الفاتورة", "Invoice"), copy("العميل", "Customer"), copy("التاريخ", "Date"), copy("المندوب/المصدر", "Representative/source"), copy("المبلغ", "Amount"), copy("المرفقات", "Attachments")],
+              rows: reportData.commercial.salesRows.map((row) => [row.invoiceNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.invoiceDate || "—", row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.amount || 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
             },
           },
           {
-            title: isAr ? "تفاصيل التحصيل" : "Collection details",
+            title: copy("تفاصيل التحصيل", "Collection details"),
             type: "table",
             data: {
-              headers: [isAr ? "السند" : "Receipt", isAr ? "العميل" : "Customer", isAr ? "التاريخ" : "Date", isAr ? "المندوب/المصدر" : "Representative/source", isAr ? "المبلغ" : "Amount", isAr ? "المرفقات" : "Attachments"],
-              rows: reportData.commercial.collectionRows.map((row) => [row.receiptNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.collectionDate || row.receiptDate || "—", row.representativeName || row.collectorName || row.reportSource || "—", `${amount(Number(row.collectedAmount ?? row.amount ?? 0))} ${isAr ? "ر.س" : "SAR"}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ") || "—" : "—"]),
+              headers: [copy("السند", "Receipt"), copy("العميل", "Customer"), copy("التاريخ", "Date"), copy("المندوب/المصدر", "Representative/source"), copy("المبلغ", "Amount"), copy("المرفقات", "Attachments")],
+              rows: reportData.commercial.collectionRows.map((row) => [row.receiptNumber || row.referenceCode || row.id || "—", row.customerName || "—", row.collectionDate || row.receiptDate || "—", row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource), `${formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} ${copy("ر.س", "SAR")}`, Array.isArray(row.attachments) ? row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", ")) || "—" : "—"]),
             },
           },
           {
-            title: isAr ? "تفاصيل المصروفات" : "Expenses Details",
+            title: copy("تفاصيل المصروفات", "Expenses Details"),
             type: "table",
             data: {
               headers: [
-                isAr ? "البند" : "Category",
-                isAr ? "المبلغ" : "Amount",
+                copy("البند", "Category"),
+                copy("المبلغ", "Amount"),
               ],
               rows: [
-                [isAr ? "إجمالي المصروفات" : "Total Expenses", `${reportData.expenses.totalAmount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`],
-                ...reportData.expenses.categories.map(cat => [cat.name, `${cat.amount.toLocaleString()} ${isAr ? "ريال" : "SAR"}`]),
+                [copy("إجمالي المصروفات", "Total Expenses"), `${formatNumber(language, reportData.expenses.totalAmount)} ${copy("ريال", "SAR")}`],
+                ...reportData.expenses.categories.map(cat => [cat.name, `${formatNumber(language, cat.amount)} ${copy("ريال", "SAR")}`]),
               ],
             },
           },
           {
-            title: isAr ? "الصيانة" : "Maintenance",
+            title: copy("الصيانة", "Maintenance"),
             type: "summary",
             data: [
-              { label: isAr ? "الصيانة الدورية" : "Periodic Maintenance", value: `${reportData.maintenance.periodicCount}` },
-              { label: isAr ? "صيانة الطوارئ" : "Emergency Maintenance", value: `${reportData.maintenance.emergencyCount}` },
-              { label: isAr ? "أجهزة متوقفة" : "Stopped Machines", value: `${reportData.maintenance.stoppedMachines}` },
+              { label: copy("الصيانة الدورية", "Periodic Maintenance"), value: `${reportData.maintenance.periodicCount}` },
+              { label: copy("صيانة الطوارئ", "Emergency Maintenance"), value: `${reportData.maintenance.emergencyCount}` },
+              { label: copy("أجهزة متوقفة", "Stopped Machines"), value: `${reportData.maintenance.stoppedMachines}` },
             ],
           },
           {
-            title: isAr ? "المهام" : "Tasks",
+            title: copy("المهام", "Tasks"),
             type: "summary",
             data: [
-              { label: isAr ? "إجمالي المهام" : "Total Tasks", value: `${reportData.tasks.total}` },
-              { label: isAr ? "مكتملة" : "Completed", value: `${reportData.tasks.completed}` },
-              { label: isAr ? "معلقة" : "Pending", value: `${reportData.tasks.pending}` },
-              { label: isAr ? "متأخرة" : "Overdue", value: `${reportData.tasks.overdue}` },
-              { label: isAr ? "نسبة الإنجاز" : "Completion Rate", value: `${reportData.tasks.completionRate.toFixed(0)}%` },
+              { label: copy("إجمالي المهام", "Total Tasks"), value: `${reportData.tasks.total}` },
+              { label: copy("مكتملة", "Completed"), value: `${reportData.tasks.completed}` },
+              { label: copy("معلقة", "Pending"), value: `${reportData.tasks.pending}` },
+              { label: copy("متأخرة", "Overdue"), value: `${reportData.tasks.overdue}` },
+              { label: copy("نسبة الإنجاز", "Completion Rate"), value: `${reportData.tasks.completionRate.toFixed(0)}%` },
             ],
           },
           {
-            title: isAr ? "طلبات التصنيع وأسباب التعثر" : "Manufacturing Requests & Failure Reasons",
+            title: copy("طلبات التصنيع وأسباب التعثر", "Manufacturing Requests & Failure Reasons"),
             type: "table",
             data: {
-              headers: [isAr ? "البند" : "Item", isAr ? "القيمة" : "Value", isAr ? "النسبة" : "Rate"],
+              headers: [copy("البند", "Item"), copy("القيمة", "Value"), copy("النسبة", "Rate")],
               rows: [
-                [isAr ? "إجمالي الطلبات" : "Total Requests", `${reportData.manufacturingRequests.total}`, "100%"],
-                [isAr ? "تم الإنتاج" : "Produced", `${reportData.manufacturingRequests.produced} / ${reportData.manufacturingRequests.producedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
-                [isAr ? "لم يتم الإنتاج" : "Not Produced", `${reportData.manufacturingRequests.notProduced} / ${reportData.manufacturingRequests.notProducedDozen} درزن`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
-                [isAr ? "لم تسجل النتيجة" : "Pending Result", `${reportData.manufacturingRequests.pending}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
-                [isAr ? "تغير الإنتاج عن الشهر السابق" : "Production change vs prior month", `${reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} طلب`, `${reportData.previousManufacturingRequests.produced ? ((reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced) / reportData.previousManufacturingRequests.produced * 100).toFixed(1) : 0}%`],
-                [isAr ? "تغير التعثر عن الشهر السابق" : "Failure change vs prior month", `${reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} طلب`, `${reportData.previousManufacturingRequests.notProduced ? ((reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced) / reportData.previousManufacturingRequests.notProduced * 100).toFixed(1) : 0}%`],
-                ...reportData.manufacturingRequests.failureReasons.map((item) => [item.reason, `${item.count} / ${item.quantityDozen} درزن`, `${reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%`]),
+                [copy("إجمالي الطلبات", "Total Requests"), `${reportData.manufacturingRequests.total}`, "100%"],
+                [copy("تم الإنتاج", "Produced"), `${reportData.manufacturingRequests.produced} / ${reportData.manufacturingRequests.producedDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [copy("لم يتم الإنتاج", "Not Produced"), `${reportData.manufacturingRequests.notProduced} / ${reportData.manufacturingRequests.notProducedDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [copy("لم تسجل النتيجة", "Pending Result"), `${reportData.manufacturingRequests.pending}`, `${reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%`],
+                [copy("تغير الإنتاج عن الشهر السابق", "Production change vs prior month"), `${reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.produced ? ((reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced) / reportData.previousManufacturingRequests.produced * 100).toFixed(1) : 0}%`],
+                [copy("تغير التعثر عن الشهر السابق", "Failure change vs prior month"), `${reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} ${copy("طلب", "requests")}`, `${reportData.previousManufacturingRequests.notProduced ? ((reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced) / reportData.previousManufacturingRequests.notProduced * 100).toFixed(1) : 0}%`],
+                ...reportData.manufacturingRequests.failureReasons.map((item) => [item.reason, `${item.count} / ${item.quantityDozen} ${copy("درزن", "dozen")}`, `${reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%`]),
               ],
             },
           },
           {
-            title: isAr ? "التوصيات" : "Recommendations",
+            title: copy("التوصيات", "Recommendations"),
             type: "text",
             data: generateRecommendations(reportData),
           },
@@ -433,13 +508,13 @@ export default function BoardMonthlyReport() {
 
       await exportReportAsPDF(pdfData);
       Alert.alert(
-        isAr ? "تم التصدير" : "Exported",
-        isAr ? "تم تصدير التقرير الشهري بنجاح" : "Monthly report exported successfully"
+        copy("تم التصدير", "Exported"),
+        copy("تم تصدير التقرير الشهري بنجاح", "Monthly report exported successfully")
       );
     } catch (error: any) {
       Alert.alert(
-        isAr ? "خطأ" : "Error",
-        error.message || (isAr ? "فشل في تصدير التقرير" : "Failed to export report")
+        copy("خطأ", "Error"),
+        isEn ? copy("فشل في تصدير التقرير", "Failed to export report") : error.message || copy("فشل في تصدير التقرير", "Failed to export report")
       );
     } finally {
       setIsExporting(false);
@@ -449,40 +524,22 @@ export default function BoardMonthlyReport() {
   const generateRecommendations = (data: ReportData): string => {
     const recommendations: string[] = [];
     if (data.production.wastePercentage != null && data.production.wastePercentage > 5) {
-      recommendations.push(isAr
-        ? `• نسبة الهدر (${data.production.wastePercentage.toFixed(1)}%) تتجاوز الحد المقبول (5%). يُوصى بمراجعة خطوط الإنتاج وتدريب العمال.`
-        : `• Waste rate (${data.production.wastePercentage.toFixed(1)}%) exceeds acceptable limit (5%). Review production lines and train workers.`
-      );
+      recommendations.push(copy(`• نسبة الهدر (${data.production.wastePercentage.toFixed(1)}%) تتجاوز الحد المقبول (5%). يُوصى بمراجعة خطوط الإنتاج وتدريب العمال.`, `• Waste rate (${data.production.wastePercentage.toFixed(1)}%) exceeds acceptable limit (5%). Review production lines and train workers.`));
     }
     if (data.tasks.completionRate < 80) {
-      recommendations.push(isAr
-        ? `• نسبة إنجاز المهام (${data.tasks.completionRate.toFixed(0)}%) أقل من المطلوب. يُوصى بمتابعة المهام المتأخرة وتوزيع الأعباء.`
-        : `• Task completion rate (${data.tasks.completionRate.toFixed(0)}%) is below target. Follow up on overdue tasks.`
-      );
+      recommendations.push(copy(`• نسبة إنجاز المهام (${data.tasks.completionRate.toFixed(0)}%) أقل من المطلوب. يُوصى بمتابعة المهام المتأخرة وتوزيع الأعباء.`, `• Task completion rate (${data.tasks.completionRate.toFixed(0)}%) is below target. Follow up on overdue tasks.`));
     }
     if (data.collection.collectionRate < 80) {
-      recommendations.push(isAr
-        ? `• نسبة التحصيل (${data.collection.collectionRate.toFixed(0)}%) منخفضة. يُوصى بتكثيف جهود التحصيل ومتابعة العملاء المتأخرين.`
-        : `• Collection rate (${data.collection.collectionRate.toFixed(0)}%) is low. Intensify collection efforts.`
-      );
+      recommendations.push(copy(`• نسبة التحصيل (${data.collection.collectionRate.toFixed(0)}%) منخفضة. يُوصى بتكثيف جهود التحصيل ومتابعة العملاء المتأخرين.`, `• Collection rate (${data.collection.collectionRate.toFixed(0)}%) is low. Intensify collection efforts.`));
     }
     if (data.maintenance.emergencyCount > 3) {
-      recommendations.push(isAr
-        ? `• عدد حالات الطوارئ (${data.maintenance.emergencyCount}) مرتفع. يُوصى بتعزيز الصيانة الوقائية.`
-        : `• Emergency maintenance cases (${data.maintenance.emergencyCount}) are high. Strengthen preventive maintenance.`
-      );
+      recommendations.push(copy(`• عدد حالات الطوارئ (${data.maintenance.emergencyCount}) مرتفع. يُوصى بتعزيز الصيانة الوقائية.`, `• Emergency maintenance cases (${data.maintenance.emergencyCount}) are high. Strengthen preventive maintenance.`));
     }
     if (data.sales.totalAmount > 0 && data.expenses.totalAmount > data.sales.totalAmount) {
-      recommendations.push(isAr
-        ? `• المصروفات تتجاوز المبيعات. يُوصى بمراجعة بنود الصرف وتقليل التكاليف غير الضرورية.`
-        : `• Expenses exceed sales. Review spending items and reduce unnecessary costs.`
-      );
+      recommendations.push(copy(`• المصروفات تتجاوز المبيعات. يُوصى بمراجعة بنود الصرف وتقليل التكاليف غير الضرورية.`, `• Expenses exceed sales. Review spending items and reduce unnecessary costs.`));
     }
     if (recommendations.length === 0) {
-      recommendations.push(isAr
-        ? "• الأداء العام جيد. يُوصى بالاستمرار في المتابعة والتحسين المستمر."
-        : "• Overall performance is good. Continue monitoring and continuous improvement."
-      );
+      recommendations.push(copy("• الأداء العام جيد. يُوصى بالاستمرار في المتابعة والتحسين المستمر.", "• Overall performance is good. Continue monitoring and continuous improvement."));
     }
     return recommendations.join("\n\n");
   };
@@ -495,18 +552,18 @@ export default function BoardMonthlyReport() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { direction }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: rowDirection }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-forward" size={24} color={colors.foreground} />
+            <MaterialIcons name={isEn ? "arrow-back" : "arrow-forward"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {isAr ? "التقرير الموحد لمجلس الإدارة" : "Unified Board Report"}
+            <Text style={[styles.headerTitle, directionalText, { color: colors.foreground }]}>
+              {copy("التقرير الموحد لمجلس الإدارة", "Unified Board Report")}
             </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-              {isAr ? "ملخص تشغيلي واضح حسب الفترة" : "Clear operating summary by period"}
+            <Text style={[styles.headerSubtitle, directionalText, { color: colors.muted }]}>
+              {copy("ملخص تشغيلي واضح حسب الفترة", "Clear operating summary by period")}
             </Text>
           </View>
           <View style={[styles.headerIcon, { backgroundColor: "#7C3AED20" }]}>
@@ -516,40 +573,40 @@ export default function BoardMonthlyReport() {
 
         {/* Period Selector */}
         <View style={[styles.periodSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.monthLabel, { color: colors.muted }]}>{isAr ? "الفترة:" : "Period:"}</Text>
-          <View style={styles.periodButtons}>
+          <Text style={[styles.monthLabel, directionalText, { color: colors.muted }]}>{copy("الفترة:", "Period:")}</Text>
+          <View style={[styles.periodButtons, { flexDirection: rowDirection }]}>
             {([
-              ["daily", isAr ? "يومي" : "Daily"],
-              ["twoDays", isAr ? "يومان" : "2 days"],
-              ["weekly", isAr ? "أسبوعي" : "Weekly"],
-              ["monthly", isAr ? "شهري" : "Monthly"],
-              ["custom", isAr ? "نطاق مخصص" : "Custom range"],
+              ["daily", copy("يومي", "Daily")],
+              ["twoDays", copy("يومان", "2 days")],
+              ["weekly", copy("أسبوعي", "Weekly")],
+              ["monthly", copy("شهري", "Monthly")],
+              ["custom", copy("نطاق مخصص", "Custom range")],
             ] as const).map(([value, label]) => <TouchableOpacity key={value} onPress={() => selectPeriod(value)} style={[styles.periodButton, period === value && { backgroundColor: colors.primary }]}><Text style={[styles.periodButtonText, { color: period === value ? "#fff" : colors.foreground }]}>{label}</Text></TouchableOpacity>)}
           </View>
-          <Text style={[styles.rangeText, { color: colors.foreground }]}>{isAr ? "من — إلى:" : "From — To:"} {range.label}</Text>
+          <Text style={[styles.rangeText, directionalText, { color: colors.foreground }]}>{copy("من — إلى:", "From — To:")} {range.label}</Text>
         </View>
-        <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.customDateRow, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: rowDirection }]}>
           <View style={styles.customDateField}>
-            <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "من تاريخ" : "From date"}</Text>
-            <DateField value={customStart} onChange={(value) => { setCustomStart(value); setPeriod("custom"); }} label={isAr ? "من تاريخ" : "From date"} colors={colors} />
+            <Text style={[styles.customDateLabel, directionalText, { color: colors.muted }]}>{copy("من تاريخ", "From date")}</Text>
+            <DateField value={customStart} onChange={(value) => { setCustomStart(value); setPeriod("custom"); }} label={copy("من تاريخ", "From date")} colors={colors} isAr={isAr} />
           </View>
           <View style={styles.customDateField}>
-            <Text style={[styles.customDateLabel, { color: colors.muted }]}>{isAr ? "إلى تاريخ" : "To date"}</Text>
-            <DateField value={customEnd} onChange={(value) => { setCustomEnd(value); setPeriod("custom"); }} label={isAr ? "إلى تاريخ" : "To date"} colors={colors} />
+            <Text style={[styles.customDateLabel, directionalText, { color: colors.muted }]}>{copy("إلى تاريخ", "To date")}</Text>
+            <DateField value={customEnd} onChange={(value) => { setCustomEnd(value); setPeriod("custom"); }} label={copy("إلى تاريخ", "To date")} colors={colors} isAr={isAr} />
           </View>
         </View>
 
         {/* Month Selector (used for monthly comparison) */}
-        {period === "monthly" && <><View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.monthLabel, { color: colors.muted }]}>
-            {isAr ? "اختر الشهر:" : "Select Month:"}
+        {period === "monthly" && <><View style={[styles.monthSelector, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: rowDirection }]}>
+          <Text style={[styles.monthLabel, directionalText, { color: colors.muted }]}>
+            {copy("اختر الشهر:", "Select Month:")}
           </Text>
           <TouchableOpacity
-            style={[styles.monthButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+            style={[styles.monthButton, { backgroundColor: colors.background, borderColor: colors.border, flexDirection: rowDirection }]}
             onPress={() => setShowMonthPicker(!showMonthPicker)}
           >
             <MaterialIcons name="calendar-today" size={18} color={colors.primary} />
-            <Text style={[styles.monthButtonText, { color: colors.foreground }]}>
+            <Text style={[styles.monthButtonText, directionalText, { color: colors.foreground }]}>
               {`${monthNames[selectedMonth]} ${selectedYear}`}
             </Text>
             <MaterialIcons name={showMonthPicker ? "expand-less" : "expand-more"} size={20} color={colors.muted} />
@@ -564,6 +621,7 @@ export default function BoardMonthlyReport() {
                 key={index}
                 style={[
                   styles.monthOption,
+                  { flexDirection: rowDirection },
                   option.value === selectedMonth && option.year === selectedYear && { backgroundColor: colors.primary + "20" },
                 ]}
                 onPress={() => {
@@ -574,6 +632,7 @@ export default function BoardMonthlyReport() {
               >
                 <Text style={[
                   styles.monthOptionText,
+                  directionalText,
                   { color: option.value === selectedMonth && option.year === selectedYear ? colors.primary : colors.foreground },
                 ]}>
                   {option.label}
@@ -591,8 +650,8 @@ export default function BoardMonthlyReport() {
         {isLoading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.muted }]}>
-              {isAr ? "جاري تحميل البيانات..." : "Loading data..."}
+            <Text style={[styles.loadingText, directionalText, { color: colors.muted }]}>
+              {copy("جاري تحميل البيانات...", "Loading data...")}
             </Text>
           </View>
         )}
@@ -602,8 +661,8 @@ export default function BoardMonthlyReport() {
         {!isLoading && reportError && (
           <View style={[styles.emptyState, { marginHorizontal: 8, borderWidth: 1, borderColor: "#FCA5A5", borderRadius: 10, backgroundColor: "#FEF2F2" }]}>
             <MaterialIcons name="error-outline" size={38} color="#DC2626" />
-            <Text style={[styles.emptyText, { color: "#991B1B", textAlign: "center" }]}>{reportError}</Text>
-            <TouchableOpacity style={[styles.retryButton, { borderColor: colors.primary }]} onPress={loadReportData}><Text style={[styles.retryText, { color: colors.primary }]}>{isAr ? "إعادة المحاولة" : "Retry"}</Text></TouchableOpacity>
+            <Text style={[styles.emptyText, { color: "#991B1B", textAlign: "center", writingDirection: direction }]}>{reportError}</Text>
+            <TouchableOpacity style={[styles.retryButton, { borderColor: colors.primary }]} onPress={loadReportData}><Text style={[styles.retryText, { color: colors.primary }]}>{copy("إعادة المحاولة", "Retry")}</Text></TouchableOpacity>
           </View>
         )}
 
@@ -614,65 +673,65 @@ export default function BoardMonthlyReport() {
             <View style={styles.summaryGrid}>
               <View style={[styles.summaryCard, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
                 <MaterialIcons name="precision-manufacturing" size={22} color="#2563EB" />
-                <Text style={[styles.summaryValue, { color: "#2563EB" }]}>{pairLabel(reportData.production.totalPairs)}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? (reportData.production.totalEntries ? "إنتاج مسجل" : "لا يوجد نشاط إنتاجي") : (reportData.production.totalEntries ? "Recorded production" : "No production activity")}</Text>
+                <Text style={[styles.summaryValue, { color: "#2563EB" }]}>{formatPairs(language, reportData.production.totalPairs)}</Text>
+                <Text style={styles.summaryLabel}>{reportData.production.totalEntries ? copy("إنتاج مسجل", "Recorded production") : copy("لا يوجد نشاط إنتاجي", "No production activity")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }]}>
                 <MaterialIcons name="point-of-sale" size={22} color="#16A34A" />
-                <Text style={[styles.summaryValue, { color: "#16A34A" }]}>{amount(reportData.sales.totalAmount)}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? `${reportData.sales.totalEntries} فاتورة مبيعات` : `${reportData.sales.totalEntries} sales invoices`}</Text>
+                <Text style={[styles.summaryValue, { color: "#16A34A" }]}>{formatAmount(language, reportData.sales.totalAmount)}</Text>
+                <Text style={styles.summaryLabel}>{`${reportData.sales.totalEntries} ${copy("فاتورة مبيعات", "sales invoices")}`}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
                 <MaterialIcons name="money-off" size={22} color="#DC2626" />
-                <Text style={[styles.summaryValue, { color: "#DC2626" }]}>{reportData.expenses.totalAmount.toLocaleString()}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? "ريال مصروفات" : "SAR Expenses"}</Text>
+                <Text style={[styles.summaryValue, { color: "#DC2626" }]}>{formatNumber(language, reportData.expenses.totalAmount)}</Text>
+                <Text style={styles.summaryLabel}>{copy("ريال مصروفات", "SAR Expenses")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
                 <MaterialIcons name="inventory-2" size={22} color="#C2410C" />
-                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{pairLabel(reportData.warehouse.currentPairs)}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? `إنتاج تام حاليًا — ${reportData.warehouse.movementCount} حركة` : `Current finished goods — ${reportData.warehouse.movementCount} movements`}</Text>
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{formatPairs(language, reportData.warehouse.currentPairs)}</Text>
+                <Text style={styles.summaryLabel}>{`${copy("إنتاج تام حاليًا", "Current finished goods")} — ${reportData.warehouse.movementCount} ${copy("حركة", "movements")}`}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
                 <MaterialIcons name="scale" size={22} color="#C2410C" />
-                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{reportData.production.wasteThread.toLocaleString()}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? "هدر الخيوط — جرام" : "Yarn waste — grams"}</Text>
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{formatNumber(language, reportData.production.wasteThread)}</Text>
+                <Text style={styles.summaryLabel}>{copy("هدر الخيوط — جرام", "Yarn waste — grams")}</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
                 <MaterialIcons name="percent" size={22} color={reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
-                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{rateLabel(reportData.production.wastePercentage)}</Text>
-                <Text style={styles.summaryLabel}>{isAr ? "نسبة هدر الخيوط" : "Yarn waste rate"}</Text>
+                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{formatRate(language, reportData.production.wastePercentage)}</Text>
+                <Text style={styles.summaryLabel}>{copy("نسبة هدر الخيوط", "Yarn waste rate")}</Text>
               </View>
             </View>
 
             {/* KPI Indicators */}
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {isAr ? "مؤشرات الأداء" : "Performance Indicators"}
+            <Text style={[styles.sectionTitle, directionalText, { color: colors.foreground }]}>
+              {copy("مؤشرات الأداء", "Performance Indicators")}
             </Text>
             <View style={styles.kpiGrid}>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.kpiIndicator, { backgroundColor: reportData.production.wastePercentage == null ? "#94A3B8" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]} />
-                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{isAr ? "نسبة الهدر" : "Waste Rate"}</Text>
+                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("نسبة الهدر", "Waste Rate")}</Text>
                 <Text style={[styles.kpiValue, { color: reportData.production.wastePercentage == null ? "#64748B" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]}>
-                  {rateLabel(reportData.production.wastePercentage)}
+                  {formatRate(language, reportData.production.wastePercentage)}
                 </Text>
               </View>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.kpiIndicator, { backgroundColor: getStatusColor(reportData.tasks.completionRate, 80, 60) }]} />
-                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{isAr ? "إنجاز المهام" : "Task Completion"}</Text>
+                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("إنجاز المهام", "Task Completion")}</Text>
                 <Text style={[styles.kpiValue, { color: getStatusColor(reportData.tasks.completionRate, 80, 60) }]}>
                   {reportData.tasks.completionRate.toFixed(0)}%
                 </Text>
               </View>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.kpiIndicator, { backgroundColor: getStatusColor(reportData.collection.collectionRate, 80, 60) }]} />
-                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{isAr ? "نسبة التحصيل" : "Collection Rate"}</Text>
+                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("نسبة التحصيل", "Collection Rate")}</Text>
                 <Text style={[styles.kpiValue, { color: getStatusColor(reportData.collection.collectionRate, 80, 60) }]}>
                   {reportData.collection.collectionRate.toFixed(0)}%
                 </Text>
               </View>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.kpiIndicator, { backgroundColor: reportData.maintenance.emergencyCount <= 3 ? "#22C55E" : "#EF4444" }]} />
-                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{isAr ? "طوارئ الصيانة" : "Emergency Maint."}</Text>
+                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("طوارئ الصيانة", "Emergency Maint.")}</Text>
                 <Text style={[styles.kpiValue, { color: reportData.maintenance.emergencyCount <= 3 ? "#22C55E" : "#EF4444" }]}>
                   {reportData.maintenance.emergencyCount}
                 </Text>
@@ -680,131 +739,131 @@ export default function BoardMonthlyReport() {
             </View>
 
             {/* Detailed Sections */}
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              {isAr ? "تفاصيل الأقسام" : "Section Details"}
+            <Text style={[styles.sectionTitle, directionalText, { color: colors.foreground }]}>
+              {copy("تفاصيل الأقسام", "Section Details")}
             </Text>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }] }>
-              <View style={styles.detailHeader}><MaterialIcons name="assignment-late" size={20} color="#DC2626" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "طلبات التصنيع وأسباب التعثر" : "Manufacturing Requests"}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "تم الإنتاج" : "Produced"}</Text><Text style={[styles.detailValue, { color: "#15803D" }]}>{reportData.manufacturingRequests.produced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم يتم الإنتاج" : "Not produced"}</Text><Text style={[styles.detailValue, { color: "#DC2626" }]}>{reportData.manufacturingRequests.notProduced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لم تسجل النتيجة" : "Pending"}</Text><Text style={[styles.detailValue, { color: "#B45309" }]}>{reportData.manufacturingRequests.pending} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
-              {reportData.manufacturingRequests.failureReasons.slice(0, 5).map((item) => <View key={item.reason} style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{item.reason}</Text><Text style={[styles.detailValue, { color: "#7C3AED" }]}>{item.count} ({reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%)</Text></View>)}
-              <Text style={{ color: colors.foreground, textAlign: "right", fontWeight: "900", marginTop: 8 }}>مقارنة بالشهر السابق</Text>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>تغير تم الإنتاج</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.produced >= reportData.previousManufacturingRequests.produced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} طلب</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>تغير لم يتم الإنتاج</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.notProduced <= reportData.previousManufacturingRequests.notProduced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} طلب</Text></View>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="assignment-late" size={20} color="#DC2626" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("طلبات التصنيع وأسباب التعثر", "Manufacturing Requests")}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("تم الإنتاج", "Produced")}</Text><Text style={[styles.detailValue, directionalText, { color: "#15803D" }]}>{reportData.manufacturingRequests.produced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.produced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لم يتم الإنتاج", "Not produced")}</Text><Text style={[styles.detailValue, directionalText, { color: "#DC2626" }]}>{reportData.manufacturingRequests.notProduced} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.notProduced / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لم تسجل النتيجة", "Pending")}</Text><Text style={[styles.detailValue, directionalText, { color: "#B45309" }]}>{reportData.manufacturingRequests.pending} ({reportData.manufacturingRequests.total ? (reportData.manufacturingRequests.pending / reportData.manufacturingRequests.total * 100).toFixed(1) : 0}%)</Text></View>
+              {reportData.manufacturingRequests.failureReasons.slice(0, 5).map((item) => <View key={item.reason} style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{item.reason}</Text><Text style={[styles.detailValue, directionalText, { color: "#7C3AED" }]}>{item.count} ({reportData.manufacturingRequests.notProduced ? (item.count / reportData.manufacturingRequests.notProduced * 100).toFixed(1) : 0}%)</Text></View>)}
+              <Text style={[directionalText, { color: colors.foreground, fontWeight: "900", marginTop: 8 }]}>{copy("مقارنة بالشهر السابق", "Compared with prior month")}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("تغير تم الإنتاج", "Produced change")}</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.produced >= reportData.previousManufacturingRequests.produced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.produced - reportData.previousManufacturingRequests.produced} {copy("طلب", "requests")}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("تغير لم يتم الإنتاج", "Not-produced change")}</Text><Text style={[styles.detailValue, { color: reportData.manufacturingRequests.notProduced <= reportData.previousManufacturingRequests.notProduced ? "#15803D" : "#DC2626" }]}>{reportData.manufacturingRequests.notProduced - reportData.previousManufacturingRequests.notProduced} {copy("طلب", "requests")}</Text></View>
             </View>
 
             {/* Production Details */}
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}>
                 <MaterialIcons name="precision-manufacturing" size={20} color="#2563EB" />
-                <Text style={[styles.detailTitle, { color: colors.foreground }]}>
-                  {isAr ? "الإنتاج" : "Production"}
+                <Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>
+                  {copy("الإنتاج", "Production")}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "إجمالي الإنتاج" : "Total production"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.production.totalPairs)}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("إجمالي الإنتاج", "Total production")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatPairs(language, reportData.production.totalPairs)}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "هدر الخيوط" : "Thread Waste"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.production.wasteThread} {isAr ? "جرام" : "g"}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("هدر الخيوط", "Thread Waste")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.production.wasteThread} {copy("جرام", "g")}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "النخب الثاني" : "Second Grade"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.production.secondGrade)}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("النخب الثاني", "Second Grade")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatPairs(language, reportData.production.secondGrade)}</Text>
               </View>
             </View>
 
             {/* Sales Details */}
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}>
                 <MaterialIcons name="point-of-sale" size={20} color="#16A34A" />
-                <Text style={[styles.detailTitle, { color: colors.foreground }]}>
-                  {isAr ? "إدارة التسويق والمبيعات" : "Marketing & Sales Management"}
+                <Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>
+                  {copy("إدارة التسويق والمبيعات", "Marketing & Sales Management")}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "إجمالي المبيعات" : "Total Sales"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{amount(reportData.sales.totalAmount)} {isAr ? "ر.س" : "SAR"}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("إجمالي المبيعات", "Total Sales")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatAmount(language, reportData.sales.totalAmount)} {copy("ر.س", "SAR")}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "عدد الفواتير" : "Invoice count"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.sales.totalEntries}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("عدد الفواتير", "Invoice count")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.sales.totalEntries}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "عدد التحصيلات" : "Collection count"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.collection.totalEntries}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("عدد التحصيلات", "Collection count")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.collection.totalEntries}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المحصّل" : "Collected"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{amount(reportData.collection.totalAmount)} {isAr ? "ر.س" : "SAR"}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المحصّل", "Collected")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatAmount(language, reportData.collection.totalAmount)} {copy("ر.س", "SAR")}</Text>
               </View>
             </View>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}><MaterialIcons name="receipt-long" size={20} color="#16A34A" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل فواتير المبيعات" : "Sales invoice details"}</Text></View>
-              {reportData.commercial.salesRows.length === 0 ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لا توجد فواتير مبيعات في الفترة" : "No sales invoices in this period"}</Text> : reportData.commercial.salesRows.map((row: any) => <View key={`sale-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.invoiceNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.invoiceDate || "—"} · {amount(Number(row.amount || 0))} ر.س · {row.representativeName || row.sellerName || row.reportSource}</Text>
-                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="receipt-long" size={20} color="#16A34A" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل فواتير المبيعات", "Sales invoice details")}</Text></View>
+              {reportData.commercial.salesRows.length === 0 ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لا توجد فواتير مبيعات في الفترة", "No sales invoices in this period")}</Text> : reportData.commercial.salesRows.map((row: any) => <View key={`sale-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.invoiceNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.invoiceDate || "—"} · {formatAmount(language, Number(row.amount || 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.sellerName || localizedReportSource(language, row.reportSource)}</Text>
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
             </View>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}><MaterialIcons name="payments" size={20} color="#0284C7" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل التحصيل" : "Collection details"}</Text></View>
-              {reportData.commercial.collectionRows.length === 0 ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "لا توجد تحصيلات في الفترة" : "No collections in this period"}</Text> : reportData.commercial.collectionRows.map((row: any) => <View key={`collection-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.receiptNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.collectionDate || row.receiptDate || "—"} · {amount(Number(row.collectedAmount ?? row.amount ?? 0))} ر.س · {row.representativeName || row.collectorName || row.reportSource}</Text>
-                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="payments" size={20} color="#0284C7" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل التحصيل", "Collection details")}</Text></View>
+              {reportData.commercial.collectionRows.length === 0 ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("لا توجد تحصيلات في الفترة", "No collections in this period")}</Text> : reportData.commercial.collectionRows.map((row: any) => <View key={`collection-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.receiptNumber || row.referenceCode || "—"} · {row.customerName || "—"}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.collectionDate || row.receiptDate || "—"} · {formatAmount(language, Number(row.collectedAmount ?? row.amount ?? 0))} {copy("ر.س", "SAR")} · {row.representativeName || row.collectorName || localizedReportSource(language, row.reportSource)}</Text>
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
             </View>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}><MaterialIcons name="assignment" size={20} color="#7C3AED" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "تفاصيل الطلبات والزيارات" : "Order and visit details"}</Text></View>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="assignment" size={20} color="#7C3AED" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("تفاصيل الطلبات والزيارات", "Order and visit details")}</Text></View>
               {[...reportData.commercial.orderRows, ...reportData.commercial.visitRows, ...reportData.commercial.otherTransactionRows].map((row: any) => <View key={`transaction-${row.reportSource}-${row.id ?? row.referenceCode}`} style={styles.detailListRow}>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{row.referenceCode || "—"} · {row.customerName || "—"} · {row.transactionType === "visit" ? "زيارة" : row.transactionType === "order" ? "طلب" : row.transactionType || "معاملة"}</Text>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{row.orderDate || "—"} · {transactionStatusLabel(row.status, row.transactionType)} · {row.representativeName || "—"}</Text>
-                {row.transactionType === "visit" ? <Text style={[styles.detailLabel, { color: colors.muted }]}>{visitText(row.visitReport)}</Text> : Array.isArray(row.items) && row.items.map((item: any, index: number) => <Text key={`${row.id}-${index}`} style={[styles.detailLabel, { color: colors.muted }]}>{item.productName || "—"} · {itemQuantity(item)} · {item.size || "—"} · {item.color || "—"}</Text>)}
-                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "المرفقات: " : "Attachments: "}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join("، ")}</Text>}
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{row.referenceCode || "—"} · {row.customerName || "—"} · {transactionTypeLabel(language, row.transactionType)}</Text>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{row.orderDate || "—"} · {transactionStatus(language, row.status, row.transactionType)} · {row.representativeName || "—"}</Text>
+                {row.transactionType === "visit" ? <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{localizedVisitText(language, row.visitReport)}</Text> : Array.isArray(row.items) && row.items.map((item: any, index: number) => <Text key={`${row.id}-${index}`} style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{item.productName || "—"} · {itemQuantity(language, item)} · {item.size || "—"} · {item.color || "—"}</Text>)}
+                {Array.isArray(row.attachments) && row.attachments.length > 0 && <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("المرفقات: ", "Attachments: ")}{row.attachments.map((file: any) => file.name || file.fileName || file.type).join(copy("، ", ", "))}</Text>}
               </View>)}
             </View>
 
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}><MaterialIcons name="inventory-2" size={20} color="#C2410C" /><Text style={[styles.detailTitle, { color: colors.foreground }]}>{isAr ? "التخزين والمستودعات — إنتاج تام" : "Storage & warehouses — finished goods"}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "رصيد البداية" : "Opening balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.warehouse.openingPairs == null ? (isAr ? "غير متاح — يحتاج مراجعة" : "Unavailable — needs review") : pairLabel(reportData.warehouse.openingPairs)}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "وارد الفترة" : "Period receipts"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.receiptPairs)}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "صادر الفترة" : "Period issues"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.issuePairs)}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "رصيد النهاية للفترة" : "Period closing balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.warehouse.closingPairs == null ? (isAr ? "غير متاح — يحتاج مراجعة" : "Unavailable — needs review") : pairLabel(reportData.warehouse.closingPairs)}</Text></View>
-              <View style={styles.detailRow}><Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "الرصيد الحالي" : "Current balance"}</Text><Text style={[styles.detailValue, { color: colors.foreground }]}>{pairLabel(reportData.warehouse.currentPairs)}</Text></View>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}><MaterialIcons name="inventory-2" size={20} color="#C2410C" /><Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>{copy("التخزين والمستودعات — إنتاج تام", "Storage & warehouses — finished goods")}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("رصيد البداية", "Opening balance")}</Text><Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.warehouse.openingPairs == null ? (copy("غير متاح — يحتاج مراجعة", "Unavailable — needs review")) : formatPairs(language, reportData.warehouse.openingPairs)}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("وارد الفترة", "Period receipts")}</Text><Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatPairs(language, reportData.warehouse.receiptPairs)}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("صادر الفترة", "Period issues")}</Text><Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatPairs(language, reportData.warehouse.issuePairs)}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("رصيد النهاية للفترة", "Period closing balance")}</Text><Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.warehouse.closingPairs == null ? (copy("غير متاح — يحتاج مراجعة", "Unavailable — needs review")) : formatPairs(language, reportData.warehouse.closingPairs)}</Text></View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}><Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("الرصيد الحالي", "Current balance")}</Text><Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatPairs(language, reportData.warehouse.currentPairs)}</Text></View>
             </View>
 
             {/* Maintenance Details */}
             <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.detailHeader}>
+              <View style={[styles.detailHeader, { flexDirection: rowDirection }]}>
                 <MaterialIcons name="build" size={20} color="#F59E0B" />
-                <Text style={[styles.detailTitle, { color: colors.foreground }]}>
-                  {isAr ? "الصيانة" : "Maintenance"}
+                <Text style={[styles.detailTitle, directionalText, { color: colors.foreground }]}>
+                  {copy("الصيانة", "Maintenance")}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "صيانة دورية" : "Periodic"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.maintenance.periodicCount}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("صيانة دورية", "Periodic")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.maintenance.periodicCount}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "طوارئ" : "Emergency"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.maintenance.emergencyCount}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("طوارئ", "Emergency")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.maintenance.emergencyCount}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={[styles.detailLabel, { color: colors.muted }]}>{isAr ? "أجهزة متوقفة" : "Stopped"}</Text>
-                <Text style={[styles.detailValue, { color: colors.foreground }]}>{reportData.maintenance.stoppedMachines}</Text>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("أجهزة متوقفة", "Stopped")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.maintenance.stoppedMachines}</Text>
               </View>
             </View>
 
             {/* Export Button */}
             <TouchableOpacity
-              style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
+              style={[styles.exportButton, { flexDirection: rowDirection }, isExporting && styles.exportButtonDisabled]}
               onPress={handleExportPDF}
               disabled={isExporting}
             >
@@ -815,18 +874,16 @@ export default function BoardMonthlyReport() {
               )}
               <Text style={styles.exportButtonText}>
                 {isExporting
-                  ? (isAr ? "جاري التصدير..." : "Exporting...")
-                  : (isAr ? "تصدير التقرير PDF" : "Export Report PDF")}
+                  ? (copy("جاري التصدير...", "Exporting..."))
+                  : (copy("تصدير التقرير PDF", "Export Report PDF"))}
               </Text>
             </TouchableOpacity>
 
             {/* Print Note */}
-            <View style={[styles.noteCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}>
+            <View style={[styles.noteCard, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A", flexDirection: rowDirection }]}>
               <MaterialIcons name="info-outline" size={18} color="#D97706" />
-              <Text style={[styles.noteText, { color: "#92400E" }]}>
-                {isAr
-                  ? "التقرير المُصدّر بصيغة HTML يمكن طباعته مباشرة من المتصفح كـ PDF عبر خيار الطباعة (Ctrl+P)"
-                  : "The exported HTML report can be printed directly from browser as PDF via Print option (Ctrl+P)"}
+              <Text style={[styles.noteText, directionalText, { color: "#92400E" }]}>
+                {copy("التقرير المُصدّر بصيغة HTML يمكن طباعته مباشرة من المتصفح كـ PDF عبر خيار الطباعة (Ctrl+P)", "The exported HTML report can be printed directly from browser as PDF via Print option (Ctrl+P)")}
               </Text>
             </View>
           </>
@@ -836,15 +893,15 @@ export default function BoardMonthlyReport() {
         {!isLoading && !reportData && (
           <View style={styles.emptyState}>
             <MaterialIcons name="insert-chart-outlined" size={64} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>
-              {isAr ? "لا توجد بيانات متاحة لهذا الشهر" : "No data available for this month"}
+            <Text style={[styles.emptyText, directionalText, { color: colors.muted }]}>
+              {copy("لا توجد بيانات متاحة لهذا الشهر", "No data available for this month")}
             </Text>
             <TouchableOpacity
               style={[styles.retryButton, { borderColor: colors.primary }]}
               onPress={loadReportData}
             >
               <Text style={[styles.retryText, { color: colors.primary }]}>
-                {isAr ? "إعادة المحاولة" : "Retry"}
+                {copy("إعادة المحاولة", "Retry")}
               </Text>
             </TouchableOpacity>
           </View>

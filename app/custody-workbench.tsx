@@ -20,20 +20,16 @@ import { BackButton } from "@/components/back-button";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import {
-  BusyLabel,
   CUSTODY_STAGES,
   formatPairs,
   formatRiyadh,
-  MessageBanner,
-  qualityLabel,
   selectWorkbenchCounts,
   selectWorkbenchRows,
-  stageLabel,
-  statusLabel,
-  StatusPill,
   type WorkbenchRow,
 } from "@/components/custody-ui";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/language-context";
+import { custodyQualityEnglish, custodyStageEnglish, custodyStatusEnglish, departmentEnglish, isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
 import { useColors } from "@/hooks/use-colors";
 import { type AttachmentFile } from "@/lib/services/attachment.service";
 import {
@@ -54,9 +50,9 @@ import type {
   CustodyTransfer,
 } from "@shared/custody-contract";
 import { accountBelongsToStage } from "@shared/custody-policy";
-import { CUSTODY_QUALITY_LABELS, CUSTODY_STAGE_LABELS } from "@shared/custody-contract";
+import { CUSTODY_QUALITY_LABELS, CUSTODY_STAGE_LABELS, CUSTODY_STATUS_LABELS } from "@shared/custody-contract";
 
-type Notice = { tone: "info" | "success" | "error"; message: string } | null;
+type Notice = { tone: "info" | "success" | "error"; arabic: string; english: string } | null;
 type ActionKind = "receive" | "dispute" | "reject" | "start" | "pause" | "resume" | "progress" | "complete" | "send" | "store" | "approve_disposal" | "execute_disposal" | "deliver_sample" | "resolve" | "rework";
 type ActionTarget = { row: WorkbenchRow; action: ActionKind };
 type FormState = {
@@ -89,16 +85,44 @@ const EMPTY_FORM: FormState = {
   reworkStage: "inspection",
 };
 
-const STATUS_FILTERS = [
-  ["", "كل الحالات"],
-  ["pending", "بانتظار استلامي"],
-  ["received", "مستلم"],
-  ["working", "قيد العمل"],
-  ["paused", "متوقف مؤقتًا"],
-  ["completed", "مكتمل"],
-  ["sent", "مرسل بانتظار التأكيد"],
-  ["disputed", "اختلاف كمية"],
-] as const;
+const makeNotice = (tone: NonNullable<Notice>["tone"], arabic: string, english: string): NonNullable<Notice> => ({ tone, arabic, english });
+const textStyleFor = (language: "ar" | "en") => ({ textAlign: textAlignFor(language), writingDirection: writingDirection(language) } as const);
+const rowStyleFor = (language: "ar" | "en") => ({ flexDirection: isEnglish(language) ? "row" : "row-reverse" } as const);
+const alignStyleFor = (language: "ar" | "en") => ({ alignItems: isEnglish(language) ? "flex-start" : "flex-end" } as const);
+
+function formatPairsFor(language: "ar" | "en", pairs: number | undefined | null): string {
+  if (!isEnglish(language)) return formatPairs(pairs);
+  const safePairs = Math.max(0, Math.trunc(Number(pairs) || 0));
+  const dozens = Math.floor(safePairs / 12);
+  const remainder = safePairs % 12;
+  return `${dozens} dozen${dozens === 1 ? "" : "s"} + ${remainder} pair${remainder === 1 ? "" : "s"}`;
+}
+
+function formatRiyadhFor(language: "ar" | "en", iso?: string): string {
+  if (!isEnglish(language)) return formatRiyadh(iso);
+  if (!iso || Number.isNaN(new Date(iso).getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(new Date(iso));
+}
+
+function stageLabelFor(language: "ar" | "en", stage?: CustodyStage): string {
+  if (!stage) return "—";
+  return isEnglish(language) ? custodyStageEnglish[stage] || stage : CUSTODY_STAGE_LABELS[stage];
+}
+
+function statusLabelFor(language: "ar" | "en", status?: string): string {
+  if (!status) return "—";
+  return isEnglish(language) ? custodyStatusEnglish[status] || status : CUSTODY_STATUS_LABELS[status as keyof typeof CUSTODY_STATUS_LABELS] || status;
+}
+
+function qualityLabelFor(language: "ar" | "en", quality?: string): string {
+  if (!quality) return "—";
+  return isEnglish(language) ? custodyQualityEnglish[quality] || quality : CUSTODY_QUALITY_LABELS[quality as keyof typeof CUSTODY_QUALITY_LABELS] || quality;
+}
+
+function departmentLabelFor(language: "ar" | "en", department?: string | null): string {
+  if (!department) return localize(language, "القسم غير مسجل", "Department not recorded");
+  return isEnglish(language) ? departmentEnglish[department] || department : department;
+}
 
 function rowLot(row: WorkbenchRow): CustodyLot | undefined {
   return row.kind === "lot" ? row.lot : undefined;
@@ -121,10 +145,10 @@ function rowStatus(row: WorkbenchRow): string {
   return row.kind === "lot" ? row.lot.status : row.transfer.status;
 }
 
-function rowTitle(row: WorkbenchRow): string {
-  if (row.kind === "lot") return `عهدة لديّ · ${stageLabel(row.lot.stage)}`;
-  if (row.kind === "incoming") return `نقل وارد من ${row.transfer.fromName}`;
-  return `نقل صادر إلى ${row.transfer.toName}`;
+function rowTitle(row: WorkbenchRow, language: "ar" | "en"): string {
+  if (row.kind === "lot") return localize(language, `عهدة لديّ · ${stageLabelFor(language, row.lot.stage)}`, `My custody · ${stageLabelFor(language, row.lot.stage)}`);
+  if (row.kind === "incoming") return localize(language, `نقل وارد من ${row.transfer.fromName}`, `Incoming transfer from ${row.transfer.fromName}`);
+  return localize(language, `نقل صادر إلى ${row.transfer.toName}`, `Outgoing transfer to ${row.transfer.toName}`);
 }
 
 function numberOrUndefined(value: string): number | undefined {
@@ -163,24 +187,39 @@ function permittedActions(row: WorkbenchRow, role: string | undefined): ActionKi
   return [];
 }
 
-function actionLabel(action: ActionKind): string {
-  return ({
-    receive: "تأكيد الاستلام بعد العد",
-    dispute: "تسجيل اختلاف كمية",
-    reject: "رفض النقل",
-    start: "بدء العمل",
-    pause: "إيقاف مؤقت",
-    resume: "استئناف العمل",
-    progress: "تسجيل تقدم تراكمي",
-    complete: "إكمال العمل بالكامل",
-    send: "تسليم كامل العهدة",
-    store: "اعتماد الإدخال النهائي",
-    approve_disposal: "اعتماد محضر الإتلاف",
-    execute_disposal: "تنفيذ الإتلاف",
-    deliver_sample: "توثيق تسليم العينة",
-    resolve: "حل الاختلاف",
-    rework: "إحالة لإعادة المعالجة",
-  } satisfies Record<ActionKind, string>)[action];
+function actionLabel(action: ActionKind, language: "ar" | "en"): string {
+  const labels: Record<ActionKind, [string, string]> = {
+    receive: ["تأكيد الاستلام بعد العد", "Confirm receipt after counting"],
+    dispute: ["تسجيل اختلاف كمية", "Record quantity discrepancy"],
+    reject: ["رفض النقل", "Reject transfer"],
+    start: ["بدء العمل", "Start work"],
+    pause: ["إيقاف مؤقت", "Pause"],
+    resume: ["استئناف العمل", "Resume work"],
+    progress: ["تسجيل تقدم تراكمي", "Record cumulative progress"],
+    complete: ["إكمال العمل بالكامل", "Complete all work"],
+    send: ["تسليم كامل العهدة", "Hand over full custody"],
+    store: ["اعتماد الإدخال النهائي", "Approve final entry"],
+    approve_disposal: ["اعتماد محضر الإتلاف", "Approve disposal record"],
+    execute_disposal: ["تنفيذ الإتلاف", "Execute disposal"],
+    deliver_sample: ["توثيق تسليم العينة", "Document sample delivery"],
+    resolve: ["حل الاختلاف", "Resolve discrepancy"],
+    rework: ["إحالة لإعادة المعالجة", "Send for rework"],
+  };
+  const label = labels[action];
+  return label ? localize(language, ...label) : action;
+}
+
+function statusFilters(language: "ar" | "en") {
+  return [
+    ["", localize(language, "كل الحالات", "All statuses")],
+    ["pending", localize(language, "بانتظار استلامي", "Awaiting my receipt")],
+    ["received", localize(language, "مستلم", "Received")],
+    ["working", localize(language, "قيد العمل", "In progress")],
+    ["paused", localize(language, "متوقف مؤقتًا", "Paused")],
+    ["completed", localize(language, "مكتمل", "Completed")],
+    ["sent", localize(language, "مرسل بانتظار التأكيد", "Sent — awaiting confirmation")],
+    ["disputed", localize(language, "اختلاف كمية", "Quantity discrepancy")],
+  ] as const;
 }
 
 function actionIcon(action: ActionKind): React.ComponentProps<typeof MaterialIcons>["name"] {
@@ -203,8 +242,8 @@ function actionIcon(action: ActionKind): React.ComponentProps<typeof MaterialIco
   } satisfies Record<ActionKind, React.ComponentProps<typeof MaterialIcons>["name"]>)[action];
 }
 
-function HeaderMetric({ label, value, tone = "blue" }: { label: string; value: number | string; tone?: "blue" | "green" | "amber" | "red" | "violet" }) {
-  return <View style={[styles.metric, styles[`metric_${tone}`]]}><Text style={[styles.metricValue, styles[`metricValue_${tone}`]]}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>;
+function HeaderMetric({ label, value, tone = "blue", language }: { label: string; value: number | string; tone?: "blue" | "green" | "amber" | "red" | "violet"; language: "ar" | "en" }) {
+  return <View style={[styles.metric, styles[`metric_${tone}`]]}><Text style={[styles.metricValue, styles[`metricValue_${tone}`], textStyleFor(language)]}>{value}</Text><Text style={[styles.metricLabel, textStyleFor(language)]}>{label}</Text></View>;
 }
 
 function TinyButton({
@@ -213,25 +252,43 @@ function TinyButton({
   tone = "primary",
   disabled,
   icon,
+  language,
 }: {
   label: string;
   onPress: () => void;
   tone?: "primary" | "secondary" | "danger";
   disabled?: boolean;
   icon?: React.ComponentProps<typeof MaterialIcons>["name"];
+  language: "ar" | "en";
 }) {
   const palette = tone === "danger" ? { background: "#fff1f2", border: "#fecdd3", text: "#be123c" } : tone === "secondary" ? { background: "#fff", border: "#cbd5e1", text: "#334155" } : { background: "#075985", border: "#075985", text: "#fff" };
-  return <TouchableOpacity disabled={disabled} onPress={onPress} style={[styles.tinyButton, { backgroundColor: palette.background, borderColor: palette.border }, disabled && styles.disabledButton]}><Text style={[styles.tinyButtonText, { color: palette.text }]}>{label}</Text>{icon ? <MaterialIcons name={icon} size={15} color={palette.text} /> : null}</TouchableOpacity>;
+  return <TouchableOpacity disabled={disabled} onPress={onPress} style={[styles.tinyButton, rowStyleFor(language), { backgroundColor: palette.background, borderColor: palette.border }, disabled && styles.disabledButton]}><Text style={[styles.tinyButtonText, textStyleFor(language), { color: palette.text }]}>{label}</Text>{icon ? <MaterialIcons name={icon} size={15} color={palette.text} /> : null}</TouchableOpacity>;
 }
 
-function ReadonlyField({ label, value }: { label: string; value: React.ReactNode }) {
-  return <View style={styles.readonlyField}><Text style={styles.readonlyLabel}>{label}</Text><Text style={styles.readonlyValue}>{value}</Text></View>;
+function ReadonlyField({ label, value, language }: { label: string; value: React.ReactNode; language: "ar" | "en" }) {
+  return <View style={styles.readonlyField}><Text style={[styles.readonlyLabel, textStyleFor(language)]}>{label}</Text><Text style={[styles.readonlyValue, textStyleFor(language)]}>{value}</Text></View>;
+}
+
+function WorkbenchStatusPill({ status, language }: { status: string; language: "ar" | "en" }) {
+  const colors = ({ pending: ["#dbeafe", "#1d4ed8"], received: ["#e0f2fe", "#075985"], working: ["#dcfce7", "#166534"], paused: ["#fef3c7", "#92400e"], completed: ["#ede9fe", "#5b21b6"], sent: ["#dbeafe", "#1d4ed8"], disputed: ["#fee2e2", "#b91c1c"], rejected: ["#fee2e2", "#b91c1c"] } as Record<string, [string, string]>)[status] || ["#f1f5f9", "#475569"];
+  return <View style={{ alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors[0] }}><Text style={[{ color: colors[1], fontSize: 11, fontWeight: "800" }, textStyleFor(language)]}>{statusLabelFor(language, status)}</Text></View>;
+}
+
+function WorkbenchMessageBanner({ notice: currentNotice, language, onDismiss }: { notice: Notice; language: "ar" | "en"; onDismiss?: () => void }) {
+  if (!currentNotice) return null;
+  const palette = { info: { background: "#eff6ff", border: "#bfdbfe", color: "#1e3a8a" }, success: { background: "#ecfdf5", border: "#a7f3d0", color: "#065f46" }, error: { background: "#fef2f2", border: "#fecaca", color: "#991b1b" } }[currentNotice.tone];
+  return <View accessibilityRole="alert" style={[{ paddingHorizontal: 11, paddingVertical: 9, borderWidth: 1, borderRadius: 10, gap: 10, alignItems: "center" }, rowStyleFor(language), { backgroundColor: palette.background, borderColor: palette.border }]}><Text style={[{ flex: 1, color: palette.color, fontSize: 12, fontWeight: "600", lineHeight: 18 }, textStyleFor(language)]}>{localize(language, currentNotice.arabic, currentNotice.english)}</Text>{onDismiss ? <Text onPress={onDismiss} style={[{ color: palette.color, fontSize: 11, fontWeight: "800" }, textStyleFor(language)]}>{localize(language, "إخفاء", "Dismiss")}</Text> : null}</View>;
+}
+
+function WorkbenchBusyLabel({ language, label }: { language: "ar" | "en"; label?: string }) {
+  return <View style={[{ alignItems: "center", justifyContent: "center", gap: 7 }, rowStyleFor(language)]}><ActivityIndicator size="small" color="#fff" /><Text style={[{ color: "#fff", fontWeight: "800", fontSize: 12 }, textStyleFor(language)]}>{label || localize(language, "جارٍ التنفيذ…", "Working…")}</Text></View>;
 }
 
 export default function CustodyWorkbenchScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === "web" && width >= 860;
   const canConfigure = user?.role === "admin";
@@ -263,7 +320,7 @@ export default function CustodyWorkbenchScreen() {
       setSettings(nextSettings);
       setNotice((previous) => previous?.tone === "error" ? previous : null);
     } catch (error) {
-      setNotice({ tone: "error", message: error instanceof Error ? error.message : "تعذر تحميل العهد. حاول إعادة التحميل." });
+      setNotice(makeNotice("error", "تعذر تحميل العهد. حاول إعادة التحميل.", "Unable to load custody records. Please try again."));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -317,7 +374,7 @@ export default function CustodyWorkbenchScreen() {
         return next;
       });
     } catch (error) {
-      setNotice({ tone: "error", message: error instanceof Error ? error.message : "تعذر تحميل المستلمين المفعّلين." });
+      setNotice(makeNotice("error", "تعذر تحميل المستلمين المفعّلين.", "Unable to load active recipients."));
     } finally {
       setDirectoryLoading(false);
     }
@@ -334,61 +391,61 @@ export default function CustodyWorkbenchScreen() {
 
     if (action === "receive") {
       const actualPairs = numberOrUndefined(form.actualPairs);
-      if (actualPairs === undefined) return setNotice({ tone: "error", message: "أدخل العدد الفعلي كاملاً بعد العد." });
-      if (actualPairs !== expectedPairs) return setNotice({ tone: "error", message: `العدد الفعلي ${formatPairs(actualPairs)} لا يطابق النقل ${formatPairs(expectedPairs)}. استخدم «تسجيل اختلاف كمية».` });
+      if (actualPairs === undefined) return setNotice(makeNotice("error", "أدخل العدد الفعلي كاملاً بعد العد.", "Enter the complete actual count after counting."));
+      if (actualPairs !== expectedPairs) return setNotice(makeNotice("error", `العدد الفعلي ${formatPairsFor(language, actualPairs)} لا يطابق النقل ${formatPairsFor(language, expectedPairs)}. استخدم «تسجيل اختلاف كمية».`, `The actual count of ${formatPairsFor(language, actualPairs)} does not match the transfer of ${formatPairsFor(language, expectedPairs)}. Use “Record quantity discrepancy”.`));
       actionInput = { batchId: batch.id, transferId: transfer?.id, action: "receive", actualPairs };
     } else if (action === "dispute") {
       const actualPairs = numberOrUndefined(form.actualPairs);
-      if (actualPairs === undefined || !form.reason.trim()) return setNotice({ tone: "error", message: "أدخل العدد الفعلي وسبب الاختلاف لإيقاف الحركة للمراجعة." });
+      if (actualPairs === undefined || !form.reason.trim()) return setNotice(makeNotice("error", "أدخل العدد الفعلي وسبب الاختلاف لإيقاف الحركة للمراجعة.", "Enter the actual count and discrepancy reason to stop the movement for review."));
       actionInput = { batchId: batch.id, transferId: transfer?.id, custodyId: lot?.id, action: "dispute", actualPairs, reason: form.reason.trim(), attachments };
     } else if (action === "reject") {
-      if (!form.reason.trim()) return setNotice({ tone: "error", message: "سبب الرفض مطلوب قبل إعادة النقل للمراجعة." });
+      if (!form.reason.trim()) return setNotice(makeNotice("error", "سبب الرفض مطلوب قبل إعادة النقل للمراجعة.", "A rejection reason is required before returning the transfer for review."));
       actionInput = { batchId: batch.id, transferId: transfer?.id, action: "reject", reason: form.reason.trim(), attachments };
     } else if (action === "pause") {
-      if (!form.reason.trim()) return setNotice({ tone: "error", message: "حدد سبب الإيقاف المؤقت." });
+      if (!form.reason.trim()) return setNotice(makeNotice("error", "حدد سبب الإيقاف المؤقت.", "Specify the reason for the pause."));
       actionInput = { batchId: batch.id, custodyId: lot?.id, action: "pause", reason: form.reason.trim() };
     } else if (action === "progress") {
       const pairs = numberOrUndefined(form.pairs);
-      if (pairs === undefined || !lot || pairs > lot.pairs || pairs < lot.progressPairs) return setNotice({ tone: "error", message: `أدخل إنجازًا تراكميًا بين ${formatPairs(lot?.progressPairs ?? 0)} و${formatPairs(lot?.pairs ?? 0)}.` });
+      if (pairs === undefined || !lot || pairs > lot.pairs || pairs < lot.progressPairs) return setNotice(makeNotice("error", `أدخل إنجازًا تراكميًا بين ${formatPairsFor(language, lot?.progressPairs ?? 0)} و${formatPairsFor(language, lot?.pairs ?? 0)}.`, `Enter cumulative progress between ${formatPairsFor(language, lot?.progressPairs ?? 0)} and ${formatPairsFor(language, lot?.pairs ?? 0)}.`));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "progress", pairs };
     } else if (action === "complete") {
-      if (!lot || lot.progressPairs !== lot.pairs) return setNotice({ tone: "error", message: `لا يمكن الإكمال قبل أن يساوي الإنجاز التراكمي كامل العهدة: ${formatPairs(lot?.pairs)}.` });
+      if (!lot || lot.progressPairs !== lot.pairs) return setNotice(makeNotice("error", `لا يمكن الإكمال قبل أن يساوي الإنجاز التراكمي كامل العهدة: ${formatPairsFor(language, lot?.pairs)}.`, `Completion is unavailable until cumulative progress equals the full custody: ${formatPairsFor(language, lot?.pairs)}.`));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "complete", pairs: lot.pairs };
     } else if (action === "send") {
       if (!lot) return;
       if (batch.purpose === "sale" && (lot.stage === "antislip" || lot.stage === "inspection")) {
         const validation = validateFullAllocations(lot.stage, lot.pairs, allocations);
-        if (!validation.valid) return setNotice({ tone: "error", message: validation.message || "توزيع الجودة غير مكتمل." });
-        if (allocations.some((allocation) => allocation.toUserId === user.id)) return setNotice({ tone: "error", message: "لا يمكن تسليم العهدة إلى الحساب نفسه." });
-        if (allocations.some(a => a.quality !== lot.quality) && !form.reason.trim()) return setNotice({tone:"error",message:"سبب تغيير تصنيف الجودة إلزامي"});
-        if (allocations.some(a => ["suspected", "damaged"].includes(a.quality)) && !form.defectType.trim()) return setNotice({tone:"error",message:"حدد نوع العيب أو الاشتباه"});
+        if (!validation.valid) return setNotice(makeNotice("error", validation.message || "توزيع الجودة غير مكتمل.", "The quality allocation is incomplete."));
+        if (allocations.some((allocation) => allocation.toUserId === user.id)) return setNotice(makeNotice("error", "لا يمكن تسليم العهدة إلى الحساب نفسه.", "Custody cannot be handed over to the same account."));
+        if (allocations.some(a => a.quality !== lot.quality) && !form.reason.trim()) return setNotice(makeNotice("error", "سبب تغيير تصنيف الجودة إلزامي", "A reason is required when changing the quality classification."));
+        if (allocations.some(a => ["suspected", "damaged"].includes(a.quality)) && !form.defectType.trim()) return setNotice(makeNotice("error", "حدد نوع العيب أو الاشتباه", "Specify the defect or suspected issue type."));
         actionInput = { batchId: batch.id, custodyId: lot.id, action: "send", pairs: lot.pairs, allocations, reason: form.reason.trim() || undefined, defectType: form.defectType.trim() || undefined, defectCause: form.defectCause.trim() || undefined, attachments };
       } else {
         const destination = nextCustodyStage(lot.stage, batch.product.antiSlip, batch.purpose);
         const receiver = accountById(directory[destination || lot.stage] || [], form.receiverId);
-        if (!destination || !receiver) return setNotice({ tone: "error", message: "اختر مستلمًا مفعّلًا من القسم التالي." });
-        if (receiver.id === user.id) return setNotice({ tone: "error", message: "لا يمكن تسليم العهدة إلى الحساب نفسه." });
+        if (!destination || !receiver) return setNotice(makeNotice("error", "اختر مستلمًا مفعّلًا من القسم التالي.", "Select an active recipient from the next department."));
+        if (receiver.id === user.id) return setNotice(makeNotice("error", "لا يمكن تسليم العهدة إلى الحساب نفسه.", "Custody cannot be handed over to the same account."));
         actionInput = { batchId: batch.id, custodyId: lot.id, action: "send", pairs: lot.pairs, allocations: [{ toStage: destination, toUserId: receiver.id, quality: lot.quality, pairs: lot.pairs }] };
       }
     } else if (action === "store") {
       const packagePairs = numberOrUndefined(form.packagePairs);
-      if (!lot || batch.purpose !== "sale" || (lot.quality !== "first" && lot.quality !== "second")) return setNotice({ tone: "error", message: "الإدخال النهائي متاح فقط لنخب البيع الأول أو الثاني." });
-      if (!form.barcode.trim() || packagePairs === undefined || packagePairs <= 0) return setNotice({ tone: "error", message: "أدخل الباركود وعدد الأزواج الصحيح داخل العبوة قبل الاعتماد النهائي." });
+      if (!lot || batch.purpose !== "sale" || (lot.quality !== "first" && lot.quality !== "second")) return setNotice(makeNotice("error", "الإدخال النهائي متاح فقط لنخب البيع الأول أو الثاني.", "Final entry is available only for first- or second-grade sale lots."));
+      if (!form.barcode.trim() || packagePairs === undefined || packagePairs <= 0) return setNotice(makeNotice("error", "أدخل الباركود وعدد الأزواج الصحيح داخل العبوة قبل الاعتماد النهائي.", "Enter the barcode and valid pairs per package before final approval."));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "store", barcode: form.barcode.trim(), packagePairs, pairs: lot.pairs, attachments };
     } else if (action === "approve_disposal") {
-      if (!lot || !form.reason.trim()) return setNotice({ tone: "error", message: "سبب اعتماد محضر الإتلاف مطلوب." });
+      if (!lot || !form.reason.trim()) return setNotice(makeNotice("error", "سبب اعتماد محضر الإتلاف مطلوب.", "A reason is required to approve the disposal record."));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "approve_disposal", pairs: lot.pairs, reason: form.reason.trim(), attachments };
     } else if (action === "execute_disposal") {
-      if (!lot || !form.reason.trim() || !form.method.trim() || attachments.length === 0) return setNotice({ tone: "error", message: "يتطلب التنفيذ السبب وطريقة التخلص وإثباتًا مرفقًا بعد الاعتماد المسجل." });
+      if (!lot || !form.reason.trim() || !form.method.trim() || attachments.length === 0) return setNotice(makeNotice("error", "يتطلب التنفيذ السبب وطريقة التخلص وإثباتًا مرفقًا بعد الاعتماد المسجل.", "Execution requires a reason, disposal method, and attached proof after approval is recorded."));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "execute_disposal", pairs: lot.pairs, reason: form.reason.trim(), method: form.method.trim(), attachments };
     } else if (action === "deliver_sample") {
-      if (!lot || !form.receiver.trim() || !form.method.trim() || !form.proof.trim()) return setNotice({ tone: "error", message: "أدخل المستلم وطريقة التسليم والإثبات لتوثيق تسليم العينة." });
+      if (!lot || !form.receiver.trim() || !form.method.trim() || !form.proof.trim()) return setNotice(makeNotice("error", "أدخل المستلم وطريقة التسليم والإثبات لتوثيق تسليم العينة.", "Enter the recipient, delivery method, and proof to document sample delivery."));
       actionInput = { batchId: batch.id, custodyId: lot.id, action: "deliver_sample", pairs: lot.pairs, receiver: form.receiver.trim(), method: form.method.trim(), proof: form.proof.trim(), attachments };
     } else if (action === "rework") {
-      if (!lot || !form.reason.trim() || !form.receiverId) return setNotice({tone:"error",message:"حدد سبب القرار والقسم والمستلم لإعادة معالجة كامل العهدة"});
+      if (!lot || !form.reason.trim() || !form.receiverId) return setNotice(makeNotice("error", "حدد سبب القرار والقسم والمستلم لإعادة معالجة كامل العهدة", "Specify the decision reason, department, and recipient to rework the full custody."));
       actionInput = {batchId:batch.id,custodyId:lot.id,action,reason:form.reason.trim(),attachments,allocations:[{toStage:form.reworkStage,toUserId:Number(form.receiverId),quality:lot.quality,pairs:lot.pairs}]};
     } else if (action === "resolve") {
-      if (!form.reason.trim()) return setNotice({ tone: "error", message: "السبب والتوثيق مطلوبان قبل هذا الإجراء الإشرافي." });
+      if (!form.reason.trim()) return setNotice(makeNotice("error", "السبب والتوثيق مطلوبان قبل هذا الإجراء الإشرافي.", "Reason and documentation are required before this supervisory action."));
       actionInput = { batchId: batch.id, custodyId: lot?.id, transferId: transfer?.id, action, reason: form.reason.trim(), attachments };
     } else {
       actionInput = { batchId: batch.id, custodyId: lot?.id, action };
@@ -405,11 +462,11 @@ export default function CustodyWorkbenchScreen() {
         delete next[scopeId];
         return next;
       });
-      setNotice({ tone: "success", message: result.replayed ? result.message || "تم تنفيذ الإجراء مسبقًا دون تكرار." : "تم تأكيد الإجراء من الخادم وتحديث سجل العهد." });
+      setNotice(result.replayed ? makeNotice("success", "تم تنفيذ الإجراء مسبقًا دون تكرار.", "The action was already completed without duplication.") : makeNotice("success", "تم تأكيد الإجراء من الخادم وتحديث سجل العهد.", "The server confirmed the action and updated the custody record."));
       setActionTarget(null); setSelected(null); setForm(EMPTY_FORM); setAttachments([]); setAllocations([]);
       await load(true);
     } catch (error) {
-      setNotice({ tone: "error", message: error instanceof Error ? error.message : "لم يؤكد الخادم تنفيذ الإجراء. يمكنك المحاولة بالمفتاح نفسه." });
+      setNotice(makeNotice("error", "لم يؤكد الخادم تنفيذ الإجراء. يمكنك المحاولة بالمفتاح نفسه.", "The server did not confirm the action. You can retry with the same key."));
     } finally {
       setBusyOperation(null);
     }
@@ -433,9 +490,9 @@ export default function CustodyWorkbenchScreen() {
       await custodyService.saveSettings(settingsDraft);
       setSettings(settingsDraft);
       setSettingsOpen(false);
-      setNotice({ tone: "success", message: "تم تأكيد حفظ إعدادات العهد من الخادم." });
+      setNotice(makeNotice("success", "تم تأكيد حفظ إعدادات العهد من الخادم.", "The server confirmed that custody settings were saved."));
     } catch (error) {
-      setNotice({ tone: "error", message: error instanceof Error ? error.message : "تعذر حفظ الإعدادات." });
+      setNotice(makeNotice("error", "تعذر حفظ الإعدادات.", "Unable to save settings."));
     } finally {
       setBusyOperation(null);
     }
@@ -458,8 +515,8 @@ export default function CustodyWorkbenchScreen() {
   const actionBusy = !!actionTarget && !!busyOperation;
   const renderActions = (row: WorkbenchRow, compact = false) => {
     const actions = permittedActions(row, user?.role);
-    if (!actions.length) return <Text style={styles.noAction}>لا يوجد إجراء متاح</Text>;
-    return <View style={[styles.actionRow, compact && styles.actionRowCompact]}>{actions.map((action) => <TinyButton key={action} label={actionLabel(action)} icon={actionIcon(action)} tone={["dispute", "reject", "execute_disposal"].includes(action) ? "danger" : "primary"} onPress={() => void openAction(row, action)} disabled={!!busyOperation} />)}</View>;
+    if (!actions.length) return <Text style={[styles.noAction, textStyleFor(language)]}>{localize(language, "لا يوجد إجراء متاح", "No action available")}</Text>;
+    return <View style={[styles.actionRow, rowStyleFor(language), compact && styles.actionRowCompact]}>{actions.map((action) => <TinyButton key={action} language={language} label={actionLabel(action, language)} icon={actionIcon(action)} tone={["dispute", "reject", "execute_disposal"].includes(action) ? "danger" : "primary"} onPress={() => void openAction(row, action)} disabled={!!busyOperation} />)}</View>;
   };
 
   const renderCard = ({ item }: { item: WorkbenchRow }) => {
@@ -468,236 +525,186 @@ export default function CustodyWorkbenchScreen() {
     const isOutgoing = item.kind === "outgoing";
     const lot = rowLot(item);
     const transfer = rowTransfer(item);
+    const flow = isIncoming ? localize(language, "وارد", "Incoming") : isOutgoing ? localize(language, "مسؤوليتي حتى التأكيد", "My responsibility until confirmation") : localize(language, "عهدتي", "My custody");
+    const time = isIncoming ? localize(language, `أُرسل: ${formatRiyadhFor(language, transfer?.sentAt)}`, `Sent: ${formatRiyadhFor(language, transfer?.sentAt)}`) : lot?.receivedAt ? localize(language, `استُلم: ${formatRiyadhFor(language, lot.receivedAt)}`, `Received: ${formatRiyadhFor(language, lot.receivedAt)}`) : localize(language, `أُرسل: ${formatRiyadhFor(language, transfer?.sentAt)}`, `Sent: ${formatRiyadhFor(language, transfer?.sentAt)}`);
     return <TouchableOpacity activeOpacity={0.8} onPress={() => setSelected(item)} style={styles.card}>
-      <View style={styles.cardTop}><View style={styles.cardBadges}><StatusPill status={rowStatus(item)} /><Text style={[styles.flowPill, isIncoming ? styles.incomingPill : isOutgoing ? styles.outgoingPill : styles.ownerPill]}>{isIncoming ? "وارد" : isOutgoing ? "مسؤوليتي حتى التأكيد" : "عهدتي"}</Text></View><View style={styles.cardTitleWrap}><Text style={styles.cardTitle} numberOfLines={1}>{batch.product.name}</Text><Text style={styles.cardTracking}>{batch.trackingNumber} · {batch.product.code}</Text></View></View>
-      <View style={styles.cardGrid}>
-        <ReadonlyField label="القسم" value={stageLabel(rowStage(item))} />
-        <ReadonlyField label="الكمية" value={formatPairs(rowPairs(item))} />
-        <ReadonlyField label="المقاس / اللون" value={`${batch.product.size} · ${batch.product.color}`} />
-        <ReadonlyField label="النخب" value={qualityLabel(lot?.quality || transfer?.quality)} />
+      <View style={[styles.cardTop, rowStyleFor(language)]}><View style={[styles.cardBadges, rowStyleFor(language)]}><WorkbenchStatusPill status={rowStatus(item)} language={language} /><Text style={[styles.flowPill, isIncoming ? styles.incomingPill : isOutgoing ? styles.outgoingPill : styles.ownerPill, textStyleFor(language)]}>{flow}</Text></View><View style={[styles.cardTitleWrap, alignStyleFor(language)]}><Text style={[styles.cardTitle, textStyleFor(language)]} numberOfLines={1}>{batch.product.name}</Text><Text style={[styles.cardTracking, textStyleFor(language)]}>{batch.trackingNumber} · {batch.product.code}</Text></View></View>
+      <View style={[styles.cardGrid, rowStyleFor(language)]}>
+        <ReadonlyField language={language} label={localize(language, "القسم", "Department")} value={stageLabelFor(language, rowStage(item))} />
+        <ReadonlyField language={language} label={localize(language, "الكمية", "Quantity")} value={formatPairsFor(language, rowPairs(item))} />
+        <ReadonlyField language={language} label={localize(language, "المقاس / اللون", "Size / color")} value={`${batch.product.size} · ${batch.product.color}`} />
+        <ReadonlyField language={language} label={localize(language, "النخب", "Quality")} value={qualityLabelFor(language, lot?.quality || transfer?.quality)} />
       </View>
-      <View style={styles.cardFooter}><Text style={styles.cardTime}>{isIncoming ? `أُرسل: ${formatRiyadh(transfer?.sentAt)}` : lot?.receivedAt ? `استُلم: ${formatRiyadh(lot.receivedAt)}` : `أُرسل: ${formatRiyadh(transfer?.sentAt)}`}</Text>{renderActions(item, true)}</View>
+      <View style={styles.cardFooter}><Text style={[styles.cardTime, textStyleFor(language)]}>{time}</Text>{renderActions(item, true)}</View>
     </TouchableOpacity>;
   };
 
-  const renderWideTable = () => <ScrollView horizontal contentContainerStyle={styles.tableScroll}><View style={styles.table}>
-    <View style={[styles.tableHeader, Platform.OS === "web" ? ({ position: "sticky", top: 0, zIndex: 2 } as any) : undefined]}>
-      {[["الدفعة", 150], ["الصنف", 190], ["القسم / المسار", 160], ["النخب", 105], ["الكمية", 115], ["الوقت", 165], ["الحالة", 145], ["الإجراء", 260]].map(([label, minWidth]) => <Text key={String(label)} style={[styles.th, { minWidth: Number(minWidth) }]}>{label}</Text>)}
-    </View>
-    {rows.map((row) => {
-      const lot = rowLot(row); const transfer = rowTransfer(row);
-      return <TouchableOpacity key={row.id} onPress={() => setSelected(row)} style={styles.tableRow}>
-        <Text style={[styles.td, { minWidth: 150 }]}>{row.batch.trackingNumber}</Text>
-        <View style={[styles.tdWrap, { minWidth: 190 }]}><Text style={styles.tdStrong}>{row.batch.product.name}</Text><Text style={styles.tdMuted}>{row.batch.product.code} · {row.batch.product.size}/{row.batch.product.color}</Text></View>
-        <View style={[styles.tdWrap, { minWidth: 160 }]}><Text style={styles.tdStrong}>{stageLabel(rowStage(row))}</Text><Text style={styles.tdMuted}>{rowTitle(row)}</Text></View>
-        <Text style={[styles.td, { minWidth: 105 }]}>{qualityLabel(lot?.quality || transfer?.quality)}</Text>
-        <Text style={[styles.td, { minWidth: 115 }]}>{formatPairs(rowPairs(row))}</Text>
-        <Text style={[styles.td, { minWidth: 165 }]}>{formatRiyadh(lot?.receivedAt || transfer?.sentAt)}</Text>
-        <View style={[styles.tdWrap, { minWidth: 145 }]}><StatusPill status={rowStatus(row)} /></View>
-        <View style={[styles.tdWrap, { minWidth: 260 }]}>{renderActions(row, true)}</View>
-      </TouchableOpacity>;
-    })}
-  </View></ScrollView>;
+  const renderWideTable = () => {
+    const headings: [string, number][] = [
+      [localize(language, "الدفعة", "Batch"), 150], [localize(language, "الصنف", "Item"), 190], [localize(language, "القسم / المسار", "Department / route"), 160], [localize(language, "النخب", "Quality"), 105], [localize(language, "الكمية", "Quantity"), 115], [localize(language, "الوقت", "Time"), 165], [localize(language, "الحالة", "Status"), 145], [localize(language, "الإجراء", "Action"), 260],
+    ];
+    return <ScrollView horizontal contentContainerStyle={styles.tableScroll}><View style={styles.table}>
+      <View style={[styles.tableHeader, rowStyleFor(language), Platform.OS === "web" ? ({ position: "sticky", top: 0, zIndex: 2 } as any) : undefined]}>{headings.map(([label, minWidth]) => <Text key={label} style={[styles.th, textStyleFor(language), { minWidth }]}>{label}</Text>)}</View>
+      {rows.map((row) => {
+        const lot = rowLot(row); const transfer = rowTransfer(row);
+        return <TouchableOpacity key={row.id} onPress={() => setSelected(row)} style={[styles.tableRow, rowStyleFor(language)]}>
+          <Text style={[styles.td, textStyleFor(language), { minWidth: 150 }]}>{row.batch.trackingNumber}</Text>
+          <View style={[styles.tdWrap, alignStyleFor(language), { minWidth: 190 }]}><Text style={[styles.tdStrong, textStyleFor(language)]}>{row.batch.product.name}</Text><Text style={[styles.tdMuted, textStyleFor(language)]}>{row.batch.product.code} · {row.batch.product.size}/{row.batch.product.color}</Text></View>
+          <View style={[styles.tdWrap, alignStyleFor(language), { minWidth: 160 }]}><Text style={[styles.tdStrong, textStyleFor(language)]}>{stageLabelFor(language, rowStage(row))}</Text><Text style={[styles.tdMuted, textStyleFor(language)]}>{rowTitle(row, language)}</Text></View>
+          <Text style={[styles.td, textStyleFor(language), { minWidth: 105 }]}>{qualityLabelFor(language, lot?.quality || transfer?.quality)}</Text>
+          <Text style={[styles.td, textStyleFor(language), { minWidth: 115 }]}>{formatPairsFor(language, rowPairs(row))}</Text>
+          <Text style={[styles.td, textStyleFor(language), { minWidth: 165 }]}>{formatRiyadhFor(language, lot?.receivedAt || transfer?.sentAt)}</Text>
+          <View style={[styles.tdWrap, alignStyleFor(language), { minWidth: 145 }]}><WorkbenchStatusPill status={rowStatus(row)} language={language} /></View>
+          <View style={[styles.tdWrap, alignStyleFor(language), { minWidth: 260 }]}>{renderActions(row, true)}</View>
+        </TouchableOpacity>;
+      })}
+    </View></ScrollView>;
+  };
 
+  const shifts = [...new Set(batches.filter(batch => batch.custodies.some(lot => lot.ownerId === Number(user?.id) && !["closed", "stored", "destroyed"].includes(lot.status))).map(batch => batch.shift).filter(Boolean))].join(" / ") || localize(language, "غير مسجلة", "Not recorded");
   return <ScreenContainer edges={["top", "bottom", "left", "right"]} style={{ backgroundColor: colors.background }}>
-    <View style={styles.root}>
-      <View style={styles.topBar}>
+    <View style={[styles.root, { direction: writingDirection(language) } as any]}>
+      <View style={[styles.topBar, rowStyleFor(language)]}>
         <View style={styles.topBarActions}>
           <BackButton />
-          <TouchableOpacity onPress={() => void load(true)} disabled={refreshing || loading} style={styles.iconButton} accessibilityLabel="إعادة تحميل العهد"><MaterialIcons name="refresh" size={20} color="#fff" /></TouchableOpacity>
+          <TouchableOpacity onPress={() => void load(true)} disabled={refreshing || loading} style={styles.iconButton} accessibilityLabel={localize(language, "إعادة تحميل العهد", "Reload custody records")}><MaterialIcons name="refresh" size={20} color="#fff" /></TouchableOpacity>
         </View>
-        <View style={styles.titleBlock}><Text style={styles.title}>منضدة العهد</Text><Text style={styles.titleSub}>متابعة الاستلام والعمل والتسليم بكميات صحيحة</Text></View>
-        <View style={styles.profileBlock}><Text style={styles.profileName}>{user?.name || "الحساب غير معروف"} · {user?.username || "—"}</Text><Text style={styles.profileSub}>{user?.department || "القسم غير مسجل"} · الورديات: {[...new Set(batches.filter(batch=>batch.custodies.some(lot=>lot.ownerId===Number(user?.id)&&!["closed","stored","destroyed"].includes(lot.status))).map(batch=>batch.shift).filter(Boolean))].join(" / ") || "غير مسجلة"}</Text></View>
+        <View style={[styles.titleBlock, alignStyleFor(language)]}><Text style={[styles.title, textStyleFor(language)]}>{localize(language, "منضدة العهد", "Custody Workbench")}</Text><Text style={[styles.titleSub, textStyleFor(language)]}>{localize(language, "متابعة الاستلام والعمل والتسليم بكميات صحيحة", "Track receipt, work, and handover with accurate quantities")}</Text></View>
+        <View style={[styles.profileBlock, alignStyleFor(language)]}><Text style={[styles.profileName, textStyleFor(language)]}>{user?.name || localize(language, "الحساب غير معروف", "Unknown account")} · {user?.username || "—"}</Text><Text style={[styles.profileSub, textStyleFor(language)]}>{departmentLabelFor(language, user?.department)} · {localize(language, "الورديات", "Shifts")}: {shifts}</Text></View>
       </View>
 
-      <View style={styles.navigationRow}>
-        {canCreate ? <TinyButton label="دفعة جديدة" icon="add-box" tone="secondary" onPress={() => router.push("/custody-batch-entry" as never)} /> : null}
-        <TinyButton label="تقارير العهد" icon="analytics" tone="secondary" onPress={() => router.push("/custody-reports" as never)} />
-        {user?.role === "admin" ? <TinyButton label="مراجعة العهد السابقة" icon="history" tone="secondary" onPress={() => router.push("/custody-legacy-review" as never)} /> : null}
-        {canConfigure ? <TinyButton label="إعدادات العهد" icon="tune" tone="secondary" onPress={openSettings} /> : null}
+      <View style={[styles.navigationRow, rowStyleFor(language)]}>
+        {canCreate ? <TinyButton language={language} label={localize(language, "دفعة جديدة", "New batch")} icon="add-box" tone="secondary" onPress={() => router.push("/custody-batch-entry" as never)} /> : null}
+        <TinyButton language={language} label={localize(language, "تقارير العهد", "Custody reports")} icon="analytics" tone="secondary" onPress={() => router.push("/custody-reports" as never)} />
+        {user?.role === "admin" ? <TinyButton language={language} label={localize(language, "مراجعة العهد السابقة", "Review legacy custody")} icon="history" tone="secondary" onPress={() => router.push("/custody-legacy-review" as never)} /> : null}
+        {canConfigure ? <TinyButton language={language} label={localize(language, "إعدادات العهد", "Custody settings")} icon="tune" tone="secondary" onPress={openSettings} /> : null}
       </View>
 
-      <View style={styles.legacyNotice}>
-        <View style={styles.legacyNoticeText}><Text style={styles.legacyNoticeTitle}>الدورة الجديدة للدفعات المسجلة بعد التحديث</Text><Text style={styles.legacyNoticeBody}>العهد السابقة محفوظة في السجل التاريخي، ولا تنتقل تلقائيًا.</Text></View>
-        <View style={styles.legacyNoticeActions}>
-          <TinyButton label="السجل السابق" icon="history" tone="secondary" onPress={() => router.push("/my-custody?legacy=1" as never)} />
-          <TinyButton label="المراحل السابقة" icon="account-tree" tone="secondary" onPress={() => router.push("/manufacturing?legacy=1" as never)} />
-          {canConfigure ? <TinyButton label="ترحيل افتتاحي" icon="published-with-changes" tone="secondary" onPress={() => router.push("/custody-legacy-import" as never)} /> : null}
+      <View style={[styles.legacyNotice, rowStyleFor(language)]}>
+        <View style={[styles.legacyNoticeText, alignStyleFor(language)]}><Text style={[styles.legacyNoticeTitle, textStyleFor(language)]}>{localize(language, "الدورة الجديدة للدفعات المسجلة بعد التحديث", "New workflow for batches registered after the update")}</Text><Text style={[styles.legacyNoticeBody, textStyleFor(language)]}>{localize(language, "العهد السابقة محفوظة في السجل التاريخي، ولا تنتقل تلقائيًا.", "Previous custody records are preserved in the historical register and are not migrated automatically.")}</Text></View>
+        <View style={[styles.legacyNoticeActions, rowStyleFor(language)]}>
+          <TinyButton language={language} label={localize(language, "السجل السابق", "Legacy register")} icon="history" tone="secondary" onPress={() => router.push("/my-custody?legacy=1" as never)} />
+          <TinyButton language={language} label={localize(language, "المراحل السابقة", "Legacy stages")} icon="account-tree" tone="secondary" onPress={() => router.push("/manufacturing?legacy=1" as never)} />
+          {canConfigure ? <TinyButton language={language} label={localize(language, "ترحيل افتتاحي", "Opening migration")} icon="published-with-changes" tone="secondary" onPress={() => router.push("/custody-legacy-import" as never)} /> : null}
         </View>
       </View>
 
-      <View style={styles.metricsWrap}>
-        <HeaderMetric label="بانتظار استلامي" value={loading ? "—" : counts.pendingReceive} tone="blue" />
-        <HeaderMetric label="مستلمة لديّ" value={loading ? "—" : counts.held} tone="violet" />
-        <HeaderMetric label="قيد العمل" value={loading ? "—" : counts.working} tone="green" />
-        <HeaderMetric label="مكتملة بانتظار التسليم" value={loading ? "—" : counts.completed} tone="amber" />
-        <HeaderMetric label="مرسلة بانتظار التأكيد" value={loading ? "—" : counts.sent} tone="blue" />
-        <HeaderMetric label="متأخرة بسياسة مضبوطة" value={loading ? "—" : counts.overdue} tone="red" />
-        <HeaderMetric label="اختلافات" value={loading ? "—" : counts.disputed} tone="red" />
+      <View style={[styles.metricsWrap, rowStyleFor(language)]}>
+        <HeaderMetric language={language} label={localize(language, "بانتظار استلامي", "Awaiting my receipt")} value={loading ? "—" : counts.pendingReceive} tone="blue" />
+        <HeaderMetric language={language} label={localize(language, "مستلمة لديّ", "Held by me")} value={loading ? "—" : counts.held} tone="violet" />
+        <HeaderMetric language={language} label={localize(language, "قيد العمل", "In progress")} value={loading ? "—" : counts.working} tone="green" />
+        <HeaderMetric language={language} label={localize(language, "مكتملة بانتظار التسليم", "Completed — awaiting handover")} value={loading ? "—" : counts.completed} tone="amber" />
+        <HeaderMetric language={language} label={localize(language, "مرسلة بانتظار التأكيد", "Sent — awaiting confirmation")} value={loading ? "—" : counts.sent} tone="blue" />
+        <HeaderMetric language={language} label={localize(language, "متأخرة بسياسة مضبوطة", "Overdue under configured policy")} value={loading ? "—" : counts.overdue} tone="red" />
+        <HeaderMetric language={language} label={localize(language, "اختلافات", "Discrepancies")} value={loading ? "—" : counts.disputed} tone="red" />
       </View>
 
       <View style={styles.content}>
-        <MessageBanner tone={notice?.tone} message={notice?.message} onDismiss={() => setNotice(null)} />
-        <View style={styles.filters}><View style={styles.searchWrap}><MaterialIcons name="search" size={19} color="#64748b" /><TextInput value={search} onChangeText={setSearch} placeholder="ابحث برقم الدفعة أو الصنف" placeholderTextColor="#64748b" style={styles.searchInput} textAlign="right" returnKeyType="search" /></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>{STATUS_FILTERS.map(([value, label]) => <TouchableOpacity key={value} onPress={() => setStatusFilter(value)} style={[styles.filterChip, statusFilter === value && styles.filterChipActive]}><Text style={[styles.filterChipText, statusFilter === value && styles.filterChipTextActive]}>{label}</Text></TouchableOpacity>)}</ScrollView></View>
+        <WorkbenchMessageBanner notice={notice} language={language} onDismiss={() => setNotice(null)} />
+        <View style={styles.filters}><View style={[styles.searchWrap, rowStyleFor(language)]}><MaterialIcons name="search" size={19} color="#64748b" /><TextInput value={search} onChangeText={setSearch} placeholder={localize(language, "ابحث برقم الدفعة أو الصنف", "Search by batch number or item")} placeholderTextColor="#64748b" style={[styles.searchInput, textStyleFor(language)]} textAlign={textAlignFor(language)} returnKeyType="search" /></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterChips, rowStyleFor(language)]}>{statusFilters(language).map(([value, label]) => <TouchableOpacity key={value} onPress={() => setStatusFilter(value)} style={[styles.filterChip, statusFilter === value && styles.filterChipActive]}><Text style={[styles.filterChipText, textStyleFor(language), statusFilter === value && styles.filterChipTextActive]}>{label}</Text></TouchableOpacity>)}</ScrollView></View>
 
-        {loading ? <View style={styles.loadingState}><ActivityIndicator size="large" color="#075985" /><Text style={styles.loadingText}>جارٍ تحميل سجل العهد من الخادم…</Text></View> : rows.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="inventory-2" size={36} color="#0f766e" /><Text style={styles.emptyTitle}>لا توجد عهد أو تحويلات مطابقة</Text><Text style={styles.emptyText}>لا نعتمد أرقامًا افتراضية. أعد التحميل عند وصول حركة جديدة أو غيّر التصفية.</Text></View> : isWide ? renderWideTable() : <FlatList data={rows} renderItem={renderCard} keyExtractor={(item) => item.id} contentContainerStyle={styles.cardsList} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />} />}
+        {loading ? <View style={styles.loadingState}><ActivityIndicator size="large" color="#075985" /><Text style={[styles.loadingText, textStyleFor(language)]}>{localize(language, "جارٍ تحميل سجل العهد من الخادم…", "Loading custody records from the server…")}</Text></View> : rows.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="inventory-2" size={36} color="#0f766e" /><Text style={[styles.emptyTitle, textStyleFor(language)]}>{localize(language, "لا توجد عهد أو تحويلات مطابقة", "No matching custody records or transfers")}</Text><Text style={[styles.emptyText, textStyleFor(language)]}>{localize(language, "لا نعتمد أرقامًا افتراضية. أعد التحميل عند وصول حركة جديدة أو غيّر التصفية.", "We do not use default numbers. Reload when a new movement arrives or change the filter.")}</Text></View> : isWide ? renderWideTable() : <FlatList data={rows} renderItem={renderCard} keyExtractor={(item) => item.id} contentContainerStyle={styles.cardsList} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />} />}
       </View>
     </View>
 
-    <DetailModal selected={selected} userRole={user?.role} onClose={() => setSelected(null)} onAction={(action) => selected && void openAction(selected, action)} />
-    <ActionModal
-      notice={notice}
-      target={actionTarget}
-      userId={user?.id}
-      directory={directory}
-      directoryLoading={directoryLoading}
-      form={form}
-      attachments={attachments}
-      allocations={allocations}
-      busy={actionBusy}
-      onChangeForm={(patch) => setForm((previous) => ({ ...previous, ...patch }))}
-      onChangeAttachments={setAttachments}
-      onChangeAllocation={updateAllocation}
-      onAddAllocation={() => {
-        const lot = actionTarget ? rowLot(actionTarget.row) : undefined;
-        if (!lot) return;
-        const toStage = lot.stage === "antislip" ? "kawiya" : "packing";
-        setAllocations((previous) => [...previous, { toStage, quality: lot.quality === "second" || lot.quality === "suspected" ? "second" : "first", toUserId: 0, pairs: 0 }]);
-      }}
-      onRemoveAllocation={(index) => setAllocations((previous) => previous.filter((_, allocationIndex) => allocationIndex !== index))}
-      onClose={closeAction}
-      onSubmit={() => void executeAction()}
-    />
-    <SettingsModal draft={settingsDraft} visible={settingsOpen} busy={busyOperation === "settings"} onClose={() => setSettingsOpen(false)} onToggleEnabled={(enabled) => setSettingsDraft((previous) => previous ? { ...previous, enabled } : previous)} onChangeLimit={updateStageLimit} onSave={() => void saveSettings()} />
+    <DetailModal language={language} selected={selected} userRole={user?.role} onClose={() => setSelected(null)} onAction={(action) => selected && void openAction(selected, action)} />
+    <ActionModal language={language} notice={notice} target={actionTarget} userId={user?.id} directory={directory} directoryLoading={directoryLoading} form={form} attachments={attachments} allocations={allocations} busy={actionBusy} onChangeForm={(patch) => setForm((previous) => ({ ...previous, ...patch }))} onChangeAttachments={setAttachments} onChangeAllocation={updateAllocation} onAddAllocation={() => { const lot = actionTarget ? rowLot(actionTarget.row) : undefined; if (!lot) return; const toStage = lot.stage === "antislip" ? "kawiya" : "packing"; setAllocations((previous) => [...previous, { toStage, quality: lot.quality === "second" || lot.quality === "suspected" ? "second" : "first", toUserId: 0, pairs: 0 }]); }} onRemoveAllocation={(index) => setAllocations((previous) => previous.filter((_, allocationIndex) => allocationIndex !== index))} onClose={closeAction} onSubmit={() => void executeAction()} />
+    <SettingsModal language={language} draft={settingsDraft} visible={settingsOpen} busy={busyOperation === "settings"} onClose={() => setSettingsOpen(false)} onToggleEnabled={(enabled) => setSettingsDraft((previous) => previous ? { ...previous, enabled } : previous)} onChangeLimit={updateStageLimit} onSave={() => void saveSettings()} />
   </ScreenContainer>;
 }
 
-function DetailModal({ selected, userRole, onClose, onAction }: { selected: WorkbenchRow | null; userRole?: string; onClose: () => void; onAction: (action: ActionKind) => void }) {
+function DetailModal({ language, selected, userRole, onClose, onAction }: { language: "ar" | "en"; selected: WorkbenchRow | null; userRole?: string; onClose: () => void; onAction: (action: ActionKind) => void }) {
   if (!selected) return null;
   const batch = selected.batch;
   const lot = rowLot(selected);
   const transfer = rowTransfer(selected);
   const relevantCustodyId = lot?.id || transfer?.destinationCustodyId || transfer?.sourceCustodyId;
   const actions = permittedActions(selected, userRole);
+  const transferItems = batch.transfers.filter((item) => item.sourceCustodyId === relevantCustodyId || item.destinationCustodyId === relevantCustodyId || item.id === transfer?.id);
+  const sessionItems = batch.sessions.filter((session) => session.custodyId === relevantCustodyId);
+  const progressItems = batch.progress.filter((item) => item.custodyId === relevantCustodyId);
   return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.modalOverlay}><View style={styles.detailPanel}>
-    <View style={styles.modalHeader}><TouchableOpacity onPress={onClose} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={styles.modalTitleWrap}><Text style={styles.modalTitle}>{rowTitle(selected)}</Text><Text style={styles.modalSubtitle}>{batch.trackingNumber} · {formatPairs(rowPairs(selected))}</Text></View></View>
+    <View style={[styles.modalHeader, rowStyleFor(language)]}><TouchableOpacity onPress={onClose} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={[styles.modalTitleWrap, alignStyleFor(language)]}><Text style={[styles.modalTitle, textStyleFor(language)]}>{rowTitle(selected, language)}</Text><Text style={[styles.modalSubtitle, textStyleFor(language)]}>{batch.trackingNumber} · {formatPairsFor(language, rowPairs(selected))}</Text></View></View>
     <ScrollView contentContainerStyle={styles.modalBody}>
-      <Text style={styles.sectionTitle}>بيانات المنتج — للقراءة فقط</Text>
-      <View style={styles.productGrid}><ReadonlyField label="رمز الصنف" value={batch.product.code} /><ReadonlyField label="الصنف" value={batch.product.name} /><ReadonlyField label="المقاس / اللون" value={`${batch.product.size} · ${batch.product.color}`} /><ReadonlyField label="مانع الانزلاق" value={batch.product.antiSlip ? "نعم" : "لا"} /><ReadonlyField label="الغرض" value={batch.purpose === "sale" ? "بيع" : "عينة"} /><ReadonlyField label="الإنتاج" value={`${batch.productionDate} · ${batch.machineNumber}`} /></View>
-      <Text style={styles.yarnText}>الخيوط: {batch.product.yarns.length ? batch.product.yarns.map((yarn) => `${yarn.name} ${yarn.percentage}%`).join("، ") : "غير مسجلة"} · وزن الخيط {batch.product.yarnWeightGrams}غ · وزن الزوج {batch.product.pairWeightGrams}غ</Text>
+      <Text style={[styles.sectionTitle, textStyleFor(language)]}>{localize(language, "بيانات المنتج — للقراءة فقط", "Product data — read only")}</Text>
+      <View style={[styles.productGrid, rowStyleFor(language)]}><ReadonlyField language={language} label={localize(language, "رمز الصنف", "Item code")} value={batch.product.code} /><ReadonlyField language={language} label={localize(language, "الصنف", "Item")} value={batch.product.name} /><ReadonlyField language={language} label={localize(language, "المقاس / اللون", "Size / color")} value={`${batch.product.size} · ${batch.product.color}`} /><ReadonlyField language={language} label={localize(language, "مانع الانزلاق", "Anti-slip")} value={batch.product.antiSlip ? localize(language, "نعم", "Yes") : localize(language, "لا", "No")} /><ReadonlyField language={language} label={localize(language, "الغرض", "Purpose")} value={batch.purpose === "sale" ? localize(language, "بيع", "Sale") : localize(language, "عينة", "Sample")} /><ReadonlyField language={language} label={localize(language, "الإنتاج", "Production")} value={`${batch.productionDate} · ${batch.machineNumber}`} /></View>
+      <Text style={[styles.yarnText, textStyleFor(language)]}>{localize(language, "الخيوط", "Yarns")}: {batch.product.yarns.length ? batch.product.yarns.map((yarn) => `${yarn.name} ${yarn.percentage}%`).join(localize(language, "، ", ", ")) : localize(language, "غير مسجلة", "Not recorded")} · {localize(language, "وزن الخيط", "Yarn weight")} {batch.product.yarnWeightGrams}{localize(language, "غ", " g")} · {localize(language, "وزن الزوج", "Pair weight")} {batch.product.pairWeightGrams}{localize(language, "غ", " g")}</Text>
 
-      <Text style={styles.sectionTitle}>النقل والمسؤولية</Text>
-      {batch.transfers.filter((item) => item.sourceCustodyId === relevantCustodyId || item.destinationCustodyId === relevantCustodyId || item.id === transfer?.id).length ? batch.transfers.filter((item) => item.sourceCustodyId === relevantCustodyId || item.destinationCustodyId === relevantCustodyId || item.id === transfer?.id).map((item) => <View key={item.id} style={styles.timelineRow}><StatusPill status={item.status} /><View style={styles.timelineText}><Text style={styles.timelineStrong}>{item.fromName} ← {item.toName}</Text><Text style={styles.timelineSub}>{stageLabel(item.fromStage)} ← {stageLabel(item.toStage)} · {formatPairs(item.pairs)} · أرسل {formatRiyadh(item.sentAt)}</Text>{item.reason ? <Text style={styles.reasonText}>السبب: {item.reason}</Text> : null}</View></View>) : <Text style={styles.mutedText}>لا توجد حركة مرتبطة بهذه العهدة بعد.</Text>}
+      <Text style={[styles.sectionTitle, textStyleFor(language)]}>{localize(language, "النقل والمسؤولية", "Transfer and responsibility")}</Text>
+      {transferItems.length ? transferItems.map((item) => <View key={item.id} style={[styles.timelineRow, rowStyleFor(language)]}><WorkbenchStatusPill status={item.status} language={language} /><View style={[styles.timelineText, alignStyleFor(language)]}><Text style={[styles.timelineStrong, textStyleFor(language)]}>{item.fromName} {isEnglish(language) ? "→" : "←"} {item.toName}</Text><Text style={[styles.timelineSub, textStyleFor(language)]}>{stageLabelFor(language, item.fromStage)} {isEnglish(language) ? "→" : "←"} {stageLabelFor(language, item.toStage)} · {formatPairsFor(language, item.pairs)} · {localize(language, "أرسل", "Sent")} {formatRiyadhFor(language, item.sentAt)}</Text>{item.reason ? <Text style={[styles.reasonText, textStyleFor(language)]}>{localize(language, "السبب", "Reason")}: {item.reason}</Text> : null}</View></View>) : <Text style={[styles.mutedText, textStyleFor(language)]}>{localize(language, "لا توجد حركة مرتبطة بهذه العهدة بعد.", "There is no movement associated with this custody yet.")}</Text>}
 
-      <Text style={styles.sectionTitle}>جلسات العمل والتقدم</Text>
-      {lot ? <View style={styles.progressSummary}><ReadonlyField label="الإنجاز التراكمي" value={`${formatPairs(lot.progressPairs)} من ${formatPairs(lot.pairs)}`} /><ReadonlyField label="وقت الاستلام" value={formatRiyadh(lot.receivedAt)} /><ReadonlyField label="بدأ العمل" value={formatRiyadh(lot.startedAt)} /><ReadonlyField label="اكتمل" value={formatRiyadh(lot.completedAt)} /></View> : null}
-      {batch.sessions.filter((session) => session.custodyId === relevantCustodyId).map((session) => <View key={session.id} style={styles.eventRow}><Text style={styles.eventBadge}>{session.kind === "work" ? "عمل" : "توقف"}</Text><Text style={styles.eventText}>{formatRiyadh(session.startedAt)} {session.endedAt ? `— ${formatRiyadh(session.endedAt)}` : "— مستمرة"}{session.reason ? ` · ${session.reason}` : ""}</Text></View>)}
-      {batch.progress.filter((item) => item.custodyId === relevantCustodyId).map((item) => <View key={item.id} style={styles.eventRow}><Text style={styles.eventBadge}>تقدم</Text><Text style={styles.eventText}>{formatPairs(item.pairs)} · {formatRiyadh(item.recordedAt)}</Text></View>)}
-      {!batch.sessions.some((session) => session.custodyId === relevantCustodyId) && !batch.progress.some((item) => item.custodyId === relevantCustodyId) ? <Text style={styles.mutedText}>لا توجد جلسات أو قراءات تقدم مسجلة.</Text> : null}
+      <Text style={[styles.sectionTitle, textStyleFor(language)]}>{localize(language, "جلسات العمل والتقدم", "Work sessions and progress")}</Text>
+      {lot ? <View style={[styles.progressSummary, rowStyleFor(language)]}><ReadonlyField language={language} label={localize(language, "الإنجاز التراكمي", "Cumulative progress")} value={`${formatPairsFor(language, lot.progressPairs)} ${localize(language, "من", "of")} ${formatPairsFor(language, lot.pairs)}`} /><ReadonlyField language={language} label={localize(language, "وقت الاستلام", "Receipt time")} value={formatRiyadhFor(language, lot.receivedAt)} /><ReadonlyField language={language} label={localize(language, "بدأ العمل", "Work started")} value={formatRiyadhFor(language, lot.startedAt)} /><ReadonlyField language={language} label={localize(language, "اكتمل", "Completed")} value={formatRiyadhFor(language, lot.completedAt)} /></View> : null}
+      {sessionItems.map((session) => <View key={session.id} style={[styles.eventRow, rowStyleFor(language)]}><Text style={[styles.eventBadge, textStyleFor(language)]}>{session.kind === "work" ? localize(language, "عمل", "Work") : localize(language, "توقف", "Pause")}</Text><Text style={[styles.eventText, textStyleFor(language)]}>{formatRiyadhFor(language, session.startedAt)} {session.endedAt ? `— ${formatRiyadhFor(language, session.endedAt)}` : localize(language, "— مستمرة", "— Ongoing")}{session.reason ? ` · ${session.reason}` : ""}</Text></View>)}
+      {progressItems.map((item) => <View key={item.id} style={[styles.eventRow, rowStyleFor(language)]}><Text style={[styles.eventBadge, textStyleFor(language)]}>{localize(language, "تقدم", "Progress")}</Text><Text style={[styles.eventText, textStyleFor(language)]}>{formatPairsFor(language, item.pairs)} · {formatRiyadhFor(language, item.recordedAt)}</Text></View>)}
+      {!sessionItems.length && !progressItems.length ? <Text style={[styles.mutedText, textStyleFor(language)]}>{localize(language, "لا توجد جلسات أو قراءات تقدم مسجلة.", "No work sessions or progress readings are recorded.")}</Text> : null}
 
-      <Text style={styles.sectionTitle}>سجل المراجعة</Text>
-      {batch.events.filter((event) => !relevantCustodyId || event.custodyId === relevantCustodyId).slice().reverse().map((event) => <View key={event.id} style={styles.eventRow}><Text style={styles.eventBadge}>{event.action}</Text><Text style={styles.eventText}>{event.actorName} · {formatRiyadh(event.at)}{event.pairs !== undefined ? ` · ${formatPairs(event.pairs)}` : ""}{event.reason ? ` · ${event.reason}` : ""}</Text></View>)}
+      <Text style={[styles.sectionTitle, textStyleFor(language)]}>{localize(language, "سجل المراجعة", "Audit log")}</Text>
+      {batch.events.filter((event) => !relevantCustodyId || event.custodyId === relevantCustodyId).slice().reverse().map((event) => <View key={event.id} style={[styles.eventRow, rowStyleFor(language)]}><Text style={[styles.eventBadge, textStyleFor(language)]}>{actionLabel(event.action as ActionKind, language)}</Text><Text style={[styles.eventText, textStyleFor(language)]}>{event.actorName} · {formatRiyadhFor(language, event.at)}{event.pairs !== undefined ? ` · ${formatPairsFor(language, event.pairs)}` : ""}{event.reason ? ` · ${event.reason}` : ""}</Text></View>)}
 
-      {actions.length ? <><Text style={styles.sectionTitle}>الإجراءات المسموحة</Text><View style={styles.detailActions}>{actions.map((action) => <TinyButton key={action} label={actionLabel(action)} icon={actionIcon(action)} tone={["dispute", "reject", "execute_disposal"].includes(action) ? "danger" : "primary"} onPress={() => { onClose(); onAction(action); }} />)}</View></> : null}
+      {actions.length ? <><Text style={[styles.sectionTitle, textStyleFor(language)]}>{localize(language, "الإجراءات المسموحة", "Allowed actions")}</Text><View style={[styles.detailActions, rowStyleFor(language)]}>{actions.map((action) => <TinyButton key={action} language={language} label={actionLabel(action, language)} icon={actionIcon(action)} tone={["dispute", "reject", "execute_disposal"].includes(action) ? "danger" : "primary"} onPress={() => { onClose(); onAction(action); }} />)}</View></> : null}
     </ScrollView>
   </View></View></Modal>;
 }
 
-function ActionModal({
-  notice,
-  target,
-  userId,
-  directory,
-  directoryLoading,
-  form,
-  attachments,
-  allocations,
-  busy,
-  onChangeForm,
-  onChangeAttachments,
-  onChangeAllocation,
-  onAddAllocation,
-  onRemoveAllocation,
-  onClose,
-  onSubmit,
-}: {
-  notice: Notice;
-  target: ActionTarget | null;
-  userId?: number;
-  directory: Partial<Record<CustodyStage, CustodyAccount[]>>;
-  directoryLoading: boolean;
-  form: FormState;
-  attachments: AttachmentFile[];
-  allocations: CustodyAllocation[];
-  busy: boolean;
-  onChangeForm: (patch: Partial<FormState>) => void;
-  onChangeAttachments: (items: AttachmentFile[]) => void;
-  onChangeAllocation: (index: number, patch: Partial<CustodyAllocation>) => void;
-  onAddAllocation: () => void;
-  onRemoveAllocation: (index: number) => void;
-  onClose: () => void;
-  onSubmit: () => void;
-}) {
+function ActionModal({ language, notice: currentNotice, target, userId, directory, directoryLoading, form, attachments, allocations, busy, onChangeForm, onChangeAttachments, onChangeAllocation, onAddAllocation, onRemoveAllocation, onClose, onSubmit }: { language: "ar" | "en"; notice: Notice; target: ActionTarget | null; userId?: number; directory: Partial<Record<CustodyStage, CustodyAccount[]>>; directoryLoading: boolean; form: FormState; attachments: AttachmentFile[]; allocations: CustodyAllocation[]; busy: boolean; onChangeForm: (patch: Partial<FormState>) => void; onChangeAttachments: (items: AttachmentFile[]) => void; onChangeAllocation: (index: number, patch: Partial<CustodyAllocation>) => void; onAddAllocation: () => void; onRemoveAllocation: (index: number) => void; onClose: () => void; onSubmit: () => void }) {
   if (!target) return null;
   const { row, action } = target;
   const lot = rowLot(row);
-  const transfer = rowTransfer(row);
   const fullPairs = rowPairs(row);
   const requiresReason = ["pause", "dispute", "reject", "approve_disposal", "execute_disposal", "resolve", "rework"].includes(action) || (action === "send" && row.batch.purpose === "sale" && !!lot && ["inspection", "antislip"].includes(lot.stage));
   const splitAllocation = action === "send" && row.batch.purpose === "sale" && !!lot && (lot.stage === "antislip" || lot.stage === "inspection");
   const simpleDestination = action === "send" && lot && !splitAllocation ? nextCustodyStage(lot.stage, row.batch.product.antiSlip, row.batch.purpose) : undefined;
   const accounts = simpleDestination ? directory[simpleDestination] || [] : [];
   const allocationTotal = allocations.reduce((sum, allocation) => sum + (Number.isInteger(allocation.pairs) ? allocation.pairs : 0), 0);
-  const title = actionLabel(action);
+  const title = actionLabel(action, language);
   return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.modalOverlay}><View style={styles.actionPanel}>
-    <View style={styles.modalHeader}><TouchableOpacity onPress={onClose} disabled={busy} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={styles.modalTitleWrap}><Text style={styles.modalTitle}>{title}</Text><Text style={styles.modalSubtitle}>{row.batch.trackingNumber} · الكمية الكاملة {formatPairs(fullPairs)}</Text></View></View>
+    <View style={[styles.modalHeader, rowStyleFor(language)]}><TouchableOpacity onPress={onClose} disabled={busy} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={[styles.modalTitleWrap, alignStyleFor(language)]}><Text style={[styles.modalTitle, textStyleFor(language)]}>{title}</Text><Text style={[styles.modalSubtitle, textStyleFor(language)]}>{row.batch.trackingNumber} · {localize(language, "الكمية الكاملة", "Full quantity")} {formatPairsFor(language, fullPairs)}</Text></View></View>
     <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
-      <MessageBanner tone={notice?.tone} message={notice?.message} />
-      {action === "receive" ? <><Text style={styles.actionHint}>بعد عد كامل النقل، أدخل العدد الفعلي. عند التطابق فقط يتم تأكيد الاستلام.</Text><Input label="العدد الفعلي بالأزواج" value={form.actualPairs} onChangeText={(actualPairs) => onChangeForm({ actualPairs })} keyboardType="numeric" placeholder={`المتوقع ${fullPairs}`} /></> : null}
-      {action === "dispute" || action === "reject" ? <><Text style={styles.actionHint}>سيُجمّد النقل للمراجعة، ولا يُعدّل رصيدًا أو كمية إنتاج تلقائيًا.</Text><Input label="العدد الفعلي بالأزواج" value={form.actualPairs} onChangeText={(actualPairs) => onChangeForm({ actualPairs })} keyboardType="numeric" placeholder={`المنقول ${fullPairs}`} /></> : null}
-      {action === "progress" ? <><Text style={styles.actionHint}>هذا تسجيل تراكمي للإنجاز ولا ينقل أي جزء من العهدة.</Text><Input label="الإنجاز التراكمي بالأزواج" value={form.pairs} onChangeText={(pairs) => onChangeForm({ pairs })} keyboardType="numeric" placeholder={`من 0 إلى ${fullPairs}`} /></> : null}
-      {action === "complete" ? <Text style={styles.actionHint}>لا يؤكد الخادم الإكمال إلا إذا كان التقدم المسجل يساوي كامل العهدة: {formatPairs(fullPairs)}.</Text> : null}
-      {action === "start" || action === "resume" ? <Text style={styles.actionHint}>سيُسجل وقت الخادم عند بدء/استئناف العمل. لا تُنشأ أي أوقات من الجهاز.</Text> : null}
-      {action === "send" && simpleDestination ? <><Text style={styles.actionHint}>التسليم كامل فقط إلى {stageLabel(simpleDestination)}. تبقى المسؤولية على المرسل حتى يؤكد المستلم الاستلام.</Text>{directoryLoading ? <ActivityIndicator color="#075985" /> : <AccountChooser accounts={accounts} selectedId={form.receiverId} onSelect={(receiverId) => onChangeForm({ receiverId })} empty="لا توجد حسابات مفعّلة ظاهرة في هذا القسم." />}</> : null}
-      {splitAllocation ? <><Text style={styles.actionHint}>يجب أن يساوي مجموع توزيعات الجودة كامل العهدة قبل الإرسال. لا يتم حفظ أي جزء منفردًا.</Text><View style={styles.allocationSum}><Text style={styles.allocationSumText}>مجموع التوزيع: {formatPairs(allocationTotal)} من {formatPairs(fullPairs)}</Text><Text style={[styles.allocationSumText, allocationTotal === fullPairs ? styles.validText : styles.invalidText]}>{allocationTotal === fullPairs ? "مكتمل" : "غير مكتمل"}</Text></View>{allocations.map((allocation, index) => <AllocationEditor key={`${index}:${allocation.toStage}:${allocation.quality}`} sourceStage={lot!.stage} sourceQuality={lot!.quality} allocation={allocation} index={index} accounts={directory[allocation.toStage] || []} currentUserId={userId} onChange={onChangeAllocation} onRemove={() => onRemoveAllocation(index)} />)}<TinyButton label="إضافة توزيع" tone="secondary" icon="add" onPress={onAddAllocation} /></> : null}
-      {splitAllocation && allocations.some(a => ["suspected", "damaged"].includes(a.quality)) ? <><Input label="نوع العيب أو الاشتباه" value={form.defectType} onChangeText={defectType => onChangeForm({defectType})}/><Input label="السبب المحتمل — لا يحدد مسؤولية الموظف تلقائيًا" value={form.defectCause} onChangeText={defectCause => onChangeForm({defectCause})}/></> : null}
-      {action === "rework" ? <><View style={styles.choiceRow}>{(["inspection","production"] as CustodyStage[]).map(reworkStage => <TinyButton key={reworkStage} label={stageLabel(reworkStage)} onPress={() => onChangeForm({reworkStage,receiverId:""})}/>)}</View><AccountChooser accounts={directory[form.reworkStage] || []} selectedId={form.receiverId} onSelect={receiverId => onChangeForm({receiverId})} empty="لا يوجد مستلم مفعّل في القسم"/></> : null}
-      {action === "store" ? <><Text style={styles.actionHint}>الاستلام في المخازن لا يزيد المخزون. الاعتماد النهائي هو الذي يطلب الباركود وعدد أزواج العبوة للنخب المسموح بها للبيع.</Text><Input label="باركود المخزون" value={form.barcode} onChangeText={(barcode) => onChangeForm({ barcode })} placeholder="امسح أو أدخل الباركود" /><Input label="عدد الأزواج داخل العبوة" value={form.packagePairs} onChangeText={(packagePairs) => onChangeForm({ packagePairs })} keyboardType="numeric" placeholder="0" /></> : null}
-      {action === "deliver_sample" ? <><Text style={styles.actionHint}>توثيق التسليم لا يدخل العينة تلقائيًا في مخزون البيع.</Text><Input label="اسم مستلم العينة" value={form.receiver} onChangeText={(receiver) => onChangeForm({ receiver })} placeholder="الاسم أو الجهة" /><Input label="طريقة التسليم" value={form.method} onChangeText={(method) => onChangeForm({ method })} placeholder="يدوي، شحن، رابط موثق…" /><Input label="الإثبات" value={form.proof} onChangeText={(proof) => onChangeForm({ proof })} placeholder="رقم إيصال أو وصف إثبات التسليم" /></> : null}
-      {action === "execute_disposal" ? <Input label="طريقة التخلص" value={form.method} onChangeText={(method) => onChangeForm({ method })} placeholder="مثال: إتلاف معتمد" /> : null}
-      {requiresReason ? <Input label={action === "pause" ? "سبب الإيقاف" : "السبب والتوثيق"} value={form.reason} onChangeText={(reason) => onChangeForm({ reason })} multiline placeholder="اكتب سببًا واضحًا" /> : null}
-      {["dispute", "reject", "approve_disposal", "execute_disposal", "deliver_sample", "resolve", "rework", "store", "send"].includes(action) ? <AttachmentPicker attachments={attachments} onAttachmentsChange={onChangeAttachments} language="ar" /> : null}
-      {action === "approve_disposal" ? <Text style={styles.actionHint}>بعد الاعتماد لا يعد الإتلاف منفذًا؛ يلزم إجراء تنفيذ مستقل مع الطريقة والإثبات.</Text> : null}
-      <TouchableOpacity onPress={onSubmit} disabled={busy || directoryLoading} style={[styles.submitButton, (busy || directoryLoading) && styles.disabledButton]}>{busy ? <BusyLabel /> : <><MaterialIcons name={actionIcon(action)} color="#fff" size={19} /><Text style={styles.submitText}>{title}</Text></>}</TouchableOpacity>
+      <WorkbenchMessageBanner notice={currentNotice} language={language} />
+      {action === "receive" ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "بعد عد كامل النقل، أدخل العدد الفعلي. عند التطابق فقط يتم تأكيد الاستلام.", "After counting the full transfer, enter the actual quantity. Receipt is confirmed only when they match.")}</Text><Input language={language} label={localize(language, "العدد الفعلي بالأزواج", "Actual count in pairs")} value={form.actualPairs} onChangeText={(actualPairs) => onChangeForm({ actualPairs })} keyboardType="numeric" placeholder={localize(language, `المتوقع ${fullPairs}`, `Expected ${fullPairs}`)} /></> : null}
+      {action === "dispute" || action === "reject" ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "سيُجمّد النقل للمراجعة، ولا يُعدّل رصيدًا أو كمية إنتاج تلقائيًا.", "The transfer will be frozen for review and will not automatically change balances or production quantity.")}</Text><Input language={language} label={localize(language, "العدد الفعلي بالأزواج", "Actual count in pairs")} value={form.actualPairs} onChangeText={(actualPairs) => onChangeForm({ actualPairs })} keyboardType="numeric" placeholder={localize(language, `المنقول ${fullPairs}`, `Transferred ${fullPairs}`)} /></> : null}
+      {action === "progress" ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "هذا تسجيل تراكمي للإنجاز ولا ينقل أي جزء من العهدة.", "This records cumulative progress and does not transfer any part of the custody.")}</Text><Input language={language} label={localize(language, "الإنجاز التراكمي بالأزواج", "Cumulative progress in pairs")} value={form.pairs} onChangeText={(pairs) => onChangeForm({ pairs })} keyboardType="numeric" placeholder={localize(language, `من 0 إلى ${fullPairs}`, `From 0 to ${fullPairs}`)} /></> : null}
+      {action === "complete" ? <Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, `لا يؤكد الخادم الإكمال إلا إذا كان التقدم المسجل يساوي كامل العهدة: ${formatPairsFor(language, fullPairs)}.`, `The server confirms completion only when recorded progress equals the full custody: ${formatPairsFor(language, fullPairs)}.`)}</Text> : null}
+      {action === "start" || action === "resume" ? <Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "سيُسجل وقت الخادم عند بدء/استئناف العمل. لا تُنشأ أي أوقات من الجهاز.", "The server time is recorded when work starts or resumes. No device times are created.")}</Text> : null}
+      {action === "send" && simpleDestination ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, `التسليم كامل فقط إلى ${stageLabelFor(language, simpleDestination)}. تبقى المسؤولية على المرسل حتى يؤكد المستلم الاستلام.`, `The full custody can only be handed over to ${stageLabelFor(language, simpleDestination)}. Responsibility remains with the sender until the recipient confirms receipt.`)}</Text>{directoryLoading ? <ActivityIndicator color="#075985" /> : <AccountChooser language={language} accounts={accounts} selectedId={form.receiverId} onSelect={(receiverId) => onChangeForm({ receiverId })} empty={localize(language, "لا توجد حسابات مفعّلة ظاهرة في هذا القسم.", "No active accounts are visible in this department.")} />}</> : null}
+      {splitAllocation ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "يجب أن يساوي مجموع توزيعات الجودة كامل العهدة قبل الإرسال. لا يتم حفظ أي جزء منفردًا.", "The sum of quality allocations must equal the full custody before sending. No separate part is saved.")}</Text><View style={[styles.allocationSum, rowStyleFor(language)]}><Text style={[styles.allocationSumText, textStyleFor(language)]}>{localize(language, "مجموع التوزيع", "Allocation total")}: {formatPairsFor(language, allocationTotal)} {localize(language, "من", "of")} {formatPairsFor(language, fullPairs)}</Text><Text style={[styles.allocationSumText, textStyleFor(language), allocationTotal === fullPairs ? styles.validText : styles.invalidText]}>{allocationTotal === fullPairs ? localize(language, "مكتمل", "Complete") : localize(language, "غير مكتمل", "Incomplete")}</Text></View>{allocations.map((allocation, index) => <AllocationEditor language={language} key={`${index}:${allocation.toStage}:${allocation.quality}`} sourceStage={lot!.stage} sourceQuality={lot!.quality} allocation={allocation} index={index} accounts={directory[allocation.toStage] || []} currentUserId={userId} onChange={onChangeAllocation} onRemove={() => onRemoveAllocation(index)} />)}<TinyButton language={language} label={localize(language, "إضافة توزيع", "Add allocation")} tone="secondary" icon="add" onPress={onAddAllocation} /></> : null}
+      {splitAllocation && allocations.some(a => ["suspected", "damaged"].includes(a.quality)) ? <><Input language={language} label={localize(language, "نوع العيب أو الاشتباه", "Defect or suspected issue type")} value={form.defectType} onChangeText={defectType => onChangeForm({ defectType })}/><Input language={language} label={localize(language, "السبب المحتمل — لا يحدد مسؤولية الموظف تلقائيًا", "Possible cause — does not automatically assign employee responsibility")} value={form.defectCause} onChangeText={defectCause => onChangeForm({ defectCause })}/></> : null}
+      {action === "rework" ? <><View style={[styles.choiceRow, rowStyleFor(language)]}>{(["inspection", "production"] as CustodyStage[]).map(reworkStage => <TinyButton language={language} key={reworkStage} label={stageLabelFor(language, reworkStage)} onPress={() => onChangeForm({ reworkStage, receiverId: "" })}/>)}</View><AccountChooser language={language} accounts={directory[form.reworkStage] || []} selectedId={form.receiverId} onSelect={receiverId => onChangeForm({ receiverId })} empty={localize(language, "لا يوجد مستلم مفعّل في القسم", "No active recipient is available in the department")} /></> : null}
+      {action === "store" ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "الاستلام في المخازن لا يزيد المخزون. الاعتماد النهائي هو الذي يطلب الباركود وعدد أزواج العبوة للنخب المسموح بها للبيع.", "Receipt in storage does not increase inventory. Final approval requires a barcode and pairs per package for quality grades allowed for sale.")}</Text><Input language={language} label={localize(language, "باركود المخزون", "Inventory barcode")} value={form.barcode} onChangeText={(barcode) => onChangeForm({ barcode })} placeholder={localize(language, "امسح أو أدخل الباركود", "Scan or enter the barcode")} /><Input language={language} label={localize(language, "عدد الأزواج داخل العبوة", "Pairs per package")} value={form.packagePairs} onChangeText={(packagePairs) => onChangeForm({ packagePairs })} keyboardType="numeric" placeholder="0" /></> : null}
+      {action === "deliver_sample" ? <><Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "توثيق التسليم لا يدخل العينة تلقائيًا في مخزون البيع.", "Documenting delivery does not automatically add the sample to sale inventory.")}</Text><Input language={language} label={localize(language, "اسم مستلم العينة", "Sample recipient name")} value={form.receiver} onChangeText={(receiver) => onChangeForm({ receiver })} placeholder={localize(language, "الاسم أو الجهة", "Name or organization")} /><Input language={language} label={localize(language, "طريقة التسليم", "Delivery method")} value={form.method} onChangeText={(method) => onChangeForm({ method })} placeholder={localize(language, "يدوي، شحن، رابط موثق…", "Hand delivery, shipping, documented link…")} /><Input language={language} label={localize(language, "الإثبات", "Proof")} value={form.proof} onChangeText={(proof) => onChangeForm({ proof })} placeholder={localize(language, "رقم إيصال أو وصف إثبات التسليم", "Receipt number or delivery-proof description")} /></> : null}
+      {action === "execute_disposal" ? <Input language={language} label={localize(language, "طريقة التخلص", "Disposal method")} value={form.method} onChangeText={(method) => onChangeForm({ method })} placeholder={localize(language, "مثال: إتلاف معتمد", "Example: approved destruction")} /> : null}
+      {requiresReason ? <Input language={language} label={action === "pause" ? localize(language, "سبب الإيقاف", "Pause reason") : localize(language, "السبب والتوثيق", "Reason and documentation")} value={form.reason} onChangeText={(reason) => onChangeForm({ reason })} multiline placeholder={localize(language, "اكتب سببًا واضحًا", "Write a clear reason")} /> : null}
+      {["dispute", "reject", "approve_disposal", "execute_disposal", "deliver_sample", "resolve", "rework", "store", "send"].includes(action) ? <AttachmentPicker attachments={attachments} onAttachmentsChange={onChangeAttachments} language={language} /> : null}
+      {action === "approve_disposal" ? <Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "بعد الاعتماد لا يعد الإتلاف منفذًا؛ يلزم إجراء تنفيذ مستقل مع الطريقة والإثبات.", "After approval, disposal is not considered executed; a separate execution action with method and proof is required.")}</Text> : null}
+      <TouchableOpacity onPress={onSubmit} disabled={busy || directoryLoading} style={[styles.submitButton, rowStyleFor(language), (busy || directoryLoading) && styles.disabledButton]}>{busy ? <WorkbenchBusyLabel language={language} /> : <><MaterialIcons name={actionIcon(action)} color="#fff" size={19} /><Text style={[styles.submitText, textStyleFor(language)]}>{title}</Text></>}</TouchableOpacity>
     </ScrollView>
   </View></View></Modal>;
 }
 
-function AllocationEditor({ sourceStage, sourceQuality, allocation, index, accounts, currentUserId, onChange, onRemove }: { sourceStage: CustodyStage; sourceQuality: string; allocation: CustodyAllocation; index: number; accounts: CustodyAccount[]; currentUserId?: number; onChange: (index: number, patch: Partial<CustodyAllocation>) => void; onRemove: () => void }) {
-  const allOptions = sourceStage === "antislip"
-    ? [{ quality: "first" as const, toStage: "kawiya" as const }, { quality: "second" as const, toStage: "kawiya" as const }, { quality: "suspected" as const, toStage: "inspection" as const }]
-    : [{ quality: "first" as const, toStage: "packing" as const }, { quality: "second" as const, toStage: "packing" as const }, { quality: "damaged" as const, toStage: "followup" as const }];
+function AllocationEditor({ language, sourceStage, sourceQuality, allocation, index, accounts, currentUserId, onChange, onRemove }: { language: "ar" | "en"; sourceStage: CustodyStage; sourceQuality: string; allocation: CustodyAllocation; index: number; accounts: CustodyAccount[]; currentUserId?: number; onChange: (index: number, patch: Partial<CustodyAllocation>) => void; onRemove: () => void }) {
+  const allOptions = sourceStage === "antislip" ? [{ quality: "first" as const, toStage: "kawiya" as const }, { quality: "second" as const, toStage: "kawiya" as const }, { quality: "suspected" as const, toStage: "inspection" as const }] : [{ quality: "first" as const, toStage: "packing" as const }, { quality: "second" as const, toStage: "packing" as const }, { quality: "damaged" as const, toStage: "followup" as const }];
   const options = allOptions.filter(o => sourceStage === "antislip" ? o.quality === sourceQuality || o.quality === "suspected" : sourceQuality === "suspected" ? o.quality !== "first" : true);
-  return <View style={styles.allocationCard}><View style={styles.allocationHeader}><TouchableOpacity onPress={onRemove} style={styles.removeAllocation}><MaterialIcons name="close" size={17} color="#be123c" /></TouchableOpacity><Text style={styles.allocationTitle}>توزيع {index + 1}</Text></View><Text style={styles.inputLabel}>الجودة والوجهة</Text><View style={styles.choiceRow}>{options.map((option) => <TouchableOpacity key={option.quality} onPress={() => onChange(index, { quality: option.quality, toStage: option.toStage, toUserId: 0 })} style={[styles.choice, allocation.quality === option.quality && allocation.toStage === option.toStage && styles.choiceActive]}><Text style={[styles.choiceText, allocation.quality === option.quality && styles.choiceTextActive]}>{CUSTODY_QUALITY_LABELS[option.quality]} → {CUSTODY_STAGE_LABELS[option.toStage]}</Text></TouchableOpacity>)}</View><Input label="الكمية بالأزواج" value={allocation.pairs ? String(allocation.pairs) : ""} onChangeText={(value) => onChange(index, { pairs: Number.isInteger(Number(value)) ? Number(value) : 0 })} keyboardType="numeric" placeholder="0" compact /><Text style={styles.inputLabel}>المستلم المفعّل — {stageLabel(allocation.toStage)}</Text><AccountChooser accounts={accounts.filter((account) => account.id !== currentUserId)} selectedId={allocation.toUserId ? String(allocation.toUserId) : ""} onSelect={(value) => onChange(index, { toUserId: Number(value) })} empty="حمّل القسم أو لا يوجد مستلم متاح." />{!isAllocationAllowed(sourceStage, allocation) ? <Text style={styles.validationText}>هذه الوجهة غير مسموحة لهذا التصنيف.</Text> : null}</View>;
+  return <View style={styles.allocationCard}><View style={[styles.allocationHeader, rowStyleFor(language)]}><TouchableOpacity onPress={onRemove} style={styles.removeAllocation}><MaterialIcons name="close" size={17} color="#be123c" /></TouchableOpacity><Text style={[styles.allocationTitle, textStyleFor(language)]}>{localize(language, "توزيع", "Allocation")} {index + 1}</Text></View><Text style={[styles.inputLabel, textStyleFor(language)]}>{localize(language, "الجودة والوجهة", "Quality and destination")}</Text><View style={[styles.choiceRow, rowStyleFor(language)]}>{options.map((option) => <TouchableOpacity key={option.quality} onPress={() => onChange(index, { quality: option.quality, toStage: option.toStage, toUserId: 0 })} style={[styles.choice, allocation.quality === option.quality && allocation.toStage === option.toStage && styles.choiceActive]}><Text style={[styles.choiceText, textStyleFor(language), allocation.quality === option.quality && styles.choiceTextActive]}>{qualityLabelFor(language, option.quality)} {isEnglish(language) ? "→" : "←"} {stageLabelFor(language, option.toStage)}</Text></TouchableOpacity>)}</View><Input language={language} label={localize(language, "الكمية بالأزواج", "Quantity in pairs")} value={allocation.pairs ? String(allocation.pairs) : ""} onChangeText={(value) => onChange(index, { pairs: Number.isInteger(Number(value)) ? Number(value) : 0 })} keyboardType="numeric" placeholder="0" compact /><Text style={[styles.inputLabel, textStyleFor(language)]}>{localize(language, "المستلم المفعّل", "Active recipient")} — {stageLabelFor(language, allocation.toStage)}</Text><AccountChooser language={language} accounts={accounts.filter((account) => account.id !== currentUserId)} selectedId={allocation.toUserId ? String(allocation.toUserId) : ""} onSelect={(value) => onChange(index, { toUserId: Number(value) })} empty={localize(language, "حمّل القسم أو لا يوجد مستلم متاح.", "Load the department or no recipient is available.")} />{!isAllocationAllowed(sourceStage, allocation) ? <Text style={[styles.validationText, textStyleFor(language)]}>{localize(language, "هذه الوجهة غير مسموحة لهذا التصنيف.", "This destination is not allowed for this classification.")}</Text> : null}</View>;
 }
 
-function AccountChooser({ accounts, selectedId, onSelect, empty }: { accounts: CustodyAccount[]; selectedId: string; onSelect: (id: string) => void; empty: string }) {
-  if (!accounts.length) return <Text style={styles.mutedText}>{empty}</Text>;
-  return <View style={styles.accountList}>{accounts.map((account) => <TouchableOpacity key={account.id} onPress={() => onSelect(String(account.id))} style={[styles.accountChoice, selectedId === String(account.id) && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, selectedId === String(account.id) && styles.accountChoiceTextActive]}>{account.name} · {account.department}</Text><Text style={[styles.accountRole, selectedId === String(account.id) && styles.accountChoiceTextActive]}>{account.role}</Text></TouchableOpacity>)}</View>;
+function AccountChooser({ language, accounts, selectedId, onSelect, empty }: { language: "ar" | "en"; accounts: CustodyAccount[]; selectedId: string; onSelect: (id: string) => void; empty: string }) {
+  if (!accounts.length) return <Text style={[styles.mutedText, textStyleFor(language)]}>{empty}</Text>;
+  return <View style={styles.accountList}>{accounts.map((account) => <TouchableOpacity key={account.id} onPress={() => onSelect(String(account.id))} style={[styles.accountChoice, rowStyleFor(language), selectedId === String(account.id) && styles.accountChoiceActive]}><Text style={[styles.accountChoiceText, textStyleFor(language), selectedId === String(account.id) && styles.accountChoiceTextActive]}>{account.name} · {departmentLabelFor(language, account.department)}</Text><Text style={[styles.accountRole, textStyleFor(language), selectedId === String(account.id) && styles.accountChoiceTextActive]}>{account.role}</Text></TouchableOpacity>)}</View>;
 }
 
-function Input({ label, value, onChangeText, placeholder, keyboardType, multiline, compact }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; keyboardType?: "default" | "numeric"; multiline?: boolean; compact?: boolean }) {
-  return <View style={[styles.inputBlock, compact && styles.inputBlockCompact]}><Text style={styles.inputLabel}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#94a3b8" keyboardType={keyboardType} multiline={multiline} textAlign="right" style={[styles.input, multiline && styles.textarea]} /></View>;
+function Input({ language, label, value, onChangeText, placeholder, keyboardType, multiline, compact }: { language: "ar" | "en"; label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; keyboardType?: "default" | "numeric"; multiline?: boolean; compact?: boolean }) {
+  return <View style={[styles.inputBlock, compact && styles.inputBlockCompact]}><Text style={[styles.inputLabel, textStyleFor(language)]}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor="#94a3b8" keyboardType={keyboardType} multiline={multiline} textAlign={textAlignFor(language)} style={[styles.input, textStyleFor(language), multiline && styles.textarea]} /></View>;
 }
 
-function SettingsModal({ draft, visible, busy, onClose, onToggleEnabled, onChangeLimit, onSave }: { draft: CustodySettings | null; visible: boolean; busy: boolean; onClose: () => void; onToggleEnabled: (enabled: boolean) => void; onChangeLimit: (stage: CustodyStage, field: "workHours" | "confirmationHours", value: string) => void; onSave: () => void }) {
+function SettingsModal({ language, draft, visible, busy, onClose, onToggleEnabled, onChangeLimit, onSave }: { language: "ar" | "en"; draft: CustodySettings | null; visible: boolean; busy: boolean; onClose: () => void; onToggleEnabled: (enabled: boolean) => void; onChangeLimit: (stage: CustodyStage, field: "workHours" | "confirmationHours", value: string) => void; onSave: () => void }) {
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.modalOverlay}><View style={styles.settingsPanel}>
-    <View style={styles.modalHeader}><TouchableOpacity disabled={busy} onPress={onClose} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={styles.modalTitleWrap}><Text style={styles.modalTitle}>إعدادات العهد</Text><Text style={styles.modalSubtitle}>حدود التأخر من سياسة الخادم — لا تُفترض أوقات ورديات</Text></View></View>
+    <View style={[styles.modalHeader, rowStyleFor(language)]}><TouchableOpacity disabled={busy} onPress={onClose} style={styles.closeButton}><MaterialIcons name="close" size={20} color="#334155" /></TouchableOpacity><View style={[styles.modalTitleWrap, alignStyleFor(language)]}><Text style={[styles.modalTitle, textStyleFor(language)]}>{localize(language, "إعدادات العهد", "Custody settings")}</Text><Text style={[styles.modalSubtitle, textStyleFor(language)]}>{localize(language, "حدود التأخر من سياسة الخادم — لا تُفترض أوقات ورديات", "Overdue limits come from server policy — no shift times are assumed")}</Text></View></View>
     {draft ? <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
-      <View style={styles.settingsEnabled}><View><Text style={styles.settingsEnabledTitle}>تمكين تنبيهات التأخير بعد النشر</Text><Text style={styles.mutedText}>يتطلب النشر وربط المجدول؛ إيقافه لا يحذف أي حركة.</Text></View><Switch value={draft.enabled} onValueChange={onToggleEnabled} disabled={busy} trackColor={{ false: "#cbd5e1", true: "#7dd3fc" }} thumbColor={draft.enabled ? "#075985" : "#f8fafc"} /></View>
-      <Text style={styles.actionHint}>يظهر المتأخر فقط حين يُدخل حد عمل أو حد تأكيد موجب لهذه المرحلة. الوردية والإجازات تبقى كما أعادها الخادم.</Text>
-      {CUSTODY_STAGES.map((stage) => { const limit = draft.stageLimits[stage]; return <View key={stage} style={styles.stageLimitRow}><Text style={styles.stageLimitLabel}>{stageLabel(stage)}</Text><View style={styles.limitInputs}><View style={styles.limitBlock}><Text style={styles.limitLabel}>عمل / ساعة</Text><TextInput defaultValue={limit?.workHours !== undefined ? String(limit.workHours) : ""} onChangeText={(value) => onChangeLimit(stage, "workHours", value)} keyboardType="numeric" placeholder="غير مضبوطة" placeholderTextColor="#94a3b8" textAlign="right" style={styles.limitInput} /></View><View style={styles.limitBlock}><Text style={styles.limitLabel}>تأكيد / ساعة</Text><TextInput defaultValue={limit?.confirmationHours !== undefined ? String(limit.confirmationHours) : ""} onChangeText={(value) => onChangeLimit(stage, "confirmationHours", value)} keyboardType="numeric" placeholder="غير مضبوطة" placeholderTextColor="#94a3b8" textAlign="right" style={styles.limitInput} /></View></View></View>; })}
-      <TouchableOpacity onPress={onSave} disabled={busy} style={[styles.submitButton, busy && styles.disabledButton]}>{busy ? <BusyLabel label="جارٍ حفظ الإعدادات…" /> : <><MaterialIcons name="save" color="#fff" size={19} /><Text style={styles.submitText}>حفظ الإعدادات</Text></>}</TouchableOpacity>
+      <View style={[styles.settingsEnabled, rowStyleFor(language)]}><View><Text style={[styles.settingsEnabledTitle, textStyleFor(language)]}>{localize(language, "تمكين تنبيهات التأخير بعد النشر", "Enable overdue alerts after publishing")}</Text><Text style={[styles.mutedText, textStyleFor(language)]}>{localize(language, "يتطلب النشر وربط المجدول؛ إيقافه لا يحذف أي حركة.", "Publishing and scheduler wiring are required; turning it off does not delete any movement.")}</Text></View><Switch value={draft.enabled} onValueChange={onToggleEnabled} disabled={busy} trackColor={{ false: "#cbd5e1", true: "#7dd3fc" }} thumbColor={draft.enabled ? "#075985" : "#f8fafc"} /></View>
+      <Text style={[styles.actionHint, textStyleFor(language)]}>{localize(language, "يظهر المتأخر فقط حين يُدخل حد عمل أو حد تأكيد موجب لهذه المرحلة. الوردية والإجازات تبقى كما أعادها الخادم.", "An item is overdue only when a positive work or confirmation limit is entered for its stage. Shifts and holidays remain as returned by the server.")}</Text>
+      {CUSTODY_STAGES.map((stage) => { const limit = draft.stageLimits[stage]; return <View key={stage} style={styles.stageLimitRow}><Text style={[styles.stageLimitLabel, textStyleFor(language)]}>{stageLabelFor(language, stage)}</Text><View style={[styles.limitInputs, rowStyleFor(language)]}><View style={styles.limitBlock}><Text style={[styles.limitLabel, textStyleFor(language)]}>{localize(language, "عمل / ساعة", "Work / hours")}</Text><TextInput defaultValue={limit?.workHours !== undefined ? String(limit.workHours) : ""} onChangeText={(value) => onChangeLimit(stage, "workHours", value)} keyboardType="numeric" placeholder={localize(language, "غير مضبوطة", "Not configured")} placeholderTextColor="#94a3b8" textAlign={textAlignFor(language)} style={[styles.limitInput, textStyleFor(language)]} /></View><View style={styles.limitBlock}><Text style={[styles.limitLabel, textStyleFor(language)]}>{localize(language, "تأكيد / ساعة", "Confirmation / hours")}</Text><TextInput defaultValue={limit?.confirmationHours !== undefined ? String(limit.confirmationHours) : ""} onChangeText={(value) => onChangeLimit(stage, "confirmationHours", value)} keyboardType="numeric" placeholder={localize(language, "غير مضبوطة", "Not configured")} placeholderTextColor="#94a3b8" textAlign={textAlignFor(language)} style={[styles.limitInput, textStyleFor(language)]} /></View></View></View>; })}
+      <TouchableOpacity onPress={onSave} disabled={busy} style={[styles.submitButton, rowStyleFor(language), busy && styles.disabledButton]}>{busy ? <WorkbenchBusyLabel language={language} label={localize(language, "جارٍ حفظ الإعدادات…", "Saving settings…")} /> : <><MaterialIcons name="save" color="#fff" size={19} /><Text style={[styles.submitText, textStyleFor(language)]}>{localize(language, "حفظ الإعدادات", "Save settings")}</Text></>}</TouchableOpacity>
     </ScrollView> : <View style={styles.loadingState}><ActivityIndicator color="#075985" /></View>}
   </View></View></Modal>;
 }

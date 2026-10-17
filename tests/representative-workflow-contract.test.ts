@@ -106,10 +106,10 @@ describe("Representative workflow contract", () => {
 
   it("does not load or render customer results until a search term is entered", () => {
     const collections = read("app/representative-collections.tsx");
-    expect(transactions).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
+    expect(transactions).toMatch(/customerQuery\s*\?\s*representativeService\.customers\.list\(customerQuery\)\s*:\s*Promise\.resolve\(\[\]\)/);
     expect(collections).toContain("customerQuery ? representativeService.customers.list(customerQuery) : Promise.resolve([])");
-    expect(transactions).toContain("customerSearch.trim() ? <ScrollView");
-    expect(collections).toContain("search.trim() ? <ScrollView");
+    expect(transactions).toMatch(/customerSearch\.trim\(\)\s*\?\s*\(\s*<ScrollView/);
+    expect(collections).toMatch(/search\.trim\(\)\s*\?\s*\(\s*<ScrollView/);
   });
 
   it("keeps custom product type, yarn ratios and sample receipt fields", () => {

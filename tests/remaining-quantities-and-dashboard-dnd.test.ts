@@ -28,7 +28,7 @@ describe("Dashboard drag ordering and remaining quantities", () => {
     expect(remainingSource).toContain("productSize");
     expect(remainingSource).toContain("productColor");
     expect(remainingSource).toContain("currentStage");
-    expect(summarySource).toContain("الكمية المتبقية حسب المرحلة");
+    expect(summarySource).toMatch(/الكمية المتبقية.*مراحل التصنيع/);
     expect(routerSource).toContain("تم تسليم الكمية المتبقية لاحقاً");
     expect(routerSource).toContain("shortagePairs: 0");
     expect(routerSource).toContain("تنبيه كمية متبقية");

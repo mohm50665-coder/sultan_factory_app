@@ -9,7 +9,7 @@ describe("representative order save flow", () => {
     const screen = read("app/representative-transactions.tsx");
     const service = read("lib/services/representative.service.ts");
     const router = read("server/representative-router.ts");
-    expect(screen).toContain("createAndSubmitOrder(payload)");
+    expect(screen).toMatch(/createAndSubmitOrder\(\s*payload,/);
     expect(screen).toContain("saveError");
     expect(screen).toContain("جارٍ الحفظ والإرسال");
     expect(service).toContain("representative.transactions.createAndSubmitOrder");

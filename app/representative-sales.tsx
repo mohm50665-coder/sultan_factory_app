@@ -7,6 +7,8 @@ import { BackButton } from "@/components/back-button";
 import { DateField } from "@/components/date-field";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { localize, isEnglish, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
+import { useLanguage } from "@/lib/language-context";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { representativeService } from "@/lib/services/representative.service";
 
@@ -14,8 +16,14 @@ const TODAY = new Date().toISOString().slice(0, 10);
 
 export default function RepresentativeSalesScreen() {
   const colors = useColors();
+  const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
+  const english = isEnglish(language);
+  const textAlign = textAlignFor(language);
+  const direction = writingDirection(language);
+  const rowDirection: "row" | "row-reverse" = english ? "row" : "row-reverse";
+  const copy = (arabic: string, englishText: string) => localize(language, arabic, englishText);
   const [customers, setCustomers] = useState<any[]>([]);
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,12 +46,15 @@ export default function RepresentativeSalesScreen() {
       ]);
       setCustomers(query ? (Array.isArray(customerRows) ? customerRows : []) : []);
       setRows(Array.isArray(salesRows) ? salesRows : []);
-    } catch (error: any) {
-      Alert.alert("تعذر تحميل المبيعات", error?.message || "حدث خطأ");
+    } catch {
+      Alert.alert(
+        localize(language, "تعذر تحميل المبيعات", "Unable to load sales"),
+        localize(language, "حدث خطأ أثناء تحميل المبيعات. حاول مرة أخرى.", "An error occurred while loading sales. Please try again."),
+      );
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, language]);
 
   useEffect(() => {
     void load();
@@ -60,10 +71,10 @@ export default function RepresentativeSalesScreen() {
   };
 
   const save = async () => {
-    if (!selectedCustomer?.id) return Alert.alert("بيانات ناقصة", "ابحث عن العميل واختره من النتائج");
-    if (!invoiceNumber.trim()) return Alert.alert("بيانات ناقصة", "رقم الفاتورة إلزامي");
-    if (!(Number(amount) > 0)) return Alert.alert("بيانات ناقصة", "أدخل مبلغاً صحيحاً أكبر من صفر");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) return Alert.alert("بيانات ناقصة", "أدخل تاريخ الفاتورة بصيغة YYYY-MM-DD");
+    if (!selectedCustomer?.id) return Alert.alert(copy("بيانات ناقصة", "Missing information"), copy("ابحث عن العميل واختره من النتائج", "Search for a customer and select one from the results."));
+    if (!invoiceNumber.trim()) return Alert.alert(copy("بيانات ناقصة", "Missing information"), copy("رقم الفاتورة إلزامي", "Invoice number is required."));
+    if (!(Number(amount) > 0)) return Alert.alert(copy("بيانات ناقصة", "Missing information"), copy("أدخل مبلغاً صحيحاً أكبر من صفر", "Enter a valid amount greater than zero."));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) return Alert.alert(copy("بيانات ناقصة", "Missing information"), copy("أدخل تاريخ الفاتورة بصيغة YYYY-MM-DD", "Enter the invoice date in YYYY-MM-DD format."));
     if (saving) return;
 
     setSaving(true);
@@ -80,12 +91,12 @@ export default function RepresentativeSalesScreen() {
           mimeType: file.mimeType,
         })),
       });
-      if (!result?.success || !result?.id) throw new Error("لم يؤكد الخادم إنشاء سجل المبيعات");
-      Alert.alert("تم حفظ المبيعات", `رقم السجل: ${result.referenceCode}`);
+      if (!result?.success || !result?.id) throw new Error(copy("لم يؤكد الخادم إنشاء سجل المبيعات", "The server did not confirm the sales record."));
+      Alert.alert(copy("تم حفظ المبيعات", "Sales saved"), copy(`رقم السجل: ${result.referenceCode}`, `Record no.: ${result.referenceCode}`));
       reset();
       await load();
-    } catch (error: any) {
-      Alert.alert("تعذر الحفظ", error?.message || "حدث خطأ");
+    } catch {
+      Alert.alert(copy("تعذر الحفظ", "Unable to save"), copy("حدث خطأ أثناء حفظ المبيعات. حاول مرة أخرى.", "An error occurred while saving sales. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -93,13 +104,13 @@ export default function RepresentativeSalesScreen() {
 
   return (
     <ScreenContainer style={{ backgroundColor: "#f8fafc" }}>
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: rowDirection }]}>
         <BackButton />
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>المبيعات</Text>
-          <Text style={styles.headerSubtitle}>سجل الفاتورة وربطها بملف العميل</Text>
+          <Text style={[styles.headerTitle, { textAlign, writingDirection: direction }]}>{copy("المبيعات", "Sales")}</Text>
+          <Text style={[styles.headerSubtitle, { textAlign, writingDirection: direction }]}>{copy("سجل الفاتورة وربطها بملف العميل", "Record invoices and link them to the customer file")}</Text>
         </View>
-        <TouchableOpacity style={styles.headerButton} onPress={() => setShowForm(true)} accessibilityLabel="إضافة مبيعات">
+        <TouchableOpacity style={styles.headerButton} onPress={() => setShowForm(true)} accessibilityLabel={copy("إضافة مبيعات", "Add sale")}>
           <MaterialIcons name="add" size={21} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -107,107 +118,86 @@ export default function RepresentativeSalesScreen() {
       {showForm ? (
         <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
           <View style={[styles.formCard, isWide && styles.formCardWide]}>
-            <View style={styles.formTopRow}>
+            <View style={[styles.formTopRow, { flexDirection: rowDirection }]}>
               <View style={styles.formTitleWrap}>
-                <Text style={styles.formTitle}>إضافة عملية بيع</Text>
-                <Text style={styles.formSubtitle}>اختر العميل ثم أدخل بيانات الفاتورة والمبلغ.</Text>
+                <Text style={[styles.formTitle, { textAlign, writingDirection: direction }]}>{copy("إضافة عملية بيع", "Add sale")}</Text>
+                <Text style={[styles.formSubtitle, { textAlign, writingDirection: direction }]}>{copy("اختر العميل ثم أدخل بيانات الفاتورة والمبلغ.", "Select a customer, then enter the invoice details and amount.")}</Text>
               </View>
-              <View style={styles.formIcon}><MaterialIcons name="receipt-long" size={20} color="#c2410c" /></View>
+              <View style={[styles.formIcon, { marginLeft: english ? 8 : 0, marginRight: english ? 0 : 8 }]}><MaterialIcons name="receipt-long" size={20} color="#c2410c" /></View>
             </View>
 
             <View style={styles.customerSection}>
-              <View style={styles.fieldHeading}>
-                <Text style={styles.label}>العميل *</Text>
-                <Text style={styles.fieldHint}>اكتب حرفين أو أكثر</Text>
+              <View style={[styles.fieldHeading, { flexDirection: rowDirection }]}>
+                <Text style={[styles.label, { textAlign, writingDirection: direction }]}>{copy("العميل *", "Customer *")}</Text>
+                <Text style={[styles.fieldHint, { textAlign, writingDirection: direction }]}>{copy("اكتب حرفين أو أكثر", "Type two or more characters")}</Text>
               </View>
               <TextInput
                 value={search}
-                onChangeText={(value) => {
-                  setSearch(value);
-                  setSelectedCustomer(null);
-                }}
-                placeholder="ابحث باسم العميل"
+                onChangeText={(value) => { setSearch(value); setSelectedCustomer(null); }}
+                placeholder={copy("ابحث باسم العميل", "Search by customer name")}
                 style={styles.input}
-                textAlign="right"
+                textAlign={textAlign}
                 returnKeyType="done"
               />
               {search.trim() ? (
                 customers.length ? (
-                  <View style={styles.customerResults}>
+                  <View style={[styles.customerResults, { flexDirection: rowDirection }]}>
                     {customers.map((customer) => (
                       <TouchableOpacity
                         key={customer.id}
-                        style={[styles.customerChip, selectedCustomer?.id === customer.id && styles.activeChip]}
-                        onPress={() => {
-                          setSelectedCustomer(customer);
-                          setSearch(customer.name);
-                        }}
+                        style={[styles.customerChip, { flexDirection: rowDirection }, selectedCustomer?.id === customer.id && styles.activeChip]}
+                        onPress={() => { setSelectedCustomer(customer); setSearch(customer.name); }}
                       >
                         <MaterialIcons name={selectedCustomer?.id === customer.id ? "check-circle" : "business"} size={16} color={selectedCustomer?.id === customer.id ? "#fff" : "#64748b"} />
                         <View style={styles.customerChipInfo}>
-                          <Text style={[styles.customerName, selectedCustomer?.id === customer.id && styles.activeCustomerText]} numberOfLines={1}>{customer.name}</Text>
-                          {customer.customerCode ? <Text style={[styles.customerCode, selectedCustomer?.id === customer.id && styles.activeCustomerCode]}>{customer.customerCode}</Text> : null}
+                          <Text style={[styles.customerName, { textAlign, writingDirection: direction }, selectedCustomer?.id === customer.id && styles.activeCustomerText]} numberOfLines={1}>{customer.name}</Text>
+                          {customer.customerCode ? <Text style={[styles.customerCode, { textAlign, writingDirection: direction }, selectedCustomer?.id === customer.id && styles.activeCustomerCode]}>{customer.customerCode}</Text> : null}
                         </View>
                       </TouchableOpacity>
                     ))}
                   </View>
-                ) : <Text style={styles.noResults}>لا توجد نتائج مطابقة للاسم المدخل.</Text>
-              ) : <Text style={styles.hint}>لن تظهر قائمة العملاء إلا بعد الكتابة في حقل البحث.</Text>}
+                ) : <Text style={[styles.noResults, { textAlign, writingDirection: direction }]}>{copy("لا توجد نتائج مطابقة للاسم المدخل.", "No results match the entered name.")}</Text>
+              ) : <Text style={[styles.hint, { textAlign, writingDirection: direction }]}>{copy("لن تظهر قائمة العملاء إلا بعد الكتابة في حقل البحث.", "The customer list will appear after you type in the search field.")}</Text>}
               {selectedCustomer ? (
-                <View style={styles.selectedCustomer}>
+                <View style={[styles.selectedCustomer, { flexDirection: rowDirection, alignSelf: english ? "flex-start" : "flex-end" }]}>
                   <MaterialIcons name="check-circle" size={17} color="#15803d" />
-                  <Text style={styles.selectedText}>تم اختيار: {selectedCustomer.name}</Text>
+                  <Text style={[styles.selectedText, { textAlign, writingDirection: direction }]}>{copy("تم اختيار: ", "Selected: ")}{selectedCustomer.name}</Text>
                 </View>
               ) : null}
             </View>
 
-            <View style={[styles.invoiceGrid, !isWide && styles.invoiceGridStack]}>
+            <View style={[styles.invoiceGrid, { flexDirection: rowDirection }, !isWide && styles.invoiceGridStack]}>
               <View style={[styles.field, styles.invoiceField]}>
-                <Text style={styles.label}>رقم الفاتورة *</Text>
-                <TextInput
-                  value={invoiceNumber}
-                  onChangeText={setInvoiceNumber}
-                  placeholder="مثال: INV-1024"
-                  style={styles.input}
-                  textAlign="right"
-                  returnKeyType="next"
-                />
+                <Text style={[styles.label, { textAlign, writingDirection: direction }]}>{copy("رقم الفاتورة *", "Invoice number *")}</Text>
+                <TextInput value={invoiceNumber} onChangeText={setInvoiceNumber} placeholder={copy("مثال: INV-1024", "Example: INV-1024")} style={styles.input} textAlign={textAlign} returnKeyType="next" />
               </View>
               <View style={styles.field}>
-                <Text style={styles.label}>المبلغ *</Text>
-                <TextInput
-                  value={amount}
-                  onChangeText={setAmount}
-                  placeholder="0.00"
-                  keyboardType="decimal-pad"
-                  style={styles.input}
-                  textAlign="right"
-                  returnKeyType="done"
-                />
+                <Text style={[styles.label, { textAlign, writingDirection: direction }]}>{copy("المبلغ *", "Amount *")}</Text>
+                <TextInput value={amount} onChangeText={setAmount} placeholder="0.00" keyboardType="decimal-pad" style={styles.input} textAlign={textAlign} returnKeyType="done" />
               </View>
               <View style={styles.field}>
-                <DateField value={invoiceDate} onChange={setInvoiceDate} label="تاريخ الفاتورة *" isAr style={styles.dateInput} />
+                <DateField value={invoiceDate} onChange={setInvoiceDate} label={copy("تاريخ الفاتورة *", "Invoice date *")} isAr={!english} style={styles.dateInput} />
               </View>
             </View>
 
             <View style={styles.attachmentBox}>
-              <View style={styles.attachmentHeader}>
+              <View style={[styles.attachmentHeader, { flexDirection: rowDirection }]}>
                 <View style={styles.attachmentIcon}><MaterialIcons name="attach-file" size={18} color="#0369a1" /></View>
                 <View style={styles.attachmentTitleWrap}>
-                  <Text style={styles.attachmentTitle}>مرفق الفاتورة</Text>
-                  <Text style={styles.attachmentHint}>صورة أو PDF — اختياري</Text>
+                  <Text style={[styles.attachmentTitle, { textAlign, writingDirection: direction }]}>{copy("مرفق الفاتورة", "Invoice attachment")}</Text>
+                  <Text style={[styles.attachmentHint, { textAlign, writingDirection: direction }]}>{copy("صورة أو PDF — اختياري", "Image or PDF — optional")}</Text>
                 </View>
               </View>
-              <AttachmentPicker attachments={files} onAttachmentsChange={setFiles} maxAttachments={3} />
+              <AttachmentPicker attachments={files} onAttachmentsChange={setFiles} language={language} maxAttachments={3} />
             </View>
 
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.action, styles.cancel]} onPress={reset} disabled={saving}>
-                <Text style={styles.cancelText}>إلغاء</Text>
+            <View style={[styles.actions, { flexDirection: rowDirection }]}>
+              <TouchableOpacity style={[styles.action, { flexDirection: rowDirection }, styles.cancel]} onPress={reset} disabled={saving}>
+                <Text style={[styles.cancelText, { writingDirection: direction }]}>{copy("إلغاء", "Cancel")}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.action, styles.save, saving && styles.disabled]} onPress={() => void save()} disabled={saving}>
+              <TouchableOpacity style={[styles.action, { flexDirection: rowDirection }, styles.save, saving && styles.disabled]} onPress={() => void save()} disabled={saving}>
                 <MaterialIcons name="save" size={18} color="#fff" />
-                <Text style={styles.saveText}>{saving ? "جارٍ الحفظ..." : "حفظ المبيعات"}</Text>
+                <Text style={[styles.saveText, { writingDirection: direction }]}>{saving ? copy("جارٍ الحفظ...", "Saving...") : copy("حفظ المبيعات", "Save sales")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -217,27 +207,27 @@ export default function RepresentativeSalesScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.page}>
           <View style={[styles.listWrap, isWide && styles.listWrapWide]}>
-            <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>سجل المبيعات</Text>
-              <Text style={styles.listCount}>{rows.length} سجل</Text>
+            <View style={[styles.listHeader, { flexDirection: rowDirection }]}>
+              <Text style={[styles.listTitle, { textAlign, writingDirection: direction }]}>{copy("سجل المبيعات", "Sales records")}</Text>
+              <Text style={[styles.listCount, { textAlign, writingDirection: direction }]}>{copy(`${rows.length} سجل`, `${rows.length} records`)}</Text>
             </View>
             {rows.length === 0 ? (
               <View style={styles.emptyState}>
                 <MaterialIcons name="point-of-sale" size={30} color="#94a3b8" />
-                <Text style={styles.empty}>لا توجد سجلات مبيعات بعد</Text>
-                <TouchableOpacity style={styles.emptyAction} onPress={() => setShowForm(true)}><Text style={styles.emptyActionText}>إضافة أول عملية بيع</Text></TouchableOpacity>
+                <Text style={[styles.empty, { writingDirection: direction }]}>{copy("لا توجد سجلات مبيعات بعد", "There are no sales records yet")}</Text>
+                <TouchableOpacity style={styles.emptyAction} onPress={() => setShowForm(true)}><Text style={[styles.emptyActionText, { writingDirection: direction }]}>{copy("إضافة أول عملية بيع", "Add the first sale")}</Text></TouchableOpacity>
               </View>
             ) : rows.map((row) => (
               <View key={row.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.money}><Text style={styles.moneyText}>{Number(row.amount).toLocaleString("ar-SA")} ريال</Text></View>
+                <View style={[styles.cardHeader, { flexDirection: rowDirection }]}>
+                  <View style={styles.money}><Text style={[styles.moneyText, { writingDirection: direction }]}>{Number(row.amount).toLocaleString(english ? "en-US" : "ar-SA")} {copy("ريال", "SAR")}</Text></View>
                   <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{row.customerName}</Text>
-                    <Text style={styles.cardMeta}>{row.referenceCode} · فاتورة {row.invoiceNumber}</Text>
+                    <Text style={[styles.cardTitle, { textAlign, writingDirection: direction }]}>{row.customerName}</Text>
+                    <Text style={[styles.cardMeta, { textAlign, writingDirection: direction }]}>{row.referenceCode} · {copy("فاتورة", "Invoice")} {row.invoiceNumber}</Text>
                   </View>
                   <View style={styles.saleIcon}><MaterialIcons name="shopping-cart" size={19} color="#c2410c" /></View>
                 </View>
-                <Text style={styles.cardMeta}>تاريخ الفاتورة: {row.invoiceDate} · المندوب: {row.representativeName}</Text>
+                <Text style={[styles.cardMeta, { textAlign, writingDirection: direction }]}>{copy("تاريخ الفاتورة:", "Invoice date:")} {row.invoiceDate} · {copy("المندوب:", "Representative:")} {row.representativeName}</Text>
               </View>
             ))}
           </View>

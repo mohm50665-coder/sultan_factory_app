@@ -65,6 +65,6 @@ describe("Global date picker contract", () => {
   it("does not render department zero cards while the report is loading", () => {
     const source = read("app/daily-summary.tsx");
     expect(source).toContain("جارٍ تحميل بيانات جميع الإدارات...");
-    expect(source).toContain("loading ? <View");
+    expect(source).toContain("loading ? (");
   });
 });

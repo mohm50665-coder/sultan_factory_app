@@ -26,7 +26,7 @@ describe("finished warehouse product search", () => {
 
   it("filters the existing product results by the optional size", () => {
     expect(screenSource).toContain("stockSearchResults");
-    expect(screenSource).toContain("normalizeVariantSearchValue(stock.productSize) === normalizedSize");
-    expect(screenSource).toContain("placeholder=\"المقاس (اختياري)\"");
+    expect(screenSource).toMatch(/normalizeVariantSearchValue\(stock\.productSize\)\s*===\s*normalizedSize/);
+    expect(screenSource).toContain('t("المقاس (اختياري)", "Size (optional)")');
   });
 });

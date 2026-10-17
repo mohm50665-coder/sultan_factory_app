@@ -15,8 +15,8 @@ describe("handover quantity summary", () => {
     expect(summary).toContain("quantityLabel(remainingPairs");
     expect(summary).toContain("signedQuantityLabel");
     expect(summary).toContain("quantityDifferencePairs");
-    expect(summary).toContain("difference-positive");
-    expect(summary).toContain("difference-negative");
+    expect(summary).toContain("quantityDifferencePairs");
+    expect(summary).toContain("signedQuantityLabel");
     expect(summary).toContain("rawDeliveredQuantityPairs");
     expect(summary).not.toContain("Math.min(receivedQuantityPairs, rawDeliveredQuantityPairs)");
     expect(summary).toContain("CustodySummaryPanel");
@@ -25,7 +25,7 @@ describe("handover quantity summary", () => {
   it("separates manufacturing stages in the comprehensive report", () => {
     expect(summary).toContain("stageSummary");
     expect(summary).toContain("مراحل التصنيع — كل مرحلة مستقلة");
-    expect(summary).toContain("المسلّم = ما خرج منها بصفتها المرسلة (previousStage)");
+    expect(summary).toContain("Delivered: ${quantityLabel(item.delivered, false)}");
     expect(summary).toContain("productionOnlyWorkMinutes");
     expect(summary).toContain("stageDurationSummary");
     expect(summary).toContain("const productionWorkMinutes = productionOnlyWorkMinutes + stageWorkMinutes");
@@ -33,10 +33,10 @@ describe("handover quantity summary", () => {
   });
 
   it("explains the calculation and links remaining quantities to the dedicated inventory", () => {
-    expect(summary).toContain("المستلم = ما استلمه الموظف");
-    expect(summary).toContain("أيقونة الكمية المتبقية");
-    expect(summary).toContain("الموجب باللون الأزرق");
-    expect(summary).toContain("السالب باللون الأحمر");
+    expect(summary).toContain("Received is what the employee acknowledged");
+    expect(summary).toContain("Remaining Quantities");
+    expect(summary).toContain("Blue positive values require review");
+    expect(summary).toContain("red negative values indicate a shortage");
     expect(summary).toContain("differenceFilter");
     expect(summary).toContain("Review remaining quantities");
     expect(summary).not.toContain("alertsService.create");

@@ -19,6 +19,17 @@ import { BackButton } from "@/components/back-button";
 import { DateField } from "@/components/date-field";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuth } from "@/lib/auth-context";
+import { useLanguage } from "@/lib/language-context";
+import {
+  custodyQualityEnglish,
+  custodyStageEnglish,
+  custodyStatusEnglish,
+  departmentEnglish,
+  isEnglish,
+  localize,
+  textAlignFor,
+  writingDirection,
+} from "@/lib/i18n/runtime";
 import { custodyService } from "@/lib/services/custody.service";
 import {
   CUSTODY_QUALITY_LABELS,
@@ -95,13 +106,106 @@ function firstOfMonth(day: string): string {
   return `${day.slice(0, 7)}-01`;
 }
 
-function statusLabel(status?: string): string {
+type ScreenLanguage = "ar" | "en";
+
+function rowDirection(language: ScreenLanguage): "row" | "row-reverse" {
+  return isEnglish(language) ? "row" : "row-reverse";
+}
+
+function pairsFor(value: number | null | undefined, language: ScreenLanguage): string {
+  if (!isEnglish(language)) return formatPairs(value);
+  if (value == null || !Number.isFinite(value)) return "Invalid quantity — review required";
+  const dozens = value >= 0 ? Math.floor(value / 12) : Math.ceil(value / 12);
+  const remainder = Math.abs(value - dozens * 12);
+  return `${value.toLocaleString("en-US")} pairs (${dozens.toLocaleString("en-US")} dozen and ${remainder.toLocaleString("en-US")} pairs)`;
+}
+
+function durationFor(value: number | null | undefined, language: ScreenLanguage): string {
+  if (!isEnglish(language)) return formatDuration(value ?? null);
+  if (value == null || !Number.isFinite(value)) return "Incomplete time data";
+  const minutes = Math.round(value / 60_000);
+  return `${Math.floor(minutes / 60).toLocaleString("en-US")} hr ${Math.abs(minutes % 60).toLocaleString("en-US")} min`;
+}
+
+function timeFor(value: string | undefined, language: ScreenLanguage): string {
+  if (!isEnglish(language)) return formatRiyadh(value);
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "Incomplete time";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(date);
+}
+
+function stageFor(stage: string | undefined, language: ScreenLanguage): string {
+  if (!stage) return localize(language, "غير محدد", "Unspecified");
+  return isEnglish(language)
+    ? custodyStageEnglish[stage] || stage
+    : CUSTODY_STAGE_LABELS[stage as CustodyStage] || stage;
+}
+
+function qualityFor(quality: string | undefined, language: ScreenLanguage): string {
+  if (!quality) return "—";
+  return isEnglish(language)
+    ? custodyQualityEnglish[quality] || quality
+    : CUSTODY_QUALITY_LABELS[quality as CustodyQuality] || quality;
+}
+
+function statusLabel(status: string | undefined, language: ScreenLanguage): string {
   if (!status) return "—";
+  if (isEnglish(language)) return custodyStatusEnglish[status] || status;
   if (status === "pending") return "بانتظار التأكيد";
   if (status === "confirmed") return "مؤكد";
   if (status === "rejected") return "مرفوض";
   if (status === "disputed") return "اختلاف قيد المراجعة";
   return CUSTODY_STATUS_LABELS[status as CustodyStatus] || status;
+}
+
+function departmentFor(department: string | undefined, language: ScreenLanguage): string {
+  if (!department) return "—";
+  const arabic = arabicDepartment(department);
+  if (!isEnglish(language)) return arabic;
+  const stage = Object.entries(CUSTODY_STAGE_LABELS).find(([, label]) => label === arabic)?.[0];
+  return stage ? departmentEnglish[stage] || stage : department;
+}
+
+function actionFor(action: string | undefined, fallback: string, language: ScreenLanguage): string {
+  if (!isEnglish(language)) return fallback;
+  const labels: Record<string, string> = {
+    receive: "Receipt confirmed", received: "Received", start: "Work started", pause: "Paused",
+    resume: "Work resumed", progress: "Progress recorded", complete: "Work completed",
+    send: "Delivered / sent", sent: "Delivered / sent", confirm: "Next recipient confirmed",
+    confirmed: "Next recipient confirmed", dispute: "Quantity discrepancy recorded",
+    rejected: "Movement rejected", resolve: "Discrepancy resolved", store: "Stored in finished goods",
+    approve_disposal: "Disposal record approved", execute_disposal: "Disposal executed",
+    deliver_sample: "Sample delivery documented", correct: "Documented correction",
+    rework: "Rework", transfer: "Custody transfer — delivery and receipt",
+    transfer_disputed: "Quantity discrepancy", transfer_rejected: "Movement rejected",
+    transfer_resolved_to_pending: "Discrepancy resolved", stock_stored: "Stored in finished goods",
+    sample_delivered: "Sample delivered", batch_correction_recorded: "Documented version correction",
+    rework_override_sent: "Rework decision",
+  };
+  return labels[action || ""] || fallback;
+}
+
+function systemWarningFor(warning: string, language: ScreenLanguage): string {
+  return isEnglish(language) ? "Measurement safety warning. Review the relevant report record." : warning;
+}
+
+function periodFor(period: ReportPeriod, language: ScreenLanguage): string {
+  const arabic: Record<ReportPeriod, string> = {
+    daily: "يومي",
+    weekly: "أسبوعي",
+    monthly: "شهري",
+    custom: "مخصص",
+  };
+  const english: Record<ReportPeriod, string> = {
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    custom: "Custom",
+  };
+  return localize(language, arabic[period], english[period]);
 }
 
 function showMessage(title: string, message: string) {
@@ -135,13 +239,15 @@ function SelectButtons<T extends string>({
   label: string;
   allowAll?: boolean;
 }) {
+  const { language } = useLanguage();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
   return (
     <View style={styles.filterBlock}>
-      <Text style={styles.filterLabel}>{label}</Text>
+      <Text style={[styles.filterLabel, textStyle]}>{label}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipScroll}
+        contentContainerStyle={[styles.chipScroll, { flexDirection: rowDirection(language) }]}
         style={styles.horizontalScroll}
       >
         {allowAll ? (
@@ -149,8 +255,8 @@ function SelectButtons<T extends string>({
             onPress={() => onChange("")}
             style={[styles.chip, !value && styles.chipActive]}
           >
-            <Text style={[styles.chipText, !value && styles.chipTextActive]}>
-              الكل
+            <Text style={[styles.chipText, !value && styles.chipTextActive, textStyle]}>
+              {localize(language, "الكل", "All")}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -161,7 +267,7 @@ function SelectButtons<T extends string>({
             style={[styles.chip, value === id && styles.chipActive]}
           >
             <Text
-              style={[styles.chipText, value === id && styles.chipTextActive]}
+              style={[styles.chipText, value === id && styles.chipTextActive, textStyle]}
             >
               {text}
             </Text>
@@ -185,6 +291,8 @@ function MetricCard({
   selected?: boolean;
   tone?: "blue" | "green" | "amber" | "red";
 }) {
+  const { language } = useLanguage();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
   const content = (
     <>
       <Text
@@ -193,23 +301,35 @@ function MetricCard({
           tone === "green" && styles.greenText,
           tone === "amber" && styles.amberText,
           tone === "red" && styles.redText,
+          textStyle,
         ]}
       >
         {value}
       </Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-      {onPress ? <Text style={styles.drillHint}>اضغط للتفاصيل</Text> : null}
+      <Text style={[styles.metricLabel, textStyle]}>{label}</Text>
+      {onPress ? <Text style={[styles.drillHint, textStyle]}>{localize(language, "اضغط للتفاصيل", "Tap for details")}</Text> : null}
     </>
   );
   return onPress ? (
     <TouchableOpacity
       onPress={onPress}
-      style={[styles.metric, selected && styles.metricSelected]}
+      style={[
+        styles.metric,
+        { alignItems: isEnglish(language) ? "flex-start" : "flex-end" },
+        selected && styles.metricSelected,
+      ]}
     >
       {content}
     </TouchableOpacity>
   ) : (
-    <View style={styles.metric}>{content}</View>
+    <View
+      style={[
+        styles.metric,
+        { alignItems: isEnglish(language) ? "flex-start" : "flex-end" },
+      ]}
+    >
+      {content}
+    </View>
   );
 }
 
@@ -220,121 +340,116 @@ function EventTable({
   events: CustodyReportEvent[];
   title?: string;
 }) {
-  const columns = [
-    "الحركة / الوقت",
-    "الدفعة والصنف",
-    "الكمية / النخب",
-    "المسار والحالة",
-    "الأوقات والملاحظات",
-  ];
+  const { language } = useLanguage();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
+  const columns = isEnglish(language)
+    ? ["Movement / time", "Batch and product", "Quantity / grade", "Route and status", "Times and notes"]
+    : ["الحركة / الوقت", "الدفعة والصنف", "الكمية / النخب", "المسار والحالة", "الأوقات والملاحظات"];
   return (
     <View style={styles.tableCard}>
-      {title ? <Text style={styles.tableTitle}>{title}</Text> : null}
-      <View style={styles.compactHeading}>
+      {title ? <Text style={[styles.tableTitle, textStyle]}>{title}</Text> : null}
+      <View style={[styles.compactHeading, { flexDirection: rowDirection(language) }]}>
         {columns.map((label) => (
-          <Text key={label} style={styles.compactHeadCell}>
+          <Text key={label} style={[styles.compactHeadCell, textStyle]}>
             {label}
           </Text>
         ))}
       </View>
       {!events.length ? (
-        <Text style={styles.emptyText}>لا توجد حركات مطابقة.</Text>
+        <Text style={[styles.emptyText, textStyle]}>{localize(language, "لا توجد حركات مطابقة.", "No matching movements.")}</Text>
       ) : (
         events.map((event) => (
-          <View key={event.id} style={styles.compactRow}>
+          <View key={event.id} style={[styles.compactRow, { flexDirection: rowDirection(language) }]}>
             <View style={styles.compactCell}>
-              <Text style={styles.eventAction}>{event.actionLabel}</Text>
-              <Text style={styles.eventTime}>{formatRiyadh(event.at)}</Text>
+              <Text style={[styles.eventAction, textStyle]}>{actionFor(event.action, event.actionLabel, language)}</Text>
+              <Text style={[styles.eventTime, textStyle]}>{timeFor(event.at, language)}</Text>
             </View>
             <View style={styles.compactCell}>
-              <Text style={styles.eventBatch}>
+              <Text style={[styles.eventBatch, textStyle]}>
                 {event.product} · {event.productSize} · {event.productColor}
               </Text>
-              <Text style={styles.eventInfo}>
-                {event.trackingNumber} · ماكينة {event.machineNumber || "—"} ·{" "}
-                {event.shift || "الوردية غير مسجلة"}
+              <Text style={[styles.eventInfo, textStyle]}>
+                {event.trackingNumber} · {localize(language, "ماكينة", "Machine")} {event.machineNumber || "—"} ·{" "}
+                {event.shift || localize(language, "الوردية غير مسجلة", "Shift not recorded")}
               </Text>
             </View>
             <View style={styles.compactCell}>
-              <Text style={styles.eventBatch}>
+              <Text style={[styles.eventBatch, textStyle]}>
                 {event.expectedPairs == null
                   ? event.pairs == null
                     ? "—"
-                    : formatPairs(event.pairs)
-                  : `مرسل ${formatPairs(event.expectedPairs)}`}
+                    : pairsFor(event.pairs, language)
+                  : `${localize(language, "مرسل", "Sent")} ${pairsFor(event.expectedPairs, language)}`}
               </Text>
               {event.actualPairs !== undefined ? (
-                <Text style={styles.eventInfo}>
-                  فعلي {formatPairs(event.actualPairs)} · فرق{" "}
-                  {formatPairs(event.quantityDifferencePairs)}
+                <Text style={[styles.eventInfo, textStyle]}>
+                  {localize(language, "فعلي", "Actual")} {pairsFor(event.actualPairs, language)} · {localize(language, "فرق", "Difference")}{" "}
+                  {pairsFor(event.quantityDifferencePairs, language)}
                 </Text>
               ) : null}
-              <Text style={styles.eventInfo}>
-                {event.quality ? CUSTODY_QUALITY_LABELS[event.quality] : "—"}
+              <Text style={[styles.eventInfo, textStyle]}>
+                {qualityFor(event.quality, language)}
               </Text>
             </View>
             <View style={styles.compactCell}>
               {event.sourceName || event.destinationName ? (
                 <>
-                  <Text style={styles.eventInfo}>
-                    سلّم: {event.sourceDepartment || event.department} —{" "}
+                  <Text style={[styles.eventInfo, textStyle]}>
+                    {localize(language, "سلّم", "Delivered by")}: {departmentFor(event.sourceDepartment || event.department, language)} —{" "}
                     {event.sourceName || event.actorName}
                   </Text>
-                  <Text style={styles.eventInfo}>
-                    استلم: {event.destinationDepartment || "—"} —{" "}
+                  <Text style={[styles.eventInfo, textStyle]}>
+                    {localize(language, "استلم", "Received by")}: {departmentFor(event.destinationDepartment, language)} —{" "}
                     {event.destinationName || "—"}
                   </Text>
                 </>
               ) : (
-                <Text style={styles.eventInfo}>
+                <Text style={[styles.eventInfo, textStyle]}>
                   {event.counterparty || "—"}
                   {event.counterpartyDepartment
-                    ? ` · ${arabicDepartment(event.counterpartyDepartment)}`
+                    ? ` · ${departmentFor(event.counterpartyDepartment, language)}`
                     : ""}
                 </Text>
               )}
-              <Text style={styles.eventInfo}>{statusLabel(event.status)}</Text>
+              <Text style={[styles.eventInfo, textStyle]}>{statusLabel(event.status, language)}</Text>
             </View>
             <View style={styles.compactCell}>
               {event.sentAt ? (
-                <Text style={styles.eventInfo}>
-                  الإرسال: {formatRiyadh(event.sentAt)} · الاستلام:{" "}
+                <Text style={[styles.eventInfo, textStyle]}>
+                  {localize(language, "الإرسال", "Sent")}: {timeFor(event.sentAt, language)} · {localize(language, "الاستلام", "Received")}:{" "}
                   {event.receivedAt
-                    ? formatRiyadh(event.receivedAt)
-                    : "بانتظار الاستلام"}{" "}
-                  · المدة:{" "}
-                  {formatDuration(event.handoverDuration?.calendarMs ?? null)}
+                    ? timeFor(event.receivedAt, language)
+                    : localize(language, "بانتظار الاستلام", "Awaiting receipt")}{" "}
+                  · {localize(language, "المدة", "Duration")}:{" "}
+                  {durationFor(event.handoverDuration?.calendarMs ?? null, language)}
                 </Text>
               ) : null}
               {event.reason ? (
-                <Text style={styles.eventWarning}>{event.reason}</Text>
+                <Text style={[styles.eventWarning, textStyle]}>{event.reason}</Text>
               ) : null}
               {event.progress ? (
-                <Text style={styles.eventInfo}>
-                  قراءة تراكمية {event.progress.cumulativePairs} زوج؛ الفرق{" "}
-                  {event.progress.deltaPairs} زوج منذ{" "}
+                <Text style={[styles.eventInfo, textStyle]}>
+                  {localize(language, "قراءة تراكمية", "Cumulative reading")} {pairsFor(event.progress.cumulativePairs, language)}; {localize(language, "الفرق", "change")} {pairsFor(event.progress.deltaPairs, language)} {localize(language, "منذ", "since")}{" "}
                   {event.progress.intervalStartAt
-                    ? formatRiyadh(event.progress.intervalStartAt)
-                    : "أول قراءة"}
+                    ? timeFor(event.progress.intervalStartAt, language)
+                    : localize(language, "أول قراءة", "first reading")}
                 </Text>
               ) : null}
               {event.timing ? (
-                <Text style={styles.eventInfo}>
-                  العهدة{" "}
-                  {formatDuration(event.timing.custodyDuration.calendarMs)} ·
-                  انتظار التأكيد{" "}
-                  {formatDuration(event.timing.awaitingConfirmation.calendarMs)}{" "}
-                  · العمل {formatDuration(event.timing.manualWork.calendarMs)} ·
-                  التوقف {formatDuration(event.timing.pause.calendarMs)}
+                <Text style={[styles.eventInfo, textStyle]}>
+                  {localize(language, "العهدة", "Custody")} {durationFor(event.timing.custodyDuration.calendarMs, language)} ·
+                  {localize(language, "انتظار التأكيد", "Awaiting confirmation")} {durationFor(event.timing.awaitingConfirmation.calendarMs, language)} ·
+                  {localize(language, "العمل", "Work")} {durationFor(event.timing.manualWork.calendarMs, language)} ·
+                  {localize(language, "التوقف", "Paused")} {durationFor(event.timing.pause.calendarMs, language)}
                 </Text>
               ) : null}
               {event.legacySourceId ? (
-                <Text style={styles.eventWarning}>
-                  افتتاحي تاريخي #{event.legacySourceId} — لا تقاس إنتاجيته
+                <Text style={[styles.eventWarning, textStyle]}>
+                  {localize(language, "افتتاحي تاريخي", "Historical opening")} #{event.legacySourceId} — {localize(language, "لا تقاس إنتاجيته", "productivity is not measured")}
                 </Text>
               ) : null}
               {event.incomplete ? (
-                <Text style={styles.eventWarning}>بيانات وقت غير مكتملة</Text>
+                <Text style={[styles.eventWarning, textStyle]}>{localize(language, "بيانات وقت غير مكتملة", "Incomplete time data")}</Text>
               ) : null}
             </View>
           </View>
@@ -345,23 +460,18 @@ function EventTable({
 }
 
 function StageTotalsTable({ report }: { report: CustodyReport }) {
-  const headers = [
-    "المرحلة",
-    "رصيد البداية",
-    "وارد مؤكد",
-    "صادر مؤكد",
-    "مرسل معلق",
-    "إغلاق موثق",
-    "المتبقي / المسؤولية",
-  ];
+  const { language } = useLanguage();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
+  const headers = isEnglish(language)
+    ? ["Stage", "Opening balance", "Confirmed inbound", "Confirmed outbound", "Pending sent", "Documented closure", "Remaining / liability"]
+    : ["المرحلة", "رصيد البداية", "وارد مؤكد", "صادر مؤكد", "مرسل معلق", "إغلاق موثق", "المتبقي / المسؤولية"];
   return (
     <View style={styles.tableCard}>
       <Text style={styles.tableTitle}>
-        إجماليات كل مرحلة — عهدة وحركة وليست إنتاجاً جديداً
+        {localize(language, "إجماليات كل مرحلة — عهدة وحركة وليست إنتاجاً جديداً", "Totals by stage — custody movement, not new production")}
       </Text>
       <Text style={styles.tableNotice}>
-        رصيد البداية + الوارد المؤكد − الصادر المؤكد − الإغلاق الموثق = المتبقي.
-        المرسل المعلق لا يخصم قبل تأكيد الاستلام.
+        {localize(language, "رصيد البداية + الوارد المؤكد − الصادر المؤكد − الإغلاق الموثق = المتبقي. المرسل المعلق لا يخصم قبل تأكيد الاستلام.", "Opening balance + confirmed inbound − confirmed outbound − documented closure = remaining. Pending sent quantities are not deducted until receipt is confirmed.")}
       </Text>
       <View style={styles.compactHeading}>
         {headers.map((label) => (
@@ -373,28 +483,28 @@ function StageTotalsTable({ report }: { report: CustodyReport }) {
       {report.stageTotals.map((total) => (
         <View key={total.stage} style={styles.compactRow}>
           <Text style={styles.compactHeadCell}>
-            {total.stageLabel}
+            {stageFor(total.stage, language)}
             {total.invalidQuantityCount
-              ? ` · كمية غير صالحة (${total.invalidQuantityCount})`
+              ? ` · ${localize(language, "كمية غير صالحة", "Invalid quantity")} (${total.invalidQuantityCount.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA")})`
               : ""}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.openingPairs)}
+            {pairsFor(total.openingPairs, language)}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.confirmedInboundPairs)}
+            {pairsFor(total.confirmedInboundPairs, language)}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.confirmedOutboundPairs)}
+            {pairsFor(total.confirmedOutboundPairs, language)}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.pendingOutboundPairs)}
+            {pairsFor(total.pendingOutboundPairs, language)}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.releasedPairs)}
+            {pairsFor(total.releasedPairs, language)}
           </Text>
           <Text style={styles.compactHeadCell}>
-            {formatPairs(total.remainingPairs)}
+            {pairsFor(total.remainingPairs, language)}
           </Text>
         </View>
       ))}
@@ -403,9 +513,10 @@ function StageTotalsTable({ report }: { report: CustodyReport }) {
 }
 
 function TransferTable({ events }: { events: CustodyReportEvent[] }) {
+  const { language } = useLanguage();
   return (
     <EventTable
-      title="جدول التحويلات الموحد — صف واحد لكل معرف تحويل"
+      title={localize(language, "جدول التحويلات الموحد — صف واحد لكل معرف تحويل", "Unified transfer table — one row per transfer ID")}
       events={events}
     />
   );
@@ -422,6 +533,8 @@ function SettingsPanel({
   onSave: () => void;
   saving: boolean;
 }) {
+  const { language } = useLanguage();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
   const updateLimit = (
     stage: CustodyStage,
     field: "workHours" | "confirmationHours",
@@ -468,27 +581,31 @@ function SettingsPanel({
   };
   return (
     <View style={styles.settingsCard}>
-      <Text style={styles.sectionTitle}>إعدادات قياس الوقت</Text>
-      <Text style={styles.settingNotice}>
-        لا تُفترض ورديات أو عطلات. الزمن ضمن الدوام لا يظهر إلا من الإعدادات
-        الصحيحة المحفوظة.
+      <Text style={[styles.sectionTitle, textStyle]}>{localize(language, "إعدادات قياس الوقت", "Time measurement settings")}</Text>
+      <Text style={[styles.settingNotice, textStyle]}>
+        {localize(language, "لا تُفترض ورديات أو عطلات. الزمن ضمن الدوام لا يظهر إلا من الإعدادات الصحيحة المحفوظة.", "No shifts or holidays are assumed. Business time appears only from valid saved settings.")}
       </Text>
       <TouchableOpacity
-        style={styles.outlineButton}
+        style={[
+          styles.outlineButton,
+          {
+            alignSelf: isEnglish(language) ? "flex-start" : "flex-end",
+            flexDirection: rowDirection(language),
+          },
+        ]}
         onPress={() => onChange({ ...settings, enabled: !settings.enabled })}
       >
-        <Text style={styles.outlineText}>
+        <Text style={[styles.outlineText, textStyle]}>
           {settings.enabled
-            ? "سياسة التنبيهات مفعلة — اضغط للإيقاف"
-            : "سياسة التنبيهات متوقفة — اضغط للتفعيل"}
+            ? localize(language, "سياسة التنبيهات مفعلة — اضغط للإيقاف", "Alert policy is enabled — tap to disable")
+            : localize(language, "سياسة التنبيهات متوقفة — اضغط للتفعيل", "Alert policy is disabled — tap to enable")}
         </Text>
       </TouchableOpacity>
-      <Text style={styles.schedulePending}>
-        تنبيهات الخلفية تتطلب نشر النسخة وربط المجدول؛ حفظ الحدود وحده لا يفعّل
-        التنبيهات.
+      <Text style={[styles.schedulePending, textStyle]}>
+        {localize(language, "تنبيهات الخلفية تتطلب نشر النسخة وربط المجدول؛ حفظ الحدود وحده لا يفعّل التنبيهات.", "Background alerts require a deployed build and a connected scheduler; saving limits alone does not enable alerts.")}
       </Text>
-      <Text style={styles.subheading}>
-        حدود كل مرحلة (ساعات العمل / تأكيد الاستلام)
+      <Text style={[styles.subheading, textStyle]}>
+        {localize(language, "حدود كل مرحلة (ساعات العمل / تأكيد الاستلام)", "Limits by stage (work hours / receipt confirmation)")}
       </Text>
       {STAGES.map(([stage, label]) => {
         const limit = settings.stageLimits[stage] || {
@@ -496,14 +613,17 @@ function SettingsPanel({
           confirmationHours: 0,
         };
         return (
-          <View key={stage} style={styles.settingRow}>
-            <Text style={styles.settingStage}>{label}</Text>
+          <View
+            key={stage}
+            style={[styles.settingRow, { flexDirection: rowDirection(language) }]}
+          >
+            <Text style={[styles.settingStage, textStyle]}>{stageFor(stage, language)}</Text>
             <TextInput
               keyboardType="decimal-pad"
               value={String(limit.workHours)}
               onChangeText={(text) => updateLimit(stage, "workHours", text)}
               style={styles.smallInput}
-              placeholder="عمل"
+              placeholder={localize(language, "عمل", "Work")}
             />
             <TextInput
               keyboardType="decimal-pad"
@@ -512,22 +632,24 @@ function SettingsPanel({
                 updateLimit(stage, "confirmationHours", text)
               }
               style={styles.smallInput}
-              placeholder="تأكيد"
+              placeholder={localize(language, "تأكيد", "Confirm")}
             />
           </View>
         );
       })}
-      <Text style={styles.subheading}>
-        الورديات (الأيام: 0 الأحد إلى 6 السبت)
+      <Text style={[styles.subheading, textStyle]}>
+        {localize(language, "الورديات (الأيام: 0 الأحد إلى 6 السبت)", "Shifts (days: 0 Sunday to 6 Saturday)")}
       </Text>
       {settings.shifts.map((shift, index) => (
         <View style={styles.shiftBox} key={`${shift.name}-${index}`}>
-          <View style={styles.shiftLine}>
+          <View
+            style={[styles.shiftLine, { flexDirection: rowDirection(language) }]}
+          >
             <TextInput
               value={shift.name}
               onChangeText={(text) => updateShift(index, "name", text)}
               style={styles.shiftName}
-              placeholder="اسم الوردية"
+              placeholder={localize(language, "اسم الوردية", "Shift name")}
             />
             <TouchableOpacity
               onPress={() =>
@@ -542,7 +664,9 @@ function SettingsPanel({
               <MaterialIcons name="delete-outline" size={20} color="#b91c1c" />
             </TouchableOpacity>
           </View>
-          <View style={styles.shiftLine}>
+          <View
+            style={[styles.shiftLine, { flexDirection: rowDirection(language) }]}
+          >
             <TextInput
               value={shift.start}
               onChangeText={(text) => updateShift(index, "start", text)}
@@ -574,12 +698,18 @@ function SettingsPanel({
             ],
           })
         }
-        style={styles.outlineButton}
+        style={[
+          styles.outlineButton,
+          {
+            alignSelf: isEnglish(language) ? "flex-start" : "flex-end",
+            flexDirection: rowDirection(language),
+          },
+        ]}
       >
         <MaterialIcons name="add" size={18} color="#075985" />
-        <Text style={styles.outlineText}>إضافة وردية</Text>
+        <Text style={[styles.outlineText, textStyle]}>{localize(language, "إضافة وردية", "Add shift")}</Text>
       </TouchableOpacity>
-      <Text style={styles.subheading}>العطلات (YYYY-MM-DD، مفصولة بفاصلة)</Text>
+      <Text style={[styles.subheading, textStyle]}>{localize(language, "العطلات (YYYY-MM-DD، مفصولة بفاصلة)", "Holidays (YYYY-MM-DD, comma-separated)")}</Text>
       <TextInput
         value={settings.holidays.join(",")}
         onChangeText={(text) =>
@@ -591,21 +721,31 @@ function SettingsPanel({
               .filter(Boolean),
           })
         }
-        style={styles.fullInput}
+        style={[
+          styles.fullInput,
+          {
+            writingDirection: writingDirection(language),
+            textAlign: textAlignFor(language),
+          },
+        ]}
         placeholder="2026-06-15, 2026-06-16"
       />
       <TouchableOpacity
         disabled={saving}
         onPress={onSave}
-        style={[styles.primaryButton, saving && styles.disabled]}
+        style={[
+          styles.primaryButton,
+          { flexDirection: rowDirection(language) },
+          saving && styles.disabled,
+        ]}
       >
         {saving ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <>
             <MaterialIcons name="save" size={19} color="#fff" />
-            <Text style={styles.primaryButtonText}>
-              حفظ الإعدادات بعد تأكيد الخادم
+            <Text style={[styles.primaryButtonText, textStyle]}>
+              {localize(language, "حفظ الإعدادات بعد تأكيد الخادم", "Save settings after server confirmation")}
             </Text>
           </>
         )}
@@ -616,7 +756,9 @@ function SettingsPanel({
 
 export default function CustodyReportsScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const { user } = useAuth();
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
   const today = useMemo(riyadhToday, []);
   const params = useLocalSearchParams<{ startDate?: string; endDate?: string }>();
   const initialStart = reportDate(params.startDate);
@@ -641,6 +783,24 @@ export default function CustodyReportsScreen() {
   const [drill, setDrill] = useState<DrillMetric>(null);
   const [exporting, setExporting] = useState(false);
   const supervisor = user?.role === "admin";
+  const stageOptions = useMemo(
+    () => STAGES.map(([stage, label]) => [stage, isEnglish(language) ? custodyStageEnglish[stage] || label : label] as const),
+    [language],
+  );
+  const qualityOptions = useMemo(
+    () => QUALITIES.map(([quality, label]) => [quality, isEnglish(language) ? custodyQualityEnglish[quality] || label : label] as const),
+    [language],
+  );
+  const statusOptions = useMemo(
+    () => [
+      ...STATUSES.map(([item, label]) => [item, isEnglish(language) ? custodyStatusEnglish[item] || label : label] as const),
+      ["pending", statusLabel("pending", language)],
+      ["confirmed", statusLabel("confirmed", language)],
+      ["disputed", statusLabel("disputed", language)],
+      ["rejected", statusLabel("rejected", language)],
+    ] as [typeof status, string][],
+    [language],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -658,12 +818,12 @@ export default function CustodyReportsScreen() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "تعذر تحميل تقرير العهد.",
+          : localize(language, "تعذر تحميل تقرير العهد.", "Unable to load the custody report."),
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     void load();
@@ -708,10 +868,10 @@ export default function CustodyReportsScreen() {
         calculationError:
           reportError instanceof Error
             ? reportError.message
-            : "تعذر احتساب التقرير.",
+            : localize(language, "تعذر احتساب التقرير.", "Unable to calculate the report."),
       };
     }
-  }, [batches, accounts, settings, filters]);
+  }, [batches, accounts, settings, filters, language]);
   const report = reportResult.report;
 
   const applyPeriod = (next: ReportPeriod) => {
@@ -764,14 +924,14 @@ export default function CustodyReportsScreen() {
     setSavingSettings(true);
     try {
       await custodyService.saveSettings(settings);
-      showMessage("تم الحفظ", "أكد الخادم حفظ إعدادات الوقت.");
+      showMessage(localize(language, "تم الحفظ", "Saved"), localize(language, "أكد الخادم حفظ إعدادات الوقت.", "The server confirmed the time settings were saved."));
       await load();
     } catch (saveError) {
       showMessage(
-        "تعذر الحفظ",
+        localize(language, "تعذر الحفظ", "Unable to save"),
         saveError instanceof Error
           ? saveError.message
-          : "لم يؤكد الخادم الحفظ.",
+          : localize(language, "لم يؤكد الخادم الحفظ.", "The server did not confirm the save."),
       );
     } finally {
       setSavingSettings(false);
@@ -786,7 +946,7 @@ export default function CustodyReportsScreen() {
         const printWindow = window.open("", "_blank", "width=1200,height=900");
         if (!printWindow)
           throw new Error(
-            "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.",
+            localize(language, "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.", "Unable to open the print window. Allow pop-ups and try again."),
           );
         printWindow.opener = null;
         printWindow.document.open();
@@ -801,8 +961,8 @@ export default function CustodyReportsScreen() {
         });
     } catch (printError) {
       showMessage(
-        "تعذر إنشاء PDF",
-        printError instanceof Error ? printError.message : "فشلت الطباعة.",
+        localize(language, "تعذر إنشاء PDF", "Unable to create PDF"),
+        printError instanceof Error ? printError.message : localize(language, "فشلت الطباعة.", "Printing failed."),
       );
     }
   };
@@ -839,14 +999,14 @@ export default function CustodyReportsScreen() {
           await sharing.shareAsync(uri, {
             mimeType:
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            dialogTitle: "تقرير العهد",
+            dialogTitle: localize(language, "تقرير العهد", "Custody report"),
           });
-        else throw new Error("المشاركة غير متاحة على هذا الجهاز");
+        else throw new Error(localize(language, "المشاركة غير متاحة على هذا الجهاز", "Sharing is unavailable on this device"));
       }
     } catch (error) {
       showMessage(
-        "تعذر التصدير",
-        error instanceof Error ? error.message : "تعذر إنشاء ملف Excel",
+        localize(language, "تعذر التصدير", "Unable to export"),
+        error instanceof Error ? error.message : localize(language, "تعذر إنشاء ملف Excel", "Unable to create the Excel file"),
       );
     } finally {
       setExporting(false);
@@ -875,11 +1035,11 @@ export default function CustodyReportsScreen() {
       [
         ...new Set(
           accounts
-            .map((account) => arabicDepartment(account.department))
+            .map((account) => departmentFor(account.department, language))
             .filter(Boolean),
         ),
-      ].sort((a, b) => a.localeCompare(b, "ar")),
-    [accounts],
+      ].sort((a, b) => a.localeCompare(b, isEnglish(language) ? "en" : "ar")),
+    [accounts, language],
   );
 
   return (
@@ -887,18 +1047,18 @@ export default function CustodyReportsScreen() {
       containerClassName="bg-background"
       edges={["top", "left", "right", "bottom"]}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { flexDirection: rowDirection(language) }]}>
         <BackButton onPress={() => router.back()} />
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>التقارير الشاملة للعهد</Text>
-          <Text style={styles.headerSubtitle}>
-            السجلات الفعلية فقط — توقيت الرياض
+        <View style={[styles.headerText, { alignItems: isEnglish(language) ? "flex-start" : "flex-end" }]}>
+          <Text style={[styles.headerTitle, textStyle]}>{localize(language, "التقارير الشاملة للعهد", "Comprehensive custody reports")}</Text>
+          <Text style={[styles.headerSubtitle, textStyle]}>
+            {localize(language, "السجلات الفعلية فقط — توقيت الرياض", "Actual records only — Riyadh time")}
           </Text>
         </View>
         <TouchableOpacity
           onPress={() => void load()}
           style={styles.headerIcon}
-          accessibilityLabel="تحديث"
+          accessibilityLabel={localize(language, "تحديث", "Refresh")}
         >
           <MaterialIcons name="refresh" size={22} color="#fff" />
         </TouchableOpacity>
@@ -907,13 +1067,13 @@ export default function CustodyReportsScreen() {
         style={styles.page}
         contentContainerStyle={[
           styles.pageContent,
-          { maxWidth: 1440, width: "100%", alignSelf: "center" },
+          { maxWidth: 1440, width: "100%", alignSelf: "center", direction: writingDirection(language) },
         ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.periodCard}>
-          <Text style={styles.sectionTitle}>الفترة المرجعية للحركة</Text>
-          <View style={styles.periodRow}>
+          <Text style={[styles.sectionTitle, textStyle]}>{localize(language, "الفترة المرجعية للحركة", "Movement reference period")}</Text>
+          <View style={[styles.periodRow, { flexDirection: rowDirection(language) }]}>
             {(["daily", "weekly", "monthly", "custom"] as ReportPeriod[]).map(
               (item) => (
                 <TouchableOpacity
@@ -943,15 +1103,15 @@ export default function CustodyReportsScreen() {
               ),
             )}
           </View>
-          <View style={styles.dateRow}>
+          <View style={[styles.dateRow, { flexDirection: rowDirection(language) }]}>
             <DateField
               value={startDate}
               onChange={(value) => {
                 setPeriod("custom");
                 setStartDate(value);
               }}
-              label="من"
-              isAr
+              label={localize(language, "من", "From")}
+              isAr={!isEnglish(language)}
             />
             <DateField
               value={endDate}
@@ -959,20 +1119,19 @@ export default function CustodyReportsScreen() {
                 setPeriod("custom");
                 setEndDate(value);
               }}
-              label="إلى (شامل اليوم)"
-              isAr
+              label={localize(language, "إلى (شامل اليوم)", "To (inclusive)")}
+              isAr={!isEnglish(language)}
             />
           </View>
-          <Text style={styles.boundaryNote}>
-            يشمل التقرير اليوم المختار كاملاً: [00:00، 00:00 اليوم التالي)
-            بتوقيت الرياض.
+          <Text style={[styles.boundaryNote, textStyle]}>
+            {localize(language, "يشمل التقرير اليوم المختار كاملاً: [00:00، 00:00 اليوم التالي) بتوقيت الرياض.", "The report includes the selected day in full: [00:00, 00:00 next day) Riyadh time.")}
           </Text>
         </View>
 
         <View style={styles.filterCard}>
-          <Text style={styles.sectionTitle}>التصفية الدقيقة</Text>
+          <Text style={[styles.sectionTitle, textStyle]}>{localize(language, "التصفية الدقيقة", "Detailed filters")}</Text>
           <SelectButtons
-            label="القسم"
+            label={localize(language, "القسم", "Department")}
             value={department}
             onChange={(value) => {
               setDepartment(value);
@@ -982,7 +1141,7 @@ export default function CustodyReportsScreen() {
             options={departments.map((name) => [name, name] as const)}
           />
           <SelectButtons
-            label="الموظف / الحساب"
+            label={localize(language, "الموظف / الحساب", "Employee / account")}
             value={accountId ? String(accountId) : ""}
             onChange={(value) =>
               setAccountId(value ? Number(value) : undefined)
@@ -992,58 +1151,50 @@ export default function CustodyReportsScreen() {
               .filter(
                 (account) =>
                   !department ||
-                  arabicDepartment(account.department) === department,
+                  departmentFor(account.department, language) === department,
               )
               .map(
                 (account) =>
                   [
                     String(account.id),
-                    `${account.name} — ${arabicDepartment(account.department)}`,
+                    `${account.name} — ${departmentFor(account.department, language)}`,
                   ] as const,
               )}
           />
           <SelectButtons
-            label="النخب"
+            label={localize(language, "النخب", "Grade")}
             value={quality}
             onChange={(value) => setQuality(value as CustodyQuality | "")}
             allowAll
-            options={QUALITIES}
+            options={qualityOptions}
           />
           <SelectButtons
-            label="الحالة"
+            label={localize(language, "الحالة", "Status")}
             value={status}
             onChange={(value) => setStatus(value as typeof status)}
             allowAll
-            options={
-              [
-                ...STATUSES,
-                ["pending", "بانتظار التأكيد"],
-                ["confirmed", "مؤكد"],
-                ["disputed", "اختلاف"],
-                ["rejected", "مرفوض"],
-              ] as [typeof status, string][]
-            }
+            options={statusOptions}
           />
           <TextInput
             value={product}
             onChangeText={setProduct}
-            style={styles.fullInput}
-            placeholder="بحث بالصنف أو الرمز أو المقاس أو اللون"
-            textAlign="right"
+            style={[styles.fullInput, { writingDirection: writingDirection(language) }]}
+            placeholder={localize(language, "بحث بالصنف أو الرمز أو المقاس أو اللون", "Search by product, code, size, or color")}
+            textAlign={textAlignFor(language)}
           />
           <TextInput
             value={batch}
             onChangeText={setBatch}
-            style={styles.fullInput}
-            placeholder="بحث برقم الدفعة أو رقم التتبع"
-            textAlign="right"
+            style={[styles.fullInput, { writingDirection: writingDirection(language) }]}
+            placeholder={localize(language, "بحث برقم الدفعة أو رقم التتبع", "Search by batch or tracking number")}
+            textAlign={textAlignFor(language)}
           />
         </View>
 
         {loading ? (
           <View style={styles.loading}>
             <ActivityIndicator size="large" color="#075985" />
-            <Text style={styles.muted}>جارٍ تحميل السجلات من الخادم…</Text>
+            <Text style={[styles.muted, textStyle]}>{localize(language, "جارٍ تحميل السجلات من الخادم…", "Loading records from the server…")}</Text>
           </View>
         ) : null}
         {error || reportResult.calculationError ? (
@@ -1056,13 +1207,13 @@ export default function CustodyReportsScreen() {
         ) : null}
         {report && !loading ? (
           <>
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, { flexDirection: rowDirection(language) }]}>
               <TouchableOpacity
                 onPress={() => void printReport()}
                 style={styles.printButton}
               >
                 <MaterialIcons name="print" size={20} color="#fff" />
-                <Text style={styles.primaryButtonText}>طباعة / PDF</Text>
+                <Text style={styles.primaryButtonText}>{localize(language, "طباعة / PDF", "Print / PDF")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 disabled={exporting}
@@ -1071,55 +1222,53 @@ export default function CustodyReportsScreen() {
               >
                 <MaterialIcons name="file-download" size={20} color="#075985" />
                 <Text style={styles.csvText}>
-                  {exporting ? "جارٍ إنشاء Excel…" : "Excel (XLSX)"}
+                  {exporting ? localize(language, "جارٍ إنشاء Excel…", "Creating Excel…") : "Excel (XLSX)"}
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.referenceNote}>
-              الإنتاج الأصلي للفترة:{" "}
-              {formatPairs(report.originalProductionPairs)} — يُحسب مرة واحدة
-              لكل دفعة، وليس عبر المراحل.
+            <Text style={[styles.referenceNote, textStyle]}>
+              {localize(language, "الإنتاج الأصلي للفترة:", "Original production for the period:")}{" "}
+              {pairsFor(report.originalProductionPairs, language)} — {localize(language, "يُحسب مرة واحدة لكل دفعة، وليس عبر المراحل.", "counted once per batch, not across stages.")}
             </Text>
             {report.legacy.openingBatchCount ? (
-              <Text style={styles.legacyNote}>
-                عهد افتتاحية/مرحّلة مرتبطة:{" "}
-                {report.legacy.openingBatchCount.toLocaleString("ar-SA")} (
-                {formatPairs(report.legacy.openingPairs)})؛ ليست إنتاجاً جديداً
-                ولا تُنشئ إنتاجية تاريخية. روابط المصدر القديمة:{" "}
-                {report.legacy.linkedLegacySourceCount.toLocaleString("ar-SA")}.
+              <Text style={[styles.legacyNote, textStyle]}>
+                {localize(language, "عهد افتتاحية/مرحّلة مرتبطة:", "Linked opening / carried-forward custody:")}{" "}
+                {report.legacy.openingBatchCount.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA")} (
+                {pairsFor(report.legacy.openingPairs, language)})؛ {localize(language, "ليست إنتاجاً جديداً ولا تُنشئ إنتاجية تاريخية. روابط المصدر القديمة:", "not new production and does not create historical productivity. Legacy source links:")}{" "}
+                {report.legacy.linkedLegacySourceCount.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA")}.
               </Text>
             ) : null}
-            <View style={styles.metricsGrid}>
+            <View style={[styles.metricsGrid, { flexDirection: rowDirection(language) }]}>
               <MetricCard
-                label="الوارد المؤكد"
-                value={formatPairs(totals?.received || 0)}
+                label={localize(language, "الوارد المؤكد", "Confirmed inbound")}
+                value={pairsFor(totals?.received || 0, language)}
                 selected={drill === "received"}
                 onPress={() => selectDrill("received")}
               />
               <MetricCard
-                label="المنجز بالقراءات"
-                value={formatPairs(totals?.completed || 0)}
+                label={localize(language, "المنجز بالقراءات", "Completed from readings")}
+                value={pairsFor(totals?.completed || 0, language)}
                 selected={drill === "completed"}
                 onPress={() => selectDrill("completed")}
                 tone="green"
               />
               <MetricCard
-                label="الصادر المؤكد"
-                value={formatPairs(totals?.confirmed || 0)}
+                label={localize(language, "الصادر المؤكد", "Confirmed outbound")}
+                value={pairsFor(totals?.confirmed || 0, language)}
                 selected={drill === "confirmed"}
                 onPress={() => selectDrill("confirmed")}
                 tone="green"
               />
               <MetricCard
-                label="مرسل معلّق"
-                value={formatPairs(totals?.pending || 0)}
+                label={localize(language, "مرسل معلّق", "Pending sent")}
+                value={pairsFor(totals?.pending || 0, language)}
                 selected={drill === "pending"}
                 onPress={() => selectDrill("pending")}
                 tone="amber"
               />
               <MetricCard
-                label="عهد مفتوحة"
-                value={formatPairs(totals?.open || 0)}
+                label={localize(language, "عهد مفتوحة", "Open custody")}
+                value={pairsFor(totals?.open || 0, language)}
                 selected={drill === "open"}
                 onPress={() => selectDrill("open")}
                 tone="red"
@@ -1129,118 +1278,78 @@ export default function CustodyReportsScreen() {
             <TransferTable events={report.transfers} />
             {drill ? (
               <EventTable
-                title="تفاصيل الرقم المحدد — حركات فعلية"
+                title={localize(language, "تفاصيل الرقم المحدد — حركات فعلية", "Selected metric details — actual movements")}
                 events={drilledEvents}
               />
             ) : null}
             <View style={styles.analyticsCard}>
-              <Text style={styles.sectionTitle}>
-                الجودة، الإتلاف، المخزون والعينات
+              <Text style={[styles.sectionTitle, textStyle]}>
+                {localize(language, "الجودة، الإتلاف، المخزون والعينات", "Quality, disposal, stock, and samples")}
               </Text>
-              <Text style={styles.analyticsText}>
-                نخب أول: {formatPairs(report.quality.firstPairs)} | نخب ثانٍ:{" "}
-                {formatPairs(report.quality.secondPairs)} | مشتبه:{" "}
-                {formatPairs(report.quality.suspectedPairs)} | تالف مصنّف:{" "}
-                {formatPairs(report.quality.damagedPairs)}
+              <Text style={[styles.analyticsText, textStyle]}>
+                {localize(language, "نخب أول:", "First grade:")} {pairsFor(report.quality.firstPairs, language)} | {localize(language, "نخب ثانٍ:", "Second grade:")}{" "}
+                {pairsFor(report.quality.secondPairs, language)} | {localize(language, "مشتبه:", "Suspected:")} {pairsFor(report.quality.suspectedPairs, language)} | {localize(language, "تالف مصنّف:", "Classified damaged:")}{" "}
+                {pairsFor(report.quality.damagedPairs, language)}
               </Text>
-              <Text style={styles.analyticsText}>
-                الإتلاف: مستلم {formatPairs(report.disposal.receivedPairs)} |
-                معتمد {formatPairs(report.disposal.approvedPairs)} | منفذ فقط{" "}
-                {formatPairs(report.disposal.executedPairs)}. لا يُحسب تالفاً
-                نهائياً قبل التنفيذ.
+              <Text style={[styles.analyticsText, textStyle]}>
+                {localize(language, "الإتلاف: مستلم", "Disposal: received")} {pairsFor(report.disposal.receivedPairs, language)} |
+                {localize(language, "معتمد", "approved")} {pairsFor(report.disposal.approvedPairs, language)} | {localize(language, "منفذ فقط", "executed only")}{" "}
+                {pairsFor(report.disposal.executedPairs, language)}. {localize(language, "لا يُحسب تالفاً نهائياً قبل التنفيذ.", "It is not counted as finally damaged before execution.")}
               </Text>
-              <Text style={styles.analyticsText}>
-                وارد نهائي خلال الفترة:{" "}
-                {formatPairs(report.warehouseFinalStockPairs)} (إدخال مخزني
-                نهائي فقط) | عينات ذات إثبات تسليم:{" "}
-                {report.samplesWithDeliveryProof.toLocaleString("ar-SA")}
+              <Text style={[styles.analyticsText, textStyle]}>
+                {localize(language, "وارد نهائي خلال الفترة:", "Final inbound during the period:")}{" "}
+                {pairsFor(report.warehouseFinalStockPairs, language)} ({localize(language, "إدخال مخزني نهائي فقط", "finished-goods entry only")}) | {localize(language, "عينات ذات إثبات تسليم:", "Samples with delivery proof:")}{" "}
+                {report.samplesWithDeliveryProof.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA")}
               </Text>
             </View>
             {report.warnings.length ? (
               <View style={styles.warningBox}>
-                <Text style={styles.warningTitle}>تنبيهات سلامة القياس</Text>
+                <Text style={[styles.warningTitle, textStyle]}>{localize(language, "تنبيهات سلامة القياس", "Measurement safety warnings")}</Text>
                 {report.warnings.map((warning, index) => (
                   <Text style={styles.warningText} key={`${warning}-${index}`}>
-                    • {warning}
+                    • {systemWarningFor(warning, language)}
                   </Text>
                 ))}
               </View>
             ) : null}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                التقرير الشامل حسب القسم ثم الموظف
+              <Text style={[styles.sectionTitle, textStyle]}>
+                {localize(language, "التقرير الشامل حسب القسم ثم الموظف", "Comprehensive report by department, then employee")}
               </Text>
-              <Text style={styles.muted}>
-                الحركات أسفل اسم الموظف كما هي في السجل
+              <Text style={[styles.muted, textStyle]}>
+                {localize(language, "الحركات أسفل اسم الموظف كما هي في السجل", "Movements appear under each employee exactly as recorded")}
               </Text>
             </View>
             {report.departments.length === 0 ? (
-              <Text style={styles.emptyText}>
-                لا توجد بيانات ضمن الفلاتر الحالية.
+              <Text style={[styles.emptyText, textStyle]}>
+                {localize(language, "لا توجد بيانات ضمن الفلاتر الحالية.", "No data matches the current filters.")}
               </Text>
             ) : (
               report.departments.map((group) => (
                 <View key={group.department} style={styles.departmentCard}>
-                  <Text style={styles.departmentTitle}>{group.department}</Text>
+                  <Text style={[styles.departmentTitle, textStyle]}>{departmentFor(group.department, language)}</Text>
                   {group.employees.map((employee) => (
                     <View
                       key={employee.employeeId}
                       style={styles.employeeBlock}
                     >
-                      <Text style={styles.employeeName}>
-                        الموظف: {employee.employeeName}
+                      <Text style={[styles.employeeName, textStyle]}>
+                        {localize(language, "الموظف:", "Employee:")} {employee.employeeName}
                       </Text>
-                      <Text style={styles.employeeTotals}>
-                        مستلم {formatPairs(employee.totals.receivedPairs)} |
-                        منجز {formatPairs(employee.totals.completedPairs)} |
-                        صادر مؤكد{" "}
-                        {formatPairs(employee.totals.confirmedOutboundPairs)}
+                      <Text style={[styles.employeeTotals, textStyle]}>
+                        {localize(language, "مستلم", "Received")} {pairsFor(employee.totals.receivedPairs, language)} | {localize(language, "منجز", "Completed")} {pairsFor(employee.totals.completedPairs, language)} | {localize(language, "صادر مؤكد", "Confirmed outbound")} {pairsFor(employee.totals.confirmedOutboundPairs, language)}
                       </Text>
-                      <Text style={styles.employeeTotals}>
-                        مرسل معلّق{" "}
-                        {formatPairs(employee.totals.pendingOutboundPairs)} |
-                        عهد مفتوحة{" "}
-                        {formatPairs(employee.totals.openCustodyPairs)}
+                      <Text style={[styles.employeeTotals, textStyle]}>
+                        {localize(language, "مرسل معلّق", "Pending sent")} {pairsFor(employee.totals.pendingOutboundPairs, language)} | {localize(language, "عهد مفتوحة", "Open custody")} {pairsFor(employee.totals.openCustodyPairs, language)}
                       </Text>
-                      <Text style={styles.employeeTotals}>
-                        عمل فعلي:{" "}
-                        {employee.totals.timeIncomplete
-                          ? "بيانات وقت غير مكتملة"
-                          : formatDuration(employee.totals.manualWorkMs)}{" "}
-                        | توقف:{" "}
-                        {employee.totals.timeIncomplete
-                          ? "بيانات وقت غير مكتملة"
-                          : formatDuration(employee.totals.pauseMs)}{" "}
-                        | إنتاجية السليم:{" "}
-                        {employee.totals.productivityPairsPerHour === null
-                          ? "بيانات وقت غير مكتملة"
-                          : `${employee.totals.productivityPairsPerHour.toLocaleString("ar-SA", { maximumFractionDigits: 2 })} زوج/ساعة`}
+                      <Text style={[styles.employeeTotals, textStyle]}>
+                        {localize(language, "عمل فعلي:", "Actual work:")} {employee.totals.timeIncomplete ? localize(language, "بيانات وقت غير مكتملة", "Incomplete time data") : durationFor(employee.totals.manualWorkMs, language)} | {localize(language, "توقف:", "Paused:")} {employee.totals.timeIncomplete ? localize(language, "بيانات وقت غير مكتملة", "Incomplete time data") : durationFor(employee.totals.pauseMs, language)} | {localize(language, "إنتاجية السليم:", "Good-pair productivity:")} {employee.totals.productivityPairsPerHour === null ? localize(language, "بيانات وقت غير مكتملة", "Incomplete time data") : `${employee.totals.productivityPairsPerHour.toLocaleString(isEnglish(language) ? "en-US" : "ar-SA", { maximumFractionDigits: 2 })} ${localize(language, "زوج/ساعة", "pairs/hour")}`}
                       </Text>
-                      <Text style={styles.balanceLine}>
-                        رصيد البداية{" "}
-                        {formatPairs(employee.balance.openingPairs)} + وارد مؤكد{" "}
-                        {formatPairs(employee.balance.confirmedInboundPairs)} −
-                        صادر مؤكد{" "}
-                        {formatPairs(employee.balance.confirmedOutboundPairs)} =
-                        مسؤولية النهاية{" "}
-                        {formatPairs(employee.balance.endingLiabilityPairs)}؛
-                        المرسل المعلق{" "}
-                        {formatPairs(employee.balance.pendingOutboundPairs)} لا
-                        يُخصم مرتين.
+                      <Text style={[styles.balanceLine, textStyle]}>
+                        {localize(language, "رصيد البداية", "Opening balance")} {pairsFor(employee.balance.openingPairs, language)} + {localize(language, "وارد مؤكد", "confirmed inbound")} {pairsFor(employee.balance.confirmedInboundPairs, language)} − {localize(language, "صادر مؤكد", "confirmed outbound")} {pairsFor(employee.balance.confirmedOutboundPairs, language)} = {localize(language, "مسؤولية النهاية", "ending liability")} {pairsFor(employee.balance.endingLiabilityPairs, language)}؛ {localize(language, "المرسل المعلق", "pending sent")} {pairsFor(employee.balance.pendingOutboundPairs, language)} {localize(language, "لا يُخصم مرتين.", "is not deducted twice.")}
                       </Text>
-                      <Text style={styles.employeeTotals}>
-                        سليم {formatPairs(employee.totals.goodCompletedPairs)} |
-                        مشتبه{" "}
-                        {formatPairs(employee.totals.suspectedCompletedPairs)} |
-                        تالف{" "}
-                        {formatPairs(employee.totals.damagedCompletedPairs)} |
-                        إعادة عمل{" "}
-                        {formatPairs(employee.totals.reworkCompletedPairs)} |
-                        عينات{" "}
-                        {formatPairs(employee.totals.sampleCompletedPairs)} |
-                        دقائق العمل للزوج السليم{" "}
-                        {employee.totals.workMinutesPerGoodPair?.toFixed(2) ??
-                          "غير محسوبة"}
+                      <Text style={[styles.employeeTotals, textStyle]}>
+                        {localize(language, "سليم", "Good")} {pairsFor(employee.totals.goodCompletedPairs, language)} | {localize(language, "مشتبه", "Suspected")} {pairsFor(employee.totals.suspectedCompletedPairs, language)} | {localize(language, "تالف", "Damaged")} {pairsFor(employee.totals.damagedCompletedPairs, language)} | {localize(language, "إعادة عمل", "Rework")} {pairsFor(employee.totals.reworkCompletedPairs, language)} | {localize(language, "عينات", "Samples")} {pairsFor(employee.totals.sampleCompletedPairs, language)} | {localize(language, "دقائق العمل للزوج السليم", "Work minutes per good pair")} {employee.totals.workMinutesPerGoodPair?.toFixed(2) ?? localize(language, "غير محسوبة", "Not calculated")}
                       </Text>
                       <EventTable events={employee.events} />
                     </View>
@@ -1249,9 +1358,9 @@ export default function CustodyReportsScreen() {
               ))
             )}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>تتبع الدفعات والفروع</Text>
-              <Text style={styles.muted}>
-                يظهر الأصل والفروع للنخب/الضرر، دون دمجها.
+              <Text style={[styles.sectionTitle, textStyle]}>{localize(language, "تتبع الدفعات والفروع", "Batch and branch tracking")}</Text>
+              <Text style={[styles.muted, textStyle]}>
+                {localize(language, "يظهر الأصل والفروع للنخب/الضرر، دون دمجها.", "Shows originals and branches for grades/damage without merging them.")}
               </Text>
             </View>
             {report.timelines.map((timeline) => (
@@ -1259,15 +1368,11 @@ export default function CustodyReportsScreen() {
                 <Text style={styles.timelineTitle}>
                   {timeline.trackingNumber} — {timeline.product}
                 </Text>
-                <Text style={styles.timelineSummary}>
-                  الإنتاج الأصلي:{" "}
-                  {formatPairs(timeline.originalProductionPairs)} | أول:{" "}
-                  {formatPairs(timeline.firstPairs)} | ثانٍ:{" "}
-                  {formatPairs(timeline.secondPairs)} | إتلاف منفذ:{" "}
-                  {formatPairs(timeline.executedDestroyedPairs)}
+                <Text style={[styles.timelineSummary, textStyle]}>
+                  {localize(language, "الإنتاج الأصلي:", "Original production:")} {pairsFor(timeline.originalProductionPairs, language)} | {localize(language, "أول:", "First:")} {pairsFor(timeline.firstPairs, language)} | {localize(language, "ثانٍ:", "Second:")} {pairsFor(timeline.secondPairs, language)} | {localize(language, "إتلاف منفذ:", "Executed disposal:")} {pairsFor(timeline.executedDestroyedPairs, language)}
                 </Text>
                 {timeline.nodes.map((node) => (
-                  <TimelineNode key={node.id} node={node} depth={0} />
+                  <TimelineNode key={node.id} node={node} depth={0} language={language} />
                 ))}
                 {timeline.issues.map((issue) => (
                   <Text style={styles.eventWarning} key={issue}>
@@ -1285,8 +1390,8 @@ export default function CustodyReportsScreen() {
               />
             ) : (
               <View style={styles.settingNoticeBox}>
-                <Text style={styles.settingNotice}>
-                  إعدادات الورديات وحدود الوقت مخصصة للأدمن فقط.
+                <Text style={[styles.settingNotice, textStyle]}>
+                  {localize(language, "إعدادات الورديات وحدود الوقت مخصصة للأدمن فقط.", "Shift and time-limit settings are for administrators only.")}
                 </Text>
               </View>
             )}
@@ -1300,26 +1405,29 @@ export default function CustodyReportsScreen() {
 function TimelineNode({
   node,
   depth,
+  language,
 }: {
   node: CustodyReport["timelines"][number]["nodes"][number];
   depth: number;
+  language: ScreenLanguage;
 }) {
+  const textStyle = { textAlign: textAlignFor(language), writingDirection: writingDirection(language) };
   return (
     <View
-      style={[styles.timelineNode, { marginRight: Math.min(depth, 5) * 8 }]}
+      style={[styles.timelineNode, isEnglish(language) ? { marginLeft: Math.min(depth, 5) * 8, borderLeftWidth: 2, borderLeftColor: "#7dd3fc", borderRightWidth: 0, paddingLeft: 8, paddingRight: 0 } : { marginRight: Math.min(depth, 5) * 8 }]}
     >
       <Text style={styles.nodeTitle}>
-        {node.stageLabel} — {node.qualityLabel || ""} —{" "}
-        {formatPairs(node.pairs)}
+        {node.kind === "disposal" ? localize(language, "محضر إتلاف", "Disposal record") : stageFor(node.stage, language)} — {qualityFor(node.quality, language)} —{" "}
+        {pairsFor(node.pairs, language)}
       </Text>
       <Text style={styles.nodeMeta}>
-        {node.statusLabel} | {node.owner || "—"} | {formatRiyadh(node.at)}
+        {statusLabel(node.status, language)} | {node.owner || "—"} | {timeFor(node.at, language)}
       </Text>
       {node.detail ? (
         <Text style={styles.eventWarning}>{node.detail}</Text>
       ) : null}
       {node.children.map((child) => (
-        <TimelineNode key={child.id} node={child} depth={depth + 1} />
+        <TimelineNode key={child.id} node={child} depth={depth + 1} language={language} />
       ))}
     </View>
   );

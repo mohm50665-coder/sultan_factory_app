@@ -39,12 +39,12 @@ describe("report calendar regression — partial edits must not crash a report",
   it("both main reports use the shared calendar and the comprehensive report contains local error recovery", () => {
     const daily = readFileSync("app/daily-summary.tsx", "utf8");
     const board = readFileSync("app/board-monthly-report.tsx", "utf8");
-    expect(daily).toContain('<DateField value={reportDate}');
-    expect(daily).toContain('<DateField value={reportEndDate}');
+    expect(daily).toMatch(/<DateField\s+value=\{reportDate\}/);
+    expect(daily).toMatch(/<DateField\s+value=\{reportEndDate\}/);
     expect(daily).not.toContain('placeholder="YYYY-MM-DD"');
     expect(daily).toContain("custodyCalculation.error");
     expect(daily).toContain("catch (error)");
-    expect(daily).toContain('accessibilityLabel={isAr ? "طباعة التقرير الشامل"');
+    expect(daily).toMatch(/accessibilityLabel=\{\s*isAr \? \"طباعة التقرير الشامل\" : \"Print comprehensive report\"/);
     expect(board).toContain("CalendarDateField");
     expect(board).not.toContain('placeholder="YYYY-MM-DD"');
     const picker = readFileSync("components/date-field.tsx", "utf8");

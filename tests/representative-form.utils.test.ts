@@ -33,12 +33,12 @@ describe("Representative transaction form", () => {
 
   it("matches the attached order-products table layout", () => {
     expect(transactionsScreen).toContain('type === "order" ?');
-    expect(transactionsScreen).toContain(">م</Text>");
-    expect(transactionsScreen).toContain(">اسم المنتج</Text>");
-    expect(transactionsScreen).toContain(">اللون</Text>");
-    expect(transactionsScreen).toContain(">المقاس</Text>");
-    expect(transactionsScreen).toContain(">درزن</Text>");
-    expect(transactionsScreen).toContain(">زوج</Text>");
+    expect(transactionsScreen).toContain('t("م", "#")');
+    expect(transactionsScreen).toContain('t("اسم المنتج", "Product name")');
+    expect(transactionsScreen).toContain('t("اللون", "Color")');
+    expect(transactionsScreen).toContain('t("المقاس", "Size")');
+    expect(transactionsScreen).toContain('t("درزن", "Dozen")');
+    expect(transactionsScreen).toContain('t("زوج", "Pair")');
     expect(transactionsScreen).toContain("orderProductHeaderRow");
     expect(transactionsScreen).toContain("orderQuantityHeader");
   });

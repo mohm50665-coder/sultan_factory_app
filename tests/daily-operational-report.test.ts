@@ -65,7 +65,7 @@ describe("daily operational report", () => {
     expect(ledger.receiptPairs).toBe(24);
     expect(ledger.closingPairs).toBe(24);
     expect(screen).toContain("productionMetrics(filtered.production)");
-    expect(screen).toContain("warehousePeriod({ movements: data.warehouseMovements");
+    expect(screen).toMatch(/warehousePeriod\(\{\s*movements: data\.warehouseMovements/);
     expect(screen).toContain("التخزين والمستودعات — إنتاج تام");
     expect(screen).toContain("totalWastePercentage === null");
   });
