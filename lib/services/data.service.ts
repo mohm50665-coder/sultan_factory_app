@@ -1,11 +1,9 @@
 import { getApiBaseUrl } from "@/constants/oauth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const SESSION_STORAGE_KEY = "sultan_session_id";
+import { getLocalSessionId } from "@/lib/local-session";
 
 async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
-  const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+  const sessionId = await getLocalSessionId();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

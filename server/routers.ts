@@ -483,7 +483,7 @@ async function getUserFromCookie(cookieValue: string | undefined) {
   const userId = parseInt(cookieValue);
   if (isNaN(userId)) return null;
   const result = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  return result.length > 0 ? result[0] : null;
+  return result.length > 0 && Boolean(result[0].isActive) ? result[0] : null;
 }
 
 function normalizeCatalogPart(value: unknown) {

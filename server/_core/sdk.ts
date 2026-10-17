@@ -251,6 +251,9 @@ class SDKServer {
     if (typeof localUserId === "string" && /^\d+$/.test(localUserId)) {
       const localUser = await db.getUserById(Number(localUserId));
       if (localUser) {
+        if (!localUser.isActive) {
+          throw ForbiddenError("This employee account is disabled. Please sign in with an active account.");
+        }
         // Local sessions are represented by the user id cookie. A server-side
         // revocation marker is therefore required to invalidate old admin
         // cookies after a global security action.

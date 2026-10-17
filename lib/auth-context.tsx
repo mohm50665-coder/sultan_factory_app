@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getApiBaseUrl } from "@/constants/oauth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  clearLocalSession,
+  getLocalSessionId,
+  persistLocalSessionForUser,
+  USER_STORAGE_KEY,
+} from "@/lib/local-session";
 
 export interface User {
   id: number;
@@ -32,12 +38,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USER_STORAGE_KEY = "sultan_current_user";
-const SESSION_STORAGE_KEY = "sultan_session_id";
-
 async function apiCall(endpoint: string, body: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
-  const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+  const sessionId = await getLocalSessionId();
   
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -111,6 +114,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
+        // Older application versions saved only the profile. Restore the
+        // missing session key before report screens start their API requests.
+        await persistLocalSessionForUser(parsed);
       }
     } catch (e) {
       console.error("Failed to restore user:", e);
@@ -127,8 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result?.user) {
         setUser(result.user);
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
-        // Store session from user id
-        await AsyncStorage.setItem(SESSION_STORAGE_KEY, result.user.id.toString());
+        await persistLocalSessionForUser(result.user);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل تسجيل الدخول";
@@ -169,8 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       setUser(null);
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
-      await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+      await clearLocalSession();
     } catch (err) {
       const message = err instanceof Error ? err.message : "فشل تسجيل الخروج";
       setError(message);

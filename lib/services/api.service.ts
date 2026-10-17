@@ -1,11 +1,12 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "@/constants/oauth";
-
-const SESSION_STORAGE_KEY = "sultan_session_id";
+import { getLocalSessionId } from "@/lib/local-session";
 
 export async function trpcCall(endpoint: string, body?: any, method: "query" | "mutation" = "mutation") {
   const baseUrl = getApiBaseUrl();
-  const sessionId = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+  // Repairs the legacy case where the user profile survived a refresh but the
+  // separate session key did not. This is required before every protected
+  // source used by the management reports.
+  const sessionId = await getLocalSessionId();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
