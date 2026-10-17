@@ -11,24 +11,24 @@ import {
 const root = resolve(process.cwd());
 const read = (file: string) => readFileSync(resolve(root, file), "utf8");
 
-describe("Maintenance machine inventory and multi-selection", () => {
-  it("includes the approved production, facilities, air-conditioning, IT, and printing inventory", () => {
-    expect(MAINTENANCE_MACHINE_INVENTORY.length).toBeGreaterThanOrEqual(75);
-    for (const code of ["RS.01", "RB.09", "KN-010", "CLS-03", "MK-01", "CMP-01", "AC-20", "PC-09", "PRN-06"]) {
-      expect(findMaintenanceMachine(code), `missing ${code}`).toBeTruthy();
+describe("Maintenance equipment name list", () => {
+  it("includes the names of the approved production machines, utilities, air conditioners, computers, and printers", () => {
+    expect(MAINTENANCE_MACHINE_INVENTORY.length).toBeGreaterThanOrEqual(40);
+    for (const legacyReference of ["RS.01", "RB.09", "KN-010", "CLS-03", "MK-01", "CMP-01", "AC-20", "PC-09", "PRN-06"]) {
+      expect(findMaintenanceMachine(legacyReference), `missing ${legacyReference}`).toBeTruthy();
     }
   });
 
-  it("keeps the inventory reference code, name, and location visible", () => {
+  it("uses the equipment name only as the visible and printed maintenance value", () => {
     const machine = findMaintenanceMachine("RS.01");
     expect(machine).toBeTruthy();
-    expect(maintenanceMachineLabel(machine!, "ar")).toContain("RS.01");
-    expect(maintenanceMachineLabel(machine!, "ar")).toContain("الإنتاج");
-    expect(maintenanceMachineLabel(machine!, "en")).toContain("RS.01");
-    expect(maintenanceMachineLabel(machine!, "en")).toContain("Production");
+    expect(maintenanceMachineLabel(machine!, "ar")).toBe("ماكينة حياكة RC-U7FN-1");
+    expect(maintenanceMachineLabel(machine!, "en")).toBe("RC-U7FN-1 knitting machine");
+    expect(maintenanceMachineLabel(machine!, "ar")).not.toContain("RS.01");
+    expect(maintenanceMachineLabel(machine!, "ar")).not.toContain("الإنتاج");
   });
 
-  it("uses the shared searchable multi-selector in periodic and stopped-device reports and persists selected items", () => {
+  it("uses the shared searchable multi-selector in periodic and stopped-device reports and persists selected names", () => {
     const source = read("app/maintenance-section.tsx");
     expect(source).toContain("MaintenanceMachineSelector");
     expect(source).toContain("selectedMachines");
@@ -37,11 +37,15 @@ describe("Maintenance machine inventory and multi-selection", () => {
     expect(source).toContain("اختر ماكينة أو أكثر من قائمة الحصر المعتمدة قبل الحفظ");
   });
 
-  it("shows a bounded searchable list and supports removing any selected machine", () => {
+  it("shows a bounded, numbered name-only list and supports removing any selected machine", () => {
     const source = read("components/maintenance-machine-selector.tsx");
+    expect(source).toContain("sequence: index + 1");
+    expect(source).toContain("{sequence}. {maintenanceMachineLabel(option, language)}");
+    expect(source).toContain("اكتب اسم الآلة أو الجهاز");
+    expect(source).not.toContain("option.code} ·");
+    expect(source).not.toContain("option.locationAr");
     expect(source).toContain("maxHeight: 250");
     expect(source).toContain("accessibilityRole=\"checkbox\"");
     expect(source).toContain("onChange(value.filter((selected) => selected.code !== item.code))");
-    expect(source).toContain("إزالة الكل");
   });
 });

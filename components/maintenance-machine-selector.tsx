@@ -9,7 +9,11 @@ import {
   type MaintenanceMachineOption,
 } from "@/lib/constants/maintenance-machine-inventory";
 
-export type StoredMaintenanceMachine = Pick<MaintenanceMachineOption, "code" | "nameAr" | "nameEn" | "locationAr" | "locationEn">;
+/**
+ * يحتفظ code داخل التخزين فقط لتفادي تكرار الاختيار وتوافق السجلات السابقة.
+ * المستخدم يرى الاسم وحده في القائمة والسجل والتقرير.
+ */
+export type StoredMaintenanceMachine = Pick<MaintenanceMachineOption, "code" | "nameAr" | "nameEn">;
 
 type Props = {
   value: StoredMaintenanceMachine[];
@@ -27,15 +31,12 @@ export function normalizeStoredMaintenanceMachines(value: unknown, legacyText?: 
     ? value
       .map((item) => {
         if (!item || typeof item !== "object") return null;
-        const code = String((item as { code?: unknown }).code || "").trim();
-        const found = findMaintenanceMachine(code);
-        return found || (code ? {
-          code,
-          nameAr: String((item as { nameAr?: unknown }).nameAr || (item as { name?: unknown }).name || code),
-          nameEn: String((item as { nameEn?: unknown }).nameEn || (item as { name?: unknown }).name || code),
-          locationAr: String((item as { locationAr?: unknown }).locationAr || ""),
-          locationEn: String((item as { locationEn?: unknown }).locationEn || ""),
-        } : null);
+        const rawCode = String((item as { code?: unknown }).code || "").trim();
+        const found = findMaintenanceMachine(rawCode);
+        if (found) return found;
+        const nameAr = String((item as { nameAr?: unknown; name?: unknown }).nameAr || (item as { name?: unknown }).name || "").trim();
+        const nameEn = String((item as { nameEn?: unknown }).nameEn || nameAr).trim();
+        return nameAr ? { code: rawCode || nameAr, nameAr, nameEn } : null;
       })
       .filter(Boolean) as StoredMaintenanceMachine[]
     : [];
@@ -45,10 +46,11 @@ export function normalizeStoredMaintenanceMachines(value: unknown, legacyText?: 
   const legacy = String(legacyText || "").trim();
   if (!legacy) return [];
   return uniqueByCode(MAINTENANCE_MACHINE_INVENTORY.filter((machine) =>
-    legacy.includes(machine.code) || legacy.includes(machine.nameAr) || legacy.toLowerCase().includes(machine.nameEn.toLowerCase()),
+    legacy.includes(machine.nameAr) || legacy.toLowerCase().includes(machine.nameEn.toLowerCase()) || machine.aliases?.some((alias) => legacy.includes(alias)),
   ));
 }
 
+/** الأسماء فقط هي ما يحفظ في النص القابل للطباعة والتقارير. */
 export function serializeMaintenanceMachines(items: StoredMaintenanceMachine[], language: "ar" | "en" = "ar") {
   return uniqueByCode(items).map((item) => maintenanceMachineLabel(item, language)).join("، ");
 }
@@ -63,9 +65,9 @@ export function MaintenanceMachineSelector({ value, onChange, language, borderCo
   const selectedCodes = new Set(value.map((item) => item.code));
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return MAINTENANCE_MACHINE_INVENTORY;
-    return MAINTENANCE_MACHINE_INVENTORY.filter((item) => [item.code, item.nameAr, item.nameEn, item.locationAr, item.locationEn]
-      .some((part) => part.toLowerCase().includes(normalized)));
+    return MAINTENANCE_MACHINE_INVENTORY
+      .map((item, index) => ({ item, sequence: index + 1 }))
+      .filter(({ item }) => !normalized || [item.nameAr, item.nameEn].some((name) => name.toLowerCase().includes(normalized)));
   }, [query]);
 
   const toggle = (option: MaintenanceMachineOption) => {
@@ -77,9 +79,9 @@ export function MaintenanceMachineSelector({ value, onChange, language, borderCo
   };
 
   return (
-    <View style={[styles.container, { borderColor }]}> 
+    <View style={[styles.container, { borderColor }]}>
       <View style={styles.toolbar}>
-        <Text style={[styles.helper, { color: muted }]}>{isAr ? "ابحث بالرمز أو الاسم أو الموقع، ثم اختر أكثر من ماكينة عند الحاجة." : "Search by code, name, or location, then select one or more machines."}</Text>
+        <Text style={[styles.helper, { color: muted }]}>{isAr ? "قائمة مرقمة بأسماء الآلات والأجهزة فقط. اختر أكثر من اسم عند الحاجة." : "Numbered list with equipment names only. Select more than one name when needed."}</Text>
         {value.length > 0 ? (
           <TouchableOpacity onPress={() => onChange([])} style={styles.clearButton} accessibilityRole="button">
             <MaterialIcons name="clear-all" size={16} color="#b91c1c" />
@@ -98,7 +100,7 @@ export function MaintenanceMachineSelector({ value, onChange, language, borderCo
           ))}
         </View>
       ) : (
-        <Text style={[styles.emptySelection, { color: muted }]}>{isAr ? "لم يتم اختيار أي ماكينة بعد" : "No machine selected yet"}</Text>
+        <Text style={[styles.emptySelection, { color: muted }]}>{isAr ? "لم يتم اختيار أي آلة أو جهاز بعد" : "No machine or device selected yet"}</Text>
       )}
 
       <View style={[styles.searchBox, { borderColor, backgroundColor: surface }]}>
@@ -106,29 +108,26 @@ export function MaintenanceMachineSelector({ value, onChange, language, borderCo
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder={isAr ? "اكتب رمز الماكينة أو اسمها" : "Type machine code or name"}
+          placeholder={isAr ? "اكتب اسم الآلة أو الجهاز" : "Type the machine or device name"}
           placeholderTextColor={muted}
           style={[styles.searchInput, { color: foreground, textAlign: isAr ? "right" : "left" }]}
-          accessibilityLabel={isAr ? "بحث في قائمة الماكينات" : "Search machine inventory"}
+          accessibilityLabel={isAr ? "بحث بالاسم في قائمة الآلات والأجهزة" : "Search equipment names"}
         />
       </View>
 
       <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={[styles.optionsList, { borderColor }]} contentContainerStyle={styles.optionsContent}>
-        {filtered.map((option) => {
+        {filtered.map(({ item: option, sequence }) => {
           const selected = selectedCodes.has(option.code);
           return (
             <TouchableOpacity key={option.code} onPress={() => toggle(option)} style={[styles.option, { borderColor: selected ? primary : borderColor, backgroundColor: selected ? `${primary}12` : "transparent" }]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}>
               <View style={[styles.check, { borderColor: selected ? primary : borderColor, backgroundColor: selected ? primary : "transparent" }]}>
                 {selected ? <MaterialIcons name="check" size={15} color="#fff" /> : null}
               </View>
-              <View style={styles.optionCopy}>
-                <Text style={[styles.optionTitle, { color: foreground }]}>{option.code} · {isAr ? option.nameAr : option.nameEn}</Text>
-                <Text style={[styles.optionMeta, { color: muted }]}>{isAr ? option.locationAr : option.locationEn}</Text>
-              </View>
+              <Text style={[styles.optionTitle, { color: foreground }]}>{sequence}. {maintenanceMachineLabel(option, language)}</Text>
             </TouchableOpacity>
           );
         })}
-        {filtered.length === 0 ? <Text style={[styles.notFound, { color: muted }]}>{isAr ? "لا توجد نتيجة في الحصر المعتمد." : "No inventory match found."}</Text> : null}
+        {filtered.length === 0 ? <Text style={[styles.notFound, { color: muted }]}>{isAr ? "لا توجد نتيجة بالاسم في قائمة الحصر." : "No name match in the inventory."}</Text> : null}
       </ScrollView>
     </View>
   );
@@ -148,10 +147,8 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 13, paddingVertical: 8 },
   optionsList: { maxHeight: 250, borderWidth: 1, borderRadius: 8 },
   optionsContent: { padding: 5, gap: 4 },
-  option: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, borderWidth: 1, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7 },
+  option: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 9, borderWidth: 1, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7 },
   check: { width: 21, height: 21, alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 6 },
-  optionCopy: { flex: 1 },
-  optionTitle: { fontSize: 12, fontWeight: "700", textAlign: "right" },
-  optionMeta: { fontSize: 11, marginTop: 2, textAlign: "right" },
+  optionTitle: { flex: 1, fontSize: 12, fontWeight: "700", textAlign: "right" },
   notFound: { paddingVertical: 18, textAlign: "center", fontSize: 12 },
 });
