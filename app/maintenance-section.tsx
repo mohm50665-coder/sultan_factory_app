@@ -19,6 +19,12 @@ import { useAuth } from "@/lib/auth-context";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { AttachmentFile } from "@/lib/services/attachment.service";
 import { useLanguage } from "@/lib/language-context";
+import {
+  MaintenanceMachineSelector,
+  normalizeStoredMaintenanceMachines,
+  serializeMaintenanceMachines,
+  type StoredMaintenanceMachine,
+} from "@/components/maintenance-machine-selector";
 
 // ===== أنواع البيانات =====
 interface BaseEntry {
@@ -29,6 +35,7 @@ interface BaseEntry {
 
 interface PeriodicEntry extends BaseEntry {
   devices: string;
+  machineItems?: StoredMaintenanceMachine[];
   results: string;
   recommendations: string;
 }
@@ -45,6 +52,7 @@ interface EmergencyEntry extends BaseEntry {
 
 interface StoppedDeviceEntry extends BaseEntry {
   deviceName: string;
+  machineItems?: StoredMaintenanceMachine[];
   status: string; // يعمل، لايعمل، صيانة
   stopReason: string;
   recommendations: string;
@@ -166,6 +174,7 @@ export default function MaintenanceSectionScreen() {
 
   // حقول الجدول الدوري
   const [devices, setDevices] = useState("");
+  const [selectedMachines, setSelectedMachines] = useState<StoredMaintenanceMachine[]>([]);
   const [results, setResults] = useState("");
   const [recommendations, setRecommendations] = useState("");
 
@@ -231,7 +240,7 @@ export default function MaintenanceSectionScreen() {
 
   const resetForm = () => {
     setDate(formatDate(new Date()));
-    setDevices(""); setResults(""); setRecommendations("");
+    setDevices(""); setSelectedMachines([]); setResults(""); setRecommendations("");
     setLocation(""); setRequestingParty(""); setCause(""); setAction(""); setDuration(""); setDocumentAttached(false);
     setDeviceName(""); setDeviceStatus(""); setStopReason("");
     setWearingSafety(""); setWorkEnvironment(""); setFirstAidTools(""); setFireExtinguishers("");
@@ -246,15 +255,34 @@ export default function MaintenanceSectionScreen() {
     let newEntry: AnyEntry;
     const base = { id: editingEntry?.id || Date.now().toString(), entryPerson, date };
 
+    if ((section === "periodic" || section === "stopped-devices") && selectedMachines.length === 0) {
+      Alert.alert(isAr ? "اختيار الماكينة مطلوب" : "Machine selection required", isAr ? "اختر ماكينة أو أكثر من قائمة الحصر المعتمدة قبل الحفظ." : "Select one or more machines from the approved inventory before saving.");
+      return;
+    }
+
     switch (section) {
       case "periodic":
-        newEntry = { ...base, devices, results, recommendations } as PeriodicEntry;
+        newEntry = {
+          ...base,
+          // devices محفوظ للنماذج والتقارير القديمة، وmachineItems هو المصدر المنظم للجديد.
+          devices: serializeMaintenanceMachines(selectedMachines, "ar"),
+          machineItems: selectedMachines,
+          results,
+          recommendations,
+        } as PeriodicEntry;
         break;
       case "emergency":
         newEntry = { ...base, location, requestingParty, cause, action, duration, results, documentAttached } as EmergencyEntry;
         break;
       case "stopped-devices":
-        newEntry = { ...base, deviceName, status: deviceStatus, stopReason, recommendations } as StoppedDeviceEntry;
+        newEntry = {
+          ...base,
+          deviceName: serializeMaintenanceMachines(selectedMachines, "ar"),
+          machineItems: selectedMachines,
+          status: deviceStatus,
+          stopReason,
+          recommendations,
+        } as StoppedDeviceEntry;
         break;
       case "safety":
         newEntry = { ...base, wearingSafety, workEnvironment, firstAidTools, fireExtinguishers } as SafetyEntry;
@@ -297,7 +325,7 @@ export default function MaintenanceSectionScreen() {
     switch (section) {
       case "periodic": {
         const e = entry as PeriodicEntry;
-        setDevices(e.devices); setResults(e.results); setRecommendations(e.recommendations);
+        setDevices(e.devices); setSelectedMachines(normalizeStoredMaintenanceMachines(e.machineItems, e.devices)); setResults(e.results); setRecommendations(e.recommendations);
         break;
       }
       case "emergency": {
@@ -308,7 +336,7 @@ export default function MaintenanceSectionScreen() {
       }
       case "stopped-devices": {
         const e = entry as StoppedDeviceEntry;
-        setDeviceName(e.deviceName); setDeviceStatus(e.status); setStopReason(e.stopReason); setRecommendations(e.recommendations);
+        setDeviceName(e.deviceName); setSelectedMachines(normalizeStoredMaintenanceMachines(e.machineItems, e.deviceName)); setDeviceStatus(e.status); setStopReason(e.stopReason); setRecommendations(e.recommendations);
         break;
       }
       case "safety": {
@@ -359,8 +387,8 @@ export default function MaintenanceSectionScreen() {
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التاريخ" : "Date"}</Text>
             <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الأجهزة والآلات" : "Devices and Machines"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={devices} onChangeText={setDevices} placeholder={isAr ? "أسماء الأجهزة" : "Device Names"} placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الماكينات والأجهزة *" : "Machines and devices *"}</Text>
+            <MaintenanceMachineSelector value={selectedMachines} onChange={setSelectedMachines} language={language} borderColor={colors.border} foreground={colors.foreground} muted={colors.muted} primary={colors.primary} surface={colors.surface} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "نتائج الصيانة" : "Maintenance Results"}</Text>
             <TextInput style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground }]} value={results} onChangeText={setResults} placeholder={isAr ? "نتائج الصيانة" : "Maintenance Results"} placeholderTextColor={colors.muted} multiline />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "التوصيات" : "Recommendations"}</Text>
@@ -395,8 +423,8 @@ export default function MaintenanceSectionScreen() {
           <>
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "تاريخ التقرير" : "Report Date"}</Text>
             <DateField value={date} onChange={setDate} label={isAr ? "التاريخ" : "Date"} isAr={isAr} style={styles.input} />
-            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "بيانات الأجهزة والآلات" : "Devices and Machines Data"}</Text>
-            <TextInput style={[styles.input, { borderColor: colors.border, color: colors.foreground }]} value={deviceName} onChangeText={setDeviceName} placeholder={isAr ? "اسم الجهاز/الآلة" : "Device/Machine Name"} placeholderTextColor={colors.muted} />
+            <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "الماكينات أو الأجهزة المتوقفة *" : "Stopped machines or devices *"}</Text>
+            <MaintenanceMachineSelector value={selectedMachines} onChange={setSelectedMachines} language={language} borderColor={colors.border} foreground={colors.foreground} muted={colors.muted} primary={colors.primary} surface={colors.surface} />
             <Text style={[styles.label, { color: colors.foreground }]}>{isAr ? "حالة الأجهزة" : "Devices Status"}</Text>
             <View style={styles.chipRow}>
               {(isAr ? DEVICE_STATUS_OPTIONS_AR : DEVICE_STATUS_OPTIONS_EN).map((opt) => (
@@ -506,9 +534,10 @@ export default function MaintenanceSectionScreen() {
     switch (section) {
       case "periodic": {
         const e = entry as PeriodicEntry;
+        const selected = normalizeStoredMaintenanceMachines(e.machineItems, e.devices);
         return (
           <>
-            <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "الأجهزة: " : "Devices: "}<Text style={{ color: colors.foreground }}>{e.devices}</Text></Text>
+            <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "الأجهزة: " : "Devices: "}<Text style={{ color: colors.foreground }}>{selected.length ? serializeMaintenanceMachines(selected, language) : e.devices}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "النتائج: " : "Results: "}<Text style={{ color: colors.foreground }}>{e.results}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "التوصيات: " : "Recommendations: "}<Text style={{ color: colors.foreground }}>{e.recommendations}</Text></Text>
           </>
@@ -531,9 +560,10 @@ export default function MaintenanceSectionScreen() {
       case "stopped-devices": {
         const e = entry as StoppedDeviceEntry;
         const statusColor = e.status === (isAr ? "يعمل" : "Working") ? "#16a34a" : e.status === (isAr ? "لايعمل" : "Not Working") ? "#dc2626" : "#ea580c";
+        const selected = normalizeStoredMaintenanceMachines(e.machineItems, e.deviceName);
         return (
           <>
-            <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "الجهاز: " : "Device: "}<Text style={{ color: colors.foreground }}>{e.deviceName}</Text></Text>
+            <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "الأجهزة: " : "Devices: "}<Text style={{ color: colors.foreground }}>{selected.length ? serializeMaintenanceMachines(selected, language) : e.deviceName}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "الحالة: " : "Status: "}<Text style={{ color: statusColor, fontWeight: "bold" }}>{e.status}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "سبب التوقف: " : "Stop Reason: "}<Text style={{ color: colors.foreground }}>{e.stopReason}</Text></Text>
             <Text style={[styles.entryField, { color: colors.muted }]}>{isAr ? "التوصيات: " : "Recommendations: "}<Text style={{ color: colors.foreground }}>{e.recommendations}</Text></Text>
