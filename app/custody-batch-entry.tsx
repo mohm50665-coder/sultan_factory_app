@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { BackButton } from "@/components/back-button";
 import { DateField } from "@/components/date-field";
+import { TimeField } from "@/components/time-field";
 import { useAuth } from "@/lib/auth-context";
 import { useLanguage } from "@/lib/language-context";
 import { isEnglish, localize, textAlignFor, writingDirection } from "@/lib/i18n/runtime";
@@ -15,6 +16,14 @@ const operationId = () => globalThis.crypto?.randomUUID?.() || `batch-${Date.now
 const numberInput = (value: string) => value.replace(/[٠-٩]/g, c => String("٠١٢٣٤٥٦٧٨٩".indexOf(c))).replace(/[۰-۹]/g, c => String("۰۱۲۳۴۵۶۷۸۹".indexOf(c)));
 const cleanInt = (v: string) => /^\d+$/.test(numberInput(v)) && Number.isSafeInteger(Number(numberInput(v))) ? Number(numberInput(v)) : NaN;
 const riyadhDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const isValidTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const automaticItemCode = (...parts: string[]) => parts.map(part => part.trim().replace(/\s+/g, "-")).filter(Boolean).join("-");
+const MACHINE_OPTIONS = ["RB1", "RB2", "RB3", "RB4", "RB5", "RB6", "RB7", "RB8", "RB9", "NS1", "RS1", "RS2", "RS3", "RS4", "RS5", "RS6", "RS7", "RS8", "RS9", "RS10", "RS11", "LT1", "LT2"];
+const DEFAULT_SHIFT_OPTIONS = [
+  { value: "morning", ar: "صباحية", en: "Morning" },
+  { value: "evening", ar: "مسائية", en: "Evening" },
+  { value: "night", ar: "ليلية", en: "Night" },
+];
 
 type RowFieldProps = {
   label: string;
@@ -24,9 +33,10 @@ type RowFieldProps = {
   required?: boolean;
   numeric?: boolean;
   editable?: boolean;
+  placeholder?: string;
 };
 
-const RowField = ({ label, value, onChange, language, required = true, numeric = false, editable = true }: RowFieldProps) => {
+const RowField = ({ label, value, onChange, language, required = true, numeric = false, editable = true, placeholder }: RowFieldProps) => {
   const textStyle = { textAlign: textAlignFor(language), direction: writingDirection(language) } as const;
   return (
     <View style={s.field}>
@@ -38,7 +48,53 @@ const RowField = ({ label, value, onChange, language, required = true, numeric =
         value={value}
         onChangeText={v => onChange(numeric ? numberInput(v) : v)}
         keyboardType={numeric ? "decimal-pad" : "default"}
+        placeholder={placeholder}
+        placeholderTextColor="#64748b"
       />
+    </View>
+  );
+};
+
+type SelectOption = { value: string; label: string };
+
+type SelectFieldProps = {
+  label: string;
+  value: string;
+  options: SelectOption[];
+  placeholder: string;
+  language: "ar" | "en";
+  open: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+};
+
+const SelectField = ({ label, value, options, placeholder, language, open, onToggle, onChange }: SelectFieldProps) => {
+  const textStyle = { textAlign: textAlignFor(language), direction: writingDirection(language) } as const;
+  const selectedLabel = options.find(option => option.value === value)?.label || value;
+  return (
+    <View style={s.field}>
+      <Text style={[s.label, textStyle]}>{label} *</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={[s.input, s.selectTrigger, { flexDirection: language === "en" ? "row" : "row-reverse" }]}
+      >
+        <Text numberOfLines={1} style={[s.selectValue, !selectedLabel && s.placeholder, textStyle]}>{selectedLabel || placeholder}</Text>
+        <Text accessibilityElementsHidden style={s.selectChevron}>{open ? "⌃" : "⌄"}</Text>
+      </TouchableOpacity>
+      {open && <View style={[s.selectMenu, { alignItems: language === "en" ? "flex-start" : "flex-end" }]}>
+        {options.map(option => <TouchableOpacity
+          key={option.value}
+          accessibilityRole="button"
+          accessibilityLabel={option.label}
+          onPress={() => onChange(option.value)}
+          style={[s.selectOption, option.value === value && s.selectOptionSelected]}
+        >
+          <Text style={[s.chipText, option.value === value && s.selectedText, textStyle]}>{option.label}</Text>
+        </TouchableOpacity>)}
+      </View>}
     </View>
   );
 };
@@ -76,8 +132,12 @@ export default function CustodyBatchEntry() {
   const [wasteNeedles, setWasteNeedles] = useState("");
   const [wasteSocks, setWasteSocks] = useState("");
   const [date, setDate] = useState(riyadhDay);
+  const [productionEndDate, setProductionEndDate] = useState(date);
+  const [workStartTime, setWorkStartTime] = useState("08:00");
+  const [workEndTime, setWorkEndTime] = useState("16:00");
   const [machine, setMachine] = useState("");
   const [shift, setShift] = useState("");
+  const [openSelect, setOpenSelect] = useState<"machine" | "shift" | null>(null);
   const [order, setOrder] = useState("");
   const [firstD, setFirstD] = useState("0");
   const [firstP, setFirstP] = useState("0");
@@ -94,6 +154,8 @@ export default function CustodyBatchEntry() {
   const canCreate = user?.role === "admin" || (["manager", "supervisor"].includes(String(user?.role)) && ["production", "الإنتاج", "قسم الإنتاج"].includes(String(user?.department)));
   const productionAccounts = accounts.filter(a => legacy ? accountBelongsToStage(a.department, legacy.stage) : accountBelongsToStage(a.department, "production"));
   const suggestions = useMemo(() => query.trim().length < 2 ? [] : catalog.filter(p => `${p.name} ${p.barcode}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (!size || String(p.size || "").toLowerCase() === size.trim().toLowerCase())).slice(0, 30), [query, catalog, size]);
+  const machineOptions = useMemo(() => MACHINE_OPTIONS.map(value => ({ value, label: value })), []);
+  const shiftOptions = useMemo(() => DEFAULT_SHIFT_OPTIONS.map(option => ({ value: option.value, label: english ? option.en : option.ar })), [english]);
   const displayError = (caught: unknown, fallback: string) => {
     const message = caught instanceof Error ? caught.message : fallback;
     return english && /[\u0600-\u06FF]/.test(message) ? fallback : message;
@@ -110,6 +172,13 @@ export default function CustodyBatchEntry() {
     setPairWeight(String(product.pairWeightGrams));
     setWeightUnit("g");
   };
+
+  // The item code is an immutable human-readable identity, not an extra field
+  // employees have to type. It always follows: item name – size – color.
+  useEffect(() => {
+    const nextCode = automaticItemCode(name, size, color);
+    if (nextCode && nextCode !== code) setCode(nextCode);
+  }, [name, size, color, code]);
 
   useEffect(() => {
     let active = true;
@@ -161,9 +230,11 @@ export default function CustodyBatchEntry() {
       return;
     }
     try {
-      if (!code.trim() || !name.trim() || !size.trim() || !color.trim() || (!legacyId && (!machine.trim() || !shift.trim() || !date)) || antiSlip === null) {
-        throw new Error(l("أكمل رمز الصنف واسمه والمقاس واللون والخاصية والماكينة والوردية والتاريخ", "Complete the item code, name, size, color, feature, machine, shift, and date."));
+      if (!code.trim() || !name.trim() || !size.trim() || !color.trim() || (!legacyId && (!machine.trim() || !shift.trim() || !date || !productionEndDate || !isValidTime(workStartTime) || !isValidTime(workEndTime))) || antiSlip === null) {
+        throw new Error(l("أكمل رمز الصنف واسمه والمقاس واللون والخاصية والماكينة والوردية وتاريخ ووقت العمل", "Complete the item code, name, size, color, feature, machine, shift, and work date and time."));
       }
+      if (!legacyId && productionEndDate < date) throw new Error(l("لا يمكن أن يسبق تاريخ الانتهاء تاريخ البدء", "The end date cannot be before the start date."));
+      if (!legacyId && productionEndDate === date && workEndTime <= workStartTime) throw new Error(l("يجب أن يكون وقت الانتهاء بعد وقت البدء في اليوم نفسه", "The end time must be after the start time on the same day."));
       const quantities = [firstD, firstP, secondD, secondP].map(cleanInt);
       if (quantities.some(quantity => !Number.isFinite(quantity) || quantity < 0)) throw new Error(l("الكميات أعداد صحيحة غير سالبة؛ لا يسمح بكسر الزوج", "Quantities must be non-negative whole numbers; partial pairs are not allowed."));
       const firstPairs = quantities[0] * 12 + quantities[1];
@@ -196,6 +267,9 @@ export default function CustodyBatchEntry() {
         operationKey: op.current,
         product: { code: code.trim(), name: name.trim(), size: size.trim(), color: color.trim(), antiSlip, yarns: mix, yarnWeightGrams: grams, pairWeightGrams: perPair },
         productionDate: date,
+        productionEndDate,
+        workStartTime,
+        workEndTime,
         machineNumber: machine.trim(),
         shift: shift.trim(),
         manufacturingOrder: order.trim() || undefined,
@@ -291,10 +365,10 @@ export default function CustodyBatchEntry() {
           <View style={s.section}>
             <Text style={[s.sectionTitle, textStyle]}>{l("تعريف الصنف — مستقل عن الدفعة", "Item definition — independent of the batch")}</Text>
             <View style={[s.grid, flowStyle]}>
-              <RowField label={l("رمز الصنف", "Item code")} value={code} onChange={setCode} editable={!sampleId} language={language} />
               <RowField label={l("اسم الصنف", "Item name")} value={name} onChange={setName} editable={!sampleId && !legacyId} language={language} />
               <RowField label={l("المقاس", "Size")} value={size} onChange={setSize} editable={!sampleId && !legacyId} language={language} />
               <RowField label={l("اللون", "Color")} value={color} onChange={setColor} editable={!sampleId && !legacyId} language={language} />
+              <RowField label={l("رمز الصنف (يظهر تلقائيًا)", "Item code (auto-generated)")} value={code} onChange={() => undefined} editable={false} placeholder={l("سيظهر الرمز تلقائيًا", "The code will appear automatically")} language={language} />
             </View>
             <View style={[s.inline, flowStyle]}>
               <Text style={[s.label, textStyle]}>{l("خاصية المنتج", "Product feature")} *</Text>
@@ -322,9 +396,12 @@ export default function CustodyBatchEntry() {
           <View style={s.section}>
             <Text style={[s.sectionTitle, textStyle]}>{l("بيانات دفعة الإنتاج", "Production batch details")}</Text>
             <View style={[s.grid, flowStyle]}>
-              <View style={s.field}><Text style={[s.label, textStyle]}>{l("تاريخ الإنتاج", "Production date")} *</Text><DateField value={date} onChange={setDate} isAr={!english} accessibilityLabel={l("اختيار تاريخ الإنتاج", "Choose production date")} /></View>
-              <RowField label={l("الماكينة", "Machine")} value={machine} onChange={setMachine} language={language} />
-              <RowField label={l("الوردية", "Shift")} value={shift} onChange={setShift} language={language} />
+              <View style={s.field}><Text style={[s.label, textStyle]}>{l("تاريخ بدء الإنتاج", "Production start date")} *</Text><DateField value={date} onChange={value => { setDate(value); setProductionEndDate(current => current === date ? value : current); }} isAr={!english} accessibilityLabel={l("اختيار تاريخ بدء الإنتاج", "Choose production start date")} /></View>
+              <View style={s.field}><Text style={[s.label, textStyle]}>{l("تاريخ انتهاء الإنتاج", "Production end date")} *</Text><DateField value={productionEndDate} onChange={setProductionEndDate} isAr={!english} accessibilityLabel={l("اختيار تاريخ انتهاء الإنتاج", "Choose production end date")} /></View>
+              <TimeField label={l("وقت بدء العمل", "Work start time")} value={workStartTime} onChange={setWorkStartTime} isAr={!english} />
+              <TimeField label={l("وقت انتهاء العمل", "Work end time")} value={workEndTime} onChange={setWorkEndTime} isAr={!english} />
+              <SelectField label={l("الماكينة", "Machine")} value={machine} options={machineOptions} placeholder={l("اختر الماكينة", "Select machine")} language={language} open={openSelect === "machine"} onToggle={() => setOpenSelect(current => current === "machine" ? null : "machine")} onChange={value => { setMachine(value); setOpenSelect(null); }} />
+              <SelectField label={l("الوردية", "Shift")} value={shift} options={shiftOptions} placeholder={l("اختر الوردية", "Select shift")} language={language} open={openSelect === "shift"} onToggle={() => setOpenSelect(current => current === "shift" ? null : "shift")} onChange={value => { setShift(value); setOpenSelect(null); }} />
               <RowField label={l("أمر التصنيع", "Manufacturing order")} value={order} onChange={setOrder} required={false} language={language} />
             </View>
             <Text style={[s.label, textStyle]}>{legacyId ? l("موظف مرحلة العهدة المسؤول", "Responsible custody-stage employee") : l("موظف الإنتاج المسؤول", "Responsible Production employee")} *</Text>
@@ -377,6 +454,13 @@ const s = StyleSheet.create({
   label: { fontSize: 12, fontWeight: "700", color: "#263d50", marginBottom: 4 },
   input: { borderWidth: 1, borderColor: "#c9d4df", borderRadius: 7, paddingHorizontal: 10, paddingVertical: 9, minHeight: 42, color: "#193348", backgroundColor: "#fff", fontSize: 14 },
   readonly: { backgroundColor: "#f1f5f9", color: "#475569" },
+  selectTrigger: { alignItems: "center", justifyContent: "space-between", gap: 8 },
+  selectValue: { flex: 1, color: "#193348", fontSize: 14 },
+  placeholder: { color: "#64748b" },
+  selectChevron: { color: "#087c9d", fontSize: 16, fontWeight: "800" },
+  selectMenu: { borderWidth: 1, borderColor: "#c9d4df", backgroundColor: "#f8fafc", borderRadius: 7, marginTop: 5, padding: 6, gap: 5, flexDirection: "row", flexWrap: "wrap" },
+  selectOption: { borderWidth: 1, borderColor: "#c8d6df", borderRadius: 6, backgroundColor: "#fff", paddingHorizontal: 10, paddingVertical: 8, minHeight: 38, justifyContent: "center", maxWidth: "100%" },
+  selectOptionSelected: { backgroundColor: "#087c9d", borderColor: "#087c9d" },
   inline: { flexWrap: "wrap", gap: 7, alignItems: "center", marginBottom: 7 },
   chip: { borderWidth: 1, borderColor: "#c8d6df", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 7, backgroundColor: "#f8fafc", minHeight: 42, justifyContent: "center" },
   selected: { backgroundColor: "#087c9d", borderColor: "#087c9d" },

@@ -17,7 +17,7 @@ const requiredEnglishCopy: Array<[string, string]> = [
   ["حفظ الدفعة وإنشاء عهد الإنتاج", "Save batch and create Production custody"],
   ["اعتماد الرصيد الافتتاحي بعد المراجعة", "Approve opening balance after review"],
   ["اكتب حرفين من اسم الصنف للبحث — المقاس اختياري", "Type two letters of an item name to search — size is optional"],
-  ["أكمل رمز الصنف واسمه والمقاس واللون والخاصية والماكينة والوردية والتاريخ", "Complete the item code, name, size, color, feature, machine, shift, and date."],
+  ["أكمل رمز الصنف واسمه والمقاس واللون والخاصية والماكينة والوردية وتاريخ ووقت العمل", "Complete the item code, name, size, color, feature, machine, shift, and work date and time."],
   ["تعذر الحفظ", "Unable to save the batch."],
 ];
 

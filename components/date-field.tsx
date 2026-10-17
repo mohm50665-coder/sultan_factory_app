@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { calendarDateKey, dateFieldCommit, normalizeReportDateInput } from "../shared/report-date-input";
@@ -14,12 +14,26 @@ type DateFieldProps = {
   defaultToToday?: boolean;
 };
 export function todayDate() { return calendarDateKey(new Date()); }
+
+/**
+ * React Native style props may be nested arrays. Native components accept those
+ * directly, but spreading one into a DOM style object creates numeric keys
+ * (for example, `0` and `1`), which CSSStyleDeclaration rejects on web.
+ */
+export function flattenDateFieldStyle(style: any): Record<string, unknown> {
+  const flattenedStyle = StyleSheet.flatten(style);
+  return flattenedStyle && typeof flattenedStyle === "object" && !Array.isArray(flattenedStyle)
+    ? flattenedStyle
+    : {};
+}
+
 export function DateField({ value, onChange, label, accessibilityLabel, isAr = true, style, defaultToToday = true }: DateFieldProps) {
   const normalized = normalizeReportDateInput(value);
   const resolvedValue = normalized || (defaultToToday ? todayDate() : "");
   const pickerValue = new Date(`${resolvedValue || todayDate()}T12:00:00`);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [showNativePicker, setShowNativePicker] = useState(false);
+  const webInputStyle = Platform.OS === "web" ? flattenDateFieldStyle(style) : undefined;
   const accessibleLabel = accessibilityLabel || label || (isAr ? "اختيار التاريخ من التقويم" : "Choose date from calendar");
   const commit = (raw: unknown) => {
     const next = dateFieldCommit(raw, defaultToToday);
@@ -49,7 +63,7 @@ export function DateField({ value, onChange, label, accessibilityLabel, isAr = t
           onBlur: (event: any) => { event.currentTarget.value = resolvedValue; },
           style: { flex: 1, minWidth: 0, width: "100%", maxWidth: 320, boxSizing: "border-box", minHeight: 40,
             border: "1px solid #cbd5e1", borderRadius: 8, padding: "0 10px", backgroundColor: "#fff",
-            color: "#172033", fontSize: 14, textAlign: isAr ? "right" : "left", appearance: "auto", ...style },
+            color: "#172033", fontSize: 14, textAlign: isAr ? "right" : "left", appearance: "auto", ...webInputStyle },
         }) : <TouchableOpacity onPress={openCalendar} accessibilityRole="button" accessibilityLabel={accessibleLabel}
           style={[{ flex: 1, minHeight: 44, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 8,
             paddingHorizontal: 10, justifyContent: "center", backgroundColor: "#fff" }, style]}>

@@ -40,6 +40,7 @@ import {
   normalizeDepartment,
   validateProductSnapshot,
 } from "../shared/custody-policy.js";
+import { normalizeProductionWindow } from "../shared/production-window.js";
 
 export type CustodyActor = {
   id: number;
@@ -439,9 +440,12 @@ async function writeLegacyProduction(tx: Db, input: CustodyBatchInput, actor: Cu
   const secondPairs = input.secondPairs;
   const totalPairs = firstPairs + secondPairs;
   const yarns = legacyYarnColumns({ ...input.product, __totalPairs: totalPairs } as CustodyProduct & { __totalPairs: number });
-  const shiftNumber = Number(String(input.shift).match(/\d+/)?.[0] ?? 1) || 1;
+  const normalizedWindow = normalizeProductionWindow(input);
+  const shiftText = String(input.shift).trim().toLocaleLowerCase();
+  const shiftNumber = Number(shiftText.match(/\d+/)?.[0]
+    ?? (/(morning|صباح|الأولى|اولى)/.test(shiftText) ? 1 : /(evening|مساء|الثانية|ثاني)/.test(shiftText) ? 2 : /(night|ليل|الثالثة|ثالث)/.test(shiftText) ? 3 : 1));
   const inserted = await tx.insert(production).values({
-    date: normalizeProductionDate(input.productionDate),
+    date: normalizedWindow?.productionDate ?? normalizeProductionDate(input.productionDate),
     machineNumber: input.machineNumber.trim(),
     productName: input.product.name.trim(),
     productSize: input.product.size.trim(),
@@ -453,8 +457,8 @@ async function writeLegacyProduction(tx: Db, input: CustodyBatchInput, actor: Cu
     sampleRequestId: input.sampleRequestId ?? null,
     sampleReference: input.purpose === "sample" ? trackingNumber.slice(0, 30) : null,
     shiftNumber,
-    shiftStart: "",
-    shiftEnd: "",
+    shiftStart: normalizedWindow?.workStartTime ?? "",
+    shiftEnd: normalizedWindow?.workEndTime ?? "",
     // Existing legacy reports interpret productionDozen/pairs as total production; second grade
     // remains a subset, not an additional amount, so first+second is never double-counted.
     productionDozen: Math.floor(totalPairs / 12),
@@ -465,8 +469,8 @@ async function writeLegacyProduction(tx: Db, input: CustodyBatchInput, actor: Cu
     wasteSocksGrams: Number((input as CustodyBatchInput & { wasteSocksGrams?: number }).wasteSocksGrams ?? 0),
     wasteNeedles: Number(input.wasteNeedles ?? 0),
     needlesUsed: Number(input.needlesUsed ?? 0),
-    productionHours: 0,
-    productionMinutes: 0,
+    productionHours: normalizedWindow?.productionHours ?? 0,
+    productionMinutes: normalizedWindow?.productionMinutes ?? 0,
     ...yarns,
     movementStatus: "none",
     userId: actor.id,
@@ -503,6 +507,7 @@ export async function createCustodyBatch(db: Db, actor: CustodyActor, input: Cus
     const totalPairs = input.firstPairs + input.secondPairs;
     if (!isPositiveInteger(totalPairs)) fail("BAD_REQUEST", "إجمالي الدفعة يجب أن يكون زوجًا صحيحًا موجبًا");
     if (!String(input.machineNumber || "").trim() || !String(input.shift || "").trim()) fail("BAD_REQUEST", "رقم الماكينة والوردية إلزاميان");
+    const productionWindow = normalizeProductionWindow(input);
     normalizeProductionDate(input.productionDate);
     if (!["sale", "sample"].includes(input.purpose)) fail("BAD_REQUEST", "غرض الدفعة غير صحيح");
     const responsible = await accountById(tx, input.responsibleUserId);
@@ -532,7 +537,12 @@ export async function createCustodyBatch(db: Db, actor: CustodyActor, input: Cus
     }
     const batch: CustodyBatch = {
       id, trackingNumber, version: 1, product: clone(input.product), purpose: input.purpose,
-      productionDate: input.productionDate, machineNumber: input.machineNumber.trim(), shift: input.shift.trim(),
+      productionDate: productionWindow?.productionDate ?? input.productionDate,
+      productionEndDate: productionWindow?.productionEndDate,
+      workStartTime: productionWindow?.workStartTime,
+      workEndTime: productionWindow?.workEndTime,
+      productionDurationMinutes: productionWindow?.totalMinutes,
+      machineNumber: input.machineNumber.trim(), shift: input.shift.trim(),
       manufacturingOrder: input.manufacturingOrder?.trim() || undefined,
       firstPairs: input.firstPairs, secondPairs: input.secondPairs, totalPairs,
       createdBy: actor.id, createdByName: actorName(actor), responsibleUserId: responsible.id, createdAt: now,

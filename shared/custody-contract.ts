@@ -35,6 +35,9 @@ export interface CustodyBatchInput {
   operationKey: string;
   product: CustodyProduct;
   productionDate: string;
+  productionEndDate?: string;
+  workStartTime?: string;
+  workEndTime?: string;
   machineNumber: string;
   shift: string;
   manufacturingOrder?: string;
@@ -147,6 +150,10 @@ export interface CustodyBatch {
   product: CustodyProduct;
   purpose: "sale" | "sample";
   productionDate: string;
+  productionEndDate?: string;
+  workStartTime?: string;
+  workEndTime?: string;
+  productionDurationMinutes?: number;
   machineNumber: string;
   shift: string;
   manufacturingOrder?: string;
