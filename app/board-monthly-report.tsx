@@ -37,11 +37,12 @@ interface ReportData {
     totalEntries: number;
     wasteThread: number;
     wasteSocks: number;
+    totalWaste: number;
     yarnWeight: number;
     wasteNeedles: number;
     secondGrade: number;
     firstGrade: number;
-    wastePercentage: number | null;
+    totalWastePercentage: number | null;
     threadWastePercentage: number | null;
   };
   sales: {
@@ -211,7 +212,21 @@ const formatAmount = (language: Language, value: number) =>
   formatNumber(language, value, { maximumFractionDigits: 2 });
 
 const formatRate = (language: Language, value: number | null, digits = 1) =>
-  value == null ? localize(language, "غير متاح", "Unavailable") : `${value.toFixed(digits)}%`;
+  value == null ? localize(language, "غير محسوبة", "Not calculated") : `${value.toFixed(digits)}%`;
+
+/**
+ * A zero waste value is meaningful only when the selected period includes a production row.
+ * With no production activity, never let a visual zero imply that waste was measured.
+ */
+const formatRecordedGrams = (language: Language, value: number, hasProduction: boolean) =>
+  hasProduction
+    ? formatNumber(language, value)
+    : localize(language, "غير مسجل", "Not recorded");
+
+const formatRecordedYarnGrams = (language: Language, value: number) =>
+  value > 0
+    ? formatNumber(language, value, { maximumFractionDigits: 2 })
+    : localize(language, "غير مسجل", "Not recorded");
 
 const formatPairs = (language: Language, pairs: number) => {
   if (!Number.isSafeInteger(pairs)) return localize(language, "كمية غير صالحة — تحتاج مراجعة", "Invalid quantity — needs review");
@@ -386,7 +401,7 @@ export default function BoardMonthlyReport() {
       const overdue = taskRows.filter((row: any) => row.result === "overdue" || row.status === "overdue").length;
       if (requestId !== latestReportRequest.current) return;
       setReportData({
-        production: { totalDozen: production.totalPairs / 12, totalPairs: production.totalPairs, totalEntries: productionRows.length, wasteThread: production.wasteThreadGrams, wasteSocks: production.wasteSocksGrams, yarnWeight: production.yarnGrams, wasteNeedles: production.wasteNeedles, secondGrade: production.secondPairs, firstGrade: production.firstPairs, wastePercentage: production.wastePercent, threadWastePercentage: production.threadWastePercent },
+        production: { totalDozen: production.totalPairs / 12, totalPairs: production.totalPairs, totalEntries: productionRows.length, wasteThread: production.wasteThreadGrams, wasteSocks: production.wasteSocksGrams, totalWaste: production.totalWasteGrams, yarnWeight: production.yarnGrams, wasteNeedles: production.wasteNeedles, secondGrade: production.secondPairs, firstGrade: production.firstPairs, totalWastePercentage: production.wastePercent, threadWastePercentage: production.threadWastePercent },
         sales: { totalEntries: commercial.salesRows.length, totalAmount: commercial.salesAmount },
         expenses: { totalAmount: expenseTotal, categories: Object.entries(expCategories).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5) },
         maintenance: { periodicCount: maintenanceRows.periodic.length, emergencyCount: maintenanceRows.emergency.length, stoppedMachines: maintenanceRows.stopped.length },
@@ -436,8 +451,10 @@ export default function BoardMonthlyReport() {
               { label: copy("إجمالي المبيعات", "Total Sales"), value: `${formatAmount(language, reportData.sales.totalAmount)} ${copy("ريال", "SAR")}` },
               { label: copy("إجمالي المصروفات", "Total Expenses"), value: `${formatAmount(language, reportData.expenses.totalAmount)} ${copy("ريال", "SAR")}` },
               { label: copy("إجمالي التحصيل", "Total Collection"), value: `${formatAmount(language, reportData.collection.totalAmount)} ${copy("ريال", "SAR")}` },
-              { label: copy("هدر الخيوط", "Yarn Waste"), value: `${formatNumber(language, reportData.production.wasteThread)} ${copy("جرام", "g")}` },
-              { label: copy("نسبة الهدر", "Waste Rate"), value: formatRate(language, reportData.production.wastePercentage) },
+              { label: copy("هدر الخيوط", "Yarn Waste"), value: `${formatRecordedGrams(language, reportData.production.wasteThread, reportData.production.totalEntries > 0)} ${copy("جرام", "g")}` },
+              { label: copy("هدر الجوارب", "Sock Waste"), value: `${formatRecordedGrams(language, reportData.production.wasteSocks, reportData.production.totalEntries > 0)} ${copy("جرام", "g")}` },
+              { label: copy("نسبة هدر الخيوط", "Yarn Waste Rate"), value: formatRate(language, reportData.production.threadWastePercentage) },
+              { label: copy("نسبة الهدر الإجمالي", "Total Waste Rate"), value: formatRate(language, reportData.production.totalWastePercentage) },
               { label: copy("المهام المكتملة", "Tasks Completed"), value: `${reportData.tasks.completed}/${reportData.tasks.total}` },
             ],
           },
@@ -446,10 +463,10 @@ export default function BoardMonthlyReport() {
             type: "kpi",
             data: [
               {
-                title: copy("نسبة الهدر", "Waste Rate"),
-                value: formatRate(language, reportData.production.wastePercentage),
+                title: copy("نسبة الهدر الإجمالي", "Total Waste Rate"),
+                value: formatRate(language, reportData.production.totalWastePercentage),
                 target: copy("أقل من 5%", "Below 5%"),
-                status: reportData.production.wastePercentage == null ? "warning" : reportData.production.wastePercentage <= 5 ? "good" : reportData.production.wastePercentage <= 10 ? "warning" : "bad",
+                status: reportData.production.totalWastePercentage == null ? "warning" : reportData.production.totalWastePercentage <= 5 ? "good" : reportData.production.totalWastePercentage <= 10 ? "warning" : "bad",
               },
               {
                 title: copy("نسبة إنجاز المهام", "Task Completion Rate"),
@@ -477,10 +494,12 @@ export default function BoardMonthlyReport() {
                 [copy("إجمالي الإنتاج", "Total Production"), formatPairs(language, reportData.production.totalPairs)],
                 [copy("الفرز الأول", "First grade"), formatPairs(language, reportData.production.firstGrade)],
                 [copy("عدد الإدخالات", "Total Entries"), `${reportData.production.totalEntries}`],
-                [copy("هدر الخيوط (جرام)", "Thread Waste (g)"), `${reportData.production.wasteThread}`],
-                [copy("هدر الجوارب (جرام)", "Socks Waste (g)"), `${reportData.production.wasteSocks}`],
-                [copy("وزن الخيوط المستخدم (جرام)", "Yarn Used (g)"), `${reportData.production.yarnWeight.toFixed(2)}`],
-                [copy("نسبة الهدر", "Waste Rate"), formatRate(language, reportData.production.wastePercentage)],
+                [copy("هدر الخيوط (جرام)", "Yarn Waste (g)"), formatRecordedGrams(language, reportData.production.wasteThread, reportData.production.totalEntries > 0)],
+                [copy("هدر الجوارب (جرام)", "Sock Waste (g)"), formatRecordedGrams(language, reportData.production.wasteSocks, reportData.production.totalEntries > 0)],
+                [copy("إجمالي الهدر (خيوط + جوارب) — جرام", "Total Waste (Yarn + Socks) — g"), formatRecordedGrams(language, reportData.production.totalWaste, reportData.production.totalEntries > 0)],
+                [copy("وزن الخيوط المستخدم (جرام)", "Yarn Used (g)"), formatRecordedYarnGrams(language, reportData.production.yarnWeight)],
+                [copy("نسبة هدر الخيوط", "Yarn Waste Rate"), formatRate(language, reportData.production.threadWastePercentage)],
+                [copy("نسبة الهدر الإجمالي", "Total Waste Rate"), formatRate(language, reportData.production.totalWastePercentage)],
                 [copy("هدر الإبر (حبة)", "Needle Waste (pcs)"), `${reportData.production.wasteNeedles}`],
                 [copy("النخب الثاني (أزواج)", "Second Grade (Pairs)"), `${reportData.production.secondGrade}`],
               ],
@@ -594,8 +613,8 @@ export default function BoardMonthlyReport() {
 
   const generateRecommendations = (data: ReportData): string => {
     const recommendations: string[] = [];
-    if (data.production.wastePercentage != null && data.production.wastePercentage > 5) {
-      recommendations.push(copy(`• نسبة الهدر (${data.production.wastePercentage.toFixed(1)}%) تتجاوز الحد المقبول (5%). يُوصى بمراجعة خطوط الإنتاج وتدريب العمال.`, `• Waste rate (${data.production.wastePercentage.toFixed(1)}%) exceeds acceptable limit (5%). Review production lines and train workers.`));
+    if (data.production.totalWastePercentage != null && data.production.totalWastePercentage > 5) {
+      recommendations.push(copy(`• نسبة الهدر الإجمالي (${data.production.totalWastePercentage.toFixed(1)}%) تتجاوز الحد المقبول (5%). يُوصى بمراجعة خطوط الإنتاج وتدريب العمال.`, `• Total waste rate (${data.production.totalWastePercentage.toFixed(1)}%) exceeds acceptable limit (5%). Review production lines and train workers.`));
     }
     if (data.tasks.completionRate < 80) {
       recommendations.push(copy(`• نسبة إنجاز المهام (${data.tasks.completionRate.toFixed(0)}%) أقل من المطلوب. يُوصى بمتابعة المهام المتأخرة وتوزيع الأعباء.`, `• Task completion rate (${data.tasks.completionRate.toFixed(0)}%) is below target. Follow up on overdue tasks.`));
@@ -763,13 +782,23 @@ export default function BoardMonthlyReport() {
               </View>
               <View style={[styles.summaryCard, { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" }]}>
                 <MaterialIcons name="scale" size={22} color="#C2410C" />
-                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{formatNumber(language, reportData.production.wasteThread)}</Text>
+                <Text style={[styles.summaryValue, { color: "#C2410C" }]}>{formatRecordedGrams(language, reportData.production.wasteThread, reportData.production.totalEntries > 0)}</Text>
                 <Text style={styles.summaryLabel}>{copy("هدر الخيوط — جرام", "Yarn waste — grams")}</Text>
               </View>
-              <View style={[styles.summaryCard, { backgroundColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
-                <MaterialIcons name="percent" size={22} color={reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
-                <Text style={[styles.summaryValue, { color: reportData.production.wastePercentage != null && reportData.production.wastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{formatRate(language, reportData.production.wastePercentage)}</Text>
+              <View style={[styles.summaryCard, { backgroundColor: reportData.production.threadWastePercentage != null && reportData.production.threadWastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.threadWastePercentage != null && reportData.production.threadWastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
+                <MaterialIcons name="percent" size={22} color={reportData.production.threadWastePercentage != null && reportData.production.threadWastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
+                <Text style={[styles.summaryValue, { color: reportData.production.threadWastePercentage != null && reportData.production.threadWastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{formatRate(language, reportData.production.threadWastePercentage)}</Text>
                 <Text style={styles.summaryLabel}>{copy("نسبة هدر الخيوط", "Yarn waste rate")}</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+                <MaterialIcons name="delete-outline" size={22} color="#DC2626" />
+                <Text style={[styles.summaryValue, { color: "#DC2626" }]}>{formatRecordedGrams(language, reportData.production.wasteSocks, reportData.production.totalEntries > 0)}</Text>
+                <Text style={styles.summaryLabel}>{copy("هدر الجوارب — جرام", "Sock waste — grams")}</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: reportData.production.totalWastePercentage != null && reportData.production.totalWastePercentage <= 5 ? "#F0FDF4" : "#FEF2F2", borderColor: reportData.production.totalWastePercentage != null && reportData.production.totalWastePercentage <= 5 ? "#BBF7D0" : "#FECACA" }]}>
+                <MaterialIcons name="percent" size={22} color={reportData.production.totalWastePercentage != null && reportData.production.totalWastePercentage <= 5 ? "#16A34A" : "#DC2626"} />
+                <Text style={[styles.summaryValue, { color: reportData.production.totalWastePercentage != null && reportData.production.totalWastePercentage <= 5 ? "#16A34A" : "#DC2626" }]}>{formatRate(language, reportData.production.totalWastePercentage)}</Text>
+                <Text style={styles.summaryLabel}>{copy("نسبة الهدر الإجمالي (خيوط + جوارب)", "Total waste rate (yarn + socks)")}</Text>
               </View>
             </View>
 
@@ -779,10 +808,10 @@ export default function BoardMonthlyReport() {
             </Text>
             <View style={styles.kpiGrid}>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={[styles.kpiIndicator, { backgroundColor: reportData.production.wastePercentage == null ? "#94A3B8" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]} />
-                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("نسبة الهدر", "Waste Rate")}</Text>
-                <Text style={[styles.kpiValue, { color: reportData.production.wastePercentage == null ? "#64748B" : getStatusColor(100 - reportData.production.wastePercentage, 95, 90) }]}>
-                  {formatRate(language, reportData.production.wastePercentage)}
+                <View style={[styles.kpiIndicator, { backgroundColor: reportData.production.totalWastePercentage == null ? "#94A3B8" : getStatusColor(100 - reportData.production.totalWastePercentage, 95, 90) }]} />
+                <Text style={[styles.kpiTitle, { color: colors.muted }]}>{copy("نسبة الهدر الإجمالي", "Total waste rate")}</Text>
+                <Text style={[styles.kpiValue, { color: reportData.production.totalWastePercentage == null ? "#64748B" : getStatusColor(100 - reportData.production.totalWastePercentage, 95, 90) }]}>
+                  {formatRate(language, reportData.production.totalWastePercentage)}
                 </Text>
               </View>
               <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -838,7 +867,23 @@ export default function BoardMonthlyReport() {
               </View>
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
                 <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("هدر الخيوط", "Thread Waste")}</Text>
-                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{reportData.production.wasteThread} {copy("جرام", "g")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatRecordedGrams(language, reportData.production.wasteThread, reportData.production.totalEntries > 0)} {copy("جرام", "g")}</Text>
+              </View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("نسبة هدر الخيوط", "Yarn Waste Rate")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatRate(language, reportData.production.threadWastePercentage)}</Text>
+              </View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("هدر الجوارب", "Sock Waste")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatRecordedGrams(language, reportData.production.wasteSocks, reportData.production.totalEntries > 0)} {copy("جرام", "g")}</Text>
+              </View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("إجمالي الهدر (خيوط + جوارب)", "Total Waste (Yarn + Socks)")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatRecordedGrams(language, reportData.production.totalWaste, reportData.production.totalEntries > 0)} {copy("جرام", "g")}</Text>
+              </View>
+              <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
+                <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("نسبة الهدر الإجمالي", "Total Waste Rate")}</Text>
+                <Text style={[styles.detailValue, directionalText, { color: colors.foreground }]}>{formatRate(language, reportData.production.totalWastePercentage)}</Text>
               </View>
               <View style={[styles.detailRow, { flexDirection: rowDirection }]}>
                 <Text style={[styles.detailLabel, directionalText, { color: colors.muted }]}>{copy("النخب الثاني", "Second Grade")}</Text>

@@ -85,7 +85,9 @@ export function productionMetrics(rows: any[]) {
     totals.wasteThreadGrams += number(row.wasteThreadGrams); totals.wasteSocksGrams += number(row.wasteSocksGrams);
     totals.needlesUsed += number(row.needlesUsed); totals.wasteNeedles += number(row.wasteNeedles);
   }
-  return { ...totals, wastePercent:totals.yarnGrams>0?(totals.wasteThreadGrams+totals.wasteSocksGrams)/totals.yarnGrams*100:null,
+  const totalWasteGrams = totals.wasteThreadGrams + totals.wasteSocksGrams;
+  return { ...totals, totalWasteGrams,
+    wastePercent:totals.yarnGrams>0?totalWasteGrams/totals.yarnGrams*100:null,
     threadWastePercent:totals.yarnGrams>0?totals.wasteThreadGrams/totals.yarnGrams*100:null };
 }
 function sourced(rows: any[], source: string): any[] {

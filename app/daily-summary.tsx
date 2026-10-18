@@ -933,11 +933,28 @@ export default function DailySummaryScreen() {
   const wasteThread = productionSummary.wasteThreadGrams;
   const wasteSocks = productionSummary.wasteSocksGrams;
   const wasteNeedles = productionSummary.wasteNeedles;
-  const waste = wasteThread + wasteSocks;
+  const totalWaste = productionSummary.totalWasteGrams;
   const totalWastePercentage =
     productionSummary.wastePercent === null
       ? null
       : productionSummary.wastePercent.toFixed(2);
+  const threadWastePercentage =
+    productionSummary.threadWastePercent === null
+      ? null
+      : productionSummary.threadWastePercent.toFixed(2);
+  const hasProductionRecords = filtered.production.length > 0;
+  const recordedWasteGrams = (value: number) =>
+    hasProductionRecords
+      ? `${value} ${isAr ? "جرام" : "g"}`
+      : isAr
+        ? "غير مسجل"
+        : "Not recorded";
+  const recordedYarnGrams =
+    totalYarnUsed > 0
+      ? `${totalYarnUsed.toFixed(2)} ${isAr ? "جم" : "g"}`
+      : isAr
+        ? "غير مسجل"
+        : "Not recorded";
   const productionOnlyWorkMinutes = (() => {
     const segments = new Map<string, { date: string; minutes: number }>();
     filtered.production.forEach((row: any) => {
@@ -1969,7 +1986,7 @@ export default function DailySummaryScreen() {
     );
     const reportRange = reportRangeLabel;
     win.document.write(
-      `<!doctype html><html dir="${direction}"><head><meta charset="utf-8"><title>${title}</title><style>@page{size:landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:22px;color:#17202a;direction:${direction};text-align:${textAlign}}h1,h2{text-align:${textAlign};color:#0a7ea4}h2 small{font-size:12px;color:#64748b}.cards{display:flex;gap:8px;flex-wrap:wrap}.card{border:1px solid #b8c7cc;padding:10px;min-width:130px;border-radius:6px}table{width:100%;border-collapse:collapse;margin:10px 0 22px;font-size:10px}th,td{border:1px solid #b8c7cc;padding:5px;text-align:${textAlign};vertical-align:top}th{background:#0a7ea4;color:#fff}tr:nth-child(even){background:#f2f8fa}.notice{background:#fff4e5;padding:10px;border:1px solid #f0c36d}@media print{button{display:none}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body><h1>${title}</h1><p>${copy("نطاق التقرير", "Report range")}: ${cell(reportRange)} — ${copy("تم إنشاء التقرير", "Report generated")}: ${cell(new Date().toLocaleString(english ? "en-US" : "ar-SA", { timeZone: REPORT_TIME_ZONE }))}</p>${sourceErrorPrintNotice}<div class="cards"><div class="card">${copy("الإنتاج", "Production")}: ${quantityLabel(productionPairsEquivalent, isAr)}</div><div class="card">${copy("النخب الأول", "First grade")}: ${quantityLabel(firstGradePairs, isAr)}</div><div class="card">${copy("النخب الثاني", "Second grade")}: ${quantityLabel(secondGradePairs, isAr)}</div><div class="card">${copy("الهدر", "Waste")}: ${totalWastePercentage === null ? copy("غير محسوب", "Not calculated") : `${totalWastePercentage}%`}</div><div class="card">${copy("مدة الإنجاز", "Work duration")}: ${escapeHtml(elapsedLabel(productionWorkMinutes, isAr))}</div><div class="card">${copy("التسليم", "Deliveries")}: ${delivered.length}</div><div class="card">${copy("الاستلام", "Receipts")}: ${received.length}</div></div><h2>${copy("مراحل التصنيع", "Manufacturing stages")}</h2><table><thead><tr><th>${copy("المرحلة", "Stage")}</th><th>${copy("عدد الحركات", "Movement count")}</th><th>${copy("المستلم", "Received")}</th><th>${copy("الرصيد السابق", "Previous balance")}</th><th>${copy("المتاح", "Available")}</th><th>${copy("المسلّم", "Delivered")}</th><th>${copy("المتبقي", "Remaining")}</th></tr></thead><tbody>${stageRows || `<tr><td colspan="7">${copy("لا توجد بيانات مراحل", "No stage data")}</td></tr>`}</tbody></table>${detailSection(copy("تفاصيل التسليم والاستلام", "Delivery and receipt details"), handovers, handoverColumns)}${detailSection(copy("الإنتاج والمكائن والهدر والإبر", "Production, machines, waste and needles"), filtered.production, genericColumns)}${detailSection(copy("حركة المستودعات", "Warehouse movements"), warehouseMovements, genericColumns)}${detailSection(copy("تفاصيل فواتير المبيعات", "Sales invoice details"), reportSalesRows, salesColumns)}${detailSection(copy("تفاصيل الطلبات", "Order details"), reportOrderRows, transactionColumns)}${detailSection(copy("تفاصيل الزيارات", "Visit details"), reportVisitRows, transactionColumns)}${detailSection(copy("حركات المندوب الأخرى", "Other representative activities"), reportOtherTransactionRows, transactionColumns)}${detailSection(copy("تفاصيل التحصيل", "Collection details"), reportCollectionRows, collectionColumns)}${detailSection(copy("المصروفات", "Expenses"), filtered.expenses, genericColumns)}${detailSection(copy("الصيانة", "Maintenance"), filtered.maintenance, genericColumns)}${detailSection(copy("المهام", "Tasks"), filtered.tasks, genericColumns)}${detailSection(copy("الإجراءات الإدارية والمرفقات", "Administrative actions and attachments"), filtered.administrative, genericColumns)}${detailSection(copy("الاجتماعات ومخرجاتها", "Meetings and outputs"), [...filtered.meetings, ...filtered.meetingOutputs], genericColumns)}${detailSection(copy("التقارير المالية", "Financial reports"), filtered.financialReports, genericColumns)}${detailSection(copy("دليل المنتجات", "Product catalogue"), filtered.products, genericColumns)}<h2>${copy("الاستلام والتسليم والعهد — بيانات الدورة الجديدة", "Receipt, delivery and custody — new cycle data")}</h2>${custodyPrintBody}<script>window.onload=()=>window.print()</script></body></html>`,
+      `<!doctype html><html dir="${direction}"><head><meta charset="utf-8"><title>${title}</title><style>@page{size:landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:22px;color:#17202a;direction:${direction};text-align:${textAlign}}h1,h2{text-align:${textAlign};color:#0a7ea4}h2 small{font-size:12px;color:#64748b}.cards{display:flex;gap:8px;flex-wrap:wrap}.card{border:1px solid #b8c7cc;padding:10px;min-width:130px;border-radius:6px}table{width:100%;border-collapse:collapse;margin:10px 0 22px;font-size:10px}th,td{border:1px solid #b8c7cc;padding:5px;text-align:${textAlign};vertical-align:top}th{background:#0a7ea4;color:#fff}tr:nth-child(even){background:#f2f8fa}.notice{background:#fff4e5;padding:10px;border:1px solid #f0c36d}@media print{button{display:none}h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}}</style></head><body><h1>${title}</h1><p>${copy("نطاق التقرير", "Report range")}: ${cell(reportRange)} — ${copy("تم إنشاء التقرير", "Report generated")}: ${cell(new Date().toLocaleString(english ? "en-US" : "ar-SA", { timeZone: REPORT_TIME_ZONE }))}</p>${sourceErrorPrintNotice}<div class="cards"><div class="card">${copy("الإنتاج", "Production")}: ${quantityLabel(productionPairsEquivalent, isAr)}</div><div class="card">${copy("النخب الأول", "First grade")}: ${quantityLabel(firstGradePairs, isAr)}</div><div class="card">${copy("النخب الثاني", "Second grade")}: ${quantityLabel(secondGradePairs, isAr)}</div><div class="card">${copy("هدر الخيوط", "Yarn waste")}: ${recordedWasteGrams(wasteThread)}</div><div class="card">${copy("نسبة هدر الخيوط", "Yarn waste rate")}: ${threadWastePercentage === null ? copy("غير محسوبة", "Not calculated") : `${threadWastePercentage}%`}</div><div class="card">${copy("هدر الجوارب", "Sock waste")}: ${recordedWasteGrams(wasteSocks)}</div><div class="card">${copy("إجمالي الهدر (خيوط + جوارب)", "Total waste (yarn + socks)")}: ${recordedWasteGrams(totalWaste)}</div><div class="card">${copy("نسبة الهدر الإجمالي", "Total waste rate")}: ${totalWastePercentage === null ? copy("غير محسوبة", "Not calculated") : `${totalWastePercentage}%`}</div><div class="card">${copy("مدة الإنجاز", "Work duration")}: ${escapeHtml(elapsedLabel(productionWorkMinutes, isAr))}</div><div class="card">${copy("التسليم", "Deliveries")}: ${delivered.length}</div><div class="card">${copy("الاستلام", "Receipts")}: ${received.length}</div></div><h2>${copy("مراحل التصنيع", "Manufacturing stages")}</h2><table><thead><tr><th>${copy("المرحلة", "Stage")}</th><th>${copy("عدد الحركات", "Movement count")}</th><th>${copy("المستلم", "Received")}</th><th>${copy("الرصيد السابق", "Previous balance")}</th><th>${copy("المتاح", "Available")}</th><th>${copy("المسلّم", "Delivered")}</th><th>${copy("المتبقي", "Remaining")}</th></tr></thead><tbody>${stageRows || `<tr><td colspan="7">${copy("لا توجد بيانات مراحل", "No stage data")}</td></tr>`}</tbody></table>${detailSection(copy("تفاصيل التسليم والاستلام", "Delivery and receipt details"), handovers, handoverColumns)}${detailSection(copy("الإنتاج والمكائن والهدر والإبر", "Production, machines, waste and needles"), filtered.production, genericColumns)}${detailSection(copy("حركة المستودعات", "Warehouse movements"), warehouseMovements, genericColumns)}${detailSection(copy("تفاصيل فواتير المبيعات", "Sales invoice details"), reportSalesRows, salesColumns)}${detailSection(copy("تفاصيل الطلبات", "Order details"), reportOrderRows, transactionColumns)}${detailSection(copy("تفاصيل الزيارات", "Visit details"), reportVisitRows, transactionColumns)}${detailSection(copy("حركات المندوب الأخرى", "Other representative activities"), reportOtherTransactionRows, transactionColumns)}${detailSection(copy("تفاصيل التحصيل", "Collection details"), reportCollectionRows, collectionColumns)}${detailSection(copy("المصروفات", "Expenses"), filtered.expenses, genericColumns)}${detailSection(copy("الصيانة", "Maintenance"), filtered.maintenance, genericColumns)}${detailSection(copy("المهام", "Tasks"), filtered.tasks, genericColumns)}${detailSection(copy("الإجراءات الإدارية والمرفقات", "Administrative actions and attachments"), filtered.administrative, genericColumns)}${detailSection(copy("الاجتماعات ومخرجاتها", "Meetings and outputs"), [...filtered.meetings, ...filtered.meetingOutputs], genericColumns)}${detailSection(copy("التقارير المالية", "Financial reports"), filtered.financialReports, genericColumns)}${detailSection(copy("دليل المنتجات", "Product catalogue"), filtered.products, genericColumns)}<h2>${copy("الاستلام والتسليم والعهد — بيانات الدورة الجديدة", "Receipt, delivery and custody — new cycle data")}</h2>${custodyPrintBody}<script>window.onload=()=>window.print()</script></body></html>`,
     );
     win.document.close();
   };
@@ -2712,7 +2729,7 @@ export default function DailySummaryScreen() {
                 ],
                 [
                   isAr ? "الخيوط المستخدمة" : "Yarn used",
-                  `${totalYarnUsed.toFixed(2)} ${isAr ? "جم" : "g"}`,
+                  recordedYarnGrams,
                   "linear-scale",
                 ],
                 [
@@ -2726,7 +2743,31 @@ export default function DailySummaryScreen() {
                   "grade",
                 ],
                 [
-                  isAr ? "نسبة الهدر" : "Waste %",
+                  isAr ? "هدر الخيوط" : "Yarn waste",
+                  recordedWasteGrams(wasteThread),
+                  "warning",
+                ],
+                [
+                  isAr ? "نسبة هدر الخيوط" : "Yarn waste rate",
+                  threadWastePercentage === null
+                    ? isAr
+                      ? "غير محسوبة"
+                      : "Not calculated"
+                    : `${threadWastePercentage}%`,
+                  "percent",
+                ],
+                [
+                  isAr ? "هدر الجوارب" : "Sock waste",
+                  recordedWasteGrams(wasteSocks),
+                  "warning",
+                ],
+                [
+                  isAr ? "إجمالي الهدر (خيوط + جوارب)" : "Total waste (yarn + socks)",
+                  recordedWasteGrams(totalWaste),
+                  "warning",
+                ],
+                [
+                  isAr ? "نسبة الهدر الإجمالي" : "Total waste rate",
                   totalWastePercentage === null
                     ? isAr
                       ? "غير محسوبة"
@@ -2747,11 +2788,6 @@ export default function DailySummaryScreen() {
                   isAr ? "مدة الإنجاز" : "Work duration",
                   elapsedLabel(productionWorkMinutes, isAr),
                   "schedule",
-                ],
-                [
-                  isAr ? "هدر الخيوط والجوارب" : "Yarn and sock waste",
-                  `${waste} ${isAr ? "جرام" : "g"}`,
-                  "warning",
                 ],
                 [
                   isAr ? "الإبر التالفة" : "Damaged needles",
@@ -3341,8 +3377,8 @@ export default function DailySummaryScreen() {
                 }}
               >
                 {isAr
-                  ? `إجمالي الأزواج: ${productionPairsEquivalent} | إجمالي الخيوط المستخدمة: ${totalYarnUsed.toFixed(2)} جم | نسبة الهدر: ${totalWastePercentage === null ? "غير محسوبة" : `${totalWastePercentage}%`} | الإبر المستخدمة: ${totalNeedlesUsed}`
-                  : `Total pairs: ${productionPairsEquivalent} | Total yarn: ${totalYarnUsed.toFixed(2)} g | Waste: ${totalWastePercentage === null ? "Not calculated" : `${totalWastePercentage}%`} | Needles: ${totalNeedlesUsed}`}
+                  ? `إجمالي الأزواج: ${productionPairsEquivalent} | إجمالي الخيوط المستخدمة: ${recordedYarnGrams} | هدر الخيوط: ${recordedWasteGrams(wasteThread)} | نسبة هدر الخيوط: ${threadWastePercentage === null ? "غير محسوبة" : `${threadWastePercentage}%`} | هدر الجوارب: ${recordedWasteGrams(wasteSocks)} | إجمالي الهدر: ${recordedWasteGrams(totalWaste)} | نسبة الهدر الإجمالي: ${totalWastePercentage === null ? "غير محسوبة" : `${totalWastePercentage}%`} | الإبر المستخدمة: ${totalNeedlesUsed}`
+                  : `Total pairs: ${productionPairsEquivalent} | Total yarn: ${recordedYarnGrams} | Yarn waste: ${recordedWasteGrams(wasteThread)} | Yarn waste rate: ${threadWastePercentage === null ? "Not calculated" : `${threadWastePercentage}%`} | Sock waste: ${recordedWasteGrams(wasteSocks)} | Total waste: ${recordedWasteGrams(totalWaste)} | Total waste rate: ${totalWastePercentage === null ? "Not calculated" : `${totalWastePercentage}%`} | Needles: ${totalNeedlesUsed}`}
               </Text>
             </View>
             <View
