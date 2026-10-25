@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -120,21 +121,24 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      t("logout"),
-      isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?",
-      [
-        { text: t("cancel") },
-        {
-          text: t("logout"),
-          onPress: async () => {
-            await logout();
-            router.replace("/login");
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    const confirmation = isAr ? "هل أنت متأكد من رغبتك في تسجيل الخروج؟" : "Are you sure you want to logout?";
+    const completeLogout = async () => {
+      await logout();
+      router.replace("/login");
+    };
+
+    // Alert.alert does not present an actionable confirmation in react-native-web.
+    // Use the browser confirmation there, while preserving the native dialog.
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(confirmation)) await completeLogout();
+      return;
+    }
+
+    Alert.alert(t("logout"), confirmation, [
+      { text: t("cancel"), style: "cancel" },
+      { text: t("logout"), style: "destructive", onPress: () => { void completeLogout(); } },
+    ]);
   };
 
   const userRole = (user?.role || "user") as UserRole;

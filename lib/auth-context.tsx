@@ -103,6 +103,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Incremented whenever the local session is replaced or cleared. A delayed
+  // auth.me response from an earlier session must never restore a logged-out
+  // account, especially on the web where requests can complete out of order.
+  const sessionGeneration = React.useRef(0);
 
   useEffect(() => {
     bootstrapAsync();
@@ -131,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await apiCall("auth.login", { username, password });
       if (result?.user) {
+        sessionGeneration.current += 1;
         setUser(result.user);
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
         await persistLocalSessionForUser(result.user);
@@ -172,14 +177,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true);
     setError(null);
+    // Invalidate already running refreshUser calls before clearing state.
+    sessionGeneration.current += 1;
+    setUser(null);
     try {
-      setUser(null);
-      await clearLocalSession();
+      // This also expires the HTTP-only session cookie used by the web app.
+      // The local cleanup in finally remains authoritative for mobile and for
+      // offline/logout requests whose server call cannot complete.
+      await apiCall("auth.logout", undefined);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "فشل تسجيل الخروج";
-      setError(message);
-      throw err;
+      // Logging out locally must still succeed when the server is unreachable.
+      console.warn("Server session could not be cleared during logout:", err);
     } finally {
+      await clearLocalSession();
       setIsLoading(false);
     }
   };
@@ -194,13 +204,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
+    const generationAtRequest = sessionGeneration.current;
     try {
       const result = await apiCall("auth.me", undefined, "query");
-      if (result) {
+      if (result && generationAtRequest === sessionGeneration.current) {
         setUser(result);
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result));
       }
     } catch (e) {
+      if (generationAtRequest !== sessionGeneration.current) return;
       // Fallback to stored data
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {

@@ -24,4 +24,17 @@ describe("إدخال إنتاج الماكينة والوردية — دليل �
     expect(page).toContain("Search target");
     expect(page).toContain("draftFromCatalog(product)");
   });
+
+  it("لا يقص نتائج البحث المطابقة بعدد ثابت؛ حد الخمسة خاص ببطاقات الدفعة فقط", () => {
+    expect(page).not.toContain(".slice(0, 30)");
+    expect(page).toContain("MAX_PRODUCTS_PER_MACHINE_SHIFT = 5");
+    expect(page).toContain("suggestions.map(product");
+  });
+
+  it("يعرض كمية كل نوع خيط بالجرام مع النسبة من نفس وزن الدفعة المصروف", () => {
+    expect(page).toContain("calculateYarnBreakdown");
+    expect(page).toContain("الكمية المحسوبة (جرام)");
+    expect(page).toContain("إجمالي الوزن المصروف للدفعة");
+    expect(page).toContain("غير مسجلة");
+  });
 });

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { productionMetrics } from "../shared/operational-report";
+import { calculateYarnBreakdown } from "../shared/yarn-breakdown";
 
 const source = readFileSync(resolve(process.cwd(), "app/custody-batch-entry.tsx"), "utf8");
 
@@ -22,5 +23,23 @@ describe("optional issued-yarn weight in production entry", () => {
     expect(source).toContain('productionMetrics([{');
     expect(source).toContain('نسبة الهدر الإجمالية (تلقائية)');
     expect(source).toContain('وزن الخيوط المصروفة غير مدخل؛ يمكن الحفظ');
+  });
+
+  it("derives each yarn quantity from the same issued batch weight and saved percentage", () => {
+    const breakdown = calculateYarnBreakdown(2_000, [
+      { name: "قطن", percentage: 65 },
+      { name: "نايلون", percentage: 35 },
+    ]);
+
+    expect(breakdown).toEqual([
+      { name: "قطن", percentage: 65, grams: 1_300 },
+      { name: "نايلون", percentage: 35, grams: 700 },
+    ]);
+    expect(breakdown.reduce((sum, yarn) => sum + (yarn.grams || 0), 0)).toBe(2_000);
+  });
+
+  it("keeps the percentage but labels the amount unavailable when issued yarn weight was not entered", () => {
+    const breakdown = calculateYarnBreakdown(null, [{ name: "قطن", percentage: 100 }]);
+    expect(breakdown).toEqual([{ name: "قطن", percentage: 100, grams: null }]);
   });
 });

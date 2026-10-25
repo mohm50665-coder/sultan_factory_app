@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const authContext = readFileSync(resolve(process.cwd(), "lib/auth-context.tsx"), "utf8");
+const profile = readFileSync(resolve(process.cwd(), "app/profile.tsx"), "utf8");
 
 describe("Logout functionality", () => {
   beforeEach(() => {
@@ -85,5 +90,18 @@ describe("Logout functionality", () => {
     expect(routerReplace).toHaveBeenCalledWith("/login");
     expect(isSignedIn).toBe(false);
     expect(currentRoute).toBe("/login");
+  });
+
+  it("uses one resilient logout path that expires the web cookie and clears local storage even offline", () => {
+    expect(authContext).toContain('await apiCall("auth.logout", undefined)');
+    expect(authContext).toContain("await clearLocalSession()");
+    expect(authContext).toContain("sessionGeneration.current += 1");
+    expect(authContext).toContain("generationAtRequest === sessionGeneration.current");
+  });
+
+  it("makes the profile logout control actionable on web as well as native", () => {
+    expect(profile).toContain('Platform.OS === "web"');
+    expect(profile).toContain("window.confirm(confirmation)");
+    expect(profile).toContain('router.replace("/login")');
   });
 });
